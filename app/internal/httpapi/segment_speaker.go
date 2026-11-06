@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -37,10 +38,11 @@ type segmentSpeakerView struct {
 
 // deducedSpeaker is the Local speaker that speaks most over [start,end] of the audio
 // stream of a clip (ties to the lowest ordinal): the rule of segmentSpeakerJoin and
-// attachLocalSpeakers. found is false without any overlapping turn.
+// attachLocalSpeakers. An ignored voice is no speaker (ADR 0031) and never deduced. found is
+// false without any overlapping turn.
 func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, start, end float64) (id int64, label string, found bool, err error) {
 	err = q.QueryRow(ctx, `SELECT ls.id,ls.label FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id
- WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)>0
+ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)>0 AND `+notIgnoredVoice+`
  GROUP BY ls.id,ls.label,ls.ordinal ORDER BY sum(LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)) DESC,ls.ordinal LIMIT 1`, clipID, stream, start, end).Scan(&id, &label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, "", false, nil
@@ -48,20 +50,43 @@ func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, st
 	return id, label, err == nil, err
 }
 
-// dropSpeakerOverrides runs before Local speakers are deleted (a new diarization, the
-// designation of a microphone track): the segments that designate one of them return
-// to their deduced speaker, and each loss is recorded in the history (author
-// "system", version incremented) instead of vanishing through the foreign key's
-// ON DELETE SET NULL. condition selects the Local speakers (alias ls, placeholders
-// from $1).
-func dropSpeakerOverrides(ctx context.Context, q queryer, condition string, args ...any) error {
+// Causes of the deletion of Local speakers, journaled by dropSpeakerOverrides.
+const (
+	droppedByDiarization          = "Locuteur supprimé par une nouvelle diarisation"
+	droppedByMicrophone           = "Locuteur supprimé par la désignation de la piste microphone"
+	droppedByMicrophoneWithdrawal = "Locuteur supprimé par le retrait de la désignation de la piste microphone"
+)
+
+// dropSpeakerOverrides runs before Local speakers are deleted, with the cause of the
+// deletion (a new diarization, the designation of a microphone track or its withdrawal): the
+// segments that designate one of them return to their deduced speaker, and each loss is
+// recorded in the history (author "system", version incremented) instead of vanishing
+// through the foreign key's ON DELETE SET NULL. The dispositions and refusals still held by
+// those speakers are dropped with them, each one journaled by the system first: the journal
+// outlives the voice. A new diarization has already carried or dropped them itself
+// (voiceCarry), so none is left in that case.
+// condition selects the Local speakers (alias ls, placeholders from $1); the cause is the
+// next placeholder.
+func dropSpeakerOverrides(ctx context.Context, q queryer, cause, condition string, args ...any) error {
+	reason := "$" + strconv.Itoa(len(args)+1)
+	args = append(args, cause)
+	if _, err := q.Exec(ctx, `INSERT INTO voice_disposition_events(local_speaker_id,clip_id,old_disposition,new_disposition,author_id,author_username,reason)
+SELECT ls.id,ls.clip_id,d.disposition,'',NULL,'system',`+reason+`::text
+FROM local_speaker_dispositions d JOIN local_speakers ls ON ls.id=d.local_speaker_id WHERE `+condition, args...); err != nil {
+		return err
+	}
+	if _, err := q.Exec(ctx, `INSERT INTO voice_refusal_events(local_speaker_id,clip_id,person_id,person_name,action,author_id,author_username,reason)
+SELECT ls.id,ls.clip_id,vr.person_id,COALESCE(p.display_name,''),'drop',NULL,'system',`+reason+`::text
+FROM voice_refusals vr JOIN local_speakers ls ON ls.id=vr.local_speaker_id LEFT JOIN persons p ON p.id=vr.person_id WHERE `+condition, args...); err != nil {
+		return err
+	}
 	_, err := q.Exec(ctx, `WITH dropped AS (
  UPDATE segment_corrections sc SET speaker_override_id=NULL,speaker_author_id=NULL,speaker_author_username='',speaker_corrected_at=NULL,version=sc.version+1,updated_at=now()
  FROM local_speakers ls WHERE ls.id=sc.speaker_override_id AND `+condition+`
  RETURNING sc.transcription_job_id job,sc.segment_index idx,sc.clip_id,sc.version,sc.text,ls.id speaker_id,ls.label)
 INSERT INTO segment_correction_events(transcription_job_id,segment_index,clip_id,kind,old_text,new_text,old_corrected,new_corrected,old_speaker_id,old_speaker_label,new_speaker_id,new_speaker_label,reason,version_before,version_after,author_id,author_username)
 SELECT d.job,d.idx,d.clip_id,'`+eventSpeaker+`',COALESCE(d.text,j.result->'segments'->d.idx->>'text',''),COALESCE(d.text,j.result->'segments'->d.idx->>'text',''),d.text IS NOT NULL,d.text IS NOT NULL,d.speaker_id,d.label,NULL,'',
- 'Locuteur supprimé par une nouvelle diarisation ou la désignation d''une piste microphone',d.version-1,d.version,NULL,'system'
+ `+reason+`::text,d.version-1,d.version,NULL,'system'
 FROM dropped d JOIN jobs j ON j.id=d.job`, args...)
 	return err
 }
@@ -107,7 +132,7 @@ func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 		// The designated voice must be a Local speaker of this clip and audio stream.
 		newLabel := ""
 		if target != nil {
-			err := tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1 AND clip_id=$2 AND audio_stream_index=$3`, *target, ref.Clip.ID, ref.Stream).Scan(&newLabel)
+			err := tx.QueryRow(ctx, `SELECT label FROM local_speakers WHERE id=$1 AND clip_id=$2 AND audio_stream_index=$3 AND kind<>'archived'`, *target, ref.Clip.ID, ref.Stream).Scan(&newLabel)
 			if errors.Is(err, pgx.ErrNoRows) {
 				return segmentChange{}, &refusal{http.StatusBadRequest, codeInvalidLocalSpeaker}, nil
 			}

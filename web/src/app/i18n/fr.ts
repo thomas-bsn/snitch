@@ -4,12 +4,251 @@ import type { Messages } from "./messages";
 import { errorsFr } from "./errors.fr";
 
 export const fr: Messages = {
+  voiceWorkspace: {
+    online: "En ligne",
+    offline: "Hors ligne",
+    volumeUnit: "Mo",
+    title: "Modèles vocaux",
+    lead: "Le catalogue des références. Leur installation, leur remplacement et leur retrait sur vos Workers.",
+    workers: "Workers",
+    catalogue: "Catalogue",
+    history: "Historique",
+    production: "Production",
+    unavailable: "Pas encore disponible",
+    desiredHint:
+      "Un modèle désiré par type et par Worker. Les ordres sont explicites.",
+    separationHint:
+      "La séparation est cataloguée ; son exécution attend un adaptateur approuvé (#268). La transcription Speaches reste indépendante.",
+    adapterPending: "Pas d’adaptateur disponible",
+    coming: "À venir · #268",
+    noStartup: "Aucun téléchargement au démarrage.",
+    reserve: "En réserve",
+    productionNote:
+      "Un modèle actif par type pour la production. Les Workers exécutent les ordres validés par Snitch.",
+    settings: "Identification et seuils",
+    access: "Accès Hugging Face",
+    settingsHint: "Automatisation, seuils et précision des voix.",
+    accessHint: "Un token central pour accéder aux modèles restreints.",
+    manageToken: "Gérer le token et sa distribution",
+    all: "Tous",
+    search: "Rechercher une référence",
+    searchPlaceholder: "Chercher un modèle…",
+    noMatch: "Aucune référence ne correspond à ce filtre.",
+    noWorkers:
+      "Aucun Worker pour le moment. Ajoutez-en un dans Administration → Workers pour installer un modèle.",
+    selectWorker: "Sélectionner {worker}",
+    details: "Détails",
+    detailsOf: "Détails de {model}",
+    deploy: "Déployer",
+    install: "Installer",
+    unsupported: "Non pris en charge",
+    disabled: "Désactivé",
+    supported: "Compatible",
+    restricted: "Accès HF restreint",
+    openAccess: "Accès libre",
+    notPresent: "Aucun Worker ne détient ce modèle.",
+    workerCount:
+      "{count} Worker(s) · prêt ne signifie pas actif en production.",
+    licence: "Licence",
+    engine: "Moteur compatible",
+    revision: "Révision épinglée",
+    size: "Taille (Mo)",
+    vram: "VRAM nécessaire (Mo)",
+    label: "Nom affiché",
+    enabled: "Disponible à l’installation",
+    edit: "Modifier la référence",
+    save: "Enregistrer la référence",
+    editHint:
+      "Le dépôt, la révision, le type et le moteur proviennent de l’inspection. Pour les changer, ajoutez une autre référence.",
+    unknown: "Inconnu",
+    references: "{count} références",
+    selected: "{count} Worker(s) sélectionné(s)",
+    noOrders:
+      "Aucun ordre pour le moment. Un Worker neuf n’installe rien de lui-même.",
+    allWorkers: "Tous les Workers",
+    orderId: "Ordre {id}",
+    acknowledge:
+      "Je confirme l’envoi d’un ordre à chacun des Workers affichés.",
+    alreadyReady: "Déjà installé et vérifié : aucun nouvel ordre.",
+    occupied: "Ce type est occupé. Utilisez Changer sur le Worker.",
+    busyWorker: "Une opération est déjà en cours.",
+    replacementLine:
+      "Remplacer {old} par {model} sur {worker} ; conserver l’ancien jusqu’à la bascule.",
+    transition: "Changer le modèle d’empreinte",
+    transitionHint:
+      "Les empreintes de deux modèles ne sont pas comparables. La production continue sur l’ancien modèle pendant le recalcul des références.",
+    referencesImpact: "Références à recalculer",
+    clipsImpact: "Clips concernés",
+    personsImpact: "Personnes concernées",
+    othersImpact: "Autres empreintes ensuite",
+    validatedImpact: "Validations humaines conservées",
+    readyImpact: "{count} Worker(s) avec la cible prête",
+    transitionConfirm:
+      "Je confirme le recalcul des {count} références affichées.",
+    startTransition: "Démarrer la transition",
+    prepareWorkers: "Préparer sur des Workers",
+    transitionPreparing:
+      "Préparation des Workers. L’ancien modèle reste actif.",
+    transitionRecomputing:
+      "{done} / {total} références recalculées hors production.",
+    transitionSwitched:
+      "Bascule effectuée. {count} empreintes restent à rattraper.",
+    transitionCancelled: "Transition annulée.",
+    viewTransition: "Voir la transition",
+    resume: "Reprendre la transition",
+    cancelTransition: "Annuler la transition",
+    waitingTarget:
+      "Sans Worker prêt, la transition attend. Aucun téléchargement ne démarre sans ordre d’installation.",
+    selectTarget: "Nouveau modèle d’empreinte",
+    transitionFailed: "{count} tâches en échec",
+    refresh: "Actualiser",
+    pendingRemoval:
+      "Le retrait attend la fin des travaux utilisant l’ancien modèle.",
+    catalogueHint:
+      "Une référence de modèle n’est pas une installation sur un Worker.",
+  },
   app: {
     name: "Snitch",
     skipToContent: "Aller au contenu",
     loading: "Chargement…",
   },
   queue: {
+    thumbnail: {
+      title: "Miniatures",
+      none: "Aucune",
+      small: "Petite",
+      large: "Grande",
+      loading: "En chargement",
+      missing: "Original introuvable",
+    },
+    board: {
+      live: "Mises à jour en direct activées",
+      offline: "Reconnexion…",
+      forbidden:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
+      boardTitle: "Tableau des analyses",
+      empty: "Rien ici",
+      columns: {
+        transcription: "Transcription",
+        search: "Recherche",
+        voices: "Voix distinctes",
+        recognition: "Reconnaissance vocale",
+        completed: "Terminé",
+      },
+      summary: {
+        label: "Charge de la file",
+        running: "Tâches en cours : {n} sur {max}",
+        waiting: "Clips en attente (sans emplacement) : {n}",
+        paused: "File en pause",
+        active: "File active",
+      },
+      unknownStep:
+        "Étape inconnue : {step}. Elle est affichée telle que le serveur la rapporte ; vérifiez que l’interface et le serveur sont à jour.",
+      taskNotFollowed: "Aucune analyse ne suit cette tâche.",
+      taskUnknown:
+        "Tâche inconnue : {step}. Elle est conservée ici pour ne pas être perdue.",
+      activeTitle: "Analyses en cours",
+      activeEmpty: "Aucune analyse en cours.",
+      completedTitle: "Derniers clips terminés",
+      completedEmpty: "Aucun clip n’est encore terminé.",
+      tasksTitle: "Tâches hors analyse",
+      tasksHint:
+        "Tâches techniques qu’aucune analyse ne suit. Elles restent ici tant qu’elles ne sont pas terminées.",
+      cancelledAdvice:
+        "Annulée : le clip reste ici, jamais terminé. Replanifiez l’analyse depuis le formulaire de planification.",
+      location: {
+        title: "Fichier d’origine",
+        unavailable: "Chemin indisponible",
+        private: "Dossier privé : chemin non affiché",
+        copy: "Copier le chemin",
+        copied: "Chemin copié",
+      },
+      openClip: "Ouvrir le clip",
+      showMore: "Afficher {n} de plus ({left} restantes dans cette colonne)",
+      hiddenCards:
+        "{n} autres cartes de cette colonne ne sont pas encore affichées.",
+      trunk: "Préparation et transcription",
+      branchSearch: "Branche recherche",
+      branchVoices: "Branche voix",
+      voicesToCheck: "Voix à vérifier ({n})",
+      partiallyIdentified: "Partiellement identifié",
+      identified: "Voix identifiées",
+      timeline: {
+        label: "Événements de l’étape {step}",
+        worker: "Worker {name}",
+        model: "Modèle {model}",
+        cycle: "Cycle {n}",
+      },
+      attempt: "Tentative {n}",
+      stepsOf: "Étapes de l’analyse de {clip}",
+      scope: {
+        transcription: "Transcription",
+        voice: "Voix",
+        full: "Analyse complète",
+      },
+      run: {
+        active: "En cours",
+        failed: "Échec partiel",
+        completed: "Terminée",
+        cancelled: "Annulée",
+      },
+    },
+    failure: {
+      cause: "Cause",
+      code: "Code",
+      action: "Action conseillée",
+      unknownCause: "Cause inconnue",
+      noAction: "Aucune action conseillée.",
+      causes: {
+        worker_failed: "Échec du Worker",
+        provider_unavailable: "Service de transcription indisponible",
+        invalid_input: "Média invalide",
+        audio_preparation_failed: "Préparation de l’audio impossible",
+        lease_expired: "Bail expiré",
+        max_attempts_exhausted: "Essais épuisés",
+        cancelled_by_admin: "Annulé par un administrateur",
+        input_version_superseded: "Remplacé par une version plus récente",
+        worker_revoked: "Worker révoqué",
+        whisper_network: "Réseau Whisper injoignable",
+        whisper_timeout: "Délai Whisper dépassé",
+        whisper_http_error: "Erreur HTTP de Whisper",
+        whisper_model_missing: "Modèle de transcription manquant",
+        whisper_invalid_response: "Réponse Whisper invalide",
+        pyannote_model_missing: "Modèle vocal manquant",
+        pyannote_access_denied: "Accès au modèle vocal refusé",
+        gpu_unavailable: "GPU indisponible",
+        gpu_out_of_memory: "GPU saturé",
+        diarization_inference_failed: "Échec de la diarisation",
+        hf_auth_required: "Authentification Hugging Face requise",
+        hf_not_found: "Modèle Hugging Face introuvable",
+        hf_network: "Réseau Hugging Face injoignable",
+        models_volume_unwritable: "Volume des modèles non inscriptible",
+        hf_cache_error: "Cache de modèles en erreur",
+      },
+      actions: {
+        check_worker_logs: "Consulter les logs du Worker.",
+        check_transcription_service:
+          "Vérifier le service de transcription et le réseau.",
+        check_clip_media: "Vérifier le média du clip.",
+        check_worker_connection: "Vérifier la connexion du Worker au serveur.",
+        relaunch_job: "Relancer la tâche.",
+        none: "Aucune action : une version plus récente la remplace.",
+        install_transcription_model: "Installer le modèle de transcription.",
+        install_voice_model: "Installer le modèle vocal sur le Worker.",
+        check_huggingface_token:
+          "Vérifier le jeton Hugging Face et les conditions du modèle.",
+        check_gpu: "Vérifier le GPU (pilote, WSL2, mémoire).",
+        check_voice_model_repository: "Vérifier le dépôt du modèle.",
+        check_worker_network: "Vérifier le réseau du Worker.",
+        check_models_volume:
+          "Vérifier les droits et le contenu du volume des modèles.",
+        start_worker:
+          "Aucun Worker récent ne peut prendre cette étape : installer ou démarrer un Worker.",
+        reschedule:
+          "Replanifier le clip depuis le formulaire de planification.",
+      },
+    },
+    voiceStep: "Analyse des voix (après transcription)",
     filterStatus: "Filtrer par état",
     allStatuses: "Tous les états",
     filterClip: "Filtrer par ID de clip",
@@ -32,6 +271,15 @@ export const fr: Messages = {
       cancelled: "Annulée",
       completed: "Terminée",
       lease_expired: "Bail expiré",
+      worker_revoked: "Worker supprimé, tâche remise en file",
+    },
+    automatic: {
+      title: "Analyser un clip",
+      hint: "Lance l’analyse complète d’un clip : transcription, recherche et voix. Les résultats valides sont réutilisés sauf choix contraire.",
+      clip: "Numéro du clip",
+      stepRequired: "Choisissez au moins une étape à relancer.",
+      start: "Lancer l’analyse",
+      started: "Analyse lancée.",
     },
     schedule: "Planifier une tâche",
     clip: "ID du clip",
@@ -59,6 +307,11 @@ export const fr: Messages = {
     retry: "Relancer",
   },
   folders: {
+    autoAnalysis: {
+      title: "Analyse automatique",
+      label: "Analyse complète automatique",
+      help: "Activée, chaque vidéo ajoutée à la bibliothèque (trouvée dans la Racine vidéo, publiée depuis un téléversement ou choisie depuis un import) démarre son analyse complète : transcription, voix et indexation. Désactivée, seule la transcription est planifiée et l’analyse se lance à la main.",
+    },
     correctedSkipped:
       "{count} clip(s) corrigé(s) n’ont pas été retranscrits ; une confirmation explicite est nécessaire.",
     health: {
@@ -132,6 +385,9 @@ export const fr: Messages = {
     scanHint:
       "Sélectionner un dossier inclut ses sous-dossiers. Rien n’est analysé avant confirmation. Sans Worker disponible, les fichiers restent en attente.",
     empty: "Aucun dossier ou fichier vidéo ici.",
+    filterLabel: "Filtrer les dossiers et vidéos",
+    entriesLabel: "Dossiers et vidéos",
+    noMatches: "Aucun dossier ni vidéo ne correspond.",
     newFolder: "Nouveau sous-dossier",
     createFolder: "Créer le dossier",
     folderCreated: "Dossier créé.",
@@ -150,6 +406,17 @@ export const fr: Messages = {
     },
   },
   transAdmin: {
+    configureBeforeWorker:
+      "Réglez la transcription ici avant d'ajouter votre premier Worker.",
+    transcriptionMode: "Transcription",
+    enabled: "Activée",
+    disabled: "Désactivée volontairement",
+    endpoint: "URL du serveur Whisper/Speaches",
+    settingsStatus: {
+      unconfigured: "La transcription reste à configurer.",
+      untested: "Enregistrée, pas encore testée depuis un Worker.",
+      disabled: "La transcription est désactivée volontairement.",
+    },
     empty: "Créez un Worker pour définir le profil de transcription.",
     create: "Créer un Worker",
     title: "Profil de transcription de la bibliothèque",
@@ -157,6 +424,9 @@ export const fr: Messages = {
       "Version {version}. Les résultats existants restent inchangés ; le retraitement se fait à la demande.",
     model: "Modèle de la bibliothèque",
     language: "Langue",
+    languageSearch: "Rechercher par nom ou code",
+    languageShowAll: "Afficher toutes les langues",
+    languageEmpty: "Aucune langue trouvée.",
     vad: "Détection de parole",
     mode: "Mode de détection",
     off: "Désactivée",
@@ -168,12 +438,26 @@ export const fr: Messages = {
     save: "Enregistrer et versionner",
     saved: "Réglages enregistrés pour les prochaines transcriptions.",
     workers: "Workers",
+    sync: {
+      notReceived: "Configuration non reçue",
+      pending: "En attente d'un test réussi",
+      connectionFailed: "Serveur Whisper inaccessible depuis ce Worker",
+      modelMissing: "Modèle de bibliothèque absent du serveur Whisper",
+      active: "Configuration active",
+      versions: "Reçue : {received} · Testée : {tested} · Active : {active}",
+      test: "Tester depuis le Worker",
+    },
     columns: {
       name: "Worker",
       server: "Serveur Whisper",
       sent: "Modèle envoyé",
       language: "Langue",
       status: "État",
+      receivedVersion: "Reçue",
+      testedVersion: "Testée",
+      activeVersion: "Active",
+      error: "Erreur",
+      reachability: "Joignabilité",
     },
     undeclared: "Non déclaré",
     online: "Connecté",
@@ -183,6 +467,42 @@ export const fr: Messages = {
       "Laissez vide pour utiliser le modèle de la bibliothèque. Ce nom est envoyé uniquement au serveur de ce Worker.",
     override: "Nom du modèle du Worker",
     saveSimple: "Enregistrer",
+    endpointOverride: "Adresse Whisper du Worker",
+    endpointOverrideHint:
+      "Laissez vide pour utiliser l'adresse commune. Une adresse propre s'applique seulement à ce Worker et n'est pas modifiée quand l'adresse commune change.",
+    endpointOverridePlaceholder: "ex. http://192.168.1.50:8000",
+    testFromWorker: "Tester depuis le Worker",
+    testing: "Test en cours…",
+    statusReceived: "Configuration reçue",
+    statusAwaitingTest: "En attente d'un test réussi",
+    statusActive: "Active",
+    statusError: "Test échoué : {error}",
+    errorConnectionFailed:
+      "Connexion échouée — vérifiez l'adresse et le réseau",
+    errorModelMissing: "Modèle indisponible sur le serveur",
+    reach: {
+      reachable: "Joignable",
+      unreachable: "Injoignable",
+      unknown: "Non testé",
+      lastFailure: "Dernier échec",
+      method: "Méthode",
+      url: "URL",
+      status: "Statut HTTP",
+      latency: "Latence",
+      errorType: "Type d'erreur",
+      excerpt: "Extrait de réponse",
+      failedAt: "Heure",
+      checkedAt: "Dernier test",
+      none: "aucun",
+      errorTypes: {
+        timeout: "délai dépassé",
+        connection: "connexion impossible",
+        http_status: "réponse HTTP en erreur",
+        invalid_body: "réponse inattendue",
+      },
+    },
+    noOverride: "Adresse commune utilisée",
+    removeOverride: "Retirer l'adresse propre",
   },
   vocabAdmin: {
     title: "Vocabulaire de transcription",
@@ -201,8 +521,270 @@ export const fr: Messages = {
     remove: "Supprimer",
     empty: "Aucun terme enregistré.",
   },
+  voiceInventory: {
+    title: "Modèles vocaux des Workers",
+    hint: "Ce que chaque Worker détient réellement, déclaré par le Worker lui-même.",
+    ready: "Workers Voix prête",
+    pending: "Travaux vocaux en attente d'un Worker prêt",
+    empty:
+      "Aucun Worker pour l'instant. Installez-en un pour analyser les voix.",
+    offline: "Hors ligne",
+    none: "Non installé",
+    diarization: "Modèle de diarisation",
+    fingerprint: "Modèle d'empreinte",
+    missing:
+      "Ce Worker ne détient pas le modèle actif {model} : il ne prend aucun travail vocal.",
+    cause: "Cause : {code}",
+    state: {
+      ready: "Voix prête",
+      untested: "Non testé",
+      unavailable: "Indisponible",
+      models_missing: "Modèle actif absent",
+    },
+  },
+  voiceModels: {
+    add: {
+      open: "Ajouter un modèle",
+      title: "Ajouter un modèle au catalogue",
+      source: "Dépôt Hugging Face",
+      sourceHint:
+        "Collez propriétaire/nom ou une adresse huggingface.co. Snitch lit uniquement les métadonnées publiques : rien n’est téléchargé ni exécuté.",
+      inspect: "Inspecter",
+      inspecting: "Inspection…",
+      proposed: "Type proposé : {kind}. Confirmez-le ci-dessous.",
+      uncertain:
+        "Le dépôt n’indique pas son type de façon fiable. Choisissez l’un des trois types.",
+      unsupported:
+        "Non pris en charge : {reason}. Il ne peut pas être installé.",
+      kindUnsupported:
+        "Le moteur de ce dépôt ne sait pas exécuter un modèle de type {kind}. Il ne peut pas être installé.",
+      existing: "Déjà dans le catalogue : {ids}.",
+      typeLabel: "Type",
+      recap: "Récapitulatif",
+      model: "Modèle",
+      type: "Type",
+      typeToChoose: "À choisir",
+      engine: "Moteur compatible",
+      engineNone: "Aucun",
+      revision: "Révision",
+      license: "Licence",
+      licenseNone: "Non indiquée",
+      gated: "Gated",
+      gatedYes: "Oui, jeton requis",
+      gatedNo: "Non",
+      submit: "Ajouter au catalogue",
+      cancel: "Annuler",
+      close: "Fermer",
+      added: "{model} a été ajouté au catalogue.",
+      kind: {
+        diarization: "Diarisation",
+        fingerprint: "Fingerprint",
+        separation: "Séparation",
+      },
+      engines: {
+        nemo: "NVIDIA NeMo",
+        pyannote: "pyannote",
+      },
+    },
+    fingerprintTitle: "Modèle d’empreinte",
+    fingerprintHint:
+      "Fixé par le catalogue : les empreintes vocales utilisent ce modèle, rien à choisir.",
+    title: "Modèle de diarisation",
+    hint: "Choisissez un candidat dans le catalogue : chaque Worker le télécharge, le charge et lance une inférence de test. Vous l'activez ensuite pour tous les Workers.",
+    active: "Actif",
+    candidate: "Candidat",
+    facts:
+      "Moteur {engine}, licence {license}, {size} Mo, révision {revision}.",
+    gated: "Accès restreint sur Hugging Face.",
+    maxSpeakers: "{count} voix au maximum.",
+    numSpeakers: "Nombre de locuteurs réglable.",
+    noNumSpeakers: "Nombre de locuteurs non réglable.",
+    progress: "{received} / {total} Mo",
+    choose: "Choisir comme candidat",
+    activate: "Activer",
+    cancel: "Annuler le candidat",
+    revert: "Revenir à ce modèle",
+    remove: "Supprimer",
+    retry: "Réessayer",
+    cancelDialog: "Annuler",
+    confirmTitle: "Activer {model} ?",
+    confirmActivate: "Activer pour tous les Workers",
+    effectVersion:
+      "Une nouvelle version du pipeline vocal est créée : les nouveaux travaux vocaux l'utilisent.",
+    effectRunning: "Les travaux en cours gardent leur version.",
+    effectClips:
+      "Les clips déjà traités ne sont jamais rediarisés automatiquement.",
+    effectReady: "Workers prêts : {names}.",
+    effectNotReady:
+      "Ces Workers n'ont pas le modèle prêt et ne prendront plus de travaux vocaux : {names}.",
+    removeTitle: "Supprimer {model} ?",
+    removeText:
+      "{worker} supprime ce modèle de son volume. Il faudra le choisir de nouveau pour le retélécharger.",
+    byWorker: {
+      title: "Modèles par Worker",
+      hint: "Le modèle que chaque Worker porte pour chaque type. Snitch ordonne l’installation ; le Worker rapporte seulement ce qu’il a réellement.",
+      worker: "Worker",
+      type: {
+        diarization: "Diarisation",
+        fingerprint: "Empreinte",
+        separation: "Séparation",
+      },
+      absent: "Absent",
+      separationUnsupported:
+        "Pas encore disponible : aucun moteur ne sait exécuter la séparation, elle ne peut donc pas être prête.",
+      choose: "Modèle à installer sur {worker} pour {type}",
+      install: "Installer",
+      retry: "Réessayer",
+      volume: "{size} Mo sur disque",
+      revision: "Révision {revision}",
+      confirmTitle: "Installer {model} sur {worker} ?",
+      confirmText:
+        "{worker} va télécharger {model}, le charger et lancer une inférence de test. Il n’est prêt qu’une fois ce test réussi.",
+      confirmGated:
+        "Ce modèle est à accès restreint : le jeton Hugging Face central est envoyé à ce Worker avec cet ordre seulement.",
+      confirmAction: "Ordonner l’installation",
+      cancelDialog: "Annuler",
+      replace: "Changer",
+      choosePrompt: "Choisir un modèle",
+      chooseFor: "Choisir un modèle pour {type} sur {worker}",
+      chooseTitle: "Choisir un modèle pour {type} sur {worker}",
+      statuses: "Statuts",
+      tableLabel: "Workers par type de modèle",
+      separationBanner:
+        "Séparation des voix : type présent dans le catalogue, mais non exécutable tant que #268 n’est pas livré (aucun adaptateur). Il apparaîtra ici dès qu’un modèle sera installable.",
+      removingOld: "Retrait de {model} sur ordre de Snitch.",
+      removingStandalone: "Retrait ordonné par Snitch.",
+      viewOrder: "Voir l’ordre",
+      uninstall: "Désinstaller",
+      uninstallTitle: "Désinstaller {model} de {worker} ?",
+      uninstallText:
+        "{worker} va supprimer {model} de son volume, sur ordre de Snitch. Snitch refuse tant qu’un travail en cours l’utilise.",
+      uninstallNoActive:
+        "Aucun modèle actif ne restera pour ce type sur {worker} tant que vous n’en installez pas un autre.",
+      uninstallAction: "Ordonner le retrait",
+      removeOld: "Retirer l’ancien modèle",
+      removeOldTitle: "Retirer {old} pour libérer de la place sur {worker} ?",
+      removeOldText:
+        "Le disque de {worker} ne peut pas garder {old} et {model} ensemble. Si vous continuez, {old} est supprimé de {worker}.",
+      removeOldNoActive:
+        "Aucun modèle actif ne restera sur {worker} : il ne pourra pas prendre ce type de travail tant que {model} n’est pas installé. {old} ne se récupère qu’en le téléchargeant de nouveau.",
+      removeOldAction: "Retirer {old}",
+      history: "Historique des ordres",
+      historyOf: "Historique des ordres de {worker}",
+      historyTitle: "Historique des ordres",
+      historyWorker: "Worker",
+      historyEmpty: "Aucun ordre pour ce Worker pour l’instant.",
+      historyBy: "par {author}",
+      historyAction: { install: "Installation", remove: "Retrait" },
+      historyStatus: {
+        pending: "En attente du Worker",
+        acknowledged: "En cours",
+        done: "Terminé",
+        failed: "Échec",
+        refused: "Refusé par le Worker",
+        cancelled: "Annulé",
+      },
+      close: "Fermer",
+      applyMany: "Appliquer à plusieurs Workers",
+      applyTitle: "Appliquer un modèle à plusieurs Workers",
+      applyType: "Type",
+      applyModel: "Modèle",
+      applyWorkers: "Workers sans modèle de ce type",
+      applyNone: "Chaque Worker porte déjà un modèle de ce type.",
+      applyPrepare: "Préparer les ordres",
+      applyPreview: "Ordres à envoyer ({count})",
+      applyLine: "Installer {model} sur {worker}",
+      applyBack: "Retour",
+      applySend: "Envoyer {count} ordres",
+      applySent: "Ordre envoyé",
+      applyFailed: "Refusé : {reason}",
+      applyHint:
+        "Un ordre est créé par Worker coché. Rien n’est envoyé avant que vous confirmiez la liste.",
+      applyWorkerEntry: "{worker}",
+      replaceWith: "Modèle qui remplace l’actuel sur {worker}",
+      replacing: "Remplace {model} : il reste actif jusqu’à la bascule.",
+      waitingJobs:
+        "Bascule faite. L’ancien modèle sera retiré à la fin de ses travaux en cours.",
+      cancelReplacement: "Annuler le remplacement",
+      confirmReplaceText:
+        "{worker} va télécharger {model} et le tester pendant que {old} reste actif. Snitch bascule ensuite le modèle actif et ordonne le retrait de {old}, quand plus aucun travail en cours ne l’utilise. En cas d’échec, {old} est conservé.",
+    },
+    state: {
+      not_installed: "Non installé",
+      requested: "Demandé",
+      downloading: "Téléchargement",
+      verifying: "Vérification",
+      ready: "Prêt",
+      switching: "Bascule",
+      removing: "Retrait",
+      failed: "Échec",
+    },
+    cause: {
+      invalid_order:
+        "Le Worker a refusé l’ordre après ses contrôles : réessayez, et signalez-le si cela se répète.",
+      hf_token_missing:
+        "Jeton Hugging Face absent sur ce Worker. Enregistrez-le depuis la machine du Worker avec la commande store-token (voir docs/real-voice-worker.md), puis réessayez.",
+      hf_access_denied:
+        "Accès Hugging Face refusé : acceptez les conditions du modèle avec le compte du jeton.",
+      hf_token_invalid:
+        "Hugging Face n’a pas accepté le jeton : vérifiez-le (accès en lecture), puis relancez la commande.",
+      hf_gated_denied:
+        "Le compte propriétaire du jeton n’a pas accepté les conditions des modèles : acceptez-les sur Hugging Face, puis relancez.",
+      hf_repo_invalid:
+        "Un dépôt ou une révision de modèle est introuvable sur Hugging Face : signalez-le, la version de Snitch ne correspond peut-être pas.",
+      disk_full: "Disque plein sur la machine du Worker.",
+      hf_auth_required:
+        "Hugging Face a refusé le jeton : vérifiez-le et acceptez les conditions du modèle avec son compte.",
+      hf_not_found: "Modèle ou révision introuvable sur Hugging Face.",
+      hf_network: "Hugging Face est injoignable depuis ce Worker.",
+      models_volume_unwritable:
+        "Le volume des modèles du Worker n'est pas inscriptible.",
+      hf_cache_error:
+        "Le cache Hugging Face (Xet) du Worker n'est pas utilisable.",
+      runtime_incompatible:
+        "Ce modèle n'est pas compatible avec l'environnement du Worker.",
+      inference_failed: "L'inférence de test a échoué.",
+    },
+  },
   voiceAdmin: {
     title: "Traitement vocal",
+    hf: {
+      title: "Token Hugging Face central",
+      lead: "Saisissez le token une seule fois ici. Snitch le garde chiffré et ne le réaffiche jamais. Les Workers autorisés le reçoivent eux-mêmes et le rangent en privé : un Worker neuf ou recréé peut télécharger les modèles vocaux sans commande sur sa machine.",
+      configured:
+        "Configuré. La valeur est gardée chiffrée et ne peut pas être relue.",
+      absent:
+        "Non configuré. Les Workers gardent le token qu’ils ont déjà, le cas échéant.",
+      unreadable:
+        "Le token enregistré ne peut pas être lu avec la clé maître actuelle. Saisissez-le à nouveau.",
+      field: "Token Hugging Face",
+      hint: "Commence par hf_. Affiché une seule fois, puis masqué définitivement.",
+      save: "Enregistrer le token",
+      replace: "Remplacer le token",
+      remove: "Supprimer le token",
+      cancelRemove: "Garder",
+      removeHint:
+        "Les Workers purgent leur copie centrale à leur prochain contact. Un token qu’un Worker garde localement reste.",
+      owner: "Seul le Super-administrateur peut modifier le token.",
+      savedNotice:
+        "Token enregistré. Les Workers le reçoivent à leur prochain contact.",
+      removedNotice:
+        "Token supprimé. Les Workers purgent leur copie centrale à leur prochain contact.",
+      workersTitle: "Workers",
+      workersLead:
+        "Chaque Worker indique le token qu’il garde. Non synchronisé : le Worker est hors ligne ou n’a pas encore accusé réception de cette version.",
+      state: {
+        synced: "Synchronisé",
+        pending: "Non synchronisé",
+        error: "Erreur",
+      },
+      source: {
+        central: "Copie Snitch",
+        local: "Token local conservé",
+        none: "Aucun token",
+        unknown: "Pas encore signalé",
+      },
+    },
     saved: "Réglages enregistrés.",
     pipeline: "Pipeline vocal",
     version:
@@ -211,7 +793,6 @@ export const fr: Messages = {
     fake: "Fournisseur factice (tests)",
     model: "Modèle de diarisation",
     modelVersion: "Version du modèle",
-    access: "Accès au modèle confirmé",
     minDuration: "Durée minimale d’une empreinte (secondes)",
     minQuality: "Qualité minimale",
     fakeSpeakers: "Locuteurs factices",
@@ -257,6 +838,47 @@ export const fr: Messages = {
     disabledEvent: "Désactivation",
     forcedEvent: "Critères non atteints",
   },
+  voiceScreen: {
+    summary: "État",
+    activeDiar: "Modèle de diarisation actif",
+    activeFingerprint: "Modèle d’empreinte actif (lecture seule)",
+    measured: "Précision mesurée",
+    autoHint:
+      "Jamais activée d’elle-même : vous seul·e l’activez, après confirmation. Les validations humaines ne sont jamais écrasées.",
+    enableTitle: "Activer l’attribution automatique ?",
+    enableText:
+      "Les voix reconnues avec assez de confiance seront attribuées sans vous demander. Vous pouvez la désactiver à tout moment.",
+    enableMeasure: "Précision mesurée : {value}.",
+    noWorker: "Aucun Worker : installez-en un pour analyser les voix.",
+    noneReady: "Aucun Worker n’a la voix prête : les travaux vocaux attendent.",
+    offline: "{count} Worker(s) hors ligne.",
+    tokenMissing:
+      "Un Worker n’a pas son jeton Hugging Face : voir la carte du modèle ci-dessous.",
+    accessDenied:
+      "Hugging Face a refusé l’accès à un modèle : acceptez ses conditions avec le compte du jeton.",
+    pending: "{count} travail(aux) vocal(aux) en attente d’un Worker prêt.",
+    advanced: "Paramètres avancés",
+    advancedHint: "Seuils et critères",
+    autoThresholdHint:
+      "Similarité au-dessus de laquelle une voix est attribuée automatiquement (si activée).",
+    suggestionHint:
+      "Similarité au-dessus de laquelle une personne vous est suggérée à confirmer.",
+    marginHint:
+      "Écart minimal avec le deuxième candidat, sinon la voix est ambiguë.",
+    candidatesHint: "Nombre de personnes proposées pour une voix.",
+    fingerprintSettings: "Empreintes vocales",
+    fingerprintHint:
+      "Les extraits trop courts ou de mauvaise qualité ne produisent pas d’empreinte. Enregistrer crée une nouvelle version du pipeline.",
+    automationSettings: "Critères d’automatisation",
+    precisionHint:
+      "Précision mesurée requise avant que l’activation soit proposée.",
+    confirmationsHint: "Confirmations humaines requises avant l’activation.",
+    reset: "Rétablir les valeurs par défaut",
+    resetTitle: "Rétablir ces réglages ?",
+    resetText:
+      "Les seuils de rapprochement, les réglages d’empreinte et les critères d’activation reviennent aux valeurs de l’installation. L’attribution automatique reste telle quelle.",
+    resetConfirm: "Rétablir",
+  },
   members: {
     title: "Membres",
     columns: {
@@ -266,23 +888,73 @@ export const fr: Messages = {
       clips: "Clips",
       actions: "Actions",
     },
-    changeRole: "Changer le rôle",
     delete: "Supprimer le membre",
-    roleTitle: "Changer le rôle ?",
     deleteTitle: "Supprimer ce membre ?",
     cancel: "Annuler",
-    confirm: "Confirmer",
     deleteConfirm: "Supprimer",
-    promote:
-      "Nommer {name} Administrateur ? Il pourra gérer les Workers, dossiers, traitements et inscriptions.",
-    demote: "Rendre {name} Utilisateur ? Il perdra l’accès à l’administration.",
     deleteBody:
       "Supprimer {name} ? Son compte et ses sessions sont désactivés. Ses clips et l’historique des corrections sont conservés.",
     hide: "Masquer ses clips",
+    edit: {
+      action: "Modifier",
+      title: "Modifier {name}",
+      close: "Fermer",
+      joined: "Inscrit le {date}",
+      identity: "Identité",
+      access: "Accès",
+      security: "Connexion et sécurité",
+      username: "Identifiant",
+      usernameHint:
+        "Sert à se connecter. Unique, sans distinction de casse, de 3 à 64 caractères.",
+      displayName: "Nom affiché",
+      displayNameHint:
+        "Laisser vide pour utiliser le nom Discord ou l'identifiant.",
+      language: "Langue",
+      languageDefault: "Celle du navigateur",
+      role: "Rôle",
+      approved: "Compte approuvé",
+      approvedHint:
+        "Désactiver déconnecte le membre et remet le compte dans les inscriptions.",
+      discordLinked: "Lié à Discord{name}",
+      discordNone: "Aucun compte Discord lié.",
+      unlinkDiscord: "Délier Discord",
+      unlinkTitle: "Délier Discord ?",
+      unlinkBody:
+        "{name} ne se connectera plus avec Discord et devra utiliser son identifiant et son mot de passe.",
+      noPassword:
+        "Ce compte n'a pas encore de mot de passe : définissez-en un avant de délier Discord.",
+      resetPassword: "Définir un mot de passe temporaire",
+      resetTitle: "Définir un mot de passe temporaire ?",
+      resetBody:
+        "Un nouveau mot de passe est généré pour {name} et affiché une seule fois. Son mot de passe actuel cesse de fonctionner et ses sessions sont fermées.",
+      resetConfirm: "Générer",
+      temporaryPassword: "Mot de passe temporaire de {name}",
+      temporaryHint:
+        "Affiché une seule fois. Transmettez-le au membre, qui devrait le changer depuis son compte.",
+      copy: "Copier",
+      copied: "Copié",
+      revokeSessions: "Déconnecter partout ({count})",
+      sessionsClosed: "Sessions fermées.",
+      dangerTitle: "Supprimer le compte",
+      dangerBody:
+        "Désactive le compte et conserve ses clips et l'historique des corrections.",
+      saved: "Modifications enregistrées.",
+      save: "Enregistrer",
+      noChanges: "Aucune modification à enregistrer.",
+      readOnly: "Vous ne pouvez pas modifier ce compte.",
+      selfNote:
+        "C'est votre compte : votre rôle et votre approbation ne se changent pas ici.",
+      subtitle: "{count} clips",
+    },
     signups: "Inscriptions",
     saved: "Modifications enregistrées.",
     approve: "Approuver {name}",
     noPending: "Aucune inscription en attente.",
+    folderRequests: "Demandes de création de dossier",
+    folderRequest: "{name} demande le dossier « {path} ».",
+    folderApprove: "Approuver le dossier {path}",
+    folderRefuse: "Refuser le dossier {path}",
+    noFolderRequests: "Aucune demande de dossier en attente de décision.",
     accessSettings: "Paramètres des inscriptions et Discord",
     ownerOnly: "Seul le Super-administrateur peut modifier ces réglages.",
     requireApproval: "Exiger une approbation des inscriptions",
@@ -290,6 +962,37 @@ export const fr: Messages = {
     discordSecret: "Secret de l’application Discord",
     secretKept: "Laissez vide pour conserver le secret actuel.",
     callback: "Adresse de retour Discord",
+    bot: {
+      title: "Bot Discord — Photos de profil",
+      explain:
+        "Un bot permet à Snitch de lire les photos de profil Discord des membres et de les actualiser toutes les 24 heures. Il ne lit que les profils publics. Une photo importée par un membre n’est jamais remplacée. Le token est indépendant des identifiants de connexion ci-dessus.",
+      state: "État",
+      statusConnected: "Connecté",
+      statusNotConfigured: "Non configuré",
+      statusError: "Erreur",
+      name: "Bot",
+      lastSync: "Dernière synchronisation",
+      lastSyncResult: "{date} : {refreshed} actualisés, {failed} en échec",
+      running: "En cours…",
+      never: "Jamais",
+      token: "Token du bot",
+      tokenKept:
+        "Laissez vide pour conserver le token actuel. Il n’est jamais réaffiché.",
+      connect: "Connecter le bot",
+      replace: "Enregistrer le nouveau token",
+      test: "Tester la connexion",
+      disconnect: "Déconnecter",
+      cancel: "Annuler",
+      disconnectTitle: "Déconnecter le bot ?",
+      disconnectBody:
+        "La synchronisation automatique s’arrête. Les photos déjà téléchargées sont conservées.",
+      sync: "Synchroniser maintenant",
+      syncStarted: "Synchronisation lancée.",
+      connected: "Bot connecté.",
+      disconnected: "Bot déconnecté.",
+      testOk: "La connexion fonctionne.",
+      ownerOnly: "Seul le Super-administrateur peut configurer le bot.",
+    },
     unreadable: "Secrets à ressaisir : {names}",
     saveSettings: "Enregistrer les réglages",
     exports: "Exports",
@@ -301,7 +1004,27 @@ export const fr: Messages = {
       "Conservez cette clé séparément de la sauvegarde de la base. Elle ne récupère pas les secrets chiffrés avec une autre clé.",
     exportKey: "Exporter la clé maître",
   },
+  personLinks: {
+    title: "Demandes de liaison de Personne",
+    intro:
+      "Un utilisateur demande à lier son compte à une Personne ; approuver lie ce compte, en remplaçant toute liaison existante pour cette Personne.",
+    empty: "Aucune demande en attente.",
+    columns: {
+      person: "Personne",
+      account: "Compte",
+      message: "Message",
+      requested: "Demandée le",
+      actions: "Actions",
+    },
+    approve: "Approuver",
+    approving: "Approbation…",
+    refuse: "Refuser",
+    refusing: "Refus…",
+    approved: "Demande approuvée.",
+    refused: "Demande refusée.",
+  },
   closeAccount: {
+    zone: "Zone sensible",
     title: "Supprimer mon compte",
     explanation:
       "Vos sessions seront fermées et vos clips deviendront privés. Les clips, corrections et leur historique restent conservés. La suppression du profil vocal est une action séparée.",
@@ -349,7 +1072,67 @@ export const fr: Messages = {
     library: "Bibliothèque",
     search: "Recherche",
     people: "Personnes",
+    peopleToProcess: "{count} voix à trancher",
     import: "Importer",
+    queue: "File de tâches",
+  },
+  notifications: {
+    bell: "Notifications",
+    bellUnread: "Notifications, {count} non lues",
+    title: "Notifications",
+    pending: "{count} à traiter",
+    empty: "Aucune notification.",
+    loadFailed: "Impossible de charger les notifications.",
+    speakerReview: "{count} voix à vérifier dans {clip}",
+    speakerReviewOne: "1 voix à vérifier dans {clip}",
+    speakerReviewResolved: "Voix vérifiées dans {clip}",
+    resolved: "Résolue",
+    unread: "Non lue",
+    markRead: "Marquer comme lue",
+    markUnread: "Marquer comme non lue",
+    markAllRead: "Tout marquer comme lu",
+    remove: "Retirer de l’historique",
+    history: "Historique",
+    actions: "Actions",
+    removeFailed: "Cette notification n’a pas pu être retirée.",
+    viewAll: "Voir toutes les notifications",
+    filters: "Filtrer les notifications",
+    filterAll: "Toutes",
+    filterUnread: "Non lues",
+    filterActions: "Actions à traiter",
+    filterErrors: "Erreurs",
+    unreadCount: "{count} non lues",
+    actionsCount: "{count} actions à traiter",
+    actionVerify: "Vérifier les voix",
+    removeResolved: "Retirer les notifications résolues",
+    showMore: "Afficher plus ({shown} sur {total})",
+    emptyFiltered: "Aucune notification ne correspond à ce filtre.",
+    activeList: "Notifications actives",
+    historyList: "Notifications résolues",
+    live: "Mises à jour en direct",
+    polling:
+      "Les mises à jour en direct sont suspendues, actualisation régulière.",
+    forbidden: "Votre accès aux notifications a pris fin. Reconnectez-vous.",
+    incidentWorker:
+      "Aucun worker compatible n’est disponible : {count} jobs attendent",
+    incidentProvider:
+      "Le service de traitement est indisponible ({count} jobs concernés)",
+    incidentModel:
+      "Un modèle requis est absent du worker ({count} jobs concernés)",
+    incidentJob: "{count} jobs en échec à l’étape {step}",
+    incidentBlockedMismatch:
+      "{count} jobs ne peuvent pas démarrer : aucun worker n’a validé la configuration de transcription actuelle",
+    incidentBlockedNotValidated:
+      "{count} jobs ne peuvent pas démarrer : la configuration de transcription a échoué à son test sur les workers",
+    incidentBlockedNotClaiming:
+      "{count} jobs ne peuvent pas démarrer : un worker est en ligne mais ne réclame plus de tâches",
+    incidentGeneric:
+      "Un incident technique ralentit le traitement. Les administrateurs ont été prévenus.",
+    incidentResolved: "Incident technique résolu",
+    folderApproved: "Votre demande de dossier « {path} » a été approuvée.",
+    folderRefused: "Votre demande de dossier « {path} » a été refusée.",
+    incidentWorkerAction: "Vérifier le worker",
+    incidentJobAction: "Voir les jobs",
   },
   header: {
     searchLabel: "Rechercher dans les transcriptions",
@@ -417,6 +1200,15 @@ export const fr: Messages = {
   },
   setup: {
     title: "Configurer Snitch",
+    huggingface: {
+      title: "Token Hugging Face (facultatif)",
+      lead: "Utile seulement pour télécharger les modèles vocaux. Enregistré une fois, chiffré, puis transmis à vos Workers autorisés. Vous pouvez aussi l’ajouter plus tard dans Traitement vocal.",
+      field: "Token Hugging Face",
+      hint: "Commence par hf_. Affiché une seule fois, puis masqué définitivement.",
+      ownerOnly: "Seul le Super-administrateur peut enregistrer le token.",
+      saved:
+        "Token enregistré. Les Workers le reçoivent à leur prochain contact.",
+    },
     lead: "Créez d’abord le compte Super-administrateur. Le reste est facultatif, et rien ne démarre sans votre accord.",
     stepOf: "Étape {step} sur {total}",
     stepsLabel: "Étapes de la configuration",
@@ -426,6 +1218,7 @@ export const fr: Messages = {
       discord: "Discord",
       semantic: "Recherche sémantique",
       worker: "Premier Worker",
+      huggingface: "Token Hugging Face",
       import: "Import de vidéos",
       summary: "Récapitulatif",
     },
@@ -438,6 +1231,7 @@ export const fr: Messages = {
     where: {
       discord: "Administration, Utilisateurs et accès",
       semantic: "Administration, Index sémantique",
+      huggingface: "Administration, Traitement vocal",
       worker: "Administration, Workers",
       import: "la page Importer",
     },
@@ -488,7 +1282,14 @@ export const fr: Messages = {
       status: "État",
       url: "Adresse du service d’embeddings",
       model: "Modèle d’embeddings",
-      save: "Tester et enregistrer",
+      test: "Tester",
+      testing: "Test en cours…",
+      save: "Enregistrer",
+      notValidated: "Non validé",
+      validated: "Validé",
+      tested:
+        "Service joignable, vecteurs de {dimensions} dimensions reçus. Rien n’est encore enregistré : appuyez sur Enregistrer pour appliquer.",
+      expired: "La validation a expiré. Testez à nouveau avant d’enregistrer.",
       saved: "Réglages de la recherche sémantique enregistrés.",
       environment:
         "Cette valeur est définie par le déploiement et reste prioritaire.",
@@ -511,7 +1312,7 @@ export const fr: Messages = {
     },
     import: {
       title: "Importez vos premières vidéos",
-      lead: "Envoyez des clips depuis le navigateur ; un transfert interrompu peut être repris.",
+      lead: "Envoyez des clips depuis le navigateur, ou indexez toutes les vidéos déjà présentes dans votre racine vidéo. Un transfert interrompu peut être repris.",
       nothing:
         "Rien n’est scanné ni traité sans votre demande. Vous pourrez importer des vidéos plus tard depuis la page Importer.",
     },
@@ -537,6 +1338,29 @@ export const fr: Messages = {
     tabsLabel: "Paramètres du compte",
     tabs: { profile: "Profil", voice: "Ma voix" },
     profile: {
+      displayName: "Pseudo affiché",
+      displayNameHint: "Le nom affiché dans votre profil et le menu du compte.",
+      loginHint:
+        "Cet identifiant permet de vous connecter avec un mot de passe. 3 à 64 caractères.",
+      identitySaved: "Profil enregistré.",
+      saveIdentity: "Enregistrer le profil",
+      saving: "Enregistrement…",
+      securityTitle: "Mot de passe et connexion",
+      passwordHint:
+        "Saisissez votre mot de passe actuel pour en choisir un nouveau. Les autres sessions seront fermées.",
+      firstPasswordHint:
+        "Ajoutez un mot de passe pour vous connecter sans Discord. Vous pourrez ensuite délier Discord si vous le souhaitez.",
+      currentPassword: "Mot de passe actuel",
+      newPassword: "Nouveau mot de passe",
+      confirmPassword: "Confirmer le nouveau mot de passe",
+      passwordLength:
+        "12 à 256 caractères. Vous pouvez coller un mot de passe ou utiliser votre gestionnaire.",
+      passwordMismatch: "Les mots de passe ne correspondent pas.",
+      passwordSaved:
+        "Mot de passe enregistré. Les autres sessions ont été fermées.",
+      changePassword: "Changer le mot de passe",
+      setPassword: "Créer un mot de passe",
+
       identityTitle: "Compte",
       username: "Nom d’utilisateur",
       role: "Rôle",
@@ -545,6 +1369,23 @@ export const fr: Messages = {
         "Liez votre identité Discord à ce compte pour pouvoir vous connecter avec Discord. Le lien se fait avec ce compte uniquement, jamais par correspondance de pseudo. Cette action ouvre Discord.",
       discordLink: "Lier Discord",
       discordLinking: "Ouverture de Discord…",
+      discordBadgeLinked: "Lié",
+      discordBadgeNotLinked: "Non lié",
+      discordIdentity: "Compte Discord : {name}",
+      discordLinkedNoName: "Discord est lié à ce compte.",
+      discordLinkFailedState:
+        "Discord n’a pas été lié. Votre compte est inchangé.",
+      discordUnlinkFailedState:
+        "Discord est toujours lié : la déliaison a échoué.",
+      discordUnlink: "Délier Discord",
+      discordUnlinkConfirmTitle: "Délier Discord ?",
+      discordUnlinkConfirmBody:
+        "Vous ne pourrez plus vous connecter à ce compte avec Discord. Votre compte Snitch et vos clips seront conservés.",
+      discordUnlinkConfirm: "Délier Discord",
+      discordUnlinking: "Déliaison…",
+      discordUnlinkBlocked:
+        "Définissez un mot de passe local avant de délier Discord. C’est votre seul moyen de connexion actuellement.",
+      discordUnlinked: "Discord a été délié.",
       discordDisabled:
         "La connexion Discord n’est pas activée sur cette instance. Un administrateur peut l’activer.",
       preferencesTitle: "Préférences",
@@ -560,6 +1401,24 @@ export const fr: Messages = {
         hint: "L’image sera recadrée au centre en carré.",
         remove: "Retirer la photo",
         updated: "Photo de profil mise à jour.",
+        refreshed: "Photo Discord actualisée.",
+        working: "En cours…",
+        current: "Affichée : {source}.",
+        sourceLegend: "Source de la photo",
+        sourceDiscord: "votre photo Discord",
+        sourceCustom: "votre propre photo",
+        sourceNone: "vos initiales",
+        optionDiscord: "Discord",
+        optionCustom: "Ma photo",
+        autoOn: "La synchronisation automatique avec Discord est activée.",
+        autoOff: "La synchronisation automatique est désactivée.",
+        refresh: "Actualiser la photo Discord",
+        noBot:
+          "Un administrateur n’a pas encore connecté le bot Discord : la photo Discord ne peut pas être récupérée.",
+        noDiscordPicture:
+          "Pas encore de photo Discord : vos initiales s’affichent.",
+        customWins:
+          "Une photo importée est toujours prioritaire : Discord ne la remplace jamais. Choisissez Discord pour y revenir.",
         tooLarge: "La limite est de 5 Mo.",
         failed:
           "Impossible de modifier la photo. Choisissez une image JPEG ou PNG (5 Mo et 16 mégapixels maximum).",
@@ -570,26 +1429,68 @@ export const fr: Messages = {
       loading: "Chargement de votre voix…",
       noPersonTitle: "Pas de profil vocal",
       noPerson:
-        "Aucune Personne n’est liée à votre compte : Snitch ne détient donc aucun profil vocal à votre nom. Un administrateur lie une Personne à un compte.",
+        "Aucune Personne n’est encore liée à votre compte. Vous pouvez demander à lier votre compte à une Personne existante ; un administrateur approuve ou refuse la demande.",
       identity: "Vous êtes la Personne {name}.",
-      samples:
-        "{count} échantillon(s) vocal(aux) validé(s) servent de référence pour votre voix.",
       deleted:
         "Votre profil vocal est supprimé : Snitch ne vous reconnaît plus.",
-      clipsTitle: "Clips où vous êtes identifié(e)",
-      clipsLabel: "Mes clips",
-      noClips: "Aucun clip visible pour vous.",
+      countsLabel: "Ma voix en chiffres",
+      countSamples: "Échantillons vocaux validés",
+      countVoices: "Voix",
+      countClips: "Clips",
+      clipsLink: "Voir mes clips",
+      clipsHint: "Les clips où vous êtes identifié(e), dans la bibliothèque.",
+      impactFailed:
+        "Les chiffres de ce qui serait effacé n’ont pas pu être lus : la suppression est indisponible pour le moment. Rechargez la page pour réessayer.",
       deleteTitle: "Supprimer mon profil vocal",
       deleteEffects:
-        "Supprimer votre profil vocal efface vos échantillons vocaux validés, vos empreintes vocales et toutes les attributions faites à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
+        "Supprimer votre profil vocal efface {samples} échantillon(s) vocal(aux) validé(s), {fingerprints} empreinte(s) vocale(s) et {attributions} attribution(s) faite(s) à votre nom. Vos voix redeviennent inconnues et plus personne ne peut vous attribuer une voix ensuite. Vos clips restent en place. Cette action est définitive.",
       deleteButton: "Supprimer mon profil vocal",
       confirmTitle: "Supprimer votre profil vocal ?",
       confirmBody:
-        "Vos échantillons, vos empreintes et vos attributions seront effacés, et vos voix redeviendront inconnues. Vos clips restent en place. Cette action est définitive.",
+        "Cela efface {samples} échantillon(s) vocal(aux) validé(s), {fingerprints} empreinte(s) vocale(s) et {attributions} attribution(s). Vos voix redeviennent inconnues. Vos clips restent en place. Cette action est définitive.",
       confirm: "Supprimer mon profil vocal",
       deleting: "Suppression…",
       keep: "Garder mon profil",
       done: "Profil vocal supprimé : {samples} échantillon(s), {fingerprints} empreinte(s) et {attributions} attribution(s) effacé(s).",
+      linkTitle: "Lier mon compte à une Personne",
+      linkSearch: "Rechercher une Personne",
+      linkSearching: "Recherche…",
+      linkNoMatches: "Aucune Personne ne correspond à cette recherche.",
+      linkMore:
+        "{shown} Personnes affichées sur {total}. Tapez davantage du nom pour affiner la recherche.",
+      linkMessage: "Message (facultatif)",
+      linkMessageHint:
+        "Expliquez à l’administrateur pourquoi cette Personne est bien vous.",
+      linkButton: "Demander la liaison",
+      linkRequesting: "Envoi…",
+      linkPending:
+        "Votre demande pour {name} attend la décision d’un administrateur.",
+      progressLabel: "Avancement de votre demande",
+      stepSent: "Demande envoyée",
+      stepReview: "Validation par un administrateur",
+      stepIdentified: "Voix identifiée",
+      stepDone: "terminée",
+      stepCurrent: "en cours",
+      stepTodo: "à venir",
+      linkCancel: "Annuler la demande",
+      linkCancelling: "Annulation…",
+      linkCancelled: "Demande annulée.",
+      linkRefused:
+        "Votre demande pour {name} a été refusée par un administrateur. Rien n’a été lié. Vous pouvez en refaire une, pour cette Personne ou une autre.",
+      unlinkTitle: "Délier mon compte de cette Personne",
+      unlinkBody:
+        "Le déliement retire uniquement l’association. La Personne, ses voix et ses clips ne sont pas supprimés. Vous perdez les chiffres de cet onglet et la suppression du profil vocal ; un administrateur peut lier un autre compte.",
+      unlinkButton: "Délier mon compte de cette Personne",
+      unlinking: "Déliement…",
+      unlinkConfirmTitle: "Délier {name} ?",
+      unlinkLoseTitle: "Ce que vous perdez",
+      unlinkLose:
+        "Votre compte ne sera plus la Personne {name} : plus de chiffres ni de clips « Ma voix » ici, et plus le droit de supprimer vous-même le profil vocal.",
+      unlinkKeepTitle: "Ce qui reste",
+      unlinkKeep:
+        "La Personne {name}, ses {voices} voix et vos {clips} clip(s) ne sont pas supprimés, ni les attributions.",
+      unlinkConfirm: "Délier",
+      unlinked: "Compte délié.",
     },
   },
   pages: {
@@ -618,7 +1519,7 @@ export const fr: Messages = {
     subTabsLabel: "Sous-sections",
     tabs: {
       workers: "Workers",
-      queue: "File de tâches",
+      workerUpdates: "Mises à jour",
       folders: "Dossiers",
       transcription: "Transcription",
       voice: "Traitement vocal",
@@ -631,7 +1532,118 @@ export const fr: Messages = {
       vocabulary: "Vocabulaire",
       members: "Membres",
       signups: "Inscriptions",
+      personLinks: "Demandes de liaison",
     },
+  },
+  renderFailure: {
+    message:
+      "Cet écran n’a pas pu s’afficher. Rechargez la page ; si cela persiste, signalez le message ci-dessous.",
+  },
+  workerUpdates: {
+    title: "Mises à jour des Workers",
+    lead: "Choisissez la version que chaque Worker doit faire tourner. Chaque Worker vérifie environ toutes les 10 minutes et se met à jour lui-même. Ne choisir aucune version désactive les mises à jour automatiques ; revenir à une version plus ancienne est un retour arrière.",
+    strategyLegend: "Stratégie de mise à jour",
+    strategy: {
+      pinned: "Version fixe (pinned)",
+      latest: "Dernière version — mises à jour automatiques",
+    },
+    latestHelp:
+      "Snitch suit la dernière version stable publiée du Worker et l’applique seule dès qu’une nouvelle apparaît. Jamais de retour en arrière automatique ; un Worker occupé attend la fin de ses jobs, et une version qui échoue est restaurée puis ignorée pendant 24 h.",
+    latestDetected: "Dernière version stable détectée",
+    effectiveVersion: "Version appliquée aux Workers",
+    lastCheck: "Dernière vérification",
+    neverChecked: "pas encore",
+    checkFailed:
+      "La dernière vérification du registre a échoué ; la dernière version valide est conservée.",
+    disabledHelp: "Aucune mise à jour automatique.",
+    targetLabel: "Version cible",
+    none: "Aucune version (mises à jour automatiques désactivées)",
+    save: "Enregistrer la version cible",
+    saved: "Version cible enregistrée.",
+    imageLabel: "Image transmise aux Workers",
+    catalogUnavailable:
+      "La liste des versions publiées est indisponible. Saisissez la version à la main, par exemple v1.2.3.",
+    manualLabel: "Version (vX.Y.Z)",
+    noVersions:
+      "Aucune version n’est encore publiée. Saisissez une version à la main dès qu’une existe.",
+    compatibility:
+      "Vérifiez que cette version fonctionne avec la version de Snitch que vous faites tourner. Snitch ne bloque pas une version.",
+    empty: "Aucun Worker pour l’instant.",
+    columns: {
+      name: "Worker",
+      state: "Dernier rapport",
+      version: "Version",
+      reported: "Rapporté",
+    },
+    states: {
+      none: "Aucun rapport",
+      idle: "À jour",
+      pulling: "Téléchargement",
+      restarting: "Redémarrage",
+      updated: "Mis à jour",
+      rolled_back: "Restauré",
+      failed: "Échec",
+    },
+    causes: {
+      image_pull_failed: "L’image n’a pas pu être téléchargée.",
+      digest_unknown:
+        "L’empreinte de l’image est inconnue ; elle n’a pas été lancée.",
+      target_mismatch: "La cible n’est pas une image du dépôt de ce Worker.",
+      unhealthy:
+        "La nouvelle version a redémarré ou s’est arrêtée ; la précédente a été restaurée.",
+      rollback_failed:
+        "La nouvelle version a échoué et la précédente ne démarre pas. Vérifiez le Worker.",
+    },
+  },
+  libraryIndex: {
+    title: "Indexer toute la racine vidéo",
+    lead: "Donnez à chaque vidéo de la racine sa fiche clip en une seule action, sans ouvrir les dossiers un par un. Les vidéos qui ont déjà un clip ne sont jamais retraitées. Rien ne démarre sans votre confirmation, et le travail continue si vous quittez cette page.",
+    modeLegend: "Ce qu’il faut créer",
+    mode: {
+      cards: "Fiches clip seulement",
+      full: "Fiches clip et analyse complète",
+    },
+    modeHelp: {
+      cards:
+        "Chaque vidéo reçoit sa fiche et peut être ouverte et recherchée par son nom. Aucune transcription ni analyse des voix n’est lancée.",
+      full: "Chaque nouveau clip est aussi transcrit, indexé pour la recherche et analysé pour ses voix via la file de tâches. Les étapes qui demandent un Worker attendent avec leur raison qu’un Worker soit prêt.",
+    },
+    start: "Indexer les vidéos…",
+    confirmTitle: "Indexer la racine vidéo ?",
+    estimate:
+      "{detected} vidéos détectées : {known} ont déjà un clip et restent intactes, {fresh} sont nouvelles.",
+    safety:
+      "Les dossiers privés et cachés ne sont pas touchés sans le droit de les voir. Vous pouvez mettre en pause ou annuler à tout moment ; les clips déjà créés sont conservés.",
+    confirm: "Indexer {count} vidéos",
+    status: {
+      running: "En cours",
+      paused: "En pause",
+      completed: "Terminée",
+      cancelled: "Annulée",
+    },
+    progress: "{done} / {total} vidéos indexées",
+    progressLabel: "Progression de l’indexation",
+    analysisStarted: "{count} analyses mises en file pour l’instant.",
+    waitingForWorker:
+      "Aucun Worker n’est en ligne : les vidéos attendent et reprennent seules dès qu’un Worker se connecte.",
+    failures: "{count} vidéos n’ont pas pu être indexées",
+    failuresTitle: "Vidéos en erreur",
+    failureCode: {
+      missing: "le fichier a disparu",
+      unreadable: "le fichier est illisible",
+      video_missing: "le fichier a disparu",
+      video_unreadable: "le fichier est illisible",
+      transcription_scheduling_failed:
+        "la transcription n’a pas encore pu être planifiée",
+      other: "l’indexation a échoué",
+    },
+    pause: "Mettre en pause",
+    resume: "Reprendre",
+    cancel: "Annuler l’indexation",
+    keep: "Continuer",
+    cancelTitle: "Annuler l’indexation ?",
+    cancelBody:
+      "Les vidéos pas encore indexées ne sont plus demandées. Les clips déjà créés sont conservés.",
   },
   workers: {
     machine: {
@@ -657,16 +1669,178 @@ export const fr: Messages = {
     open: "Ouvrir {name}",
     columns: {
       name: "Nom",
-      status: "État",
+      status: "Connexion",
       lastPulse: "Dernier pouls",
       models: "Modèles",
     },
+    connection: {
+      hint: "Connexion : le Worker a-t-il envoyé un pouls dans les 30 dernières secondes. Elle est indépendante de l’installation, qui reste terminée une fois le premier pouls reçu.",
+    },
+    diagnostics: {
+      title: "Connexion et reprise",
+      open: "Diagnostiquer / Reconnecter",
+      offlineLead:
+        "Ce Worker est installé mais actuellement hors ligne. Ouvrez le diagnostic pour des pistes et des commandes locales.",
+      claimStalledLead:
+        "Ce Worker est en ligne et libre, mais ne demande plus de tâches depuis plus de 2 minutes. Ouvrez le diagnostic : ses journaux (événements claim_poll_failed) indiquent l’étape qui échoue ; en dernier recours, redémarrez-le.",
+      lastPulse: "Dernier pouls",
+      installation: "Installation",
+      noRemote:
+        "Snitch ne peut pas redémarrer cette machine à distance : aucun superviseur local n’est connecté. Lancez les commandes ci-dessous sur la machine du Worker.",
+      hints: "À vérifier",
+      hint: {
+        docker_daemon: "Le démon Docker ne tourne pas sur la machine.",
+        wsl_stopped:
+          "WSL2 (ou Docker Desktop) est arrêté ou la machine est en veille.",
+        container_stopped:
+          "Le conteneur du Worker s’est arrêté : vérifiez docker ps -a et ses journaux.",
+        presence_thread:
+          "Le Worker tourne mais son fil de présence a planté : redémarrez le conteneur.",
+        token_rejected:
+          "Snitch refuse le jeton du Worker (révoqué ou remplacé) : régénérez le jeton sur cette page.",
+        unreachable:
+          "Snitch ou le serveur de transcription est injoignable depuis la machine.",
+        installer_missing:
+          "Le lanceur est absent de la machine : refaites l’installation du Worker (générez une nouvelle commande depuis cette page si l’ancienne était à usage unique).",
+        no_pulse_after_restart:
+          "Après un redémarrage, comptez environ 30 secondes avant le prochain pouls.",
+      },
+      commands: "Commandes locales",
+      commandsLead:
+        "À lancer sur la machine du Worker. Elles ne contiennent aucun jeton et conservent l’identité du Worker.",
+      restart: "Redémarrer le conteneur",
+      restartHint: "Option légère pour un incident temporaire.",
+      logs: "Lire les derniers journaux",
+      logsHint: "Pour voir pourquoi le Worker ne répond plus.",
+      launcher: "Relancer le lanceur",
+      launcherHint: "Plus invasif : il peut recréer le conteneur.",
+      copy: "Copier la commande : {command}",
+      copyShort: "Copier",
+      copied: "Copié",
+      copyFailed:
+        "La copie n’est pas disponible ici : sélectionnez la commande et copiez-la.",
+      waiting:
+        "En attente d’un nouveau pouls. Snitch n’a rien redémarré ; le Worker n’est affiché de retour en ligne qu’à son prochain pouls.",
+      returned:
+        "Le Worker est de nouveau en ligne : nouveau pouls reçu {date}.",
+    },
     status: {
       online: "En ligne",
+      notClaiming: "En ligne, ne réclame plus de tâches",
       offline: "Hors ligne",
       revoked: "Révoqué",
     },
     never: "Jamais",
+    install: {
+      title: "Installation",
+      column: "Installation",
+      state: {
+        installing: "Installation en cours",
+        connected: "Terminée",
+        voice_ready: "Voix prête",
+        failed: "Échec",
+        never_connected: "Jamais connecté",
+      },
+      stateHint: {
+        installing: "En attente du premier pouls du Worker.",
+        connected:
+          "Installation terminée : le premier pouls a été reçu. Cela ne dit pas si le Worker est joignable maintenant.",
+        voice_ready: "Le Worker a réussi un test vocal synthétique.",
+        failed:
+          "L’installation s’est arrêtée à une étape. Voir l’action de reprise ci-dessous.",
+        never_connected:
+          "Aucun pouls depuis plus de 24 heures après la création. Supprimez ce Worker et générez une nouvelle commande.",
+      },
+      phase: {
+        prerequisites: "Prérequis",
+        registration: "Enregistrement",
+        image: "Image",
+        permissions: "Permissions",
+        gpu: "GPU",
+        "voice-models": "Modèles vocaux",
+        "voice-test": "Test vocal",
+        service: "Service",
+      },
+      status: {
+        started: "démarré",
+        succeeded: "réussi",
+        failed: "échec",
+      },
+      cause: {
+        unsupported_platform: "Système non pris en charge",
+        docker_unavailable: "Docker indisponible",
+        registration_rejected: "Jeton refusé",
+        network_unreachable: "Snitch injoignable",
+        image_pull_failed: "Téléchargement de l’image impossible",
+        volume_not_writable: "Volume de modèles non inscriptible",
+        hf_cache_not_writable: "Cache Hugging Face non inscriptible",
+        gpu_unavailable: "GPU inaccessible à Docker",
+        service_start_failed: "Le service ne démarre pas",
+        hf_access_denied: "Accès Hugging Face refusé",
+        hf_token_invalid: "Jeton Hugging Face refusé",
+        hf_gated_denied: "Conditions du modèle non acceptées",
+        hf_repo_invalid: "Dépôt de modèle introuvable",
+        unknown: "Cause inconnue",
+      },
+      recovery: {
+        unsupported_platform: "Lancez la commande sur une machine Linux.",
+        docker_unavailable:
+          "Installez et démarrez Docker Engine, donnez accès à cet utilisateur, puis relancez la commande.",
+        registration_rejected:
+          "Générez une nouvelle commande d’installation : ce jeton a été révoqué ou remplacé.",
+        network_unreachable:
+          "Vérifiez le réseau et l’adresse de Snitch depuis la machine, puis relancez la commande.",
+        image_pull_failed:
+          "Vérifiez le réseau et l’accès au registre, puis relancez la commande.",
+        volume_not_writable:
+          "Vérifiez les droits du stockage Docker pour l’UID 10001, puis relancez la commande.",
+        hf_cache_not_writable:
+          "Supprimez le volume de modèles seulement s’il ne contient aucun modèle utile, puis relancez la commande.",
+        gpu_unavailable:
+          "Installez NVIDIA Container Toolkit pour Docker, redémarrez Docker, puis relancez la commande.",
+        service_start_failed:
+          "Consultez les journaux Docker sur la machine, puis relancez la commande.",
+        hf_access_denied:
+          "Vérifiez le jeton Hugging Face et les conditions du modèle, puis relancez la commande. La transcription n’est pas touchée.",
+        hf_token_invalid:
+          "Vérifiez le jeton Hugging Face (accès en lecture), puis relancez la commande. La transcription n’est pas touchée.",
+        hf_gated_denied:
+          "Acceptez les conditions des deux modèles avec le compte du jeton, puis relancez la commande. La transcription n’est pas touchée.",
+        hf_repo_invalid:
+          "Signalez-le à votre administrateur : un dépôt ou une révision de modèle est introuvable. La transcription n’est pas touchée.",
+        unknown:
+          "Consultez la sortie du terminal sur la machine, puis relancez la commande.",
+      },
+      failedAt: "Échec à l’étape {phase} : {cause}",
+      recovery_label: "Action de reprise",
+      lastEvent: "Dernier événement",
+      lastEventValue: "{phase}, {status}",
+      occurredAt: "survenu {date}",
+      receivedLater: "reçu plus tard",
+      noEvent: "Aucun événement d’installation reçu pour l’instant.",
+      noNews: "Pas de nouvelles depuis {date}",
+      noNewsNever: "Pas de nouvelles depuis la création du Worker",
+      newsOk: "Des nouvelles ont été reçues récemment",
+      news: "Nouvelles",
+      history: "Historique des événements",
+      transcription: "Transcription",
+      transcriptionState: {
+        active: "Configuration active",
+        error: "Test de configuration en échec",
+        waiting: "Pas encore validée (cela ne bloque pas l’installation)",
+      },
+      transcriptionError: {
+        connection_failed:
+          "Le Worker ne joint pas le service de transcription.",
+        model_missing: "Le modèle de transcription est absent.",
+      },
+      voice: "Voix",
+      voiceState: {
+        ready: "Prête (inférence synthétique réussie)",
+        unavailable: "Indisponible : {cause}",
+        pending: "Pas encore prête (aucun test synthétique réussi)",
+      },
+    },
     notDeclared: "Non déclaré",
     models: {
       transcription: "Transcription",
@@ -703,42 +1877,73 @@ export const fr: Messages = {
       },
       models: "Modèles utilisés",
       modelsNone: "Non déclarés. Démarrez le Worker pour voir ses modèles.",
+      oneCommand: "Installation en une commande",
+      oneCommandLead:
+        "La commande en une ligne s’affiche une seule fois, à la création ou au remplacement d’un Worker. Elle n’est plus affichée ensuite : elle contient une invitation à usage unique, jamais le jeton du Worker.",
+      alreadyInstalledTitle: "Cette machine est déjà installée",
+      alreadyInstalledBody:
+        "Relancez le lanceur local sur la machine du Worker. Il réutilise l’identité du Worker et ne demande aucune nouvelle commande. Si le lanceur est absent, générez une nouvelle commande ci-dessous.",
+      newMachineTitle: "Nouvelle machine, ou lanceur perdu",
+      newMachineBody:
+        "Générez une nouvelle commande d’installation. Cela remplace le Worker par une nouvelle identité ; l’actuelle est révoquée.",
       deployment: "Fichiers de déploiement",
       deploymentLead:
         "Placez les deux fichiers dans un même dossier de la machine, puis lancez docker compose up -d.",
       tokenHidden:
         "Le jeton n’est jamais réaffiché. Les fichiers ci-dessous contiennent un emplacement : générez un nouveau jeton pour obtenir des fichiers utilisables.",
-      regenerate: "Générer un nouveau jeton…",
-      regenerateTitle: "Générer un nouveau jeton ?",
+      regenerate: "Jeton perdu : remplacer ce Worker…",
+      regenerateTitle: "Remplacer ce Worker ?",
       regenerateBody:
-        "Le jeton actuel cesse de fonctionner immédiatement. Vous devrez poser les nouveaux fichiers sur la machine du Worker.",
-      regenerateConfirm: "Générer",
+        "Un jeton perdu est irrécupérable. Ce Worker est révoqué maintenant (ses tâches en cours reviennent dans la file, son historique est supprimé) et un nouveau Worker, avec une nouvelle identité et une commande d’installation à usage unique, est créé.",
+      regenerateConfirm: "Remplacer",
+      replacedTitle: "Worker de remplacement",
+      openReplacement: "Ouvrir le nouveau Worker",
       newToken:
-        "Nouveau jeton généré. Copiez les fichiers maintenant : le jeton ne sera plus affiché.",
-      revoke: "Révocation",
+        "Nouveau Worker créé. Copiez la commande maintenant : elle ne fonctionne qu’une fois et ne sera plus affichée.",
+      revoke: "Suppression",
       revokeBody:
-        "Un Worker révoqué ne peut plus prendre de tâches. Son historique est conservé.",
-      revokeButton: "Révoquer ce Worker…",
-      revokeTitle: "Révoquer {name} ?",
-      revokeConfirm: "Révoquer",
+        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Quand le Worker détecte la suppression, il efface lui-même ses modèles et caches de son volume et cesse de contacter Snitch. Le volume Docker vide, le conteneur inactif et le dossier du lanceur restent sur sa machine : le conteneur ne peut pas les supprimer.",
+      revokeButton: "Supprimer ce Worker…",
+      revokeTitle: "Supprimer {name} ?",
+      revokeConfirm: "Supprimer",
       revokeConfirmBody:
-        "Ce Worker cessera de recevoir des tâches. Cette action est irréversible.",
+        "L’accès est révoqué immédiatement et ne peut pas être réactivé. À son prochain contact avec Snitch, le Worker efface lui-même ses modèles et caches puis devient inactif, sans commande à relancer. Il ne peut pas supprimer le volume Docker vide, son propre conteneur ni le dossier du lanceur : retirez-les sur la machine si vous le souhaitez. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’à son retour.",
+      revokeReason: "Motif (facultatif)",
       revokedNotice:
-        "Ce Worker a été révoqué le {date}. Il ne peut plus prendre de tâches.",
+        "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
+      revokedReason: "Motif : {reason}",
+      forget: "Retirer de la liste",
+      forgetBody:
+        "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
+      forgetUnconfirmedBody:
+        "Le nettoyage local n’a pas été confirmé : la machine n’a jamais confirmé la révocation. Le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur cette machine. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
+      forgetTitle: "Retirer {name} de la liste ?",
+      forgetConfirm: "Retirer",
+      cleanupPending:
+        "Nettoyage local en attente : le Worker n’a pas encore confirmé la révocation. Il effacera lui-même ses modèles et caches à son prochain contact avec Snitch.",
+      cleanupDone:
+        "La machine du Worker a confirmé la révocation le {date}. Un Worker en marche efface alors lui-même ses modèles et caches de son volume et cesse de contacter Snitch ; si seul le lanceur a confirmé, il a supprimé le conteneur et le volume garde son contenu. Hors de portée du conteneur, le volume Docker, le conteneur inactif (s’il n’a pas été supprimé) et le dossier du lanceur restent sur cette machine.",
     },
     create: {
       title: "Ajouter un Worker",
-      lead: "Indiquez à Snitch où ce Worker trouve son serveur Whisper. Snitch écrit les fichiers de déploiement pour sa machine.",
+      lead: "Snitch renseigne la connexion et les réglages de la bibliothèque. Créez un Worker, puis copiez une seule commande d’installation.",
       name: "Nom du Worker",
       nameHint:
         "1 à 64 caractères. Lettres, chiffres, espaces, points, tirets et soulignés.",
       snitch: "Adresse de Snitch",
-      snitchHint: "Renseignée par Snitch : l’adresse que le Worker appellera.",
+      snitchHint:
+        "Renseignée par Snitch depuis l’adresse avec laquelle vous l’avez ouvert.",
       insecure:
-        "Cette adresse n’est pas en HTTPS et le Worker refuse le HTTP. Ouvrez Snitch en HTTPS, ou corrigez SNITCH_API_URL dans le fichier .env.",
+        "Cette adresse n’est pas en HTTPS. Sans votre choix explicite ci-dessous, Snitch ne génère pas de commande d’installation. Configurez l’adresse publique dans le déploiement du serveur Snitch.",
+      allowInsecure:
+        "Autoriser une commande d’installation en HTTP non chiffré (réseau local de confiance uniquement)",
+      allowInsecureWarning:
+        "Attention : en HTTP, le script, le jeton du Worker et la référence de l’image circulent sans chiffrement. Toute personne sur le chemin réseau peut les lire ou les modifier. Activez ceci uniquement sur un réseau de confiance.",
+      insecureUnavailable:
+        "Aucune commande d’installation n’a été générée car l’adresse n’est pas en HTTPS. Cochez l’option HTTP non chiffré et créez de nouveau le Worker.",
       whisper: "Adresse du serveur Whisper",
       whisperHint:
-        "Tout serveur qui répond à POST /v1/audio/transcriptions. Sur le PC de jeu lui-même : http://host.docker.internal:8000",
+        "Réglée dans Administration, Transcription. Cette adresse doit être accessible depuis la machine du Worker.",
       model: "Nom du modèle Whisper",
       modelHint:
         "Le modèle de toute la bibliothèque. Le premier Worker le fixe ; vous pourrez le changer ensuite dans Administration, Transcription.",
@@ -746,27 +1951,51 @@ export const fr: Messages = {
       languageHint: "Une seule langue pour toute la bibliothèque.",
       libraryModel: "Modèle de la bibliothèque",
       libraryModelHint:
-        "Fixé à la création du premier Worker, partagé par tous les Workers. À changer dans Administration, Transcription.",
-      hf: "Jeton Hugging Face",
-      hfHint:
-        "Acceptez d’abord les conditions de pyannote sur Hugging Face, puis collez un jeton en lecture seule. Il ne sert qu’à télécharger les modèles de voix au premier démarrage. Snitch ne le reçoit jamais et ne le conserve pas : il est écrit dans le fichier .env ci-dessous, dans votre navigateur.",
+        "Partagé par tous les Workers. À changer dans Administration, Transcription.",
       submit: "Créer le Worker",
       submitting: "Création…",
       cancel: "Annuler",
+      close: "Fermer",
       confirmTitle: "Utiliser ce modèle pour toute la bibliothèque ?",
       confirmBody:
         "Ce modèle et cette langue serviront à tous les futurs Workers, même avec un serveur Whisper différent. Vous pourrez les changer plus tard dans Administration, Transcription.",
       confirmBack: "Retour",
       confirmSubmit: "Confirmer et créer",
       shownOnce:
-        "Copiez les deux fichiers maintenant. Le jeton du Worker n’est affiché qu’une fois et Snitch ne pourra plus le montrer.",
+        "Copiez maintenant la commande d’installation. Son invitation expire ; le jeton du Worker n’apparaît jamais dans l’historique du terminal.",
       secret:
-        "Le fichier .env contient le jeton du Worker et votre jeton Hugging Face : ne le partagez ni ne le versionnez jamais.",
-      hfMissing:
-        "Aucun jeton Hugging Face n’a été donné : renseignez HF_TOKEN à la main dans le fichier .env.",
+        "Le fichier .env contient le jeton du Worker : ne le partagez ni ne le versionnez jamais.",
       whisperMissing:
         "Aucune adresse Whisper n’a été donnée : renseignez TRANSCRIPTION_API_URL à la main dans le fichier .env.",
-      done: "J’ai copié les fichiers",
+      publicAddressLink: "Où modifier l’adresse publique de Snitch",
+      editTranscription: "Modifier dans Transcription",
+      transcriptionDisabled:
+        "La transcription est désactivée. Vous pouvez installer ce Worker pour d’autres tâches ; il ne recevra pas de jobs de transcription.",
+      transcriptionUnconfigured:
+        "La transcription n’est pas encore configurée. Réglez-la dans Transcription avant que ce Worker reçoive des jobs de transcription.",
+      hfTerminalHint:
+        "Les modèles vocaux sont facultatifs. Si vous les activez, l’installateur demande le jeton Hugging Face de façon masquée dans le terminal. Snitch ne le reçoit jamais.",
+      installLead:
+        "Lancez cette seule commande sur la machine Linux avec Docker. L’installateur vérifie les prérequis, prépare le stockage et démarre le Worker.",
+      installCommand: "Commande d’installation du Worker",
+      copyCommand: "Copier la commande",
+      advancedFiles: "Avancé : fichiers de déploiement",
+      done: "Terminé",
+    },
+    guide: {
+      title: "Installation en une commande",
+      whereTitle: "Où la lancer",
+      wsl: "Windows : ouvrez un terminal WSL2 (pas WSL1) où Docker est disponible, depuis votre dossier personnel Linux (pas un disque Windows comme /mnt/c), et collez la commande dedans.",
+      linux:
+        "Linux : collez-la dans un shell d’un utilisateur autorisé à lancer docker.",
+      prerequisitesTitle: "Avant de commencer",
+      docker: "Docker est installé et démarré sur cette machine.",
+      gpu: "Un GPU NVIDIA est facultatif ; sans lui, le traitement des voix est indisponible et la transcription fonctionne.",
+      network: "La machine joint Snitch à son adresse publique.",
+      models:
+        "Les modèles vocaux sont facultatifs : l’installateur peut demander, dans votre terminal seulement, s’il faut les télécharger et un jeton Hugging Face. Snitch ne reçoit jamais ce jeton, et la transcription fonctionne sans ces modèles.",
+      expired:
+        "L’invitation est à usage unique et expire au bout de 15 minutes. Si la commande indique qu’elle a expiré ou a déjà servi, générez-en une nouvelle depuis la page du Worker.",
     },
     files: {
       tabsLabel: "Fichiers de déploiement",
@@ -781,16 +2010,70 @@ export const fr: Messages = {
     },
     dialog: {
       cancel: "Annuler",
+      close: "Fermer",
     },
   },
   import: {
+    choice: {
+      serverBody:
+        "La vidéo est déjà dans la Racine vidéo. Choisissez des fichiers ou un dossier entier à analyser.",
+      computerBody:
+        "Téléversez des vidéos et choisissez le dossier où les ranger.",
+      back: "Changer de mode",
+    },
+    sections: {
+      server: "Déjà sur le serveur",
+      computer: "Depuis mon ordinateur",
+    },
+    server: {
+      title: "Choisir dans la bibliothèque",
+      close: "Fermer",
+      hint: "Cochez des vidéos ou des dossiers",
+      summary: "{items} élément(s) · {videos} vidéo(s), sous-dossiers compris",
+      analyze: "Analyser {count} vidéo(s)",
+      intro:
+        "Choisissez des vidéos déjà présentes dans la Racine vidéo. Un dossier ajoute ses vidéos, sous-dossiers compris.",
+      unconfigured: "La Racine vidéo n’est pas encore configurée.",
+      path: "Dossier courant",
+      rootName: "Racine vidéo",
+      private: "Dossier privé : seul le Super-administrateur peut l’ouvrir.",
+      select: "Sélectionner {name}",
+      clear: "Vider la sélection",
+      selected: "{count} élément(s) sélectionné(s)",
+      up: "Dossier parent",
+      empty: "Rien ici.",
+      check: "Compter les vidéos",
+      counting: "Comptage…",
+      none: "Aucune vidéo dans cette sélection.",
+      total: "{count} vidéo(s) seront ajoutées à la bibliothèque.",
+      confirm: "Ajouter {count} vidéo(s)",
+      cancel: "Annuler",
+      queued:
+        "{count} vidéo(s) ajoutée(s). Elles seront indexées puis analysées selon le réglage.",
+    },
+    folder: {
+      createIn: "Nouveau dossier dans {path}",
+      userHint:
+        "Un administrateur doit valider la création. Vous serez notifié ; en attendant, vous ne pouvez pas y téléverser.",
+      create: "Créer",
+      send: "Envoyer la demande",
+      new: "Nouveau dossier",
+      name: "Nom du dossier",
+      created: "Le dossier « {path} » a été créé.",
+      requested:
+        "Demande envoyée. Un administrateur décidera ; vous ne pouvez pas téléverser dans ce dossier d’ici là.",
+      pending: "Demande en attente",
+      cancel: "Annuler",
+      close: "Fermer",
+    },
     visibility: {
       label: "Qui peut voir ces vidéos",
       shared: "Partagées avec les membres",
       private: "Privées (vous et les administrateurs)",
     },
     drop: {
-      title: "Déposez des vidéos ici",
+      browse: "Parcourir mon ordinateur",
+      title: "Glissez des vidéos ici",
       or: "ou",
       choose: "choisissez des fichiers",
       hint: "Les envois sont découpés en parties pour reprendre après une coupure.",
@@ -822,9 +2105,27 @@ export const fr: Messages = {
     viewInLibrary: "Ouvrir la bibliothèque",
     doneAnnouncement: "« {name} » a été vérifiée et ajoutée à la bibliothèque.",
     destination: {
-      label: "Sous-dossier de destination",
+      into: "Ranger dans",
+      unset: "Aucun dossier choisi",
+      change: "Changer…",
+      close: "Fermer",
+      current: "Destination : {path}",
+      useThis: "Choisir ce dossier",
+      label: "Dossier de destination",
       root: "Racine du dossier vidéo",
-      choose: "Choisir un dossier",
+      choose: "Choisir un dossier…",
+      menu: "Choisir le dossier de destination",
+      filter: "Filtrer les dossiers",
+      path: "Chemin du dossier courant",
+      rootName: "Racine vidéo",
+      rootChosen: "Racine vidéo",
+      useRoot: "Utiliser la racine vidéo",
+      none: "Aucun dossier choisi. Rien n’est envoyé tant que vous n’en choisissez pas un.",
+      selected: "Les vidéos seront ajoutées dans {path}",
+      required:
+        "Choisissez d’abord un dossier de destination. Aucun fichier n’a été mis en file.",
+      missing:
+        "Le dossier « {path} » n’existe plus. Choisissez un autre dossier avant d’envoyer.",
       use: "Utiliser ce dossier",
       up: "Dossier parent",
       empty: "Aucun sous-dossier ici.",
@@ -841,6 +2142,73 @@ export const fr: Messages = {
     },
   },
   library: {
+    explorer: {
+      noRoot: {
+        title: "Aucune Racine vidéo n’est configurée",
+        body: "La bibliothèque apparaîtra ici une fois le dossier vidéo choisi par un administrateur.",
+        adminBody:
+          "Choisissez le dossier vidéo dans Administration › Dossiers pour parcourir la bibliothèque.",
+        action: "Ouvrir Administration › Dossiers",
+      },
+      refresh: "Actualiser",
+      loadingFolders: "Chargement des dossiers…",
+      collapse: "Replier {name}",
+      expand: "Déplier {name}",
+      tree: "Dossiers de la Racine vidéo",
+      treeFailed: "L’arborescence n’a pas pu être chargée.",
+      breadcrumb: "Fil d’Ariane",
+      searchLabel: "Rechercher dans ce dossier",
+      searchPlaceholder: "Rechercher dans ce dossier",
+      filters: "Filtres",
+      view: "Affichage",
+      list: "Liste",
+      icons: "Icônes",
+      counts: "{folders} dossier(s) · {videos} vidéo(s)",
+      root: "videos",
+      voicesToProcess: "{count} voix à traiter",
+      matchCount: "{count} correspondante(s)",
+      searchIn: "Rechercher dans {folder}",
+      indexing: "Indexation de {name}…",
+      indexFailed: "Cette vidéo n’a pas pu être indexée.",
+      emptyFolder: "Ce dossier est vide",
+      emptyFolderBody:
+        "Les vidéos et sous-dossiers de la Racine vidéo apparaîtront ici.",
+      listCaption: "Vidéos et dossiers",
+      columns: {
+        name: "Nom",
+        folder: "Dossier",
+        state: "État",
+        duration: "Durée",
+        owner: "Propriétaire",
+        added: "Ajouté le",
+        size: "Taille",
+        voices: "Voix à traiter",
+        actions: "Actions",
+      },
+      state: {
+        not_indexed: "Non indexée",
+        in_progress: "En cours",
+        not_analyzed: "Non analysée",
+        transcribed: "Transcrite",
+        analyzed: "Analysée",
+        failed: "Échec",
+      },
+      folderMenu: "Actions du dossier {name}",
+      analyseUnanalysed: "Analyser les vidéos non analysées",
+      makePrivate: "Rendre privé",
+      makeShared: "Rendre partagé",
+      analysisTitle: "Analyser les vidéos non analysées de {name} ?",
+      analysisConfirm: "Analyser {count} vidéos",
+      analysisNone: "Aucune vidéo non analysée dans ce dossier.",
+      analysisBody: "{count} vidéos seront mises en file d’analyse.",
+      analysisIndexFirst:
+        "Les vidéos non indexées ({count}) sont d’abord indexées, puis analysées.",
+      analysisFailed: "Impossible de préparer l’analyse.",
+      analysisQueued: "{count} analyses demandées.",
+      analysisPending:
+        "{count} analyses demandées, {pending} vidéos sont encore en cours d'indexation : réessayez dans un instant.",
+      analysisPartial: "{count} analyses demandées, {failed} refusées.",
+    },
     deletedOwner: "Utilisateur supprimé",
     count: "{count} clips",
     countOne: "1 clip",
@@ -865,6 +2233,16 @@ export const fr: Messages = {
       state: "État",
       any: "Tous",
       unknownVoices: "Voix inconnues",
+      voices: "Voix",
+      voicesPending: "Avec des voix à traiter",
+      stage: "Traitement",
+      stages: {
+        all: "Toutes les vidéos",
+        indexed: "Indexées",
+        transcribed: "Transcrites",
+        voices: "Voix traitées",
+        complete: "Analyse complète",
+      },
       clear: "Effacer les filtres",
     },
     state: {
@@ -876,12 +2254,51 @@ export const fr: Messages = {
     card: {
       open: "Ouvrir le clip {name}",
       by: "par {owner}",
+      id: "ID",
+      copyId: "Copier l'identifiant",
+      visibility: {
+        shared: "Partagé",
+        private: "Privé",
+      },
+      deleteClip: "Supprimer définitivement",
+      deleteTitle: "Supprimer définitivement cette vidéo ?",
+      deleteBody:
+        "Toutes les copies indexées de la vidéo seront supprimées du disque, ainsi que les données et corrections du clip. Cette action est irréversible.",
+      deleteError:
+        "La suppression a échoué ou est incomplète. Vérifiez les fichiers et les permissions, puis réessayez.",
+      changeVisibility: "Changer la visibilité",
+      confirmVisibilityChange: "Confirmer le changement de visibilité ?",
+      confirmMakeShared:
+        "Ce clip deviendra visible par tous les membres du workspace.",
+      confirmMakePrivate: "Ce clip ne sera visible que par vous.",
+      confirmShared: "Confirmer — Partagé",
+      confirmPrivate: "Confirmer — Privé",
     },
     pagination: {
       label: "Pages de la bibliothèque",
       previous: "Page précédente",
       next: "Page suivante",
       position: "Page {page} sur {pages}",
+    },
+    folderNavigation: "Navigation par dossiers",
+    folders: "Dossiers",
+    parentFolder: "Dossier parent",
+    privateFolder: {
+      label: "(dossier privé)",
+      lockedHint:
+        "Dossier privé : seul le Super-administrateur peut parcourir ses clips.",
+      makePrivate: "Rendre le dossier {name} privé",
+      makeVisible: "Rendre le dossier {name} visible",
+      makePrivateTitle: "Rendre le dossier {name} privé ?",
+      makeVisibleTitle: "Rendre le dossier {name} visible ?",
+      makePrivateBody:
+        "Les autres utilisateurs verront toujours le nom du dossier avec un cadenas, mais ne pourront plus le parcourir ni ouvrir ses clips, que ce soit dans la bibliothèque, la recherche ou tout autre écran. Un clip reste visible pour son propriétaire, et pour ceux avec qui il est partagé s’il se trouve aussi dans un autre dossier visible ou a été déposé directement.",
+      makeVisibleBody:
+        "Les utilisateurs pourront de nouveau parcourir ce dossier et ouvrir ses clips, selon la visibilité propre à chaque clip.",
+      distinctFromClip:
+        "Ce réglage est distinct de la visibilité de chaque clip (partagé ou privé), qu’il ne modifie pas.",
+      confirmPrivate: "Rendre privé",
+      confirmVisible: "Rendre visible",
     },
   },
   search: {
@@ -931,6 +2348,24 @@ export const fr: Messages = {
   clip: {
     back: "Bibliothèque",
     backToSearch: "Résultats de recherche",
+    nav: {
+      label: "Parcourir les clips",
+      position: "{index} / {total}",
+      previous: "Clip précédent : {name}",
+      next: "Clip suivant : {name}",
+      first: "Premier clip de la liste",
+      last: "Dernier clip de la liste",
+      hide: "Masquer les clips",
+      show: "Afficher les clips",
+      announce: "Clip {index} sur {total} : {name}",
+      searchLabel: "résultats pour « {q} »",
+      at: "à {time}",
+      passages: "{count} passages trouvés",
+      autoNext: "Enchaîner à la fin",
+      countdown: "Clip suivant dans {seconds} s",
+      playNow: "Lire maintenant",
+      cancel: "Annuler",
+    },
     loading: "Chargement du clip…",
     videoLabel: "Vidéo du clip",
     videoFailed: "La vidéo ne peut pas être lue ici.",
@@ -939,7 +2374,9 @@ export const fr: Messages = {
       sources: "Source : {sources}",
       shared: "Partagé",
       private: "Privé",
+      file: "Fichier : {name}",
     },
+    neverAnalysed: "Ce clip n’a jamais été analysé.",
     progress: {
       label: "Avancement du clip",
       imported: "Importé",
@@ -952,6 +2389,7 @@ export const fr: Messages = {
         none: "Pas commencé",
         queued: "En attente",
         running: "En cours",
+        blocked: "Bloqué",
         done: "Terminé",
         failed: "Échec",
         unavailable: "Non configuré",
@@ -963,6 +2401,7 @@ export const fr: Messages = {
       transcript: "Transcription",
       voices: "Voix",
       history: "Historique",
+      todo: "{count} à traiter",
     },
     transcript: {
       empty: "Ce clip n’a pas encore de transcription.",
@@ -981,9 +2420,22 @@ export const fr: Messages = {
     },
     voices: {
       empty: "Aucune voix n’a encore été détectée dans ce clip.",
+      excerpt: "Écouter un extrait",
       listLabel: "Voix du clip",
-      speaking: "{seconds} s de parole, {turns} tours",
+      speaking: "{turns} interventions · {duration} de parole",
+      todo: "{count} voix à traiter dans cette vidéo",
+      coverage: {
+        words: "Paroles reconnues",
+        speech_without_words:
+          "Parole sans texte : couverte par un autre locuteur",
+        outside_transcript:
+          "Parole sans texte : la transcription s’arrête ou commence ailleurs",
+        no_transcript: "Parole sans texte : rien n’est transcrit à cet endroit",
+      },
       unidentified: "Non identifiée",
+      track: "Piste de {label}",
+      waveformLabel: "Forme d’onde par voix",
+      tracksLabel: "Pistes du clip, une par voix",
     },
     history: {
       empty: "Aucun segment de ce clip n’a été corrigé.",
@@ -1002,14 +2454,330 @@ export const fr: Messages = {
       before: "Avant",
       after: "Après",
     },
+    analysis: {
+      label: "Analyse du clip",
+      live: "Mises à jour en direct actives",
+      liveOff:
+        "Mises à jour en direct interrompues : reconnexion. L’état affiché est actualisé toutes les quelques secondes.",
+      liveLost:
+        "L’accès à cette vue en direct a été perdu. Rechargez la page pour vous reconnecter.",
+      steps: "Étapes de l’analyse",
+      panelTitle: "Analyse du clip",
+      short: "Analyse",
+      launch: "Lancer l’analyse…",
+      launchFull: "Analyse complète",
+      launchMissing: "Seulement ce qui manque",
+      quick: "Choix rapides",
+      pill: {
+        never: "Jamais analysé",
+        busy: "En cours",
+        running: "En cours : {step}",
+        waiting: "En attente : {reason}",
+        failed: "Échec : {step}",
+        failedNoStep: "Échec",
+        cancelled: "Analyse annulée",
+        complete: "Analyse complète",
+      },
+      logs: {
+        title: "50 dernières lignes de log",
+        empty: "Aucune ligne de log pour cette tâche pour l’instant.",
+        liveOff: "Lignes de log en pause : reconnexion.",
+      },
+      delete: {
+        open: "Supprimer…",
+        title: "Supprimer une partie de l’analyse",
+        intro:
+          "Choisissez ce qui disparaît. Rien n’est supprimé avant votre confirmation.",
+        what: "Étapes à supprimer",
+        all: "Toute l’analyse",
+        blocked: "Annulez l’analyse en cours avant de supprimer des étapes.",
+        losses: "Cette suppression fera perdre :",
+        none: "Rien ne serait perdu.",
+        lossSegments: "{count} segments de transcription",
+        lossCorrections:
+          "{text} textes de segments corrigés et {speaker} corrections de locuteur",
+        lossVoices: "{voices} voix locales, dont {validated} validées",
+        lossSamples: "{samples} échantillons de voix retirés de la référence",
+        lossPersons:
+          "{persons} Personnes touchées (conservées, sans ces échantillons)",
+        kept: "Les Personnes ne sont jamais supprimées.",
+        cancel: "Annuler",
+        confirm: "Supprimer la sélection",
+      },
+      step: {
+        preparation: "Préparation",
+        transcription: "Transcription",
+        indexing: "Indexation",
+        diarization: "Détection des voix",
+        fingerprints: "Empreintes vocales",
+        matching: "Rapprochement des voix",
+      },
+      status: {
+        waiting: "En attente",
+        running: "En cours",
+        retry: "Nouvel essai prévu",
+        blocked: "Bloqué",
+        failed: "Échec",
+        done: "Terminé",
+        not_applicable: "Non applicable",
+        not_yet_supported: "Pas encore disponible",
+      },
+      reason: {
+        awaiting_preparation: "En attente que le clip soit prêt.",
+        awaiting_previous_step: "En attente de l’étape précédente.",
+        clip_not_ready: "Le clip n’est pas encore prêt.",
+        audio_track_selection_required:
+          "Choisissez la piste audio à transcrire.",
+        clip_ready: "Le clip est prêt.",
+        awaiting_worker:
+          "Un Worker compatible est connecté mais occupé ; la tâche démarre dès qu’il est libre.",
+        awaiting_compatible_worker:
+          "En attente d’un Worker compatible : aucun n’est connecté. L’analyse reprend d’elle-même à son retour.",
+        queue_paused:
+          "La file est en pause : rien ne démarre tant qu’un administrateur ne la relance pas.",
+        transcription_version_mismatch:
+          "Aucun Worker n’a validé la configuration de transcription actuelle. Ouvrez la page Workers et validez-la sur un Worker.",
+        transcription_not_validated:
+          "La configuration de transcription a échoué à son test sur les Workers connectés. Corrigez-la sur la page Workers ; la tâche démarre ensuite d’elle-même.",
+        worker_not_claiming:
+          "Un Worker compatible est en ligne et libre, mais ne demande plus de tâches depuis plus de 2 minutes. Ouvrez son diagnostic sur la page Workers pour lire ses journaux (claim_poll_failed) ; la tâche démarre dès qu’il réclame de nouveau.",
+        run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
+        running: "Un Worker transcrit le clip.",
+        retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",
+        completed: "Transcription terminée.",
+        reused_existing:
+          "Une transcription valide existait déjà et a été réutilisée.",
+        kept_for_corrections:
+          "La transcription existante est conservée pour protéger les corrections humaines.",
+        job_dead: "La transcription a échoué après plusieurs tentatives.",
+        job_cancelled: "La transcription a été annulée.",
+        job_failed: "La transcription a échoué.",
+        outside_scope: "Hors du périmètre de cette analyse.",
+        transcription_required:
+          "La détection des voix exige une transcription valide : transcrivez d’abord le clip.",
+        awaiting_transcription: "En attente de la transcription.",
+        awaiting_indexer: "En attente de l'indexeur de recherche.",
+        semantic_search_unavailable:
+          "La recherche sémantique n'est pas configurée ; la recherche textuelle reste disponible.",
+        semantic_index_failed:
+          "L'indexation sémantique a échoué ; la recherche textuelle reste disponible.",
+        microphone_track:
+          "La piste micro est attribuée directement, sans détection des voix.",
+        microphone_direct_attribution:
+          "La piste micro a été attribuée directement à son propriétaire.",
+        no_speakers: "Aucune voix détectée dans ce clip.",
+        awaiting_fingerprints: "En attente des empreintes vocales.",
+        matching_failed: "La comparaison des voix a échoué.",
+        upstream_failed: "Non exécutée : une étape précédente a échoué.",
+      },
+      track: "Piste audio",
+      trackPlaceholder: "Choisir une piste…",
+      trackConfirm: "Confirmer la piste",
+      cancel: "Annuler la suite",
+      cancelled:
+        "Analyse annulée. Les résultats valides sont conservés ; relancez une analyse pour continuer.",
+      failure: {
+        label: "Détails de l'échec",
+        step: "Étape",
+        when: "Quand",
+        cause: "Cause",
+        action: "Action conseillée",
+        unknownCause: "Cause inconnue.",
+        unknownAction: "Action inconnue.",
+        causes: {
+          worker_failed: "Le Worker a signalé un échec non précisé.",
+          provider_unavailable: "Le service de transcription est indisponible.",
+          invalid_input: "Le média du clip n'a pas pu être traité.",
+          audio_preparation_failed: "L'audio du clip n'a pas pu être préparé.",
+          lease_expired: "Le Worker a cessé de répondre pendant la tâche.",
+          max_attempts_exhausted: "Toutes les tentatives ont échoué.",
+          cancelled_by_admin: "Un Administrateur a annulé la tâche.",
+          input_version_superseded:
+            "La tâche a été remplacée par une plus récente.",
+          worker_revoked: "Le Worker a été révoqué pendant la tâche.",
+          whisper_network: "Le service de transcription est injoignable.",
+          whisper_timeout:
+            "Le service de transcription a mis trop de temps à répondre.",
+          whisper_http_error:
+            "Le service de transcription a répondu par une erreur.",
+          whisper_model_missing:
+            "Le modèle de transcription n'est pas installé.",
+          whisper_invalid_response:
+            "Le service de transcription a envoyé une réponse inexploitable.",
+          pyannote_model_missing:
+            "Le modèle de détection des voix n'est pas installé.",
+          pyannote_access_denied:
+            "L'accès au modèle de détection des voix a été refusé.",
+          gpu_unavailable: "Aucun GPU n'est disponible sur le Worker.",
+          gpu_out_of_memory: "Le GPU est à court de mémoire.",
+          diarization_inference_failed:
+            "La détection des voix a échoué pendant son exécution.",
+          hf_auth_required: "Le dépôt du modèle exige un jeton d'accès valide.",
+          hf_not_found: "Le modèle est introuvable dans son dépôt.",
+          hf_network: "Le dépôt du modèle est injoignable.",
+          models_volume_unwritable:
+            "Le Worker ne peut pas écrire dans son volume de modèles.",
+          hf_cache_error: "Le cache de modèles du Worker est endommagé.",
+        },
+        actions: {
+          check_worker_logs: "Consulter les journaux du Worker.",
+          check_transcription_service: "Vérifier le service de transcription.",
+          check_clip_media: "Vérifier le fichier média du clip.",
+          check_worker_connection: "Vérifier la connexion du Worker.",
+          relaunch_job: "Relancer l'étape.",
+          none: "Rien à faire.",
+          install_transcription_model: "Installer le modèle de transcription.",
+          install_voice_model: "Installer le modèle de détection des voix.",
+          check_huggingface_token:
+            "Vérifier le jeton d'accès du dépôt de modèles.",
+          check_gpu: "Vérifier le GPU du Worker.",
+          check_voice_model_repository: "Vérifier le dépôt du modèle de voix.",
+          check_worker_network: "Vérifier l'accès réseau du Worker.",
+          check_models_volume: "Vérifier le volume de modèles du Worker.",
+        },
+      },
+      retry: "Réessayer : {step}",
+      viewTask: "Voir la tâche n°{id}",
+      forced: "(relancée)",
+      profile: "Profil : {profile}",
+    },
+    reanalyze: {
+      title: "Lancer l’analyse",
+      close: "Fermer",
+      scopeLabel: "Que faut-il analyser",
+      scope: {
+        full: "Tout : transcription, indexation et voix",
+        transcription: "Transcription seulement",
+        voice: "Voix seulement",
+      },
+      what: "Ce qui est relancé",
+      mode: {
+        missing:
+          "Seulement les étapes manquantes (les résultats valides sont réutilisés)",
+        full: "Tout de nouveau, même là où un résultat valide existe",
+        steps: "Seulement les étapes que je choisis",
+      },
+      added: "Ajoutées automatiquement",
+      addedBecause: {
+        prerequisite: "{step} — ajoutée : prérequis de {of}",
+        dependent: "{step} — ajoutée : dépend de {of}",
+        missing:
+          "{step} — ajoutée : jamais lancée, incluse par l’analyse complète",
+      },
+      noteMissing:
+        "Les résultats valides sont réutilisés : rien n’est remplacé et aucune confirmation n’est nécessaire.",
+      noteTranscription:
+        "Une nouvelle transcription remplace le texte visible une fois réussie. Les corrections de segments deviennent alors obsolètes (leur historique est conservé). Une confirmation vous sera demandée si le clip contient des corrections.",
+      noteDiarization:
+        "Une nouvelle détection des voix remplace les voix de la piste audio une fois réussie. Une confirmation vous sera demandée si le clip contient des voix validées.",
+      cancel: "Annuler",
+      start: "Lancer la réanalyse",
+      confirmIntro:
+        "Cette réanalyse rendra du travail humain obsolète une fois réussie :",
+      stakeCorrections:
+        "{text} textes de segments corrigés et {speaker} corrections de locuteur deviendront obsolètes.",
+      stakeVoice:
+        "{speakers} voix validées, {samples} échantillons de voix et {corrections} corrections de locuteur seront détachés du nouveau résultat.",
+      kept: "Rien n’est supprimé : l’historique des corrections, les échantillons de voix validés et le résultat précédent sont conservés, et le résultat actuel reste visible jusqu’à la réussite du nouveau.",
+      back: "Retour",
+      confirm: "Confirmer et réanalyser",
+    },
+    transcribe: {
+      button: "Transcrire",
+      scheduled: "Transcription planifiée",
+      job: {
+        pending: "En attente",
+        leased: "En cours",
+        running: "En cours",
+        retry_wait: "Nouvel essai différé",
+        done: "Terminé",
+        failed: "Échoué",
+        dead: "Épuisé",
+        cancelled: "Annulée",
+      },
+      jobError: "Erreur de transcription : {error}",
+      clear: "Effacer",
+      selectTrack: "Sélectionnez une piste audio",
+      selectTrackPlaceholder: "Choisir une piste…",
+      confirmTrack: "Confirmer la piste",
+      retranscribeTitle: "Remplacer les corrections ?",
+      retranscribeWarning:
+        "Cette opération remplacera {texts} correction(s) de texte et {speakers} de locuteur par {authors}. Elles resteront obsolètes dans l’historique.",
+    },
+  },
+  volume: {
+    label: "Volume",
+    mute: "Couper le son",
+  },
+  voiceDecision: {
+    listenLabel: "Écouter un extrait de {label}",
+    candidates: "Personnes les plus proches",
+    proximity: "{percent} % de proximité",
+    yesShort: "Oui",
+    useExisting: "Utiliser {person}",
+    createAnyway: "Créer quand même une nouvelle personne",
+    noShort: "Non",
+    falseDetection: "Fausse détection",
+    looksLike: "Ça ressemble à",
+    similarity: "{percent} % de ressemblance",
+    yes: "C’est {person}",
+    no: "Ce n’est pas {person}",
+    identify: "Identifier",
+    random: "Random",
+    ignore: "Ignorer",
+    restore: "Rétablir",
+    refusedLabel: "Personnes refusées pour {label}",
+    refused: "Pas {person}",
+    cancelRefusal: "Annuler le refus",
+    cancelRefusalLabel: "Annuler le refus de {person}",
+    decisionLabel: "Décision sur {label}",
+    group: "Dans le groupe de {count} voix inconnues",
+    identifyLabel: "Qui est-ce ?",
+    search: "Rechercher une Personne",
+    searchLabel: "Rechercher une Personne",
+    noMatch: "Aucune Personne trouvée.",
+    asPerson: "Identifier comme {person}",
+    createAndValidate: "Créer le profil « {name} » et valider",
+    validatedHint:
+      "Validée par une personne : seule une nouvelle identification la change.",
+    status: {
+      random: "Random",
+      ignored: "Voix ignorée",
+    },
   },
   people: {
+    process: {
+      progress: "{done} / {total} voix",
+      speaking: "{time} de parole",
+      turns: "{count} interventions · {time}",
+      play: "Lecture",
+      pause: "Pause",
+      waveformLabel: "Forme d’onde du clip, colorée par voix",
+      label: "Traitement du clip",
+      title: "{clip}",
+      backToList: "À traiter",
+      openClip: "Fiche complète",
+      queueLabel: "Voix à traiter",
+      waiting: "À traiter",
+      settled: "Tranchée",
+      cardLabel: "Qui parle ici ?",
+      position: "Voix {n} sur {total}",
+      suggestion: "Suggestion : {person}.",
+      excerptsLabel: "Extraits de la voix",
+      playFrom: "Écouter à partir de {time}",
+      shortcuts:
+        "Raccourcis : Espace lecture · O oui · N non · R random · I fausse détection",
+      skip: "Passer",
+      done: "Toutes les voix de ce clip sont traitées.",
+      nextVideo: "Vidéo suivante",
+      noNext: "Aucun autre clip à traiter.",
+    },
     lead: "Nommez les voix qu’entend Snitch. Une confirmation humaine passe toujours en premier.",
     tabsLabel: "Sections des Personnes",
     tabs: {
-      persons: "Personnes",
-      verification: "Vérification",
-      groups: "Groupes de voix",
+      persons: "Annuaire",
+      verification: "À traiter",
+      groups: "Voix inconnues",
     },
     loading: "Chargement…",
     persons: {
@@ -1018,21 +2786,96 @@ export const fr: Messages = {
       searchPlaceholder: "Chercher une Personne…",
       listLabel: "Personnes",
       empty:
-        "Aucune Personne pour l’instant. Créez-en une, ou nommez une voix dans Vérification.",
+        "Aucune Personne pour l’instant. Créez-en une, ou nommez une voix dans À traiter.",
       noMatch: "Aucune Personne ne correspond à cette recherche.",
       name: "Personne",
-      voices: "Voix confirmées",
-      samples: "Échantillons vocaux",
       account: "Compte",
-      actions: "Actions",
-      linked: "Liée",
       profileDeleted: "Profil vocal supprimé",
-      none: "Aucun",
-      showVoices: "Voix de {name}",
-      hideVoices: "Masquer les voix de {name}",
+      voiceCount: "{count} voix",
+      sampleCount: "{count} échantillon(s) validé(s)",
+      noReference: "Sans référence",
+      linkedAccount: "Lié à un compte",
+      pagesLabel: "Pages des Personnes",
+      previousPage: "Page précédente",
+      nextPage: "Page suivante",
+      pageStatus: "Page {page} sur {pages} ({total} Personne(s))",
+      back: "Retour aux Personnes",
+      notFound: "Personne introuvable",
+      notFoundBody: "Cette Personne n’existe pas, ou n’existe plus.",
       merge: "Fusionner {name}",
       delete: "Supprimer {name}",
+      separate: "Séparer des voix de {name}",
       created: "{name} a été créée.",
+      videoCount: "{count} vidéo(s)",
+      videosTitle: "Vidéos où {name} est entendue",
+      videosEmpty: "Aucune vidéo que vous puissiez voir.",
+      figuresLabel: "Chiffres de {name}",
+      backShort: "Personnes",
+      linkedTo: "Compte lié : @{username}",
+      linkedNoName: "Compte lié",
+      noAccount: "Aucun compte lié",
+      lastHeard: "entendue pour la dernière fois le {date}",
+      mergeShort: "Fusionner",
+      separateShort: "Séparer",
+      tiles: {
+        videos: "Vidéos",
+        speech: "Temps de parole",
+        samples: "Échantillons de Référence",
+        quality: "Qualité de la Référence",
+      },
+      heardIn: "Entendue dans",
+      heardState: "validée",
+      referenceWarningTitle: "Référence à renforcer",
+      referenceWarningNone:
+        "{name} n’a aucun échantillon validé : Snitch ne sait pas encore reconnaître cette voix. Confirmez d’autres voix pour constituer une Référence.",
+      referenceWarningWeak:
+        "{name} a peu d’échantillons validés : la reconnaissance peut être peu fiable. Confirmez d’autres voix pour renforcer la Référence.",
+    },
+    figures: {
+      minutes: "{minutes} min de parole",
+      hours: "{hours} h {minutes} min de parole",
+    },
+    reference: {
+      levelLabel: "Référence : {level}",
+      good: "solide",
+      weak: "faible",
+      none: "absente",
+    },
+    actions: {
+      label: "Actions sur {name}",
+      notDone: "Rien n’a été modifié. {reason}",
+      reasons: {
+        mergeLinked:
+          "Liée à un compte, {name} ne peut pas être absorbée. Ouvrez l’autre Personne et fusionnez-la dans {name}.",
+        mergeHidden:
+          "Des voix de {name} sont sur des clips que vous ne pouvez pas voir : seule une personne qui peut les voir peut fusionner {name}.",
+        mergeProfileDeleted:
+          "Le profil vocal de {name} a été supprimé : la fusion le reconstituerait.",
+        deleteLinked:
+          "Liée à un compte, {name} ne peut pas être supprimée ici. Supprimez plutôt le profil vocal depuis le compte.",
+        deleteHidden:
+          "Des voix de {name} sont sur des clips que vous ne pouvez pas voir : seule une personne qui peut les voir peut supprimer {name}.",
+        separateNone: "{name} n’a aucune voix confirmée à séparer.",
+        separateHidden:
+          "Les voix confirmées de {name} sont sur des clips que vous ne pouvez pas voir.",
+      },
+    },
+    separate: {
+      title: "Séparer des voix de {name}",
+      body: "Choisissez les voix qui ne sont pas {name}.",
+      legend: "Voix à séparer de {name}",
+      voice: "{label} · {clip}",
+      voices:
+        "{count} voix redeviennent inconnues et pourront être nommées de nouveau.",
+      samples: "{count} échantillon(s) validé(s) quittent les références.",
+      intact:
+        "{name}, les clips et les empreintes vocales sont conservés. Les voix sont rapprochées de nouveau.",
+      choose: "Choisissez au moins une voix.",
+      submit: "Séparer",
+      cancel: "Annuler",
+      close: "Fermer",
+      done: "{count} voix ont été séparées de {name} : elles sont de nouveau inconnues.",
+      doneOne: "1 voix a été séparée de {name} : elle est de nouveau inconnue.",
     },
     create: {
       title: "Nouvelle Personne",
@@ -1040,6 +2883,7 @@ export const fr: Messages = {
       nameHint: "De 1 à 100 caractères.",
       submit: "Créer",
       cancel: "Annuler",
+      close: "Fermer",
     },
     merge: {
       title: "Fusionner {name}",
@@ -1048,30 +2892,36 @@ export const fr: Messages = {
       choose: "Choisir une Personne…",
       submit: "Fusionner",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{name} a été fusionnée dans {target} : {summary}",
+      voices:
+        "{count} voix confirmée(s) de {name} sont désormais confirmées comme {target}.",
+      samples:
+        "{count} échantillon(s) validé(s) de {name} deviennent des références de {target}.",
+      rules:
+        "{count} règle(s) de piste micro nommant {name} nomment désormais {target}.",
+      intact:
+        "{name} disparaît. Les clips, les empreintes vocales et ce que {target} possède déjà sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
     },
     delete: {
       title: "Supprimer {name} ?",
-      body: "Les voix confirmées pour {name} redeviennent inconnues et leurs échantillons quittent les références. Les clips ne sont jamais supprimés. Cette action ne peut pas être annulée.",
+      voices: "{count} voix confirmée(s) pour {name} redeviennent inconnues.",
+      samples: "{count} échantillon(s) validé(s) quittent les références.",
+      rules: "{count} règle(s) de piste micro nommant {name} sont supprimées.",
+      intact:
+        "Les clips, les empreintes vocales et les autres Personnes sont intacts. Les voix sont rapprochées de nouveau. Cette action ne peut pas être annulée.",
       submit: "Supprimer",
       cancel: "Annuler",
+      close: "Fermer",
       done: "{name} a été supprimée : {summary}",
     },
     summary:
       "{attributions} voix, {samples} échantillon(s), {rules} règle(s) de piste micro concernés. Les voix sont rapprochées de nouveau.",
     voicesPanel: {
+      identifications: "Identifications",
       title: "Voix confirmées de {name}",
       empty: "Aucune voix confirmée que vous puissiez voir.",
-      excerpt: "Extrait de {label} dans {clip}",
       speech: "{seconds} s de parole",
-      separate: "Séparer {label} de {name}",
-      separateTitle: "Séparer cette voix ?",
-      separateBody:
-        "{label} ({clip}) ne sera plus confirmée comme {name} : elle redevient inconnue et son échantillon quitte les références. {name} est conservée.",
-      separateSubmit: "Séparer",
-      separateCancel: "Annuler",
-      separated:
-        "{label} a été séparée de {name} : elle est de nouveau inconnue.",
     },
     log: {
       show: "Journal des corrections",
@@ -1085,57 +2935,51 @@ export const fr: Messages = {
       deletedUser: "utilisateur supprimé",
     },
     verification: {
-      lead: "Les voix les plus fréquentes d’abord : en nommer une retire le plus d’incertitude. Trancher est toujours une confirmation humaine.",
-      toDecide: "À trancher",
-      countersLabel: "Voix par état",
-      listLabel: "Voix à trancher",
-      empty: "Plus rien à trancher ici.",
-      pageStatus: "Page {page} sur {pages}",
-      previous: "Plus fréquentes",
-      next: "Moins fréquentes",
-      heardIn: "Entendue dans {clips} clip(s), {voices} voix dans le groupe",
-      single: "Une voix seule",
-      clipLine: "{clip} · {speech}",
-      speech: "{seconds} s de parole",
-      candidates: "Personnes les plus proches",
-      similar: "{percent} % de similarité",
-      play: "Écouter l’extrait de {label} dans {clip}",
-      decide: "Trancher",
-      decideFor: "Trancher qui est {label}",
-      saved:
-        "Enregistré : {label} est {person}. Le rapprochement sera recalculé.",
+      directTitle: "Lien direct vers une voix",
+      directLoading: "Recherche de la voix…",
+      handledTitle: "Déjà traité",
+      handledBy: "{label} a été attribuée à {person} par {author} le {date}.",
+      handledAuto:
+        "{label} n’est pas à traiter : le système l’a rapprochée de {person}, aucune décision humaine n’est attendue ici.",
+      handledNoPerson: "{label} n’attend aucune décision.",
+      openPerson: "Ouvrir {person}",
+      unavailableTitle: "Voix introuvable ou inaccessible",
+      unavailable: "Cette voix n’existe pas, ou vous n’y avez pas accès.",
+      continueReview: "Continuer la vérification",
+      byClip: {
+        label: "Clips à traiter",
+        lead: "Une ligne par clip qui a encore une voix à trancher.",
+        filtersLabel: "Filtrer les clips",
+        all: "Tous",
+        toConfirm: "À confirmer",
+        unknownAmbiguous: "Inconnues / ambiguës",
+        withGroup: "Avec un groupe",
+        toConfirmCount: "{count} à confirmer",
+        ambiguousCount: "{count} ambiguë(s)",
+        unknownCount: "{count} inconnue(s)",
+        groupsCount: "{count} groupe(s)",
+        summary: "{voices} voix dans {clips} vidéos",
+        process: "Traiter",
+        processLabel: "Traiter {clip}",
+        empty: "Aucun clip à traiter pour ce filtre.",
+        analysedToday: "analysée aujourd’hui",
+      },
       alreadyValidated:
         "Déjà confirmée comme {person}. La première confirmation fait foi.",
     },
     excerpt: {
-      title: "Extrait de {label}",
-      audio: "Extrait de {label} dans {clip}",
-      close: "Fermer",
-      decide: "Trancher",
+      player: "Extrait de {label} dans {clip}",
+      openClip: "Ouvrir {clip}",
     },
     decide: {
-      title: "Qui est {label} ?",
       close: "Fermer",
-      closest: "Candidats les plus proches",
-      existing: "Personnes existantes",
-      someoneElse: "Quelqu’un d’autre",
-      searchLabel: "Chercher une Personne",
-      searchPlaceholder: "Chercher une Personne…",
-      noMatch: "Aucun résultat.",
-      someoneNew: "Quelqu’un de nouveau",
-      createOption: "Créer une Personne",
-      newName: "Nom de la nouvelle Personne",
-      skip: "Passer pour l’instant",
-      confirm: "Confirmer",
-      saving: "Enregistrement…",
     },
     groups: {
       lead: "Des voix qui se ressemblent, repérées dans plusieurs clips. Snitch ne fait que proposer : aucun groupe n’est jamais confirmé automatiquement et rien n’est attribué tant que vous ne l’avez pas nommé.",
       never: "Jamais confirmé automatiquement",
       listLabel: "Groupes de voix inconnues",
       empty: "Plus aucun groupe à nommer.",
-      loadFailed: "Les groupes n’ont pas pu être chargés.",
-      title: "Groupe de {count} voix proches",
+      title: "Regroupement proposé de {count} voix",
       heardIn: "Entendu dans {clips} clip(s) : {names}",
       preview: "Voix du groupe",
       open: "Écouter et nommer",
@@ -1146,17 +2990,18 @@ export const fr: Messages = {
       next: "Moins fréquents",
     },
     group: {
-      title: "Est-ce une seule personne ?",
+      titleProposed: "Regroupement proposé de {count} voix",
+      titleIsolated: "Voix isolée",
+      back: "Retour aux groupes",
       selected: "{kept} voix retenues sur {total}",
-      lead: "Écoutez les extraits côte à côte. Écartez toute voix qui est quelqu’un d’autre : les autres restent ensemble. Écarter une voix est enregistré tout de suite.",
-      close: "Fermer",
+      lead: "Écoutez les extraits, puis décochez toute voix qui est quelqu’un d’autre : les autres restent ensemble. Décocher une voix est enregistré tout de suite.",
+      loading: "Chargement du groupe…",
+      gone: "Déjà traitée ou plus visible",
+      goneBody:
+        "Cette voix n’est plus dans aucun groupe : elle a été nommée, ou vous ne voyez plus son clip. Aucun autre groupe n’a été ouvert.",
       voices: "Voix du groupe",
-      excerpt: "Extrait de {label} dans {clip}",
+      keep: "Retenir {label} ({clip})",
       speech: "{seconds} s de parole",
-      leaveOut: "Pas cette personne",
-      leaveOutFor: "Pas cette personne : écarter {label} ({clip}) du groupe",
-      putBack: "Remettre",
-      putBackFor: "Remettre {label} ({clip}) dans le groupe",
       out: "Écartée",
       who: "Qui est-ce ?",
       searchLabel: "Chercher une Personne",
@@ -1164,13 +3009,21 @@ export const fr: Messages = {
       noMatch: "Aucun résultat.",
       someoneNew: "Quelqu’un de nouveau",
       newName: "Nom de la nouvelle Personne",
-      notNow: "Pas maintenant",
+      bar: "Nomination",
       nameNone: "Nommer ces voix",
       name: "Nommer {count} voix comme {person}",
+      reload: "Recharger",
+      conflict:
+        "Le groupe a changé pendant que vous le regardiez. Rien n’a été enregistré. Rechargez pour voir le groupe tel qu’il est maintenant.",
       saved: "Enregistré : {count} voix sont maintenant {person}.",
       savedLeftOut:
         "Enregistré : {count} voix sont maintenant {person}. {out} écartée(s).",
       savedSkipped: "{skipped} déjà confirmée(s) par quelqu’un d’autre.",
+      videos: "Entendu dans {count} vidéo(s)",
+      random: "Random pour tout le groupe",
+      ignore: "Ignorer tout le groupe",
+      savedRandom: "Random : {count} voix libellées Random.",
+      savedIgnored: "Ignoré : {count} voix mises de côté.",
     },
     levels: {
       human: "Validé par un humain",
@@ -1179,16 +3032,90 @@ export const fr: Messages = {
       ambiguous: "Ambigu",
       unknown: "Inconnu",
     },
-    figures: {
-      minutes: "{minutes} min",
-      hours: "{hours} h {minutes} min",
+    legend: {
+      reference: "Compte comme Référence : {answer}",
+      yes: "oui",
+      no: "non",
+      others: "Les autres niveaux",
+      definition: {
+        human:
+          "Une Personne confirmée comme étant cette voix. Seul ce niveau forme la Référence.",
+        automatic:
+          "Attribuée par Snitch sans contrôle humain, lorsque l’administrateur l’a activé. Jamais un échantillon validé.",
+        suggestion:
+          "Une Personne dont cette voix est proche. Elle reste inconnue tant que personne n’a tranché.",
+        ambiguous:
+          "Proche de plusieurs Personnes sans qu’aucune ne se détache. Jamais attribuée d’elle-même.",
+        unknown: "Ni validation humaine ni attribution automatique.",
+      },
     },
-    reference: {
-      levelLabel: "Référence : {level}",
-      good: "Bonne",
-      weak: "Faible",
-      none: "Aucune",
+  },
+  metadata: {
+    dateFilterZone:
+      "Les filtres de dates utilisent le fuseau de l’installation ; les dates affichées utilisent celui du navigateur.",
+    localDate: "Heure dans le fuseau de ce navigateur : {zone}.",
+    invalidDate:
+      "Cette heure est ambiguë ou n’existe pas dans ce fuseau. Choisissez une autre heure.",
+    unknownUploader: "Importateur inconnu",
+    origin: {
+      container: "Fichier vidéo",
+      filename: "Nom du fichier",
+      manual: "Correction manuelle",
+      label: "Ajouté",
     },
+    dateOrigin: "Origine de la date",
+    editAction: "Modifier les métadonnées",
+    titleRequired:
+      "Le titre ne peut pas être vide. Utilisez « Utiliser le nom du fichier » pour retirer le titre personnalisé.",
+    noRename:
+      "Le fichier sur le stockage n’est pas renommé et les tags internes de la vidéo ne sont pas modifiés : seul l’affichage dans Snitch change.",
+    titleLabel: "Titre affiché",
+    fileKept: "Nom du fichier : {name} (inchangé)",
+    useFileName: "Utiliser le nom du fichier",
+    detectedValue: "Valeur détectée : {value}",
+    restore: "Réinitialiser",
+    technical: "Informations techniques",
+    readOnly: "lecture seule",
+    fileName: "Nom du fichier",
+    codecs: "Codecs",
+    format: "Format",
+    size: "Taille",
+    tracks: "Pistes",
+    fullMetadata: "Afficher toutes les métadonnées",
+    hideMetadata: "Masquer toutes les métadonnées",
+    detected: "Détecté par Snitch",
+    uploaded: "Importé par {name}",
+    date: "Date d’enregistrement",
+    cancel: "Annuler",
+    edit: "Modifier",
+    game: "Jeu",
+    title: "Localisation et métadonnées",
+    explain:
+      "Le fuseau sert à dater les clips dont l’heure ne précise pas de fuseau.",
+    country: "Pays",
+    timezone: "Fuseau horaire",
+    choose: "Choisir un pays",
+    save: "Enregistrer",
+    saved: "Localisation enregistrée.",
+    error: "Impossible de terminer l’opération. Réessayez.",
+    reprocess: "Retraiter les métadonnées",
+    confirm:
+      "Retraiter les clips existants ? Les corrections manuelles seront conservées.",
+    result: "{updated} clips traités ; {unavailable} indisponibles.",
+  },
+  voiceRelaunch: {
+    section: "Relancer la diarisation",
+    button: "Relancer la diarisation",
+    scheduled:
+      "Diarisation relancée. Les voix actuelles restent affichées jusqu’à la réussite.",
+    title: "Relancer la diarisation ?",
+    cancel: "Annuler",
+    confirm: "Confirmer la relance",
+    warning:
+      "La répartition des voix sera remplacée à la réussite. {corrections} correction(s) de locuteur deviendront obsolètes. {speakers} voix validée(s) et {samples} échantillon(s) vocal(aux) validé(s) sont conservés, liés à l’audio, mais ne seront plus rattachés aux voix affichées.",
+    history: "Résultats précédents ({count})",
+    entry:
+      "Modèle {model} ({version}), {date} : {speakers} voix, dont {validated} validée(s).",
   },
   errors: errorsFr,
   errorFallback: "Une erreur est survenue ({code}). Réessayez.",

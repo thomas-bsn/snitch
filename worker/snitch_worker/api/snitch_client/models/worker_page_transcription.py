@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.worker_page_transcription_mode import WorkerPageTranscriptionMode
 
 
 
@@ -23,11 +24,17 @@ class WorkerPageTranscription:
     """ Profil de transcription actif de la bibliothèque.
 
         Attributes:
+            mode (WorkerPageTranscriptionMode):
+            endpoint (str):
+            settings_version (str):
             model (str):
             language (str):
             version (str):
      """
 
+    mode: WorkerPageTranscriptionMode
+    endpoint: str
+    settings_version: str
     model: str
     language: str
     version: str
@@ -38,6 +45,12 @@ class WorkerPageTranscription:
 
 
     def to_dict(self) -> dict[str, Any]:
+        mode = self.mode.value
+
+        endpoint = self.endpoint
+
+        settings_version = self.settings_version
+
         model = self.model
 
         language = self.language
@@ -48,6 +61,9 @@ class WorkerPageTranscription:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "mode": mode,
+            "endpoint": endpoint,
+            "settings_version": settings_version,
             "model": model,
             "language": language,
             "version": version,
@@ -60,6 +76,15 @@ class WorkerPageTranscription:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
+        mode = WorkerPageTranscriptionMode(d.pop("mode"))
+
+
+
+
+        endpoint = d.pop("endpoint")
+
+        settings_version = d.pop("settings_version")
+
         model = d.pop("model")
 
         language = d.pop("language")
@@ -67,6 +92,9 @@ class WorkerPageTranscription:
         version = d.pop("version")
 
         worker_page_transcription = cls(
+            mode=mode,
+            endpoint=endpoint,
+            settings_version=settings_version,
             model=model,
             language=language,
             version=version,

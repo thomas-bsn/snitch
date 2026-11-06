@@ -4,6 +4,54 @@
  */
 
 export interface paths {
+  "/api/admin/metadata-location": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getMetadataLocation"];
+    put: operations["putMetadataLocation"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/metadata": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["putClipMetadata"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clip-metadata/reprocess": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["reprocessClipMetadata"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/health/live": {
     parameters: {
       query?: never;
@@ -273,6 +321,143 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/account/avatar-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Source de la photo du compte connecté (discord, custom ou none), présence de chaque image, état de la synchronisation Discord. */
+    get: operations["getAvatarSettings"];
+    /** @description Choix explicite de la source affichée. custom exige une photo personnelle, discord une identité Discord liée (la photo est alors récupérée si le bot est configuré). Les deux images sont conservées. */
+    put: operations["putAvatarSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/avatar/discord-refresh": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Actualise la photo Discord du compte connecté. Ne touche jamais la photo personnelle. Une fois toutes les 30 secondes au plus par compte. */
+    post: operations["refreshDiscordAvatar"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : état du bot Discord (photos de profil), sans jamais renvoyer le token. */
+    get: operations["getDiscordBot"];
+    /** @description Réservé au Super-administrateur : vérifie le token auprès de Discord puis l'enregistre chiffré. Un token refusé n'est pas enregistré (invalid_discord_bot_token) et n'est jamais renvoyé. */
+    put: operations["putDiscordBot"];
+    post?: never;
+    /** @description Réservé au Super-administrateur : déconnecte le bot. La synchronisation s'arrête, les photos existantes restent. */
+    delete: operations["deleteDiscordBot"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Réservé au Super-administrateur : teste le token enregistré auprès de Discord. */
+    post: operations["testDiscordBot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/discord-bot/sync": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs : lance une synchronisation globale en arrière-plan. 409 discord_sync_running si une passe est déjà en cours, quelle que soit l'instance. */
+    post: operations["syncDiscordBot"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/profile": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateAccountProfile"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put: operations["updateAccountPassword"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/persons/{id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Photo actuelle du compte dont la liaison à cette Personne est validée. Suit la source choisie ; 404 sans lien, photo ou compte actif. Session requise. */
+    get: operations["getPersonAvatar"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/account/preferences": {
     parameters: {
       query?: never;
@@ -286,6 +471,23 @@ export interface paths {
     put: operations["updateAccountPreferences"];
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/account/discord": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Removes the linked Discord identity only if a local password is configured. */
+    delete: operations["unlinkDiscord"];
     options?: never;
     head?: never;
     patch?: never;
@@ -375,6 +577,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/members/{id}/avatar": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs : photo actuellement choisie par un membre actif (personnelle ou Discord). Cache privé revalidé ; aucune photo pour un compte supprimé. */
+    get: operations["getMemberAvatar"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Génère un mot de passe temporaire, affiché une seule fois, et ferme les sessions du compte. Interdit sur son propre compte. */
+    post: operations["resetMemberPassword"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Ferme toutes les sessions du compte. */
+    delete: operations["revokeMemberSessions"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/members/{id}/discord": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Délie le compte Discord ; le compte doit avoir un mot de passe local pour pouvoir se reconnecter. */
+    delete: operations["unlinkMemberDiscord"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/members/{id}/role": {
     parameters: {
       query?: never;
@@ -399,14 +669,16 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** @description Administrateurs : fiche complète d'un membre actif, avec ce que l'administrateur connecté peut en faire. */
+    get: operations["getMember"];
     put?: never;
     post?: never;
     /** @description Désactive un compte et conserve ses clips ; le masquage les rend privés. */
     delete: operations["deleteMember"];
     options?: never;
     head?: never;
-    patch?: never;
+    /** @description Modifie les champs envoyés ; null efface le nom affiché et la langue. Le rôle, l'approbation et les comptes administrateurs suivent les mêmes règles que les routes dédiées ; on ne change pas son propre rôle ni son approbation. */
+    patch: operations["updateMember"];
     trace?: never;
   };
   "/api/admin/users": {
@@ -611,6 +883,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Liste des Workers en direct, sujet admin:workers ; un changement (création, présence, modèles, installation, révocation) envoie un nouvel état complet. Repli : GET /api/admin/workers. */
+    get: operations["streamWorkerEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Fiche d'un Worker en direct, sujet worker:<id> ; un Worker inexistant ferme le flux sans snapshot. Repli : GET /api/admin/workers/{id}. */
+    get: operations["streamWorkerDetailEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/workers/{id}": {
     parameters: {
       query?: never;
@@ -622,8 +928,25 @@ export interface paths {
     get: operations["getWorker"];
     put?: never;
     post?: never;
-    /** @description Administrateurs uniquement. L’historique du worker est conservé. */
+    /** @description Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés, et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas effacé. Une seconde suppression est sans effet et garde le premier audit. */
     delete: operations["revokeWorker"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/record": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur la machine). */
+    delete: operations["forgetWorker"];
     options?: never;
     head?: never;
     patch?: never;
@@ -646,6 +969,76 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/transcription/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Demande un test de configuration au Worker. */
+    post: operations["requestWorkerTranscriptionTest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/worker-updates": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Version cible de mise à jour automatique des Workers, catalogue des versions publiées et dernier statut de chaque Worker (ADR 0036). */
+    get: operations["getWorkerUpdates"];
+    /** @description Choisit la stratégie : disabled (aucune mise à jour), pinned (version fixe, obligatoire) ou latest (suivi de la dernière version publiée, la version envoyée est ignorée). Sans mode, il est déduit de la version (vide : disabled). Le format est vérifié ; l'image est construite par Snitch à partir du dépôt configuré. */
+    put: operations["putWorkerUpdateTarget"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/transcription/override": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Définit ou supprime l'adresse Whisper propre à ce Worker (vide pour supprimer). */
+    put: operations["putWorkerTranscriptionOverride"];
+    post?: never;
+    /** @description Administrateurs uniquement. Supprime l'adresse Whisper propre à ce Worker. */
+    delete: operations["deleteWorkerTranscriptionOverride"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/install/{code}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Lanceur d'installation Linux. L'invitation est à usage unique : consommée dès la demande acceptée ; 404 si inconnue ou expirée, 410 install_invite_used si déjà utilisée. Le script transporte le jeton durable du Worker, jamais redonné. */
+    get: operations["downloadWorkerInstaller"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/worker/pulse": {
     parameters: {
       query?: never;
@@ -656,6 +1049,178 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["workerPulse"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/hf-token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs et Super-administrateur : état du token Hugging Face central (configuré ou non, valeur illisible) et synchronisation par Worker. La valeur n'est jamais renvoyée. */
+    get: operations["getHFToken"];
+    /** @description Réservé au Super-administrateur : enregistre ou remplace le token central, chiffré au repos. Un token mal formé est refusé (invalid_hf_token) sans être renvoyé. Un Administrateur reçoit 403 super_administrator_required. */
+    put: operations["putHFToken"];
+    post?: never;
+    /** @description Réservé au Super-administrateur : supprime le token central. Les Workers purgent leur copie centrale à la version suivante ; une copie locale reste. */
+    delete: operations["deleteHFToken"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token/version": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Version du token central, sans sa valeur. Un Worker compare cette version à la sienne et ne demande le token que si elle diffère. */
+    get: operations["getWorkerHFTokenVersion"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Token central pour un Worker authentifié et non révoqué, seulement lorsque sa version diffère de la sienne. Un token supprimé ou absent est renvoyé avec token null : le Worker purge alors sa copie centrale. Réponse sans cache. */
+    get: operations["getWorkerHFToken"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/hf-token/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Accusé de réception d'une version par le Worker : appliquée, conservée (jeton local prioritaire), retirée ou en échec avec un code stable. Une version qui n'est plus la courante est refusée (stale_hf_token_version) : le Worker relit la version. */
+    post: operations["ackWorkerHFToken"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/revocation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Confirmation étroite pour le Worker et son lanceur local, seul endroit où un jeton révoqué est accepté. La réponse dit seulement si l'identité est révoquée et depuis quand : aucune configuration, aucune action. Une réponse révoquée est enregistrée comme confirmation : le Worker efface alors le contenu de son volume de modèles et cesse tout appel, le lanceur supprime le conteneur. Un 401 sans cette confirmation n'efface rien. Un jeton inconnu reçoit worker_token_invalid. */
+    get: operations["getWorkerRevocation"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/install-events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Événements d'installation envoyés par le lanceur avec le jeton du Worker. Chaque événement porte uniquement une phase, un statut, un code de cause stable et son horodatage d'origine : aucun texte libre, aucun secret. Les événements mis en file hors ligne arrivent plus tard avec leur horodatage d'origine et sont marqués « reçus plus tard ». Un lot invalide est refusé en entier (invalid_install_event). */
+    post: operations["postWorkerInstallEvents"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/transcription-config": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Récupère la configuration de transcription pour ce Worker. */
+    get: operations["getWorkerTranscriptionConfig"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/update": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Image que l'agent local du Worker doit faire tourner, et si ce Worker est au repos (aucun job sous bail) pour que l'agent attende un moment calme. En mode latest, résout la cible depuis le catalogue en cache (écriture seulement si une version plus haute apparaît). Sans cible, les champs version et image sont nuls. */
+    get: operations["getWorkerUpdate"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/update-status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Statut de l'agent local après une tentative de mise à jour. Aucun texte libre : code de cause stable, empreinte de l'image tirée. */
+    post: operations["postWorkerUpdateStatus"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/transcription-config/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Envoie le résultat du test de configuration depuis le Worker. */
+    post: operations["postWorkerTranscriptionConfigStatus"];
     delete?: never;
     options?: never;
     head?: never;
@@ -722,6 +1287,40 @@ export interface paths {
     get?: never;
     put?: never;
     post: operations["heartbeatWorkerJob"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/jobs/{id}/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Lignes de log d'un job envoyées par le Worker par lots (2 s ou 50 lignes), déjà masquées côté Worker. Le serveur ne garde que les 50 dernières lignes du job ; elles sont supprimées avec le job. Lease obligatoire. */
+    post: operations["appendWorkerJobLogs"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/jobs/{id}/logs/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lignes de log d'un job (50 au plus, les plus récentes) : flux text/event-stream, un évènement snapshot {seq, snapshot: JobLogs} à chaque ajout ; le droit est revérifié avant chaque snapshot. */
+    get: operations["streamJobLogs"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -861,6 +1460,217 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/library/folders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dossiers de premier niveau parcourables ; un dossier privé apparaît verrouillé pour qui ne peut pas l'ouvrir */
+    get: operations["listLibraryFolders"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library/explorer": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Explorateur de la Racine vidéo : dossiers et vidéos croisés avec la base, paginés côté serveur (ADR 0032) */
+    get: operations["listLibraryExplorer"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library/explorer/index": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Demander l'indexation d'une vidéo ouverte dans l'explorateur, sans analyse */
+    post: operations["indexExplorerVideo"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Estimer l'indexation de toute la Racine vidéo, sans la démarrer (administrateur)
+     * @description Parcourt les dossiers de la Racine (jamais le contenu des vidéos). Ne compte ni les dossiers cachés, ni les liens symboliques, ni les fichiers non vidéo ; les Dossiers privés ne sont comptés que pour un Super-administrateur.
+     */
+    get: operations["previewLibraryIndexRun"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/current": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dernière indexation de la Racine vidéo et sa progression (administrateur) */
+    get: operations["getCurrentLibraryIndexRun"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Indexer toutes les vidéos de la Racine qui n'ont pas encore de fiche clip (administrateur, action explicite)
+     * @description mode cards : fiches seulement. mode full : fiches puis analyse complète de chaque nouveau clip, même si l'analyse automatique est désactivée. Une vidéo qui a déjà un clip n'est jamais retraitée. Une seule indexation en cours à la fois. Le travail est fait par le scan géré existant : il survit à un redémarrage.
+     */
+    post: operations["startLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/{id}/pause": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Mettre l'indexation en pause : les vidéos restantes ne sont plus demandées (administrateur) */
+    post: operations["pauseLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/{id}/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Reprendre une indexation en pause (administrateur) */
+    post: operations["resumeLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/index-runs/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Annuler l'indexation : les fiches déjà créées sont conservées (administrateur) */
+    post: operations["cancelLibraryIndexRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/settings/automatic-analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Réglage « Analyse complète automatique » (administrateur ; actif par défaut) */
+    get: operations["getAutomaticAnalysisSetting"];
+    /** Activer ou désactiver l'analyse complète des clips ajoutés (administrateur) */
+    put: operations["putAutomaticAnalysisSetting"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/library/folders/privacy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Rendre un dossier de premier niveau privé ou visible (super-administrateur) */
+    put: operations["putFolderPrivacy"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Supprimer définitivement un clip et ses fichiers (super-administrateur) */
+    delete: operations["deleteClip"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/clips/{id}": {
     parameters: {
       query?: never;
@@ -874,7 +1684,8 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    patch?: never;
+    /** @description Administrateurs uniquement. Met à jour la visibilité d’un clip. */
+    patch: operations["updateClip"];
     trace?: never;
   };
   "/api/clips/{id}/segments/{index}/text": {
@@ -996,6 +1807,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/clips/{id}/thumbnail": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Mêmes règles d’accès que le média. Seul un clip indexé a une miniature : aucune n’est produite pour un fichier non indexé. */
+    get: operations["getClipThumbnail"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/transcription": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description User-facing endpoint. The audio track uses its global FFmpeg index. */
+    post: operations["scheduleClipTranscription"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/job-controls": {
     parameters: {
       query?: never;
@@ -1007,6 +1852,195 @@ export interface paths {
     get: operations["getJobControls"];
     /** @description Administrateurs uniquement. La concurrence globale est bornée à 1–4. */
     put: operations["updateJobControls"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Lecture seule : l'état des étapes avec statut et code de raison stables. */
+    get: operations["getClipAnalysis"];
+    put?: never;
+    /** @description Administrateurs. Lance une analyse durable du clip (préparation puis transcription) ; une seule analyse active par clip, un second appel renvoie l'analyse existante. Les résultats valides sont réutilisés. */
+    post: operations["startClipAnalysis"];
+    /** @description Super-administrateur seulement. Suppression d'étapes ou de toute l'analyse d'un clip, refusée pendant une analyse active. Les Personnes ne sont jamais supprimées. */
+    delete: operations["deleteClipAnalysis"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/deletion-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Calcul préalable des pertes d'une suppression d'analyse (segments, corrections, voix, voix validées, échantillons, Personnes touchées). */
+    get: operations["getClipAnalysisDeletionPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. */
+    get: operations["getClipAnalysisHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs. Arrête la planification des étapes suivantes et annule les jobs en attente ; une étape déjà en cours peut terminer valablement. Une relance (POST analysis) crée une nouvelle exécution qui réutilise les résultats valides. */
+    post: operations["cancelClipAnalysis"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/steps/{step}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs. Relance une étape en échec définitif : son job échoué est ignoré et remplacé, les résultats valides sont conservés et la politique de retry des jobs s'applique à nouveau. */
+    post: operations["retryClipAnalysisStep"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/queue": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence), avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET /api/admin/analysis/queue/events. */
+    get: operations["getAnalysisQueue"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Historique durable de toutes les exécutions terminées (réussies, échouées, annulées) de tous les clips, la plus récente d'abord, avec leurs étapes ; seule partie paginée de la Task Queue (10 par page). */
+    get: operations["getAnalysisHistory"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/analysis/queue/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Même mécanisme que le flux d'analyse d'un clip, sujet admin:queue ; droits revérifiés avant chaque snapshot. */
+    get: operations["streamAnalysisQueueEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/analysis": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Tout utilisateur qui peut ouvrir le clip. Lecture seule : statut et code de raison stables de chaque étape, sans identifiant de job, nom de Worker ni code d'erreur. */
+    get: operations["getClipAnalysisView"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Tout utilisateur qui peut ouvrir le clip. Repli : GET /api/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisViewEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/analysis/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Flux d'évènements serveur authentifié (cookie de session), droits revérifiés avant chaque snapshot. Mécanisme générique (table events, déclenchée par les changements) réutilisable pour d'autres sujets ; repli : GET /api/admin/clips/{id}/analysis. */
+    get: operations["streamClipAnalysisEvents"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -1135,6 +2169,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/transcription-settings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement, y compris avant le premier Worker. */
+    get: operations["getTranscriptionSettings"];
+    put: operations["updateTranscriptionSettings"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/transcription-pipeline": {
     parameters: {
       query?: never;
@@ -1162,9 +2213,320 @@ export interface paths {
     };
     /** @description Administrateurs uniquement. Modèle de diarisation et seuils des empreintes ; aucun modèle n'est téléchargé implicitement. */
     get: operations["getVoicePipeline"];
-    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Seul le fournisseur factice peut s'exécuter sans access_confirmed. */
+    /** @description Enregistre un snapshot immuable et l'active pour les nouvelles étapes vocales. Un modèle pyannote doit appartenir au catalogue ; l'état réel des Workers remplace toute confirmation saisie. */
     put: operations["updateVoicePipeline"];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-overview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Les modèles vocaux que chaque Worker déclare réellement (jamais une saisie), leur état et le nombre de travaux vocaux en attente d'un Worker prêt. Un Worker n'est prêt que s'il détient les modèles actifs et qu'une inférence de test a réussi. */
+    get: operations["getVoiceOverview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Catalogue des modèles vocaux (références en base : type, adaptateur autorisé, dépôt, révision épinglée, licence, accès gated, besoins matériels, activée ou non, prise en charge ou non) avec, pour chacun, l'état réel rapporté par chaque Worker. Un modèle est installé si au moins un Worker l'a prêt. */
+    get: operations["listVoiceModels"];
+    put?: never;
+    /** @description Super-administrateur uniquement. Ajoute au catalogue le dépôt Hugging Face inspecté, à la révision (commit) montrée par l'inspection : Snitch relit ce commit exact, vérifie le type confirmé contre les métadonnées et déduit lui-même le moteur. Le moteur n'est pas une entrée. Un dépôt sans adaptateur approuvé, ou dont le moteur ne sait pas exécuter le type choisi, est enregistré non pris en charge avec sa raison et ne peut pas être installé. Refusé : voice_model_kind_mismatch (le dépôt déclare un autre type), voice_model_exists, voice_model_hf_not_found, voice_model_hf_denied, voice_model_hf_unavailable. */
+    post: operations["addVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/inspection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Super-administrateur uniquement. Lit les métadonnées publiques d'un dépôt Hugging Face collé (owner/nom ou adresse huggingface.co ; aucun autre hôte) sans rien télécharger ni exécuter, avec délai et taille de réponse bornés. Propose un type seulement si les métadonnées le déclarent sans ambiguïté, déduit le moteur depuis la matrice d'adaptateurs approuvés et épingle le commit lu. */
+    post: operations["inspectVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/candidate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateurs uniquement. Choisit le modèle candidat dans le catalogue (jamais un dépôt saisi). Chaque Worker le prépare par tirage. Remplace le candidat précédent. Un modèle déjà actif ne peut pas être candidat (voice_model_already_active). */
+    put: operations["chooseVoiceModelCandidate"];
+    post?: never;
+    /** @description Administrateurs uniquement. Annule le candidat : le modèle actif et les modèles installés ne changent pas. */
+    delete: operations["cancelVoiceModelCandidate"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. */
+    patch: operations["patchVoiceModel"];
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}/activate": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Active un modèle pour tous les Workers : nouvelle version du pipeline vocal. Refusé (voice_model_not_ready) tant qu'aucun Worker ne l'a prêt ; un modèle déjà prêt (retour arrière) s'active sans nouvelle préparation. */
+    post: operations["activateVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/{id}/installation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Ordonne à UN Worker, désigné par worker_id (400 worker_required sinon), de supprimer un modèle installé. Refusé (voice_model_in_use) s'il est actif ou candidat, ou utilisé par un job de ce Worker ; 409 voice_model_not_removable si ce Worker ne le détient pas. */
+    delete: operations["removeVoiceModel"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-models/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Relance la préparation du candidat sur un Worker en échec (sans corps). Refusé (no_voice_candidate) sans candidat ou sans échec à relancer. Avec un corps {model_id, idempotency_key}, enregistre un nouvel ordre d'installation du modèle dont la dernière tentative a échoué sur ce Worker (201, voice_model_not_failed sinon) ; pour un remplacement dont le retrait de l'ancien a échoué, relance ce retrait (200). */
+    post: operations["retryWorkerVoiceModel"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/workers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Vue « Modèles par Worker » : pour chaque Worker non révoqué, le modèle de chacun des trois types (diarisation, empreinte, séparation) avec son état réel, sa progression, le volume occupé, la cause d'échec et la révision. */
+    get: operations["listVoiceModelsByWorker"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Historique des ordres de modèle d'un Worker (installation, retrait), du plus récent au plus ancien, avec leur issue, leur cause et leur auteur. */
+    get: operations["listVoiceModelOrders"];
+    put?: never;
+    /** @description Administrateurs uniquement. Ordonne à un Worker d'installer un modèle du catalogue. Rejouer la même clé d'idempotence pour le même Worker et le même modèle renvoie l'ordre déjà enregistré (200) sans effet double ; la même clé pour autre chose est refusée (idempotency_key_reused). Refusé si le modèle est inconnu, désactivé ou non pris en charge, déjà installé, déjà demandé, ou si le type est occupé par un autre modèle (voice_model_type_occupied), sauf avec replaces_model_id : c'est alors un remplacement (le nouveau est installé et testé pendant que l'ancien reste actif ; Snitch décide la bascule, puis ordonne le retrait de l'ancien, différé tant qu'un travail en cours l'utilise). */
+    post: operations["createVoiceModelOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Aperçu d'impact du changement du modèle d'empreinte vers le modèle cible, sans rien modifier : références à recalculer, clips et Personnes concernés, autres empreintes à recalculer ensuite, attributions validées conservées, Workers qui ont déjà la cible prête (ADR 0044). */
+    get: operations["previewFingerprintTransition"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État de la transition d'empreinte ouverte ou, à défaut, de la dernière : phase, progression des références recalculées, tâches actives ou en échec, rattrapage restant. Lire l'état fait aussi avancer une transition interrompue. */
+    get: operations["getFingerprintTransition"];
+    put?: never;
+    /** @description Administrateurs uniquement. Confirme le changement du modèle d'empreinte vers la cible. confirm_references doit être le nombre de références vu dans l'aperçu (voice_transition_preview_stale sinon). Une seule transition à la fois (voice_transition_in_progress). */
+    post: operations["startFingerprintTransition"];
+    /** @description Administrateurs uniquement. Abandonne la transition ouverte avant la bascule ; la production n'a pas changé. Refusé une fois la bascule faite (voice_transition_switched). */
+    delete: operations["cancelFingerprintTransition"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-models/fingerprint-transition/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Reprend la transition : replanifie aussi les références dont la tâche s'est terminée sans empreinte, et le rattrapage après la bascule. */
+    post: operations["resumeFingerprintTransition"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-replacements/{kind}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Annule le remplacement d'un modèle de ce type sur ce Worker tant que le nouveau n'est pas en service : l'essai en échec ou pas encore reçu est oublié, l'ancien reste actif et installé. Refusé pendant un téléchargement ou un test (voice_replacement_in_progress) et une fois la bascule décidée (voice_replacement_switched). */
+    delete: operations["cancelVoiceModelReplacement"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-removals": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Retrait explicite d'un modèle prêt ou en échec sur ce Worker : un ordre remove, jamais un effacement silencieux. Refusé tant qu'un travail utilise le modèle (voice_model_in_use) ou tant qu'un remplacement en cours en dépend (voice_replacement_in_progress) ; seul fait exception le retrait de l'ancien modèle d'un remplacement dont le nouveau a échoué : le remplacement est alors abandonné pour libérer la place. Rejouer la même clé d'idempotence renvoie l'ordre déjà enregistré (200). */
+    post: operations["createVoiceModelRemoval"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-model-orders/{id}/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker accuse réception d'un de ses ordres après ses contrôles (destinataire, identité, type, modèle, révision, idempotence), ou le refuse avec la cause invalid_order. Rejouer l'accusé est sans effet. Un ordre d'un autre Worker est introuvable. */
+    post: operations["ackWorkerModelOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description État souhaité des modèles vocaux tiré par le Worker : le candidat et le modèle actif à préparer, les modèles à supprimer et les ordres d'installation en cours. Le jeton Hugging Face central n'accompagne que la première livraison d'un ordre qui télécharge un modèle sous accès restreint (ADR 0027) ; jamais de chemin. */
+    get: operations["getWorkerVoiceModels"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-models/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker rapporte l'état de préparation d'un modèle du catalogue : téléchargement (octets reçus / total), vérification, prêt (inférence synthétique réussie), échec avec une cause stable, ou supprimé. Une cause n'accompagne qu'un échec. Avec order_id, le rapport répond à un ordre du Worker (modèle et révision contrôlés) ; ready clôt l'ordre, failed l'échoue ; un ordre terminé n'est pas rouvert (stale_voice_order). */
+    post: operations["postWorkerVoiceModelStatus"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1180,8 +2542,25 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. */
+    /** @description Administrateurs uniquement. Action explicite pour un clip déjà transcrit ; la transcription n'est jamais relancée. Les empreintes sont planifiées automatiquement à l'achèvement de la diarisation. Sert aussi à relancer la diarisation d'un clip déjà traité avec le modèle actif (jamais automatique) : le résultat visible n'est remplacé qu'après réussite, les corrections de locuteur deviennent obsolètes, les échantillons vocaux validés sont conservés. */
     post: operations["scheduleVoice"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/voice-trace": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Étapes brutes autour de l'alignement entre la diarisation et la transcription (modèles et versions, tours, segments avec leurs voix candidates, voix retenue, couverture), sans aucun texte transcrit : joignable à un rapport sans exposer le clip. Diagnostic de #273. */
+    get: operations["getVoiceTrace"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1212,7 +2591,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). */
+    /** @description Utilisateurs connectés. Chaque Personne porte le nombre de ses Échantillons vocaux validés actifs (références). Sans page ni page_size : les 500 premières Personnes, sans total (comportement historique). Avec page ou page_size : une page triée par nom puis identifiant, et le total des Personnes correspondant à q. */
     get: operations["listPersons"];
     put?: never;
     /** @description Utilisateurs connectés. Une Personne est une identité, jamais un compte. */
@@ -1275,6 +2654,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/persons/{id}/impact": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Lecture seule, pour chiffrer les conséquences d'une correction avant de la confirmer et pour en expliquer le refus. Ne révèle aucun clip invisible : seulement un booléen. */
+    get: operations["getPersonImpact"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/persons/{id}/voices": {
     parameters: {
       query?: never;
@@ -1320,6 +2716,77 @@ export interface paths {
     get: operations["getMyPerson"];
     put?: never;
     post?: never;
+    /** @description Utilisateurs connectés. Le compte lié retire sa propre liaison : la Personne, ses attributions et ses clips sont conservés, mais l'accès de « Ma voix » et le droit de supprimer le profil vocal sont perdus. Tracé. */
+    delete: operations["unlinkMyPerson"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/me/person/request": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Renvoie la demande la plus récente du compte : en attente, approuvée ou refusée. */
+    get: operations["getMyPersonLinkRequest"];
+    put?: never;
+    /** @description Utilisateurs connectés. Demande à lier son compte à une Personne existante ; un Administrateur approuve ou refuse. Un compte déjà lié doit se délier d'abord. Un compte a au plus une demande en attente, et une Personne aussi. */
+    post: operations["requestPersonLink"];
+    /** @description Utilisateurs connectés. Annule la demande en attente du compte ; le fait reste dans la trace immuable. */
+    delete: operations["cancelMyPersonLinkRequest"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/person-link-requests": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. File des demandes de liaison entre un compte et une Personne. */
+    get: operations["listPersonLinkRequests"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/person-link-requests/{id}/approve": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Lie le compte demandeur à la Personne ; si un autre compte y était lié, le lien est remplacé — l'ancien compte perd la liaison — et les deux faits sont tracés. */
+    post: operations["approvePersonLinkRequest"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/person-link-requests/{id}/refuse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Refuse la demande ; aucun lien n'est créé et le fait est tracé. */
+    post: operations["refusePersonLinkRequest"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1389,6 +2856,23 @@ export interface paths {
     put?: never;
     /** @description Utilisateurs connectés, pour un clip visible. expected_person_id (Personne vue par l'utilisateur) est obligatoire pour qu'une correction concurrente n'en écrase pas une autre. */
     post: operations["correctLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés, pour un clip visible : mêmes règles de visibilité que le reste. Cible des liens directs de Vérification : dit si la voix reste à trancher, ou qui l'a attribuée à qui et quand. Un clip invisible ne fuit jamais : 404 identique à celui d'un identifiant inexistant. */
+    get: operations["getLocalSpeaker"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -1600,6 +3084,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/local-speakers/{id}/disposition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. Met la voix de côté (ignored) ou la libellé « Random ». Même droit que la validation. Les rapprochements ne la considèrent plus. */
+    put: operations["setLocalSpeakerDisposition"];
+    post?: never;
+    /** @description Utilisateurs connectés, pour un clip visible (Rétablir). */
+    delete: operations["restoreLocalSpeakerDisposition"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/refusal": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Utilisateurs connectés, pour un clip visible. « Ce n'est pas X » : un nouveau rapprochement ne propose plus cette Personne pour cette voix. Réversible (Annuler le refus) et journalisé. Une nouvelle diarisation reporte le refus sur la nouvelle voix qui couvre au moins la moitié du temps de parole de l'ancienne, sinon l'abandonne. */
+    post: operations["refuseLocalSpeaker"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/local-speakers/{id}/refusals/{person_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Utilisateurs connectés, pour un clip visible : même droit que le refus (ADR 0031). « Annuler le refus » : la Personne n'est plus exclue du rapprochement pour cette voix. L'attribution retirée par le refus n'est pas rétablie. */
+    delete: operations["cancelLocalSpeakerRefusal"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-groups/{id}/disposition": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Utilisateurs connectés. Une disposition vaut pour chacune des voix du groupe (ADR 0031). */
+    put: operations["setVoiceGroupDisposition"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/voice-verification": {
     parameters: {
       query?: never;
@@ -1612,6 +3165,109 @@ export interface paths {
     put?: never;
     post?: never;
     delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/people/to-process": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Vue « À traiter », calculée à la lecture sur les clips visibles : voix sans validation humaine ni attribution automatique, hors voix ignorées et Random (ADR 0031). Par clip : voix à confirmer (suggestion), ambiguës, inconnues, et nombre de groupes proposés (deux voix ou plus) auxquels ses voix appartiennent. Tri : plus de voix d'abord. `total` suit le filtre ; `totals` n'en dépend pas (compteurs de l'onglet). Cette lecture n'écrit rien. */
+    get: operations["listPeopleToProcess"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Notifications persistantes du demandeur, sur les clips qu'il peut encore voir (l'accès est revérifié à chaque lecture, historique compris). unread compte les non-lues, pending les actions non résolues : deux compteurs distincts. Aucune écriture. */
+    get: operations["listNotifications"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Flux d'évènements serveur du sujet `user:<id>` : session et rôle revérifiés à la connexion, avant chaque snapshot et à chaque battement, accès aux clips revérifié à chaque lecture. Repli : GET /api/notifications. */
+    get: operations["streamNotificationEvents"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Marque lues toutes les notifications du demandeur ; ne résout aucune action. */
+    post: operations["readAllNotifications"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}/read": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Lecture individuelle : ne résout pas l'action, qui reste partagée. */
+    put: operations["markNotificationRead"];
+    post?: never;
+    /** @description Remet la notification en non lue pour le demandeur seul. */
+    delete: operations["markNotificationUnread"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/notifications/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Seul l'historique résolu est supprimable, par son destinataire ; les autres destinataires le conservent. */
+    delete: operations["deleteNotification"];
     options?: never;
     head?: never;
     patch?: never;
@@ -1643,9 +3299,26 @@ export interface paths {
     };
     /** @description Configuration effective du service d'embeddings, consultable par les Administrateurs. */
     get: operations["getEmbeddingSettings"];
-    /** @description Teste et enregistre l'adresse et le modèle ; réservé aux Administrateurs. Les variables d'environnement restent prioritaires. */
+    /** @description Enregistre l'adresse et le modèle ; réservé aux Administrateurs. Exige la preuve (validation_token) d'un test réussi de cette configuration exacte, à usage unique et de courte durée, rendue par testEmbeddingSettings : sinon 409 embedding_validation_required, embedding_validation_expired ou embedding_validation_mismatch. Les variables d'environnement restent prioritaires. */
     put: operations["putEmbeddingSettings"];
     post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/embeddings/settings/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Teste l'adresse et le modèle contre le vrai service, sans rien enregistrer ni toucher à l'index ; réservé aux Administrateurs. En cas de succès, rend une preuve de validation liée aux valeurs effectives et à l'utilisateur, valable quelques minutes et à usage unique. */
+    post: operations["testEmbeddingSettings"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1774,11 +3447,319 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    EmbeddingValidation: {
+      validation_token: string;
+      dimensions: number;
+      model: string;
+      /** Format: date-time */
+      expires_at: string;
+    };
     EmbeddingSettings: {
       url: string;
       model: string;
       url_from_environment: boolean;
       model_from_environment: boolean;
+    };
+    ClipAnalysisStep: {
+      /** @enum {string} */
+      step:
+        | "preparation"
+        | "transcription"
+        | "indexing"
+        | "diarization"
+        | "fingerprints"
+        | "matching";
+      /** @enum {string} */
+      status:
+        | "waiting"
+        | "running"
+        | "retry"
+        | "blocked"
+        | "failed"
+        | "done"
+        | "not_applicable"
+        | "not_yet_supported";
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, worker_not_claiming, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
+      reason: string;
+      /** Format: int64 */
+      job_id: number | null;
+      attempt: number;
+      /** @description Version d'entrée du job suivi par l'étape (historique). */
+      input_version: string | null;
+      /** @description Profil (pipeline) du job suivi par l'étape. */
+      profile: string | null;
+      /** @description Étape relancée par une réanalyse, malgré un résultat valide. */
+      forced: boolean;
+      /** @description File de tâches seulement, étape en échec : Cause d'échec persistée du dernier échec du job suivi (jamais de texte brut) ; absente sans cause connue. */
+      failure_code?: components["schemas"]["FailureCode"];
+      /** @description File de tâches seulement : code de l'action conseillée, décidé par le serveur. Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker, awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée. */
+      recommended_action?: string;
+      /** Format: date-time */
+      started_at: string | null;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** @description Historique des analyses seulement : événements persistés du job suivi par l'étape (tentatives, reprises, échecs), du plus ancien au plus récent ; absent ailleurs ou sans job. */
+      events?: components["schemas"]["AnalysisStepEvent"][];
+      /** Format: date-time */
+      updated_at: string;
+    };
+    AnalysisStepEvent: components["schemas"]["JobEvent"] & {
+      /** @description Nom du Worker de l'événement, quand il est encore enregistré ; jamais un chemin. */
+      worker_name?: string;
+    };
+    ClipAnalysisRun: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      scope: "transcription" | "voice" | "full";
+      /** @enum {string} */
+      status: "active" | "completed" | "failed" | "cancelled";
+      /** Format: int64 */
+      started_by: number | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** @enum {string} */
+      mode: "missing" | "full" | "steps";
+      forced_steps: ("transcription" | "indexing" | "diarization")[];
+      confirmed_replace_corrections: boolean;
+      confirmed_replace_validations: boolean;
+      /**
+       * Format: date-time
+       * @description Instant jusqu'auquel le travail humain en jeu a été montré et confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée).
+       */
+      confirmed_stake_at: string | null;
+      /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée. */
+      pending_voices: number;
+      steps: components["schemas"]["ClipAnalysisStep"][];
+    };
+    /** @description Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur. */
+    ClipAnalysisView: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @enum {string} */
+      scope: "transcription" | "voice" | "full";
+      /** @enum {string} */
+      status: "active" | "completed" | "failed" | "cancelled";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      pending_voices: number;
+      steps: {
+        /** @enum {string} */
+        step:
+          | "preparation"
+          | "transcription"
+          | "indexing"
+          | "diarization"
+          | "fingerprints"
+          | "matching";
+        /** @enum {string} */
+        status:
+          | "waiting"
+          | "running"
+          | "retry"
+          | "blocked"
+          | "failed"
+          | "done"
+          | "not_applicable";
+        reason: string;
+        /** Format: date-time */
+        updated_at: string;
+      }[];
+    };
+    ClipAnalysisViewResponse: {
+      run: components["schemas"]["ClipAnalysisView"] | null;
+    };
+    ClipAnalysisResponse: {
+      run: components["schemas"]["ClipAnalysisRun"] | null;
+    };
+    AnalysisQueueRun: components["schemas"]["ClipAnalysisRun"] & {
+      clip_name: string;
+      /** @description Fichiers vidéo d'origine indexés du clip (hors fichiers introuvables), avec leur source et leur chemin complet persisté ; jamais un fichier de travail du Worker. Vide : chemin indisponible. */
+      locations: components["schemas"]["ClipLocation"][];
+      /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée qui en laisse est seulement partiellement identifiée. */
+      pending_voices: number;
+    };
+    AnalysisRunHistory: {
+      items: components["schemas"]["AnalysisQueueRun"][];
+      total: number;
+      page: number;
+      page_size: number;
+    };
+    ClipLocation: {
+      /** @description Nom de la source indexée. */
+      source: string;
+      /** @description Chemin complet (racine de la source + chemin relatif). Absent pour un dossier privé. */
+      path?: string;
+      /** @description Le fichier est dans un dossier privé : son chemin n'est pas envoyé. */
+      private?: boolean;
+    };
+    AnalysisQueueTask: components["schemas"]["Job"] & {
+      clip_name: string;
+      /** @description Cause d'échec persistée du dernier échec ; last_error est ramené à ce code, jamais un texte brut. */
+      failure_code?: components["schemas"]["FailureCode"];
+      /** @description Action de reprise conseillée pour cette cause. */
+      recommended_action?: string;
+    };
+    /** @description Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les jobs leased au bail non expiré occupent un emplacement. */
+    AnalysisQueueSummary: {
+      running_tasks: number;
+      /** @description Clips dont l'analyse est active et qui n'occupent aucun emplacement (attente, reprise différée ou suspendus). */
+      waiting_clips: number;
+      max_concurrency: number;
+      paused: boolean;
+    };
+    AnalysisQueue: {
+      summary: components["schemas"]["AnalysisQueueSummary"];
+      active: components["schemas"]["AnalysisQueueRun"][];
+      completed: components["schemas"]["AnalysisQueueRun"][];
+      tasks: components["schemas"]["AnalysisQueueTask"][];
+    };
+    /** @description Ce qui a changé dans la file depuis l'état précédent du flux : l'ordre des exécutions actives, le contenu de celles qui sont nouvelles ou modifiées, le reste en entier. */
+    AnalysisQueueDelta: {
+      /** @description Toutes les exécutions actives, dans l'ordre de la file. */
+      active_ids: number[];
+      /** @description Les exécutions de active_ids nouvelles ou modifiées depuis l'état précédent. */
+      active: components["schemas"]["AnalysisQueueRun"][];
+      completed: components["schemas"]["AnalysisQueueRun"][];
+      tasks: components["schemas"]["AnalysisQueueTask"][];
+      summary: components["schemas"]["AnalysisQueueSummary"];
+    };
+    ClipAnalysisConflict: {
+      error: string;
+      run?: components["schemas"]["ClipAnalysisRun"];
+      stake?: components["schemas"]["ClipReanalysisStake"];
+      /**
+       * Format: date-time
+       * @description Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at.
+       */
+      stake_at?: string;
+    };
+    /** @description Pertes d'une suppression d'analyse ; rien n'est supprimé par ce calcul. Les Personnes et leurs échantillons validés ne sont jamais supprimés, seulement retirés de la référence. */
+    ClipAnalysisDeletionStake: {
+      /** @description Segments des transcriptions supprimées. */
+      segments: number;
+      /** @description Corrections de segments de la transcription visible (retranscription). */
+      corrections: {
+        /** Format: int64 */
+        transcription_job_id: number;
+        text_segments: number;
+        speaker_segments: number;
+        authors: string[];
+        /** Format: date-time */
+        last_corrected_at: string | null;
+      } | null;
+      /** @description Locuteurs locaux du clip (diarisation). */
+      voices: number;
+      /** @description Locuteurs locaux validés par un humain. */
+      validated_voices: number;
+      /** @description Échantillons actifs de la référence retirés. */
+      voice_samples: number;
+      /** @description Personnes dont une voix validée ou un échantillon actif est touché. */
+      persons: number;
+    };
+    /** @description Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés). */
+    ClipReanalysisStake: {
+      /** @description Corrections de segments de la transcription visible (retranscription). */
+      corrections: {
+        /** Format: int64 */
+        transcription_job_id: number;
+        text_segments: number;
+        speaker_segments: number;
+        authors: string[];
+        /** Format: date-time */
+        last_corrected_at: string | null;
+      } | null;
+      /** @description Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation). */
+      voice: {
+        validated_speakers: number;
+        voice_samples: number;
+        speaker_corrections: number;
+      } | null;
+    };
+    ClipAnalysisHistory: {
+      runs: components["schemas"]["ClipAnalysisRun"][];
+    };
+    LibraryFolder: {
+      /** Format: int64 */
+      source_id: number;
+      source: string;
+      name: string;
+      path: string;
+      /** @description Dossier rendu privé par le Super-administrateur */
+      private: boolean;
+      /** @description Privé et non ouvrable par l'utilisateur courant : seul son nom est exposé */
+      locked: boolean;
+    };
+    AutomaticAnalysisSetting: {
+      /** @description Vrai : un clip ajouté démarre une Analyse de clip complète (ADR 0035) */
+      enabled: boolean;
+    };
+    ExplorerIndexResult: {
+      path: string;
+      /** @enum {string} */
+      state: "indexed" | "in_progress";
+      /** Format: int64 */
+      clip_id?: number;
+    };
+    ExplorerEntry: {
+      name: string;
+      /** @description Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine */
+      path: string;
+      folder: string;
+      directory: boolean;
+      /** Format: int64 */
+      size_bytes: number;
+      private: boolean;
+      locked: boolean;
+      /** @enum {string} */
+      state?:
+        | "not_indexed"
+        | "in_progress"
+        | "not_analyzed"
+        | "transcribed"
+        | "analyzed"
+        | "failed";
+      /** Format: int64 */
+      clip_id: number | null;
+      /** Format: int64 */
+      owner_id: number | null;
+      owner: string;
+      visibility?: string;
+      duration_seconds: number | null;
+      /** Format: date-time */
+      added_at: string | null;
+      /** Format: date-time */
+      recorded_at: string | null;
+      game: string;
+      voices_pending: number;
+      /** @description Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant */
+      match_count?: number;
+    };
+    ExplorerListing: {
+      /** Format: int64 */
+      source_id: number;
+      root_configured: boolean;
+      items: components["schemas"]["ExplorerEntry"][];
+      /** @description Taille de la sélection entière, hors pagination */
+      total: number;
+      states: string[];
+    };
+    FolderPrivacy: {
+      /** Format: int64 */
+      source_id: number;
+      /** @description Nom d'un dossier de premier niveau de la source */
+      folder: string;
+      private: boolean;
     };
     Error: {
       error: string;
@@ -1810,6 +3791,16 @@ export interface components {
        * @enum {string|null}
        */
       language?: "en" | "fr" | null;
+      /** @description Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon identifiant local. */
+      display_name?: string;
+    };
+    AccountProfileInput: {
+      display_name: string;
+      username: string;
+    };
+    AccountPasswordInput: {
+      current_password?: string;
+      new_password: string;
     };
     AccountPreferences: {
       /**
@@ -1825,6 +3816,15 @@ export interface components {
     Session: {
       user: components["schemas"]["User"];
       csrf_token: string;
+      /** @description Whether this account has a Discord identity linked. */
+      discord_linked: boolean;
+      /** @description True only when Discord is linked and a local password is configured. */
+      can_unlink_discord: boolean;
+      /** @description Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only. */
+      discord_name?: string | null;
+      has_password: boolean;
+      /** @description Vrai username Discord, distinct du global_name ; actualisé à la connexion et par le bot. */
+      discord_username?: string | null;
     };
     Setup: {
       initialized: boolean;
@@ -1838,13 +3838,25 @@ export interface components {
     };
     SetupStepInput: {
       /** @enum {string} */
-      step: "discord" | "semantic_search" | "worker" | "import";
+      step:
+        | "location"
+        | "discord"
+        | "semantic_search"
+        | "worker"
+        | "huggingface"
+        | "import";
       /** @enum {string} */
       state: "done" | "skipped";
     };
     SetupStepState: {
       /** @enum {string} */
-      step: "discord" | "semantic_search" | "worker" | "import";
+      step:
+        | "location"
+        | "discord"
+        | "semantic_search"
+        | "worker"
+        | "huggingface"
+        | "import";
       /** @enum {string} */
       state: "done" | "skipped" | "todo";
     };
@@ -1858,7 +3870,7 @@ export interface components {
       /** @description Whether a nonempty secret is stored. The secret itself is never returned. */
       secret_configured: boolean;
       registration_approval: boolean;
-      /** @description Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL). */
+      /** @description Discord return address to register, built from the public address of the request. */
       callback_url: string;
       /**
        * @description provided : la clé vient de la variable MASTER_KEY ; generated : l'application l'a générée et la conserve dans son volume de secrets.
@@ -1979,6 +3991,8 @@ export interface components {
         [key: string]: unknown;
       } | null;
       cycle: number;
+      /** @description Renvoyé à la planification d'un travail à modèle demandé (benchmark). */
+      requested_model_id?: string;
     };
     JobInput: {
       /** Format: int64 */
@@ -1989,6 +4003,8 @@ export interface components {
       priority: number;
       /** @default 3 */
       max_attempts: number;
+      /** @description Modèle d'empreinte du catalogue demandé explicitement (benchmark), uniquement pour une étape voice.fingerprint.*. Sans lui, le modèle actif s'applique. Le travail n'est attribué qu'à un Worker qui a CE modèle prêt ; ses empreintes restent dans un groupe de benchmark, jamais comparé à la production. */
+      requested_model_id?: string;
     };
     JobPage: {
       items: components["schemas"]["Job"][];
@@ -2008,23 +4024,72 @@ export interface components {
         | "admin_relaunched"
         | "cancelled"
         | "completed"
-        | "lease_expired";
+        | "lease_expired"
+        | "worker_revoked";
       cycle: number;
       attempt: number | null;
       /** @enum {string} */
       actor: "admin" | "worker" | "system";
       actor_id: string;
+      /** @description Cause d'échec (voir FailureCode) ; vide pour un événement sans échec. */
       error_code: string;
+      /** @description Étape du job, présente avec un diagnostic. */
+      step?: string;
+      provider?: string;
+      model?: string;
+      revision?: string;
+      http_status?: number;
+      duration_ms?: number;
+      /** @description Code de l'action de reprise conseillée, décidée par le serveur ; absent sans cause connue. */
+      recommended_action?: string;
       /** Format: date-time */
       created_at: string;
     };
     JobHistory: {
       items: components["schemas"]["JobEvent"][];
     };
+    MemberPermissions: {
+      edit: boolean;
+      manage: boolean;
+      set_role: boolean;
+    };
+    MemberDetail: {
+      /** Format: int64 */
+      id: number;
+      username: string;
+      display_name: string | null;
+      /** @enum {string|null} */
+      language: "en" | "fr" | null;
+      /** @enum {string} */
+      role: "user" | "admin" | "super_admin";
+      approved: boolean;
+      discord_linked: boolean;
+      discord_username: string | null;
+      has_password: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: int64 */
+      clip_count: number;
+      /** Format: int64 */
+      session_count: number;
+      permissions: components["schemas"]["MemberPermissions"];
+    };
+    MemberPatch: {
+      username?: string;
+      display_name?: string | null;
+      /** @enum {string|null} */
+      language?: "en" | "fr" | null;
+      /** @enum {string} */
+      role?: "user" | "admin";
+      approved?: boolean;
+    };
     Member: {
       /** Format: int64 */
       id: number;
       username: string;
+      /** @description Nom affiché effectif : choisi, pseudo Discord ou identifiant. */
+      display_name: string;
+      discord_linked: boolean;
       /** @enum {string} */
       role: "user" | "admin" | "super_admin";
       /** Format: date-time */
@@ -2045,9 +4110,50 @@ export interface components {
       /** Format: int64 */
       gpu_memory_bytes?: number;
     };
+    /** @description Statut de synchronisation de la configuration de transcription pour un Worker. */
+    WorkerTranscriptionConfig: {
+      /** @description Version de configuration reçue par le Worker. */
+      received_version?: string;
+      /** @description Version de configuration testée par le Worker. */
+      tested_version?: string;
+      /** @description Version de configuration active (validée) pour ce Worker. */
+      active_version?: string;
+      /**
+       * @description Code d'erreur du dernier test.
+       * @enum {string}
+       */
+      error_code?: "connection_failed" | "model_missing";
+      /** @description Adresse Whisper propre à ce Worker, si définie. */
+      endpoint_override?: string;
+    };
+    /** @description Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs. */
+    WorkerTranscriptionReachability: {
+      reachable: boolean;
+      /** Format: date-time */
+      checked_at: string;
+      latency_ms: number;
+      last_failure:
+        | components["schemas"]["WorkerTranscriptionFailureInput"]
+        | null;
+    };
+    WorkerTranscriptionStatusInput: {
+      version: string;
+      active: boolean;
+      /** @enum {string} */
+      error_code: "" | "connection_failed" | "model_missing";
+    };
     Worker: {
+      /** @description Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected. */
+      supported_steps?: string[] | null;
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
+      /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
+      transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
+      /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
+      transcription_config_ready?: boolean;
+      install?: components["schemas"]["WorkerInstall"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -2061,9 +4167,102 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      /** @description Motif facultatif de suppression, conservé dans l'audit minimal. */
+      revoke_reason: string;
+      /**
+       * Format: date-time
+       * @description Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
+       */
+      revocation_acknowledged_at: string | null;
       connected: boolean;
+      /** @description Vues administrateur (liste et détail) seulement : vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321). La présence seule ne dit pas qu'il peut réclamer des tâches. Absent ou faux sinon. */
+      claim_stalled?: boolean;
       /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
       models?: components["schemas"]["WorkerModels"];
+    };
+    /** @enum {string} */
+    WorkerInstallPhase:
+      | "prerequisites"
+      | "registration"
+      | "image"
+      | "permissions"
+      | "gpu"
+      | "voice-models"
+      | "voice-test"
+      | "service";
+    /**
+     * @description Codes de cause stables du lanceur.
+     * @enum {string}
+     */
+    WorkerInstallCause:
+      | "unsupported_platform"
+      | "docker_unavailable"
+      | "registration_rejected"
+      | "network_unreachable"
+      | "image_pull_failed"
+      | "volume_not_writable"
+      | "hf_cache_not_writable"
+      | "gpu_unavailable"
+      | "service_start_failed"
+      | "hf_access_denied"
+      | "hf_token_invalid"
+      | "hf_gated_denied"
+      | "hf_repo_invalid"
+      | "unknown";
+    WorkerInstallEventInput: {
+      phase: components["schemas"]["WorkerInstallPhase"];
+      /** @enum {string} */
+      status: "started" | "succeeded" | "failed";
+      /** @description Obligatoire (un code de WorkerInstallCause) si le statut est failed, vide sinon. */
+      cause_code?: string;
+      /**
+       * Format: date-time
+       * @description Horodatage d'origine, conservé même si l'événement a été mis en file hors ligne.
+       */
+      occurred_at: string;
+    };
+    WorkerInstallEvent: {
+      phase: components["schemas"]["WorkerInstallPhase"];
+      /** @enum {string} */
+      status: "started" | "succeeded" | "failed";
+      cause_code: string;
+      /** Format: date-time */
+      occurred_at: string;
+      /** Format: date-time */
+      received_at: string;
+      /** @description Vrai si l'événement a été mis en file hors ligne et reçu longtemps après son horodatage d'origine. */
+      received_later: boolean;
+    };
+    WorkerInstallVoice: {
+      /**
+       * @description ready seulement après une inférence synthétique réussie.
+       * @enum {string}
+       */
+      state: "pending" | "ready" | "unavailable";
+      cause_code: string;
+    };
+    /** @description Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice). */
+    WorkerInstall: {
+      /**
+       * @description connected = premier pouls ; voice_ready = connecté et inférence synthétique réussie ; never_connected = aucun pouls après 24 h.
+       * @enum {string}
+       */
+      state:
+        | "installing"
+        | "connected"
+        | "voice_ready"
+        | "failed"
+        | "never_connected";
+      failed_phase: string;
+      cause_code: string;
+      voice: components["schemas"]["WorkerInstallVoice"];
+      last_event: components["schemas"]["WorkerInstallEvent"] | null;
+      /** Format: date-time */
+      last_activity_at: string | null;
+      /** @description Absence de nouvelles, distincte du dernier événement reçu. */
+      no_news: boolean;
+      /** @description Historique récent (fiche détaillée seulement). */
+      events?: components["schemas"]["WorkerInstallEvent"][];
     };
     /** @description Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées. */
     WorkerModels: {
@@ -2081,13 +4280,14 @@ export interface components {
     WorkerRegistrationInput: {
       name: string;
       max_concurrency: number;
-      /** @description Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée. */
+      /** @description Obsolète : l'adresse est gérée dans Admin → Transcription. Refusée lors de la création. */
       transcription_url?: string;
-      /** @description Modèle et langue de la bibliothèque : réservés au premier worker, qui crée le profil de transcription (refus transcription_profile_already_set ensuite). Le jeton Hugging Face n'est jamais envoyé à Snitch. */
+      /** @description Obsolète : modèle et langue sont gérés dans Admin → Transcription. Refusés lors de la création. Le jeton Hugging Face n'est jamais envoyé à Snitch. */
       transcription?: components["schemas"]["WorkerTranscriptionProfile"];
     };
     WorkerTranscriptionProfile: {
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). */
       language: string;
     };
     WorkerRecentTask: {
@@ -2106,6 +4306,13 @@ export interface components {
     WorkerDetail: {
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
+      /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
+      transcription_config?: components["schemas"]["WorkerTranscriptionConfig"];
+      /** @description Dernier test de joignabilité du serveur de transcription par ce Worker. Administrateurs uniquement. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachability"];
+      /** @description Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1). */
+      transcription_config_ready?: boolean;
+      install?: components["schemas"]["WorkerInstall"];
       machine?: components["schemas"]["WorkerMachine"];
       /** @description Adresse IP de connexion observée par Snitch, sans port. */
       remote_address?: string;
@@ -2119,7 +4326,16 @@ export interface components {
       created_at: string;
       /** Format: date-time */
       revoked_at: string | null;
+      /** @description Motif facultatif de suppression, conservé dans l'audit minimal. */
+      revoke_reason: string;
+      /**
+       * Format: date-time
+       * @description Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
+       */
+      revocation_acknowledged_at: string | null;
       connected: boolean;
+      /** @description Vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321) : la présence seule ne dit pas qu'il peut réclamer des tâches. */
+      claim_stalled?: boolean;
       models?: components["schemas"]["WorkerModels"];
       /** @description Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord. */
       recent_tasks: components["schemas"]["WorkerRecentTask"][];
@@ -2139,6 +4355,13 @@ export interface components {
       revoked_at: string | null;
       token: string;
       bundle: components["schemas"]["WorkerBundle"];
+      /** @description Commande d'installation Linux à copier une fois ; le code d'invitation éphémère (usage unique, 15 minutes) n'est pas le jeton du Worker. Absente si install_command_unavailable est présent. */
+      install_command?: string;
+      /**
+       * @description Raison pour laquelle aucune commande n'a été générée : insecure_origin (adresse http:// sans choix explicite) ou invalid_origin (adresse publique inutilisable).
+       * @enum {string}
+       */
+      install_command_unavailable?: "insecure_origin" | "invalid_origin";
     };
     /** @description Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton. */
     WorkerBundle: {
@@ -2148,17 +4371,92 @@ export interface components {
       insecure_api_url: boolean;
     };
     WorkerPage: {
-      /** @description Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque. */
+      /** @description Vrai tant qu'aucun Worker n'a jamais été créé. La configuration de transcription est indépendante. */
       first_worker: boolean;
       /** @description Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés. */
       snitch_url: string;
       /** @description Profil de transcription actif de la bibliothèque. */
       transcription: {
+        /** @enum {string} */
+        mode: "unconfigured" | "enabled" | "disabled";
+        endpoint: string;
+        settings_version: string;
         model: string;
         language: string;
         version: string;
       };
       items: components["schemas"]["Worker"][];
+    };
+    AvatarSettingsInput: {
+      /** @enum {string} */
+      source: "discord" | "custom" | "none";
+    };
+    AvatarSettings: {
+      /** @enum {string} */
+      source: "discord" | "custom" | "none";
+      discord_linked: boolean;
+      has_custom: boolean;
+      has_discord: boolean;
+      bot_configured: boolean;
+      /** @description Vrai quand la photo affichée suit Discord et que le bot est configuré. */
+      auto_sync: boolean;
+      /** Format: date-time */
+      last_synced_at: string | null;
+      last_error: string | null;
+    };
+    DiscordBotInput: {
+      token: string;
+    };
+    DiscordBotStatus: {
+      /** @enum {string} */
+      status: "connected" | "not_configured" | "error";
+      bot_name: string | null;
+      last_error: string | null;
+      /** Format: date-time */
+      last_sync_at: string | null;
+      last_refreshed: number;
+      last_failed: number;
+      running: boolean;
+    };
+    HFTokenInput: {
+      /** @description Token Hugging Face : écrit une fois, jamais renvoyé */
+      token: string;
+    };
+    HFTokenStatus: {
+      configured: boolean;
+      /** @description Valeur présente mais illisible avec la clé maître courante : à ressaisir */
+      unreadable: boolean;
+      workers: {
+        id: string;
+        name: string;
+        /** @enum {string} */
+        source: "" | "central" | "local" | "none";
+        /**
+         * @description pending = non synchronisé
+         * @enum {string}
+         */
+        state: "synced" | "pending" | "error";
+        /** @enum {string} */
+        error_code: "" | "hf_token_store_failed";
+      }[];
+    };
+    WorkerHFTokenVersion: {
+      /** @description 0 = aucun token central */
+      version: string;
+    };
+    WorkerHFToken: {
+      version: string;
+      /** @description null : copie centrale à purger */
+      token: string | null;
+    };
+    WorkerHFTokenAck: {
+      version: string;
+      /** @enum {string} */
+      outcome: "applied" | "kept_local" | "removed" | "failed";
+      /** @enum {string} */
+      source: "central" | "local" | "none";
+      /** @enum {string} */
+      error_code?: "" | "hf_token_store_failed";
     };
     WorkerPulseInput: {
       machine?: components["schemas"]["WorkerMachine"];
@@ -2166,6 +4464,30 @@ export interface components {
       supported_steps: string[];
       /** @description Modèles utilisés par ce worker. Remplace la déclaration précédente à chaque pouls ; l’omettre revient à ne rien déclarer. */
       models?: components["schemas"]["WorkerModels"];
+      /** @description Dernier résultat de joignabilité du serveur de transcription, testé par le Worker toutes les 60 s hors du pouls. Omis tant que le Worker ne connaît pas de configuration. */
+      transcription_reachability?: components["schemas"]["WorkerTranscriptionReachabilityInput"];
+    };
+    /** @description Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête. */
+    WorkerTranscriptionReachabilityInput: {
+      /** Format: date-time */
+      checked_at: string;
+      reachable: boolean;
+      latency_ms: number;
+      /** @description Détail du dernier échec connu pour la cible courante. */
+      last_failure?: components["schemas"]["WorkerTranscriptionFailureInput"];
+    };
+    WorkerTranscriptionFailureInput: {
+      /** Format: date-time */
+      failed_at: string;
+      /** @enum {string} */
+      method: "GET";
+      url: string;
+      status_code?: number | null;
+      latency_ms: number;
+      /** @enum {string} */
+      error_type: "timeout" | "connection" | "http_status" | "invalid_body";
+      /** @description Extrait borné de la réponse, vide hors statut HTTP ou corps invalide. */
+      body_excerpt: string;
     };
     WorkerClaim: {
       job: components["schemas"]["Job"] | null;
@@ -2188,10 +4510,30 @@ export interface components {
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
     };
+    TranscriptionSettingsInput: {
+      /** @enum {string} */
+      mode: "enabled" | "disabled";
+      endpoint: string;
+      model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). Ignoré si mode vaut disabled. */
+      language: string;
+      profile?: components["schemas"]["TranscriptionPipeline"];
+    };
+    TranscriptionSettingsState: {
+      /** @enum {string} */
+      mode: "unconfigured" | "enabled" | "disabled";
+      /** @enum {string} */
+      status: "unconfigured" | "untested" | "disabled";
+      endpoint: string;
+      model: string;
+      language: string;
+      version: string;
+    };
     TranscriptionPipeline: {
       /** @enum {string} */
       provider: "openai-compatible";
       model: string;
+      /** @description Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). */
       language: string;
       /** @enum {string} */
       preparation: "wav-16khz-mono-v1";
@@ -2211,11 +4553,9 @@ export interface components {
     };
     VoicePipeline: {
       /** @enum {string} */
-      provider: "fake" | "pyannote";
+      provider: "fake" | "pyannote" | "nemo";
       model: string;
       model_version: string;
-      /** @description Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle. */
-      access_confirmed: boolean;
       min_fingerprint_seconds: number;
       min_quality: number;
       /** @description Réglages du fournisseur factice déterministe, réservés aux tests. */
@@ -2224,12 +4564,395 @@ export interface components {
         dimensions: number;
       };
     };
+    VoiceModelChoice: {
+      model_id: string;
+    };
+    VoiceModelPatch: {
+      label?: string;
+      license?: string;
+      /** Format: int64 */
+      size_bytes?: number;
+      /** Format: int64 */
+      vram_bytes?: number;
+      enabled?: boolean;
+    };
+    VoiceModelCandidate: {
+      candidate: string;
+    };
+    VoiceModelRetry: {
+      retry_requested: boolean;
+    };
+    VoiceModelWorkerState: {
+      worker_id: string;
+      name: string;
+      connected: boolean;
+      /** @enum {string} */
+      state:
+        | "not_installed"
+        | "requested"
+        | "downloading"
+        | "verifying"
+        | "ready"
+        | "switching"
+        | "removing"
+        | "failed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error"
+        | "invalid_order";
+      /** Format: int64 */
+      bytes_received: number;
+      /** Format: int64 */
+      bytes_total: number;
+    };
+    VoiceModel: {
+      id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      label: string;
+      /**
+       * Format: int64
+       * @description Mémoire GPU nécessaire, 0 si inconnue.
+       */
+      vram_bytes: number;
+      /** @description Une référence désactivée ne peut plus être choisie ; son historique reste lisible. */
+      enabled: boolean;
+      /** @description Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation). */
+      supported: boolean;
+      unsupported_reason: string;
+      engine: string;
+      repo: string;
+      revision: string;
+      license: string;
+      gated: boolean;
+      max_speakers: number | null;
+      /** Format: int64 */
+      size_bytes: number;
+      supports_num_speakers: boolean;
+      active: boolean;
+      candidate: boolean;
+      /** @description Au moins un Worker a le modèle prêt. */
+      installed: boolean;
+      workers: components["schemas"]["VoiceModelWorkerState"][];
+    };
+    VoiceModelInspectionRequest: {
+      /** @description Dépôt Hugging Face : owner/nom ou adresse huggingface.co. */
+      source: string;
+    };
+    VoiceModelAdd: {
+      source: string;
+      /** @description Commit montré par l'inspection. */
+      revision: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+    };
+    VoiceModelInspection: {
+      repo: string;
+      /** @description Commit lu, épinglé à l'ajout. */
+      revision: string;
+      license: string;
+      gated: boolean;
+      /** @description Moteur déduit de la matrice ; vide si aucun adaptateur approuvé. */
+      engine: string;
+      /** @description Null quand les métadonnées ne tranchent pas : la personne choisit parmi les trois types. */
+      proposed_kind: string | null;
+      compatible_kinds: ("diarization" | "fingerprint" | "separation")[];
+      supported: boolean;
+      unsupported_reason: string;
+      /** @description Références du catalogue déjà créées pour ce dépôt. */
+      existing_ids: string[];
+    };
+    VoiceModels: {
+      models: components["schemas"]["VoiceModel"][];
+    };
+    WorkerVoiceModel: {
+      model_id: string;
+      engine: string;
+      repo: string;
+      revision: string;
+      /** @enum {string} */
+      role: "candidate" | "active" | "removal";
+      retry: boolean;
+    };
+    WorkerVoiceModels: {
+      worker_id: string;
+      models: components["schemas"]["WorkerVoiceModel"][];
+      remove: components["schemas"]["WorkerVoiceModel"][];
+      orders: components["schemas"]["WorkerModelOrder"][];
+    };
+    FingerprintTransitionInput: {
+      to_model_id: string;
+      confirm_references: number;
+    };
+    FingerprintTransitionPreview: {
+      from_model_id: string;
+      to_model_id: string;
+      references: number;
+      clips: number;
+      persons: number;
+      other_fingerprints: number;
+      validated_attributions: number;
+      workers_ready: number;
+    };
+    FingerprintTransition: {
+      /** Format: int64 */
+      id: number;
+      from_model_id: string;
+      to_model_id: string;
+      /** @enum {string} */
+      phase: "preparing" | "recomputing" | "switched" | "cancelled";
+      announced_references: number;
+      references_total: number;
+      references_done: number;
+      references_remaining: number;
+      jobs_active: number;
+      jobs_failed: number;
+      catch_up_remaining: number;
+      workers_ready: number;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      switched_at?: string;
+    };
+    FingerprintTransitionState: {
+      open: boolean;
+      transition?: components["schemas"]["FingerprintTransition"];
+    };
+    VoiceModelOrderInput: {
+      model_id: string;
+      idempotency_key: string;
+      /** @description Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte). */
+      replaces_model_id?: string;
+    };
+    WorkerModelOrder: {
+      order_id: string;
+      worker_id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      /** @enum {string} */
+      action: "install" | "remove";
+      model_id: string;
+      engine: string;
+      repo: string;
+      revision: string;
+      idempotency_key: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      /**
+       * Format: int64
+       * @description Taille annoncée par le catalogue : le Worker vérifie son espace libre avant de télécharger (disk_full sinon).
+       */
+      size_bytes: number;
+      /** @description Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge un modèle sous accès restreint. */
+      hf_token?: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    VoiceModelRemovalInput: {
+      model_id: string;
+      idempotency_key: string;
+    };
+    VoiceModelOrderHistoryItem: {
+      order_id: string;
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      /** @enum {string} */
+      action: "install" | "remove";
+      model_id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      /** @enum {string} */
+      status:
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      cause_code: string;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+    };
+    VoiceModelOrderHistory: {
+      orders: components["schemas"]["VoiceModelOrderHistoryItem"][];
+    };
+    WorkerModelOrderAck: {
+      accepted: boolean;
+      /** @enum {string} */
+      cause_code?: "" | "invalid_order";
+    };
+    WorkerModelCell: {
+      /** @enum {string} */
+      kind: "diarization" | "fingerprint" | "separation";
+      supported: boolean;
+      model_id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      /**
+       * @description Pendant un remplacement la cellule montre le nouveau modèle : switching (prêt, bascule décidée, retrait de l'ancien en attente), removing (ordre remove de l'ancien envoyé).
+       * @enum {string}
+       */
+      state:
+        | "not_installed"
+        | "requested"
+        | "downloading"
+        | "verifying"
+        | "ready"
+        | "switching"
+        | "removing"
+        | "failed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error"
+        | "invalid_order";
+      /** Format: int64 */
+      bytes_received: number;
+      /** Format: int64 */
+      bytes_total: number;
+      /** Format: int64 */
+      occupied_bytes: number;
+      order_id: string;
+      /** @description Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste actif et installé jusqu'à son retrait. */
+      replaces_model_id: string;
+      /** @description Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise. */
+      waiting_for_jobs: boolean;
+    };
+    WorkerModelsRow: {
+      worker_id: string;
+      name: string;
+      connected: boolean;
+      models: components["schemas"]["WorkerModelCell"][];
+    };
+    WorkerModelsView: {
+      workers: components["schemas"]["WorkerModelsRow"][];
+    };
+    WorkerVoiceModelStatus: {
+      model_id: string;
+      order_id?: string;
+      revision?: string;
+      /** @enum {string} */
+      state: "downloading" | "verifying" | "ready" | "failed" | "removed";
+      /** @enum {string} */
+      cause_code?:
+        | ""
+        | "hf_token_missing"
+        | "hf_access_denied"
+        | "hf_token_invalid"
+        | "hf_gated_denied"
+        | "hf_repo_invalid"
+        | "disk_full"
+        | "runtime_incompatible"
+        | "inference_failed"
+        | "hf_auth_required"
+        | "hf_not_found"
+        | "hf_network"
+        | "models_volume_unwritable"
+        | "hf_cache_error"
+        | "invalid_order";
+      /** Format: int64 */
+      bytes_received?: number;
+      /** Format: int64 */
+      bytes_total?: number;
+      /** Format: int64 */
+      occupied_bytes?: number;
+    };
+    VoiceOverviewWorker: {
+      id: string;
+      name: string;
+      connected: boolean;
+      /**
+       * @description ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs.
+       * @enum {string}
+       */
+      voice_state: "ready" | "untested" | "unavailable" | "models_missing";
+      cause_code: string;
+      diarization: components["schemas"]["WorkerModel"] | null;
+      fingerprint: components["schemas"]["WorkerModel"] | null;
+      holds_active_diarization: boolean;
+      holds_active_fingerprint: boolean;
+    };
+    VoiceOverview: {
+      /** @enum {string} */
+      provider: "fake" | "pyannote" | "nemo";
+      active_models: {
+        diarization: string;
+        fingerprint: string;
+      };
+      workers_total: number;
+      workers_voice_ready: number;
+      /** @description Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon. */
+      pending_voice_jobs: number;
+      workers: components["schemas"]["VoiceOverviewWorker"][];
+    };
     VoicePipelineState: {
       version: string;
       config: components["schemas"]["VoicePipeline"];
     };
     VoiceScheduleInput: {
       audio_stream_index?: number;
+      /** @description Vrai pour confirmer explicitement la relance sur un clip qui contient des validations humaines (locuteurs validés, échantillons vocaux) ou des corrections de locuteur. Sans lui, la relance est refusée (409 voice_rediarization_confirmation_required) avec ce qui est en jeu. */
+      confirm_replace_validations?: boolean;
+    };
+    /** @description Ce qu'une relance de la diarisation rendrait obsolète : les locuteurs validés (archivés avec leurs échantillons vocaux, conservés et liés à l'audio) et les corrections de locuteur de la transcription (obsolètes). */
+    VoiceRediarizationStake: {
+      validated_speakers: number;
+      voice_samples: number;
+      speaker_corrections: number;
+    };
+    /** @description Erreur 409 de la planification : stake n'accompagne que voice_rediarization_confirmation_required. */
+    VoiceRediarizationConfirmation: {
+      error: string;
+      stake?: components["schemas"]["VoiceRediarizationStake"];
+    };
+    /** @description Résultat de diarisation remplacé par une relance, avec sa provenance. */
+    VoiceHistoryEntry: {
+      /** Format: int64 */
+      job_id: number;
+      model: string;
+      model_version: string;
+      /** Format: date-time */
+      completed_at: string;
+      speaker_count: number;
+      /** @description Locuteurs validés de ce résultat, conservés avec leurs échantillons vocaux. */
+      validated_speakers: number;
     };
     ScheduledVoice: {
       job: components["schemas"]["Job"];
@@ -2270,18 +4993,101 @@ export interface components {
       model_version: string;
       dimensions: number;
     };
+    PersonExists: {
+      /** @enum {string} */
+      error: "person_exists";
+      candidates: {
+        /** Format: int64 */
+        id: number;
+        display_name: string;
+      }[];
+    };
+    IndexRunPreview: {
+      /** @description Vidéos que l'utilisateur peut voir dans la Racine. */
+      detected: number;
+      /** @description Déjà dotées d'une fiche clip : jamais retraitées. */
+      already_indexed: number;
+      /** @description Sans fiche clip : celles qu'une indexation traiterait. */
+      new: number;
+    };
+    IndexRun: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      mode: "cards" | "full";
+      /** @enum {string} */
+      status: "running" | "paused" | "cancelled" | "completed";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      total: number;
+      /** @description Vidéos dont la fiche clip existe. */
+      indexed: number;
+      /** @description Vidéos illisibles ou disparues. */
+      failed: number;
+      pending: number;
+      /** @description Clips de l'indexation dont une analyse a été mise en file (mode full). */
+      analysis_started: number;
+      /** @description Mode full : des vidéos attendent et aucun Worker n'est en ligne. */
+      waiting_for_worker: boolean;
+      /** @description Les premières vidéos en échec, avec leur code. */
+      failures: components["schemas"]["IndexRunFailure"][];
+    };
+    IndexRunFailure: {
+      path: string;
+      code: string;
+    };
+    IndexRunAnswer: {
+      run: components["schemas"]["IndexRun"] | null;
+    };
     PersonInput: {
       display_name: string;
+      /** @description Vrai pour créer une Personne de même nom qu'une existante, après que l'utilisateur a refusé de la réutiliser. */
+      allow_homonym?: boolean;
     };
     PersonRef: {
       /** Format: int64 */
       id: number;
       display_name: string;
     };
+    PersonLinkAccount: {
+      /** Format: int64 */
+      id: number;
+      /** @description Nom du compte au moment de la décision. */
+      username: string;
+    };
+    PersonLinkRequestInput: {
+      /** Format: int64 */
+      person_id: number;
+      /** @description Message facultatif à l'attention de l'Administrateur. */
+      message?: string;
+    };
+    PersonLinkRequest: {
+      /** Format: int64 */
+      id: number;
+      person: components["schemas"]["PersonRef"];
+      /** @description Compte qui demande la liaison. */
+      account: components["schemas"]["PersonLinkAccount"];
+      /** @enum {string} */
+      status: "pending" | "approved" | "refused";
+      message: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      decided_at: string | null;
+      /** @description Administrateur qui a décidé, le cas échéant. */
+      decided_by: components["schemas"]["PersonLinkAccount"] | null;
+    };
+    PersonLinkRequestList: {
+      items: components["schemas"]["PersonLinkRequest"][];
+    };
     Person: {
       /** Format: int64 */
       id: number;
       display_name: string;
+      /** @description Nom d'utilisateur du compte lié, rempli en lecture (liste et fiche) ; null sans compte lié ou dans le résultat d'une correction. */
+      account_username: string | null;
       /**
        * Format: int64
        * @description Compte lié, le cas échéant : une Personne n'est jamais un compte.
@@ -2291,6 +5097,10 @@ export interface components {
       validated_sample_count: number;
       /** @description Locuteurs locaux validés pour cette Personne. */
       local_speaker_count: number;
+      /** @description Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir. Rempli en lecture (liste et fiche), 0 dans le résultat d'une correction. */
+      clip_count: number;
+      /** @description Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant. */
+      speaking_seconds: number;
       /**
        * Format: date-time
        * @description Date de suppression du profil vocal : tant qu'elle est renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée. Aucune donnée vocale n'est conservée.
@@ -2308,6 +5118,18 @@ export interface components {
     };
     PersonSeparationInput: {
       local_speaker_ids: number[];
+    };
+    PersonImpact: {
+      /** @description Désignations de piste micro (règles de source et surcharges de clip) qui nomment la Personne : déplacées par une fusion, supprimées par une suppression. */
+      microphone_rules: number;
+      /** @description Vrai lorsque la Personne est attribuée sur un clip que l'appelant ne peut pas voir (toujours faux pour un administrateur) : une fusion ou une suppression serait refusée (person_has_hidden_voices). */
+      has_hidden_voices: boolean;
+      /** @description Échantillons vocaux validés (actifs et retirés) qu'effacerait la suppression du profil vocal. */
+      voice_samples: number;
+      /** @description Empreintes qu'effacerait la suppression du profil vocal. */
+      fingerprints: number;
+      /** @description Attributions qu'effacerait la suppression du profil vocal ; les voix correspondantes redeviendraient inconnues. */
+      attributions: number;
     };
     PersonCorrectionResult: {
       /** @description Personne qui reste (cible de fusion, Personne séparée) ; null après suppression. */
@@ -2341,6 +5163,13 @@ export interface components {
       clip_name: string;
       label: string;
       speaking_seconds: number;
+      /**
+       * Format: date-time
+       * @description Date d'enregistrement du clip.
+       */
+      recorded_at: string;
+      /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
+      sample_count: number;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];
@@ -2363,6 +5192,8 @@ export interface components {
     };
     PersonList: {
       items: components["schemas"]["Person"][];
+      /** @description Présent seulement lorsque la liste est paginée : nombre de Personnes correspondant à q. */
+      total?: number;
     };
     AttributionAuthor: {
       /** Format: int64 */
@@ -2446,6 +5277,8 @@ export interface components {
       /** Format: int64 */
       person_id?: number;
       new_person_name?: string;
+      /** @description Avec new_person_name : crée la Personne même si une Personne de même nom existe (409 person_exists sinon). */
+      allow_homonym?: boolean;
       /** @description Exactement les voix visibles du groupe que l'utilisateur a écoutées. */
       local_speaker_ids: number[];
     };
@@ -2454,6 +5287,41 @@ export interface components {
       validated: number[];
       /** @description Voix déjà validées par quelqu'un d'autre pendant l'opération. */
       skipped: number[];
+    };
+    VoiceDispositionInput: {
+      /** @enum {string} */
+      disposition: "ignored" | "random";
+    };
+    VoiceGroupDispositionInput: {
+      /** @enum {string} */
+      disposition: "ignored" | "random";
+      /** @description Les voix du groupe affichées (non exclues) ; group_changed si le groupe n'est plus exactement cet ensemble. */
+      local_speaker_ids: number[];
+    };
+    VoiceDispositionView: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** @enum {string|null} */
+      disposition: "ignored" | "random" | null;
+    };
+    VoiceGroupDisposition: {
+      /** Format: int64 */
+      group_id: number;
+      /** @enum {string|null} */
+      disposition: "ignored" | "random" | null;
+      voices: number;
+    };
+    VoiceRefusalInput: {
+      /** Format: int64 */
+      person_id: number;
+    };
+    VoiceRefusal: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      person_id: number;
+      /** @description Vrai après un refus, faux après son annulation. */
+      refused: boolean;
     };
     VoiceGroupExclusion: {
       /** Format: int64 */
@@ -2485,6 +5353,55 @@ export interface components {
       /** @description Clips distincts du groupe : la fréquence qui ordonne les cas. */
       group_clip_count: number;
     };
+    LocalSpeakerRead: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      label: string;
+      speaking_seconds: number;
+      decision_level: components["schemas"]["DecisionLevel"];
+      /** @description Attribution effective (validation humaine d'abord, sinon rapprochement) ; null sans attribution. Author et decided_at disent qui l'a décidée et quand. */
+      attribution: components["schemas"]["Attribution"] | null;
+      /**
+       * Format: int64
+       * @description Présent seulement pour une voix à trancher (inconnue ou ambiguë) : groupe proposé de la voix.
+       */
+      group_id?: number;
+      /** @description Présent avec group_id. */
+      group_voice_count?: number;
+      /** @description Présent avec group_id. */
+      group_clip_count?: number;
+    };
+    PeopleToProcessClip: {
+      /** Format: int64 */
+      clip_id: number;
+      clip_name: string;
+      to_confirm: number;
+      ambiguous: number;
+      unknown: number;
+      groups: number;
+      /** @description Dossier du clip dans sa source (chemin relatif sans le nom du fichier), vide s'il n'en a pas. */
+      folder: string;
+      /** Format: date-time */
+      recorded_at: string;
+      duration_seconds: number | null;
+      /** @description Une analyse du clip s'est terminée dans les 24 dernières heures. */
+      analysed_recently: boolean;
+    };
+    PeopleToProcessTotals: {
+      clips: number;
+      to_confirm: number;
+      ambiguous: number;
+      unknown: number;
+      groups: number;
+    };
+    PeopleToProcess: {
+      items: components["schemas"]["PeopleToProcessClip"][];
+      total: number;
+      totals: components["schemas"]["PeopleToProcessTotals"];
+    };
     /** @description Locuteurs locaux des clips visibles par niveau de décision effectif, calculés en base. */
     VoiceVerificationCounts: {
       human: number;
@@ -2492,6 +5409,71 @@ export interface components {
       suggestion: number;
       ambiguous: number;
       unknown: number;
+    };
+    NotificationRead: {
+      /** Format: int64 */
+      id: number;
+      read: boolean;
+    };
+    Notification: {
+      /** Format: int64 */
+      id: number;
+      /**
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip.
+       * @enum {string}
+       */
+      kind:
+        | "needs_speaker_review"
+        | "worker_unavailable"
+        | "provider_unavailable"
+        | "model_missing"
+        | "job_failed"
+        | "job_blocked"
+        | "technical_incident"
+        | "folder_request_decided";
+      /**
+       * @description Partagé : une action résolue l'est pour tous.
+       * @enum {string}
+       */
+      state: "active" | "resolved";
+      /** Format: int64 */
+      clip_id: number | null;
+      clip_name: string;
+      /** @description Voix restant à décider, ou jobs concernés par l'incident. */
+      pending_count: number;
+      /** @description État de lecture du demandeur, indépendant de la résolution. */
+      read: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** Format: date-time */
+      resolved_at: string | null;
+      /**
+       * Format: int64
+       * @description Incident : dernier job concerné (administrateurs uniquement).
+       */
+      job_id: number | null;
+      /** @description Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret. */
+      step: string;
+      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated, worker_not_claiming), jamais l'erreur brute. */
+      error_code: string;
+      /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
+      generic: boolean;
+      /** @description Décision sur une demande de dossier : chemin relatif de la Racine vidéo, vide sinon. */
+      folder_path?: string;
+      /**
+       * @description Décision sur une demande de dossier : approved ou refused, vide sinon.
+       * @enum {string}
+       */
+      folder_outcome?: "" | "approved" | "refused";
+    };
+    NotificationList: {
+      items: components["schemas"]["Notification"][];
+      unread: number;
+      pending: number;
+      /** @description Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à proposer « Afficher plus ». */
+      total: number;
     };
     VoiceVerification: {
       items: components["schemas"]["VoiceVerificationCase"][];
@@ -2631,6 +5613,8 @@ export interface components {
       /** Format: int64 */
       person_id?: number;
       new_person_name?: string;
+      /** @description Avec new_person_name : crée la Personne même si une Personne de même nom existe (409 person_exists sinon). */
+      allow_homonym?: boolean;
       /**
        * Format: int64
        * @description Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur.
@@ -2837,6 +5821,13 @@ export interface components {
       person: components["schemas"]["PersonRef"] | null;
       attribution: components["schemas"]["Attribution"] | null;
       fingerprints: components["schemas"]["VoiceFingerprint"][];
+      /**
+       * @description ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031).
+       * @enum {string|null}
+       */
+      disposition?: "ignored" | "random" | null;
+      /** @description Personnes refusées pour cette voix (« Ce n'est pas X »), que le rapprochement ne propose plus ; chacune peut être rétablie par Annuler le refus (ADR 0031). */
+      refused_persons?: components["schemas"]["PersonRef"][];
     };
     ClipVoice: {
       /** Format: int64 */
@@ -2846,6 +5837,8 @@ export interface components {
       audio_stream_index?: number | null;
       steps: components["schemas"]["VoiceStep"][];
       speakers: components["schemas"]["LocalSpeaker"][];
+      /** @description Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie. */
+      history: components["schemas"]["VoiceHistoryEntry"][];
     };
     WorkerVoiceInput: {
       pipeline_version: string;
@@ -2870,8 +5863,62 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /**
+     * @description Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé par un ancien Worker est enregistré comme worker_failed.
+     * @enum {string}
+     */
+    FailureCode:
+      | "worker_failed"
+      | "provider_unavailable"
+      | "invalid_input"
+      | "audio_preparation_failed"
+      | "lease_expired"
+      | "max_attempts_exhausted"
+      | "cancelled_by_admin"
+      | "input_version_superseded"
+      | "worker_revoked"
+      | "whisper_network"
+      | "whisper_timeout"
+      | "whisper_http_error"
+      | "whisper_model_missing"
+      | "whisper_invalid_response"
+      | "pyannote_model_missing"
+      | "pyannote_access_denied"
+      | "gpu_unavailable"
+      | "gpu_out_of_memory"
+      | "diarization_inference_failed"
+      | "hf_auth_required"
+      | "hf_not_found"
+      | "hf_network"
+      | "models_volume_unwritable"
+      | "hf_cache_error";
+    WorkerJobLogsInput: {
+      lines: string[];
+    };
+    JobLogLine: {
+      /** Format: int64 */
+      seq: number;
+      /** @description Ligne JSON de log, masquée ; jamais de jeton, Bearer, URL avec identifiants ni chemin de clip. */
+      text: string;
+    };
+    JobLogs: {
+      /** Format: int64 */
+      job_id: number;
+      lines: components["schemas"]["JobLogLine"][];
+    };
     WorkerFailureInput: {
+      /** @description Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed. */
       error: string;
+      /** @description Optionnel. Fournisseur de l'appel en échec. */
+      provider?: string;
+      /** @description Optionnel. Modèle de l'appel en échec. */
+      model?: string;
+      /** @description Optionnel. Révision du modèle. */
+      revision?: string;
+      /** @description Optionnel. Statut HTTP renvoyé par le fournisseur. */
+      http_status?: number;
+      /** @description Optionnel. Durée de l'appel en échec. */
+      duration_ms?: number;
     };
     Source: {
       managed_root?: boolean;
@@ -2954,13 +6001,40 @@ export interface components {
       owner: string;
       /** @enum {string} */
       visibility: "private" | "shared";
+      /** @description Titre affiché choisi par un administrateur ; absent, le nom du fichier (original_name) sert de titre. original_name reste le nom physique, jamais modifié. */
+      display_title: string | null;
+      /** @description Valeurs détectées automatiquement, conservées à la première modification manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai. */
+      detected: {
+        game_available: boolean;
+        game: string | null;
+        game_origin: string | null;
+        recorded_at_available: boolean;
+        /** Format: date-time */
+        recorded_at: string | null;
+        recorded_at_origin: string | null;
+      } | null;
       original_name: string;
       /** Format: int64 */
       size_bytes: number;
       /** Format: date-time */
       discovered_at: string;
       /** Format: date-time */
-      recorded_at: string;
+      recorded_at: string | null;
+      origins?: {
+        /** @enum {string} */
+        kind: "source" | "upload";
+        name: string | null;
+      }[];
+      /** @description Pics de forme d’onde par piste audio (ADR 0034), un élément par piste ayant reçu des pics ; liste vide tant qu’aucune analyse n’en a fourni. */
+      waveforms?: {
+        audio_stream_index: number;
+        /** Format: int64 */
+        job_id: number;
+        peaks: number[];
+      }[];
+      game?: string | null;
+      game_origin?: string | null;
+      capture_time_origin?: string | null;
       recorded_at_estimated: boolean;
       duration_seconds?: number | null;
       format_name: string;
@@ -3084,7 +6158,77 @@ export interface components {
         id: number;
         label: string;
       }[];
+      /** @description Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation. */
+      speaker_coverage?: components["schemas"]["SpeakerCoverage"][];
       segments: components["schemas"]["TranscriptSegment"][];
+    };
+    SpeakerCoverage: {
+      /** Format: int64 */
+      local_speaker_id: number;
+      /**
+       * @description words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+       * @enum {string}
+       */
+      coverage_status:
+        | "words"
+        | "speech_without_words"
+        | "no_transcript"
+        | "outside_transcript";
+      /** @description Parole détectée, tours qui se chevauchent comptés une fois. */
+      speaking_seconds: number;
+      /** @description Parole sous des segments attribués à un autre locuteur. */
+      overlapped_seconds: number;
+      /** @description Parole sous aucun segment. */
+      uncovered_seconds: number;
+      attributed_segments: number;
+    };
+    /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit. */
+    VoiceTrace: {
+      /** Format: int64 */
+      clip_id: number;
+      audio_stream_index: number;
+      transcription: {
+        /** Format: int64 */
+        job_id: number;
+        provider: string;
+        model: string;
+        version: string;
+        language: string;
+        segment_count: number;
+      };
+      /** @description Null sans diarisation réussie pour cette piste. */
+      diarization: {
+        /** Format: int64 */
+        job_id: number;
+        provider: string;
+        model: string;
+        model_version: string;
+      } | null;
+      /** @description Tours bruts de la diarisation, voix ignorées exclues. */
+      turns: {
+        /** Format: int64 */
+        local_speaker_id: number;
+        label: string;
+        start: number;
+        end: number;
+      }[];
+      /** @description Segments bruts de la transcription avec les voix qui les recouvrent (avant alignement) et la voix retenue (après). */
+      segments: {
+        index: number;
+        start: number;
+        end: number;
+        candidates: {
+          /** Format: int64 */
+          local_speaker_id: number;
+          overlap_seconds: number;
+        }[];
+        /** Format: int64 */
+        deduced_local_speaker_id: number | null;
+        /** Format: int64 */
+        local_speaker_id: number | null;
+        corrected: boolean;
+      }[];
+      coverage: components["schemas"]["SpeakerCoverage"][];
     };
     AudioTrackRule: {
       title?: string;
@@ -3272,7 +6416,7 @@ export interface components {
       /** @enum {string} */
       visibility: "shared" | "private";
       /** Format: date-time */
-      recorded_at: string;
+      recorded_at: string | null;
       /** @enum {string} */
       status: "ready" | "waiting_stability" | "unreadable" | "missing";
       sources: string[];
@@ -3300,6 +6444,173 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  getMetadataLocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            country: string;
+            timezone: string;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putMetadataLocation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          country: string;
+          timezone: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            country: string;
+            timezone: string;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putClipMetadata: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          game_changed?: boolean;
+          recorded_at_changed?: boolean;
+          /** @description Titre affiché (200 caractères au plus, sans caractère de contrôle) ; vide ou absent pour le retirer. N'agit que si display_title_changed est vrai ; ne renomme jamais le fichier. */
+          display_title?: string | null;
+          display_title_changed?: boolean;
+          /** @description Restaure le jeu détecté automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec game_changed. */
+          game_reset?: boolean;
+          /** @description Restaure la date détectée automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec recorded_at_changed. */
+          recorded_at_reset?: boolean;
+          game?: string | null;
+          /** Format: date-time */
+          recorded_at?: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  reprocessClipMetadata: {
+    parameters: {
+      query?: {
+        after?: number;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            done: boolean;
+            /** Format: int64 */
+            next: number;
+            updated: number;
+            unavailable: number;
+          };
+        };
+      };
+      /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   liveness: {
     parameters: {
       query?: never;
@@ -3391,7 +6702,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -3427,7 +6738,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -3492,7 +6803,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3529,7 +6840,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3562,7 +6873,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -3598,7 +6909,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -3663,7 +6974,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3761,7 +7072,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3819,6 +7130,8 @@ export interface operations {
               directory: boolean;
               /** Format: int64 */
               size_bytes: number;
+              private: boolean;
+              locked: boolean;
             }[];
           };
         };
@@ -3838,7 +7151,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3880,7 +7193,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3959,7 +7272,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -3995,7 +7308,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -4012,6 +7325,389 @@ export interface operations {
         content?: never;
       };
       /** @description Error (400 invalid_language ou invalid_request, 401 session required, 403 origin/CSRF, 415 JSON required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAvatarSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages de photo */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (401) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putAvatarSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AvatarSettingsInput"];
+      };
+    };
+    responses: {
+      /** @description Réglages mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (400 invalid_avatar_source, 409 no_custom_avatar ou discord_not_linked, 401, 403 CSRF) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refreshDiscordAvatar: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglages mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AvatarSettings"];
+        };
+      };
+      /** @description Erreur (409 discord_not_linked ou discord_bot_not_configured, 429 avatar_sync_too_soon ou discord_rate_limited, 502 discord_unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getDiscordBot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du bot */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (401, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["DiscordBotInput"];
+      };
+    };
+    responses: {
+      /** @description Bot connecté */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (400 invalid_discord_bot_token, 429, 502 discord_unavailable, 403 super_administrator_required) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Bot déconnecté */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du bot après test */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["DiscordBotStatus"];
+        };
+      };
+      /** @description Erreur (400 invalid_discord_bot_token, 409 discord_bot_not_configured, 502, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  syncDiscordBot: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Synchronisation lancée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (409 discord_bot_not_configured ou discord_sync_running, 403) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountProfile: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountProfileInput"];
+      };
+    };
+    responses: {
+      /** @description Compte mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateAccountPassword: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AccountPasswordInput"];
+      };
+    };
+    responses: {
+      /** @description Compte mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur (400 validation, 401 session, 403 CSRF ou mot de passe actuel incorrect, 409 pseudo indisponible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getPersonAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description PNG 256×256 */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Photo inchangée */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Aucune photo ou aucun lien actif */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur ou absence de photo (400, 401, 404) */
       default: {
         headers: {
           [name: string]: unknown;
@@ -4055,7 +7751,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -4088,11 +7784,44 @@ export interface operations {
       };
     };
   };
+  unlinkDiscord: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Discord identity unlinked */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Error (401 session required, 403 origin/CSRF, 409 not linked or local login required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   startDiscord: {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
       };
       path?: never;
@@ -4124,7 +7853,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -4276,7 +8005,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -4340,6 +8069,155 @@ export interface operations {
       };
     };
   };
+  getMemberAvatar: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Photo PNG */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/png": string;
+        };
+      };
+      /** @description Photo inchangée */
+      304: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Compte absent ou sans photo */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 identifiant invalide, 401 session requise, 403 administrateur requis) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resetMemberPassword: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Mot de passe temporaire */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            temporary_password: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  revokeMemberSessions: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Sessions fermées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkMemberDiscord: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Discord délié */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   updateMemberRole: {
     parameters: {
       query?: never;
@@ -4368,6 +8246,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getMember: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Fiche */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["MemberDetail"];
         };
       };
       /** @description Erreur */
@@ -4421,6 +8330,44 @@ export interface operations {
       };
     };
   };
+  updateMember: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["MemberPatch"];
+      };
+    };
+    responses: {
+      /** @description Membre modifié */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   pendingUsers: {
     parameters: {
       query?: never;
@@ -4454,7 +8401,7 @@ export interface operations {
     parameters: {
       query?: never;
       header: {
-        /** @description Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL */
+        /** @description Must equal the address of the request itself (scheme and host) */
         Origin: string;
         "X-CSRF-Token": string;
       };
@@ -4661,6 +8608,8 @@ export interface operations {
   listJobs: {
     parameters: {
       query?: {
+        /** @description Paginate clips with their latest job per step. Total counts clips. active includes unfinished or cancelled clips; done requires every latest step to have succeeded. */
+        workflow?: "active" | "done";
         status?:
           | "pending"
           | "leased"
@@ -4897,7 +8846,10 @@ export interface operations {
   };
   registerWorker: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin. */
+        allow_insecure_install?: boolean;
+      };
       header: {
         Origin: string;
         "X-CSRF-Token": string;
@@ -4973,6 +8925,66 @@ export interface operations {
       };
     };
   };
+  streamWorkerEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerPage} : l'état complet de la liste des Workers, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamWorkerDetailEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: WorkerDetail} : l'état complet de la fiche, jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getWorker: {
     parameters: {
       query?: never;
@@ -5016,7 +9028,13 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": {
+          reason?: string;
+        };
+      };
+    };
     responses: {
       /** @description Jeton révoqué */
       204: {
@@ -5036,7 +9054,79 @@ export interface operations {
       };
     };
   };
+  forgetWorker: {
+    parameters: {
+      query?: {
+        /** @description Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation. */
+        force?: boolean;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Worker retiré de la liste */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé sans force */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   renewWorkerToken: {
+    parameters: {
+      query?: {
+        /** @description Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin. */
+        allow_insecure_install?: boolean;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Jeton perdu : l'identité actuelle est révoquée (tâches en cours remises en file, invitations non consommées supprimées, audit minimal conservé) et une nouvelle identité est créée avec sa commande d'installation à usage unique ; le jeton et la commande sont montrés une seule fois. L'id de la réponse est celui de la nouvelle identité. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerRegistration"];
+        };
+      };
+      /** @description Worker introuvable */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  requestWorkerTranscriptionTest: {
     parameters: {
       query?: never;
       header: {
@@ -5050,16 +9140,274 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Nouveau jeton, montré une seule fois ; l'ancien cesse de fonctionner */
-      201: {
+      /** @description Test demandé */
+      200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["WorkerRegistration"];
+          "application/json": {
+            test_requested: boolean;
+          };
         };
       };
       /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerUpdates: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État des mises à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /**
+             * @description Stratégie choisie. La version effective (target_version) est celle de l'administrateur en pinned, la plus haute version publiée déjà vue en latest.
+             * @enum {string}
+             */
+            mode: "disabled" | "pinned" | "latest";
+            /** @description Version stable la plus récente du catalogue, indépendamment du mode. */
+            latest_version: string | null;
+            /**
+             * Format: date-time
+             * @description Dernière interrogation du registre par ce serveur (mémoire du processus), nulle tant qu'aucune n'a eu lieu.
+             */
+            checked_at: string | null;
+            /** @description Vrai si la dernière interrogation du registre a échoué ; la dernière cible valide est conservée. */
+            check_failed: boolean;
+            target_version: string | null;
+            target_image: string | null;
+            image_repository: string;
+            catalog: string[];
+            catalog_available: boolean;
+            workers: {
+              id: string;
+              name: string;
+              /** @enum {string} */
+              state:
+                | ""
+                | "idle"
+                | "pulling"
+                | "restarting"
+                | "updated"
+                | "rolled_back"
+                | "failed";
+              version: string;
+              digest: string;
+              cause_code: string;
+              /** Format: date-time */
+              reported_at?: string | null;
+            }[];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putWorkerUpdateTarget: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          mode?: "disabled" | "pinned" | "latest";
+          version: string | null;
+        };
+      };
+    };
+    responses: {
+      /** @description Cible enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @enum {string} */
+            mode: "disabled" | "pinned" | "latest";
+            target_version: string | null;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putWorkerTranscriptionOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          endpoint_override: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Adresse propre enregistrée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            endpoint_override: string;
+          };
+        };
+      };
+      /** @description Adresse invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteWorkerTranscriptionOverride: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Adresse propre supprimée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            endpoint_override: string;
+          };
+        };
+      };
+      /** @description Worker introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  downloadWorkerInstaller: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        code: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Script shell */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/x-shellscript": string;
+        };
+      };
+      /** @description Invitation inconnue, expirée ou déjà utilisée */
       default: {
         headers: {
           [name: string]: unknown;
@@ -5093,6 +9441,422 @@ export interface operations {
         };
       };
       /** @description Jeton invalide ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du token central */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HFTokenStatus"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putHFToken: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["HFTokenInput"];
+      };
+    };
+    responses: {
+      /** @description Token enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid_hf_token, 401, 403 CSRF ou rôle) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteHFToken: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Token supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (401, 403 CSRF ou rôle) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerHFTokenVersion: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerHFTokenVersion"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version et token */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerHFToken"];
+        };
+      };
+      /** @description Erreur (worker_token_required, worker_token_invalid) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerHFToken: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerHFTokenAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid_hf_token_ack, 409 stale_hf_token_version, 401) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerRevocation: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de révocation */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            revoked: boolean;
+            /** Format: date-time */
+            revoked_at?: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerInstallEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          events: components["schemas"]["WorkerInstallEventInput"][];
+        };
+      };
+    };
+    responses: {
+      /** @description Événements enregistrés */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerTranscriptionConfig: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration de transcription pour ce Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** @enum {string} */
+            mode: "unconfigured" | "enabled" | "disabled";
+            endpoint: string;
+            model: string;
+            language: string;
+            version: string;
+            test_requested: boolean;
+            endpoint_override: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerUpdate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Cible de mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            idle: boolean;
+            target_version: string | null;
+            target_image: string | null;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerUpdateStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          state:
+            | "idle"
+            | "pulling"
+            | "restarting"
+            | "updated"
+            | "rolled_back"
+            | "failed";
+          version: string;
+          digest?: string;
+          cause_code?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Statut enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerTranscriptionConfigStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          version: string;
+          active: boolean;
+          /** @enum {string} */
+          error_code?: "connection_failed" | "model_missing";
+        };
+      };
+    };
+    responses: {
+      /** @description Statut enregistré */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            received_version: string;
+            tested_version: string;
+            active_version: string;
+            error_code: string;
+          };
+        };
+      };
+      /** @description Version obsolète */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;
@@ -5232,6 +9996,76 @@ export interface operations {
         };
       };
       /** @description Jeton invalide, lease perdu ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  appendWorkerJobLogs: {
+    parameters: {
+      query?: never;
+      header: {
+        "X-Worker-Lease-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerJobLogsInput"];
+      };
+    };
+    responses: {
+      /** @description Lignes reçues */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            stored: number;
+          };
+        };
+      };
+      /** @description Jeton invalide, lease perdu (409 lease_not_owned) ou serveur indisponible */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamJobLogs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_job_id ; 401 unauthorized ; 403 forbidden ; 404 job_not_found) */
       default: {
         headers: {
           [name: string]: unknown;
@@ -5487,6 +10321,7 @@ export interface operations {
   listClips: {
     parameters: {
       query?: {
+        game?: string;
         page?: number;
         page_size?: number;
         visibility?: "shared" | "private";
@@ -5555,6 +10390,565 @@ export interface operations {
       };
     };
   };
+  listLibraryFolders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Dossiers */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            items: components["schemas"]["LibraryFolder"][];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listLibraryExplorer: {
+    parameters: {
+      query?: {
+        /** @description Dossier relatif à la Racine vidéo (vide : la racine) */
+        path?: string;
+        /** @description Liste à plat tous les descendants */
+        recursive?: "1" | "true";
+        q?: string;
+        state?:
+          | "not_indexed"
+          | "in_progress"
+          | "not_analyzed"
+          | "transcribed"
+          | "analyzed"
+          | "failed";
+        /** @description Étape de traitement atteinte : indexed (le clip existe), transcribed (transcription exploitable), voices (diarisation, empreintes et rapprochement terminés), complete (toutes les étapes de l'analyse terminées). Sans recursive, la réponse est l'arbre élagué : les vidéos du dossier qui correspondent et les seuls sous-dossiers menant à une correspondance, avec match_count. */
+        stage?: "indexed" | "transcribed" | "voices" | "complete";
+        game?: string;
+        visibility?: "shared" | "private";
+        from?: string;
+        to?: string;
+        owner_id?: number;
+        /** @description Vidéos dont une voix est attribuée à cette Personne (attribution validée ou automatique) */
+        person_id?: number;
+        /** @description Vidéos qui ont encore des voix à traiter */
+        voices?: "pending";
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Une page de la sélection */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerListing"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  indexExplorerVideo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          path: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Déjà indexée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerIndexResult"];
+        };
+      };
+      /** @description Indexation demandée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerIndexResult"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Volume estimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunPreview"];
+        };
+      };
+      /** @description video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description video_selection_too_large : plus de 50 000 vidéos */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getCurrentLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description L'indexation la plus récente, ou run null si aucune n'a jamais été demandée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          mode: "cards" | "full";
+        };
+      };
+    };
+    responses: {
+      /** @description Indexation démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description invalid_index_mode */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_active : une indexation est déjà en cours ou en pause ; video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description nothing_to_index : toutes les vidéos ont déjà une fiche ; video_selection_too_large */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  pauseLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Indexation mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : l'indexation n'est pas en cours */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Indexation mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : l'indexation n'est pas en pause */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelLibraryIndexRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Indexation mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["IndexRunAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : l'indexation est terminée ou annulée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAutomaticAnalysisSetting: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Réglage */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutomaticAnalysisSetting"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putAutomaticAnalysisSetting: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AutomaticAnalysisSetting"];
+      };
+    };
+    responses: {
+      /** @description Réglage appliqué */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AutomaticAnalysisSetting"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putFolderPrivacy: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FolderPrivacy"];
+      };
+    };
+    responses: {
+      /** @description Réglage appliqué */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FolderPrivacy"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClip: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Clip supprimé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            status: string;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getClip: {
     parameters: {
       query?: never;
@@ -5577,6 +10971,65 @@ export interface operations {
       };
       /** @description Erreur */
       default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateClip: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /**
+           * @description Visibilité du clip : shared = visible par tous les membres du workspace, private = visible seulement par le propriétaire
+           * @enum {string}
+           */
+          visibility: "shared" | "private";
+        };
+      };
+    };
+    responses: {
+      /** @description Clip mis à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Clip"];
+        };
+      };
+      /** @description Requête invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Accès refusé (réservé aux administrateurs) */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Clip introuvable */
+      404: {
         headers: {
           [name: string]: unknown;
         };
@@ -5905,6 +11358,105 @@ export interface operations {
       };
     };
   };
+  getClipThumbnail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Miniature JPEG (environ 320 px de large), générée une fois puis conservée */
+      200: {
+        headers: {
+          ETag?: string;
+          "Cache-Control"?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          "image/jpeg": string;
+        };
+      };
+      /** @description Clip introuvable ou non visible, ou extraction impossible */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  scheduleClipTranscription: {
+    parameters: {
+      query?: {
+        /** @description True to explicitly confirm replacing the clip’s human corrections with a new transcription. Without it, a retranscription of a corrected clip is rejected (409 corrections_would_be_replaced). */
+        confirm_replace_corrections?: boolean;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionInput"];
+      };
+    };
+    responses: {
+      /** @description Active task already scheduled */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description Transcription scheduled */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ScheduledTranscription"];
+        };
+      };
+      /** @description The retranscription would replace human corrections (corrections_would_be_replaced); other operation state conflicts */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CorrectionsWarning"];
+        };
+      };
+      /** @description Clip not ready or audio track unknown */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   getJobControls: {
     parameters: {
       query?: never;
@@ -5960,6 +11512,503 @@ export interface operations {
         };
       };
       /** @description Error (400 invalid controls, 401 session required, 403 admin/origin/CSRF required, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysis: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": {
+          /**
+           * @description transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel).
+           * @default transcription
+           * @enum {string}
+           */
+          scope?: "transcription" | "voice" | "full";
+          /**
+           * @description Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active.
+           * @default missing
+           * @enum {string}
+           */
+          mode?: "missing" | "full" | "steps";
+          /** @description Avec mode steps : étapes à relancer (au moins une, sans doublon ; sinon 400 invalid_reanalysis). Le serveur ferme le choix sur le graphe des étapes : une transcription absente s'ajoute comme prérequis de l'indexation ou de la détection des voix, l'indexation suit une transcription, les empreintes et le rapprochement suivent la détection des voix ; le périmètre de l'exécution s'élargit pour les contenir. Seules les étapes choisies sont forcées (forced_steps). */
+          steps?: ("transcription" | "indexing" | "diarization")[];
+          /** @description Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections). */
+          confirm_replace_corrections?: boolean;
+          /**
+           * Format: date-time
+           * @description Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête.
+           */
+          confirmed_stake_at?: string;
+          /** @description Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice). */
+          confirm_replace_validations?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Une analyse du même périmètre est déjà active : elle est renvoyée, sans doublon */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Analyse démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description analysis_scope_conflict : une analyse d'un autre périmètre est active (renvoyée dans run) ; transcription_required : le périmètre voice exige une transcription valide ; reanalysis_confirmation_required : les étapes relancées rendraient du travail humain obsolète, les conséquences sont dans stake */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisConflict"];
+        };
+      };
+      /** @description Erreur (400 invalid_analysis_scope, invalid_reanalysis, invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Étapes à supprimer, avec ce qui dépend d'elles (ADR 0030) : transcription supprime l'indexation et les corrections ; diarisation supprime les voix, leurs empreintes, le rapprochement et les identifications, y compris les voix validées (leurs échantillons quittent la référence ; les Personnes restent) ; empreintes supprime le rapprochement. */
+          steps?: (
+            | "transcription"
+            | "diarization"
+            | "fingerprints"
+            | "matching"
+          )[];
+          /** @description Vrai pour supprimer toute l'analyse : les étapes ci-dessus, l'historique des analyses, les essais de diarisation et les notifications du clip. Remplace steps. */
+          all?: boolean;
+          /** @description Vrai pour confirmer les pertes indiquées par le calcul préalable (stake). Sans lui, 409 analysis_deletion_confirmation_required quand la suppression perd quelque chose. */
+          confirm_loss?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description Étapes supprimées ; la trace d'audit du clip est conservée. run est l'analyse la plus récente (null après suppression de tout) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            run: components["schemas"]["ClipAnalysisRun"] | null;
+            deleted_steps: string[];
+            stake: components["schemas"]["ClipAnalysisDeletionStake"];
+          };
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 403 forbidden : réservé au Super-administrateur ; 404 clip_not_found ; 409 analysis_active : une analyse est active, l'annuler d'abord ; 409 analysis_deletion_confirmation_required : les pertes sont dans stake, à confirmer avec confirm_loss) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisDeletionPreview: {
+    parameters: {
+      query?: {
+        /** @description Étapes séparées par des virgules : transcription, diarization, fingerprints, matching. */
+        steps?: string;
+        /** @description Vrai pour le calcul de toute l'analyse. */
+        all?: boolean;
+      };
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Pertes qu'une suppression des étapes entraînerait, sans rien supprimer */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            steps: string[];
+            stake: components["schemas"]["ClipAnalysisDeletionStake"];
+          };
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Les 20 exécutions les plus récentes, avec versions, profil, étapes relancées et confirmations */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelClipAnalysis: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse annulée (statut cancelled) ; les résultats valides sont conservés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 409 analysis_not_active : aucune analyse active) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryClipAnalysisStep: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        step:
+          | "preparation"
+          | "transcription"
+          | "indexing"
+          | "diarization"
+          | "fingerprints"
+          | "matching";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Étape relancée ; l'analyse est de nouveau active */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id, invalid_analysis_step ; 404 analysis_not_found ; 409 analysis_not_retryable : analyse terminée ou annulée, relancer une analyse ; 409 analysis_step_not_failed) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAnalysisQueue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la Task Queue */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalysisQueue"];
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getAnalysisHistory: {
+    parameters: {
+      query?: {
+        page?: number;
+        /** @description Filtre sur le nom du clip */
+        q?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Page d'historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AnalysisRunHistory"];
+        };
+      };
+      /** @description Erreur (400 invalid_page ; 401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamAnalysisQueueEvents: {
+    parameters: {
+      query?: {
+        /** @description Vaut 1 pour recevoir, après le premier snapshot, des évènements `delta` plutôt que l'état complet à chaque changement. */
+        delta?: 0 | 1;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Sans `delta`, chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: AnalysisQueue} : l'état complet, jamais un delta. Avec delta=1, le premier évènement est un `snapshot` complet, les suivants des évènements `delta` {seq, base, delta: AnalysisQueueDelta} : base est la séquence de l'évènement précédent ; un client qui ne détient pas exactement cet état relit l'état complet (GET /api/admin/analysis/queue). Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized ; 403 forbidden) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getClipAnalysisView: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Analyse active du clip, ou la plus récente ; run vaut null si le clip n'a jamais été analysé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClipAnalysisViewResponse"];
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found, aussi pour un clip inaccessible) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisViewEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream de la vue en lecture seule (mêmes évènements que le flux administrateur, snapshot {run} sans détail technique). L'accès au clip est revérifié avant chaque snapshot ; un évènement `forbidden` clôt le flux quand il est perdu. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 404 clip_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamClipAnalysisEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: {run}} : l'état complet de l'analyse, jamais un delta, donc une reconnexion ou un évènement perdu converge. Un évènement `forbidden` clôt le flux quand l'accès est perdu (session expirée, rôle retiré) ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (400 invalid_clip_id ; 401 unauthorized ; 403 forbidden ; 404 clip_not_found) */
       default: {
         headers: {
           [name: string]: unknown;
@@ -6448,6 +12497,60 @@ export interface operations {
       };
     };
   };
+  getTranscriptionSettings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Configuration centrale */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TranscriptionSettingsState"];
+        };
+      };
+    };
+  };
+  updateTranscriptionSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["TranscriptionSettingsInput"];
+      };
+    };
+    responses: {
+      /** @description Configuration souhaitée enregistrée, non testée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["TranscriptionSettingsState"];
+        };
+      };
+      /** @description Configuration invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   getTranscriptionPipeline: {
     parameters: {
       query?: never;
@@ -6567,6 +12670,793 @@ export interface operations {
       };
     };
   };
+  getVoiceOverview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Inventaire vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceOverview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Catalogue et états */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModels"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  addVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelAdd"];
+      };
+    };
+    responses: {
+      /** @description Référence ajoutée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModel"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  inspectVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelInspectionRequest"];
+      };
+    };
+    responses: {
+      /** @description Inspection */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelInspection"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  chooseVoiceModelCandidate: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelChoice"];
+      };
+    };
+    responses: {
+      /** @description Candidat choisi */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelCandidate"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceModelCandidate: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Candidat annulé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  patchVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelPatch"];
+      };
+    };
+    responses: {
+      /** @description Référence mise à jour */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModel"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  activateVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Nouvelle version activée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoicePipelineState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  removeVoiceModel: {
+    parameters: {
+      query: {
+        worker_id: string;
+      };
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Suppression demandée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryWorkerVoiceModel: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Relance demandée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelRetry"];
+        };
+      };
+      /** @description Nouvel ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModelsByWorker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Modèles par Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelsView"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listVoiceModelOrders: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Historique des ordres */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelOrderHistory"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceModelOrder: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewFingerprintTransition: {
+    parameters: {
+      query: {
+        to: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la transition */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FingerprintTransitionInput"];
+      };
+    };
+    responses: {
+      /** @description Transition démarrée */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Transition abandonnée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeFingerprintTransition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de la transition */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FingerprintTransitionState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceModelReplacement: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        kind: "diarization" | "fingerprint" | "separation";
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Remplacement annulé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceModelRemoval: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceModelRemovalInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerModelOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerModelOrderAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerVoiceModels: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État souhaité */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerVoiceModels"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerVoiceModelStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerVoiceModelStatus"];
+      };
+    };
+    responses: {
+      /** @description État enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   scheduleVoice: {
     parameters: {
       query?: never;
@@ -6601,6 +13491,55 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ScheduledVoice"];
+        };
+      };
+      /** @description Confirmation requise (voice_rediarization_confirmation_required, avec stake) ou autre conflit d'état */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRediarizationConfirmation"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceTrace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Trace de l'alignement de la piste visible */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceTrace"];
+        };
+      };
+      /** @description Clip introuvable ou sans transcription */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */
@@ -6649,6 +13588,10 @@ export interface operations {
     parameters: {
       query?: {
         q?: string;
+        /** @description Active la pagination (défaut 1). */
+        page?: number;
+        /** @description Active la pagination (défaut 20). */
+        page_size?: number;
       };
       header?: never;
       path?: never;
@@ -6699,6 +13642,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description person_exists : une Personne porte déjà ce nom (casse et espaces ignorés) ; rien n'est créé */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonExists"];
         };
       };
       /** @description Erreur */
@@ -6880,6 +13832,46 @@ export interface operations {
       };
     };
   };
+  getPersonImpact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Ce qu'une fusion ou une suppression de la Personne toucherait, au-delà des compteurs de la Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonImpact"];
+        };
+      };
+      /** @description person_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   listPersonVoices: {
     parameters: {
       query?: never;
@@ -6971,6 +13963,288 @@ export interface operations {
       };
       /** @description no_linked_person : aucune Personne n'est liée à ce compte */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  unlinkMyPerson: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Lien retiré ; la Personne, son profil vocal et ses clips sont conservés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Person"];
+        };
+      };
+      /** @description no_linked_person : aucune Personne n'est liée à ce compte */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getMyPersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande la plus récente du compte, tous états confondus */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description no_link_request : ce compte n'a aucune demande */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  requestPersonLink: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PersonLinkRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Demande créée, en attente d'un Administrateur */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description account_already_linked (ce compte est déjà lié), request_pending (une demande de ce compte est déjà en attente) ou person_request_pending (cette Personne a déjà une demande en attente) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelMyPersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande annulée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description no_pending_request : aucune demande en attente */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPersonLinkRequests: {
+    parameters: {
+      query?: {
+        status?: "pending" | "approved" | "refused";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demandes de liaison, en attente par défaut */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequestList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  approvePersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande approuvée : le compte demandeur est lié à la Personne */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description request_not_pending (déjà décidée) ou account_already_linked (le compte demandeur a gagné un autre lien entre-temps) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refusePersonLinkRequest: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Demande refusée : aucun lien n'est créé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PersonLinkRequest"];
+        };
+      };
+      /** @description request_not_pending : la demande a déjà été décidée */
+      409: {
         headers: {
           [name: string]: unknown;
         };
@@ -7185,6 +14459,46 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["AttributionConflict"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Locuteur local, son niveau de décision, l'attribution effective et son clip */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["LocalSpeakerRead"];
+        };
+      };
+      /** @description local_speaker_not_found : même réponse pour un Locuteur local inexistant et pour celui d'un clip invisible */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */
@@ -7480,6 +14794,8 @@ export interface operations {
         proposed?: boolean;
         page?: number;
         page_size?: number;
+        /** @description Identifiant d'un Locuteur local : ne retourne que le groupe qui contient cette voix visible, ou une liste vide. */
+        voice?: number;
       };
       header?: never;
       path?: never;
@@ -7662,11 +14978,259 @@ export interface operations {
       };
     };
   };
+  setLocalSpeakerDisposition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceDispositionInput"];
+      };
+    };
+    responses: {
+      /** @description Disposition enregistrée (idempotent) ; journalisée seulement si elle change */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceDispositionView"];
+        };
+      };
+      /** @description validated_voice : la voix a une validation humaine ; analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreLocalSpeakerDisposition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Disposition levée (idempotent) : la voix redevient traitée normalement */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceDispositionView"];
+        };
+      };
+      /** @description analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refuseLocalSpeaker: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceRefusalInput"];
+      };
+    };
+    responses: {
+      /** @description Refus enregistré : l'attribution de cette Personne est retirée, ses échantillons quittent la Référence */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRefusal"];
+        };
+      };
+      /** @description analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelLocalSpeakerRefusal: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        person_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Refus annulé (idempotent ; journalisé seulement s'il existait) : le rapprochement peut de nouveau proposer cette Personne pour cette voix */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRefusal"];
+        };
+      };
+      /** @description invalid_person_id */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description analysis_active : une analyse est en cours sur le clip ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setVoiceGroupDisposition: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceGroupDispositionInput"];
+      };
+    };
+    responses: {
+      /** @description Disposition appliquée à chaque voix non exclue du groupe */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceGroupDisposition"];
+        };
+      };
+      /** @description voice_group_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description group_changed : le groupe n'est plus exactement la liste de voix envoyée ; validated_voice : une voix du groupe est validée ; analysis_active : une analyse est en cours sur l'un de leurs clips ; rien n'est écrit */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   listVoiceVerification: {
     parameters: {
       query?: {
         /** @description Ne garder que les voix inconnues ou que les voix ambiguës. */
         level?: "all" | "unknown" | "ambiguous";
+        /** @description Ne garder que les voix de ce clip (lien d'une notification). */
+        clip?: number;
         page?: number;
         page_size?: number;
       };
@@ -7683,6 +15247,275 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceVerification"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listPeopleToProcess: {
+    parameters: {
+      query?: {
+        /** @description Ne garder que les clips avec une voix à confirmer (suggestion), une voix inconnue ou ambiguë, ou un groupe proposé. */
+        filter?: "all" | "to_confirm" | "unknown_ambiguous" | "group";
+        page?: number;
+        page_size?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Un élément par clip visible ayant au moins une voix à trancher */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PeopleToProcess"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listNotifications: {
+    parameters: {
+      query?: {
+        state?: "all" | "active" | "resolved";
+        /** @description Filtre appliqué côté serveur : unread (non lues), actions (en attente), errors (incidents techniques). Indépendant de la taille de page. */
+        filter?: "all" | "unread" | "actions" | "errors";
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications du demandeur, actions en attente d'abord */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamNotificationEvents: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream. Chaque évènement `snapshot` (id = séquence croissante) porte {seq, snapshot: NotificationList} : l'état complet des notifications du demandeur (jusqu'à 200, compteurs unread et pending sur tout le visible), jamais un delta. Un évènement `forbidden` clôt le flux quand l'accès est perdu ; les commentaires `: ping` gardent la connexion. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  readAllNotifications: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notifications marquées lues pour le demandeur seul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            /** Format: int64 */
+            updated: number;
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationRead: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  markNotificationUnread: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification de nouveau non lue (idempotent) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationRead"];
+        };
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteNotification: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Notification résolue retirée de l'historique du demandeur seul */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description notification_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description notification_active : une action en attente ne se supprime pas, elle disparaît en étant traitée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
         };
       };
       /** @description Erreur */
@@ -7774,6 +15607,7 @@ export interface operations {
         "application/json": {
           url: string;
           model: string;
+          validation_token: string;
         };
       };
     };
@@ -7785,6 +15619,45 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EmbeddingSettings"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testEmbeddingSettings: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          url: string;
+          model: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Service joignable */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EmbeddingValidation"];
         };
       };
       /** @description Erreur */

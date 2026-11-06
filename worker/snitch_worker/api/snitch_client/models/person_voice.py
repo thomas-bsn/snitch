@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
+import datetime
 
 
 
@@ -27,6 +29,9 @@ class PersonVoice:
             clip_name (str):
             label (str):
             speaking_seconds (float):
+            recorded_at (datetime.datetime): Date d'enregistrement du clip.
+            sample_count (int): Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une
+                séparation en retirerait.
      """
 
     local_speaker_id: int
@@ -34,6 +39,8 @@ class PersonVoice:
     clip_name: str
     label: str
     speaking_seconds: float
+    recorded_at: datetime.datetime
+    sample_count: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -51,6 +58,10 @@ class PersonVoice:
 
         speaking_seconds = self.speaking_seconds
 
+        recorded_at = self.recorded_at.isoformat()
+
+        sample_count = self.sample_count
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +71,8 @@ class PersonVoice:
             "clip_name": clip_name,
             "label": label,
             "speaking_seconds": speaking_seconds,
+            "recorded_at": recorded_at,
+            "sample_count": sample_count,
         })
 
         return field_dict
@@ -79,12 +92,21 @@ class PersonVoice:
 
         speaking_seconds = d.pop("speaking_seconds")
 
+        recorded_at = datetime.datetime.fromisoformat(d.pop("recorded_at"))
+
+
+
+
+        sample_count = d.pop("sample_count")
+
         person_voice = cls(
             local_speaker_id=local_speaker_id,
             clip_id=clip_id,
             clip_name=clip_name,
             label=label,
             speaking_seconds=speaking_seconds,
+            recorded_at=recorded_at,
+            sample_count=sample_count,
         )
 
 

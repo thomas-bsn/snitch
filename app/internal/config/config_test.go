@@ -11,14 +11,9 @@ import (
 func TestConfig(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test")
 	t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
-	t.Setenv("PUBLIC_URL", "https://receipts.example")
 	t.Setenv("COOKIE_SECURE", "true")
 	if _, err := Load(); err != nil {
 		t.Fatal(err)
-	}
-	t.Setenv("PUBLIC_URL", "http://receipts.example")
-	if _, err := Load(); err == nil {
-		t.Fatal("insecure production origin")
 	}
 	t.Setenv("COOKIE_SECURE", "false")
 	if _, err := Load(); err != nil {
@@ -35,7 +30,6 @@ func TestConfigNeedsNoMasterKey(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test")
 	t.Setenv("MASTER_KEY", "")
 	t.Setenv("SECRETS_DIR", dir)
-	t.Setenv("PUBLIC_URL", "https://receipts.example")
 	first, err := Load()
 	if err != nil || len(first.MasterKey) != 32 || first.MasterKeyOrigin != "generated" {
 		t.Fatalf("no generated key: %v %q", err, first.MasterKeyOrigin)
@@ -55,7 +49,6 @@ func TestConfigNeedsNoMasterKey(t *testing.T) {
 func TestSourceRuntimeConfiguration(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/receipts")
 	t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
-	t.Setenv("PUBLIC_URL", "https://receipts.example")
 	t.Setenv("COOKIE_SECURE", "true")
 	t.Setenv("CLIPS_ROOTS", filepath.Join("relative", "media")+string(filepath.ListSeparator)+"/mnt/captures")
 	t.Setenv("CLIP_STABILITY_WINDOW", "2m")
@@ -92,21 +85,15 @@ func TestSourceRuntimeConfiguration(t *testing.T) {
 func TestAddressSettingsAreOptional(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/receipts")
 	t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
-	t.Setenv("PUBLIC_URL", "")
 	t.Setenv("COOKIE_SECURE", "")
 	t.Setenv("TRUSTED_PROXIES", "")
 	got, err := Load()
 	if err != nil {
 		t.Fatalf("start without address settings: %v", err)
 	}
-	if got.PublicURL != "" || got.Secure || got.SecureExplicit || len(got.TrustedProxies) == 0 {
+	if got.Secure || got.SecureExplicit || len(got.TrustedProxies) == 0 {
 		t.Fatalf("unexpected defaults: %+v", got)
 	}
-	t.Setenv("PUBLIC_URL", "https://Snitch.Example/")
-	if got, err = Load(); err != nil || got.PublicURL != "https://snitch.example" || got.Secure || got.SecureExplicit {
-		t.Fatalf("pinned address: %+v %v", got, err)
-	}
-	t.Setenv("PUBLIC_URL", "http://snitch.example")
 	t.Setenv("COOKIE_SECURE", "false")
 	if got, err = Load(); err != nil || got.Secure || !got.SecureExplicit {
 		t.Fatalf("legacy settings: %+v %v", got, err)
@@ -136,7 +123,6 @@ func TestTrustedProxiesSetting(t *testing.T) {
 
 func TestRejectInvalidRuntimeConfiguration(t *testing.T) {
 	for _, tc := range []struct{ key, value string }{
-		{"PUBLIC_URL", "https://user:password@example.org"},
 		{"EMBEDDINGS_URL", "file:///tmp/model"},
 		{"EMBEDDINGS_URL", "http://user:password@embed:11434/v1/embeddings"},
 		{"EMBEDDINGS_URL", "http://embed:11434/v1/embeddings?token=secret"},
@@ -149,7 +135,6 @@ func TestRejectInvalidRuntimeConfiguration(t *testing.T) {
 		t.Run(tc.key+"="+tc.value, func(t *testing.T) {
 			t.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/receipts")
 			t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
-			t.Setenv("PUBLIC_URL", "https://receipts.example")
 			t.Setenv("COOKIE_SECURE", "true")
 			t.Setenv("LISTEN_ADDR", ":8080")
 			t.Setenv("EMBEDDINGS_URL", "")

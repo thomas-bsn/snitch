@@ -44,7 +44,6 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer api.Close()
 	ts := httptest.NewUnstartedServer(api.Handler())
-	api.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)
@@ -369,6 +368,77 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 		got, err := os.ReadFile(destination)
 		if err != nil || !bytes.Equal(got, content) {
 			t.Fatalf("staged content was not republished: %q %v", got, err)
+		}
+	})
+
+	t.Run("publication to a new path requests a scan", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "fresh"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		uploadTo("fresh.mp4", "fresh", []byte("synthetic-fresh-content"), "", 201)
+		var requested bool
+		if err := pool.QueryRow(context.Background(), `SELECT scan_requested FROM source_files WHERE source_id=$1 AND relative_path='fresh/fresh.mp4'`, managed.ID).Scan(&requested); err != nil {
+			t.Fatal(err)
+		}
+		if !requested {
+			t.Fatal("a publication to a new path must request the scan that indexes it and starts its analysis")
+		}
+		// With a live Worker the scan reaches the ready hook: the transcription is scheduled and,
+		// the setting being on by default, a full analysis starts (#247).
+		if _, err := pool.Exec(context.Background(), `INSERT INTO workers(id,name,token_hash,max_concurrency,reported_concurrency,last_seen_at,supported_steps) VALUES('wk_syntheticpublish00001','Synthetic publish worker',decode(repeat('cd',32),'hex'),2,2,now(),ARRAY['transcription.*']) ON CONFLICT DO NOTHING`); err != nil {
+			t.Fatal(err)
+		}
+		if err := api.Library.ScanSource(context.Background(), managed.ID); err != nil {
+			t.Fatal(err)
+		}
+		var clipID int64
+		if err := pool.QueryRow(context.Background(), `SELECT clip_id FROM source_files WHERE source_id=$1 AND relative_path='fresh/fresh.mp4'`, managed.ID).Scan(&clipID); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", fmt.Sprintf("/api/admin/clips/%d/audio-track", clipID), map[string]any{"audio_stream_index": 2}, 200)
+		if err := api.Library.ScanSource(context.Background(), managed.ID); err != nil {
+			t.Fatal(err)
+		}
+		var jobsCount, runs int
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.%'`, clipID).Scan(&jobsCount)
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM clip_analysis_runs WHERE clip_id=$1`, clipID).Scan(&runs)
+		if jobsCount == 0 || runs == 0 {
+			var st, ec string
+			var req, only bool
+			pool.QueryRow(context.Background(), `SELECT status,COALESCE(error_code,''),scan_requested,index_only FROM source_files WHERE clip_id=$1`, clipID).Scan(&st, &ec, &req, &only)
+			t.Fatalf("a published upload must start its transcription and analysis: jobs=%d runs=%d row=%s/%s/%v/%v", jobsCount, runs, st, ec, req, only)
+		}
+	})
+
+	t.Run("publication over an index-only request still starts the analysis", func(t *testing.T) {
+		root := t.TempDir()
+		if err := os.Mkdir(filepath.Join(root, "idx"), 0755); err != nil {
+			t.Fatal(err)
+		}
+		call("PUT", "/api/admin/video-root", map[string]string{"path": root}, 200)
+		managed, err := api.Library.ManagedRoot(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		// A leftover request from the explorer that only indexes the path.
+		if _, err := pool.Exec(context.Background(), `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status,scan_requested,index_only) VALUES($1,'idx/over.mp4',0,now(),now(),0,'waiting_stability',false,true)`, managed.ID); err != nil {
+			t.Fatal(err)
+		}
+		_, clipID := uploadTo("over.mp4", "idx", []byte("synthetic-over-content"), "", 201)
+		call("PUT", fmt.Sprintf("/api/admin/clips/%d/audio-track", clipID), map[string]any{"audio_stream_index": 2}, 200)
+		if err := api.Library.ScanSource(context.Background(), managed.ID); err != nil {
+			t.Fatal(err)
+		}
+		var runs int
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM clip_analysis_runs WHERE clip_id=$1`, clipID).Scan(&runs)
+		if runs == 0 {
+			t.Fatal("a published upload must start its analysis even when the path was only indexed before")
 		}
 	})
 

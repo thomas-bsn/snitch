@@ -3,8 +3,8 @@ import { expect, test, type Page } from "@playwright/test";
 import { prepareDiarizedClip } from "./voice-fixture";
 
 // The Voice groups section of the People screen: close unknown voices proposed together,
-// the panel to listen side by side, leave a voice out and put it back, and the one action
-// that names what is kept. The two close synthetic voices of the shared fixture form the
+// the detail with one checkbox per voice, leave a voice out and put it back, the sticky bar
+// that names what is kept, the conflict state and the address of a voice. The two close synthetic voices of the shared fixture form the
 // group; the instance is installed through the guided setup.
 
 const TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
@@ -61,40 +61,44 @@ test.describe.serial("groupes de voix", () => {
     await page.context().close();
   });
 
-  test("un groupe modifié entre-temps est refusé sans rien écrire", async () => {
+  test("un groupe modifié entre-temps est refusé sans rien écrire, puis rechargé", async () => {
     await page.goto("/people/groups");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("People");
     await expect(
-      page.getByRole("link", { name: "Voice groups" }),
+      page.getByRole("link", { name: /^Unknown voices/ }),
     ).toHaveAttribute("aria-current", "page");
     await expect(page.getByText("no group is ever confirmed")).toBeVisible();
 
     const groups = page.getByRole("list", { name: "Groups of unknown voices" });
     const card = groups.locator("xpath=./li");
     await expect(card).toHaveCount(1);
-    await expect(card).toContainText("Group of 2 close voices");
+    await expect(card).toContainText("Proposed grouping of 2 voices");
     await expect(card).toContainText(
       "Heard in 1 clip(s): synthetic-voices.mp4",
     );
-    await expect(card).toContainText("Never confirmed automatically");
+    await expect(card).not.toContainText("dentified");
     await expectNoViolations(page);
 
-    await card.getByRole("button", { name: /^Listen and name/ }).click();
-    const panel = page.getByRole("dialog", { name: "Is this one person?" });
-    await expect(panel).toContainText("2 of 2 voices kept");
-    await panel.getByRole("radio", { name: "Someone new" }).check();
-    await panel.getByLabel("Name of the new person").fill("Ne pas écrire");
+    await card.getByRole("button", { name: /^Proposed grouping of/ }).click();
+    await expect(page).toHaveURL(/\/people\/groups\?voice=\d+$/);
+    // The notice stays on screen in the detail, and nothing is called validated.
+    await expect(page.getByText("no group is ever confirmed")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Proposed grouping of 2 voices" }),
+    ).toBeVisible();
+    await expect(page.getByText("2 of 2 voices kept")).toBeVisible();
+    await expect(page.getByText(/validated/i)).toHaveCount(0);
+    await page.getByRole("radio", { name: "Someone new" }).check();
+    await page.getByLabel("Name of the new person").fill("Ne pas écrire");
 
-    // Someone else leaves a voice out while the panel is open.
+    // Someone else leaves a voice out while the detail is open.
     await changeGroup(page, "PUT", "SPEAKER_01");
-    await panel
+    await page
       .getByRole("button", { name: "Name 2 voice(s) as Ne pas écrire" })
       .click();
-    await expect(panel.getByRole("alert")).toContainText(
-      "This group changed in the meantime",
+    await expect(page.getByRole("alert")).toContainText(
+      "The group changed while you were looking at it",
     );
-    await page.keyboard.press("Escape");
-    await expect(panel).toHaveCount(0);
 
     // Nothing was written: no person, no confirmed voice, both voices still unknown.
     const written = await page.evaluate(async () => {
@@ -110,7 +114,15 @@ test.describe.serial("groupes de voix", () => {
     });
     expect(written).toEqual({ persons: 0, human: 0, unknown: 2 });
 
-    // The left-out voice is no longer in a proposed group.
+    // Reloading shows the real state: the voice kept is now alone.
+    await page.getByRole("button", { name: "Reload" }).click();
+    await expect(
+      page.getByRole("heading", { name: "Isolated voice" }),
+    ).toBeVisible();
+    await expect(page.getByText("1 of 1 voices kept")).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+
+    await page.getByRole("button", { name: "Back to groups" }).click();
     await expect(page.getByText("No group left to name.")).toBeVisible();
     await changeGroup(page, "DELETE", "SPEAKER_01");
   });
@@ -121,12 +133,20 @@ test.describe.serial("groupes de voix", () => {
     await page.goto("/people/groups");
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await expectNoViolations(page);
-    await page.getByRole("button", { name: /^Listen and name/ }).click();
+    await page.getByRole("button", { name: /^Proposed grouping of/ }).click();
     await expect(
-      page.getByRole("dialog", { name: "Is this one person?" }),
+      page.getByRole("heading", { name: "Proposed grouping of 2 voices" }),
     ).toBeVisible();
     await expectNoViolations(page);
-    await page.keyboard.press("Escape");
+    // The bar of action stays within reach and each control is 44 px tall.
+    await expect(page.getByRole("region", { name: "Naming" })).toBeInViewport();
+    const heights = await page
+      .getByRole("checkbox")
+      .evaluateAll((all) =>
+        all.map((e) => e.closest("label")!.getBoundingClientRect().height),
+      );
+    expect(heights.length).toBe(2);
+    for (const height of heights) expect(height).toBeGreaterThanOrEqual(44);
     expect(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -141,21 +161,19 @@ test.describe.serial("groupes de voix", () => {
     const card = page
       .getByRole("list", { name: "Groups of unknown voices" })
       .locator("xpath=./li");
-    await card.getByRole("button", { name: /^Listen and name/ }).click();
-    const panel = page.getByRole("dialog", { name: "Is this one person?" });
+    await card.getByRole("button", { name: /^Proposed grouping of/ }).click();
+    const voice = new URL(page.url()).searchParams.get("voice")!;
 
-    // Every excerpt is there to play side by side, served to the session.
-    const voices = panel.getByRole("list", { name: "Voices of the group" });
+    // Every excerpt is there to play, served to the session, with its level.
+    const voices = page.getByRole("list", { name: "Voices of the group" });
     await expect(voices.locator("xpath=./li")).toHaveCount(2);
-    const first = panel.getByLabel(
-      "Excerpt of SPEAKER_00 in synthetic-voices.mp4",
-    );
-    const second = panel.getByLabel(
-      "Excerpt of SPEAKER_01 in synthetic-voices.mp4",
-    );
-    await expect(first).toBeVisible();
-    await expect(second).toBeVisible();
-    const source = await first.getAttribute("src");
+    await expect(
+      page.getByRole("button", {
+        name: "Excerpt of SPEAKER_00 in synthetic-voices.mp4",
+      }),
+    ).toBeVisible();
+    await expect(voices.locator("xpath=./li").nth(0)).toContainText("Unknown");
+    const source = await page.locator("audio").first().getAttribute("src");
     expect(source).toMatch(/^\/api\/local-speakers\/\d+\/excerpt$/);
     expect((await page.request.get(source!)).headers()["content-type"]).toBe(
       "audio/wav",
@@ -163,34 +181,34 @@ test.describe.serial("groupes de voix", () => {
 
     // The button names nothing until a person is chosen.
     await expect(
-      panel.getByRole("button", { name: "Name these voices" }),
+      page.getByRole("button", { name: "Name these voices" }),
     ).toBeDisabled();
 
     // Leaving a voice out changes only that voice; putting it back restores the count.
-    await panel
-      .getByRole("button", { name: /^Not this person: leave SPEAKER_01/ })
-      .click();
-    await expect(panel).toContainText("1 of 2 voices kept");
+    const second = page.getByRole("checkbox", { name: /SPEAKER_01/ });
+    await second.click();
+    await expect(second).not.toBeChecked();
+    await expect(page.getByText("1 of 2 voices kept")).toBeVisible();
     await expect(voices.locator("xpath=./li").nth(1)).toContainText("Left out");
     await expect(voices.locator("xpath=./li").nth(0)).not.toContainText(
       "Left out",
     );
-    await panel.getByRole("button", { name: /^Put back SPEAKER_01/ }).click();
-    await expect(panel).toContainText("2 of 2 voices kept");
-    await expect(panel).not.toContainText("Left out");
+    await expect(
+      page.getByRole("checkbox", { name: /SPEAKER_00/ }),
+    ).toBeChecked();
+    await second.click();
+    await expect(second).toBeChecked();
+    await expect(page.getByText("2 of 2 voices kept")).toBeVisible();
 
     // One voice left out, the other named in one action.
-    await panel
-      .getByRole("button", { name: /^Not this person: leave SPEAKER_01/ })
-      .click();
-    await expect(panel).toContainText("1 of 2 voices kept");
-    await panel.getByRole("radio", { name: "Someone new" }).check();
-    await panel.getByLabel("Name of the new person").fill("Groupe Synthétique");
+    await second.click();
+    await expect(second).not.toBeChecked();
+    await expect(page.getByText("1 of 2 voices kept")).toBeVisible();
+    await page.getByRole("radio", { name: "Someone new" }).check();
+    await page.getByLabel("Name of the new person").fill("Groupe Synthétique");
     await expectNoViolations(page);
-    await panel
-      .getByRole("button", {
-        name: "Name 1 voice(s) as Groupe Synthétique",
-      })
+    await page
+      .getByRole("button", { name: "Name 1 voice(s) as Groupe Synthétique" })
       .click();
     await expect(page.getByRole("status").last()).toContainText(
       "Saved: 1 voice(s) are now Groupe Synthétique. 1 left out.",
@@ -209,5 +227,15 @@ test.describe.serial("groupes de voix", () => {
     expect(counts.human).toBe(1);
     expect(counts.suggestion).toBe(1);
     await expect(page.getByText("No group left to name.")).toBeVisible();
+
+    // The address of the voice that was named says it was handled; nothing else opens.
+    const gone = page.getByText("Already handled or no longer visible");
+    await page.goto(`/people/groups?voice=${voice}`);
+    await expect(gone).toBeVisible();
+    await expect(
+      page.getByRole("list", { name: "Voices of the group" }),
+    ).toHaveCount(0);
+    await page.goto("/people/groups?voice=99999999");
+    await expect(gone).toBeVisible();
   });
 });

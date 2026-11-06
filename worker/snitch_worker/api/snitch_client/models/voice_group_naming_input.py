@@ -27,11 +27,14 @@ class VoiceGroupNamingInput:
             local_speaker_ids (list[int]): Exactement les voix visibles du groupe que l'utilisateur a écoutées.
             person_id (int | Unset):
             new_person_name (str | Unset):
+            allow_homonym (bool | Unset): Avec new_person_name : crée la Personne même si une Personne de même nom existe
+                (409 person_exists sinon).
      """
 
     local_speaker_ids: list[int]
     person_id: int | Unset = UNSET
     new_person_name: str | Unset = UNSET
+    allow_homonym: bool | Unset = UNSET
 
 
 
@@ -46,6 +49,8 @@ class VoiceGroupNamingInput:
 
         new_person_name = self.new_person_name
 
+        allow_homonym = self.allow_homonym
+
 
         field_dict: dict[str, Any] = {}
 
@@ -56,6 +61,8 @@ class VoiceGroupNamingInput:
             field_dict["person_id"] = person_id
         if new_person_name is not UNSET:
             field_dict["new_person_name"] = new_person_name
+        if allow_homonym is not UNSET:
+            field_dict["allow_homonym"] = allow_homonym
 
         return field_dict
 
@@ -71,10 +78,13 @@ class VoiceGroupNamingInput:
 
         new_person_name = d.pop("new_person_name", UNSET)
 
+        allow_homonym = d.pop("allow_homonym", UNSET)
+
         voice_group_naming_input = cls(
             local_speaker_ids=local_speaker_ids,
             person_id=person_id,
             new_person_name=new_person_name,
+            allow_homonym=allow_homonym,
         )
 
         return voice_group_naming_input

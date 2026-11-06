@@ -31,7 +31,6 @@ func testSetupProgress(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
-	server.Config.PublicURL = ts.URL
 	newClient := func() *http.Client {
 		jar, err := cookiejar.New(nil)
 		if err != nil {
@@ -90,7 +89,7 @@ func testSetupProgress(t *testing.T, pool *pgxpool.Pool) {
 		for _, s := range p.Steps {
 			states[s.Step] = s.State
 		}
-		if len(p.Steps) != 4 || p.Steps[0].Step != "discord" || p.Steps[3].Step != "import" {
+		if len(p.Steps) != 6 || p.Steps[0].Step != "location" || p.Steps[4].Step != "huggingface" || p.Steps[5].Step != "import" {
 			t.Fatalf("steps %+v", p.Steps)
 		}
 		return states, p.Dismissed

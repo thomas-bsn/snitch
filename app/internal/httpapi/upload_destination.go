@@ -32,6 +32,26 @@ func (s *Server) uploadDestination(w http.ResponseWriter, r *http.Request, name,
 		fail(w, 400, "invalid_upload")
 		return 0, "", "", false
 	}
+	// A folder waiting for an Administrator's decision (ADR 0033) takes no upload yet.
+	if waiting, err := s.pendingFolderRequestAt(r.Context(), folderRelative(folder)); err != nil {
+		s.internal(w, err)
+		return 0, "", "", false
+	} else if waiting {
+		fail(w, 409, "folder_request_pending")
+		return 0, "", "", false
+	}
+	// ADR 0026: a member may not put a file into a private folder it cannot open.
+	if !isSuperAdministrator(r.Context().Value(sessionKey{}).(session).User.Role) {
+		private, err := s.privateTopFolders(r, root.ID)
+		if err != nil {
+			s.internal(w, err)
+			return 0, "", "", false
+		}
+		if private[firstSegment(folder)] {
+			fail(w, 403, "forbidden")
+			return 0, "", "", false
+		}
+	}
 	parent, err := library.ManagedPath(root.Path, folder)
 	if err != nil {
 		fail(w, 422, "video_path_unavailable")
@@ -105,7 +125,7 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 	}
 	defer handle.Close()
 	var digest []byte
-	if err = tx.QueryRow(ctx, `SELECT content_sha256 FROM clips WHERE id=$1`, clipID).Scan(&digest); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT content_sha256 FROM clips WHERE id=$1 FOR KEY SHARE`, clipID).Scan(&digest); err != nil {
 		return err
 	}
 	alreadyInstalled := false
@@ -173,7 +193,7 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	_, err = tx.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,clip_id,size_bytes,modified_at,stable_since,last_seen_generation,status,scan_requested) VALUES($1,$2,$3,$4,$5,now(),0,'ready',false) ON CONFLICT(source_id,relative_path) DO UPDATE SET clip_id=EXCLUDED.clip_id,size_bytes=EXCLUDED.size_bytes,modified_at=EXCLUDED.modified_at,status='ready',scan_requested=false,error_code=NULL`, source, relative, clipID, info.Size(), info.ModTime().UTC().Truncate(time.Microsecond))
+	_, err = tx.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,clip_id,size_bytes,modified_at,stable_since,last_seen_generation,status,scan_requested) VALUES($1,$2,$3,$4,$5,now(),0,'ready',true) ON CONFLICT(source_id,relative_path) DO UPDATE SET clip_id=EXCLUDED.clip_id,size_bytes=EXCLUDED.size_bytes,modified_at=EXCLUDED.modified_at,status='ready',scan_requested=true,index_only=false,error_code=NULL`, source, relative, clipID, info.Size(), info.ModTime().UTC().Truncate(time.Microsecond))
 	if err != nil {
 		return err
 	}
@@ -198,18 +218,12 @@ func (s *Server) publishUpload(ctx context.Context, id string, clipID int64) err
 			return err
 		}
 	}
-	if expected != "absent" {
-		if _, err = tx.Exec(ctx, `UPDATE source_files SET scan_requested=true WHERE source_id=$1 AND relative_path=$2`, source, relative); err != nil {
-			return err
-		}
-	}
 	if err = tx.Commit(ctx); err != nil {
 		return err
 	}
 	_ = os.Remove(filepath.Join(s.Uploads.MediaRoot(), id+".media"))
-	if expected != "absent" {
-		s.Library.ScheduleScan(source, 0)
-	}
+	// The scan indexes the file and, once it is ready, starts its transcription and analysis.
+	s.Library.ScheduleScan(source, 0)
 	return nil
 }
 

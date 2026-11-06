@@ -14,6 +14,7 @@ import {
 import { AdminStep, type AccountDraft } from "./steps/AdminStep";
 import { CodeStep } from "./steps/CodeStep";
 import { DiscordStep } from "./steps/DiscordStep";
+import { HuggingFaceStep } from "./steps/HuggingFaceStep";
 import { ImportStep } from "./steps/ImportStep";
 import { SemanticStep } from "./steps/SemanticStep";
 import { SummaryStep } from "./steps/SummaryStep";
@@ -26,6 +27,7 @@ import {
   type StepId,
 } from "./steps";
 import { WizardSidebar, standingOf, type Standing } from "./WizardSidebar";
+import { MetadataSettings } from "../admin/metadata/MetadataSettings";
 import { StepHeader } from "./StepHeader";
 
 const OPTIONAL_IDS = new Set<StepId>(OPTIONAL_STEPS.map((step) => step.id));
@@ -52,9 +54,9 @@ export function SetupWizard() {
   const installing = !setup?.initialized;
   useDocumentTitle(t("setup.title"));
 
-  const [step, setStep] = useState<StepId>(installing ? "code" : "discord");
+  const [step, setStep] = useState<StepId>(installing ? "code" : "location");
   const [visited, setVisited] = useState<ReadonlySet<StepId>>(
-    () => new Set([installing ? "code" : "discord"]),
+    () => new Set([installing ? "code" : "location"]),
   );
   const [furthest, setFurthest] = useState(installing ? 0 : 2);
   const main = useRef<HTMLElement>(null);
@@ -182,7 +184,7 @@ export function SetupWizard() {
           <div data-active-step className="flex max-w-xl flex-col gap-5">
             <StepHeader
               position={STEP_IDS.indexOf(step) + 1}
-              total={7}
+              total={9}
               title={t(STEP_LABELS[step])}
             />
             <p>{t("setup.completed")}</p>
@@ -193,6 +195,13 @@ export function SetupWizard() {
             >
               {t("setup.continue")}
             </button>
+          </div>
+        )}
+        {progress && step === "location" && (
+          <div data-active-step className="flex max-w-xl flex-col gap-5">
+            <StepHeader position={3} total={9} title={t("metadata.title")} />
+            <MetadataSettings onSaved={() => void leave("location", "done")} />
+            {skip("location")}
           </div>
         )}
         {progress && visited.has("discord") && (
@@ -225,8 +234,8 @@ export function SetupWizard() {
             {stepState(progress, "worker") === "done" ? (
               <div className="flex max-w-xl flex-col gap-5">
                 <StepHeader
-                  position={5}
-                  total={7}
+                  position={6}
+                  total={9}
                   title={t("setup.worker.title")}
                 />
                 <p>{t("setup.completed")}</p>
@@ -244,6 +253,17 @@ export function SetupWizard() {
                 skip={skip("worker")}
               />
             )}
+          </div>
+        )}
+        {progress && visited.has("huggingface") && (
+          <div
+            hidden={step !== "huggingface"}
+            data-active-step={step === "huggingface" ? "" : undefined}
+          >
+            <HuggingFaceStep
+              onDone={() => leave("huggingface", "done")}
+              skip={skip("huggingface")}
+            />
           </div>
         )}
         {progress && step === "import" && (

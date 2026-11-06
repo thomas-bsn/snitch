@@ -1,3 +1,4 @@
+import { Pencil, UserPen } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import type { components } from "../../api.gen";
 import { api, errorCode, mutation } from "../api/client";
@@ -12,6 +13,9 @@ type Speaker = NonNullable<
   components["schemas"]["Transcription"]["local_speakers"]
 >[number];
 type Conflict = components["schemas"]["SegmentCorrection"];
+const iconButton =
+  "flex size-11 items-center justify-center rounded-md text-mute hover:bg-side hover:text-ink md:size-8";
+
 export function SegmentActions({
   clipId,
   jobId,
@@ -106,19 +110,27 @@ export function SegmentActions({
     }
   }
   return (
-    <div className="mt-2 flex flex-col gap-2">
+    <div className="mt-1 flex flex-col gap-2">
       {!mode && (
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className={buttonClass()} onClick={startText}>
-            {t("segmentEdit.editText")}
+        <div className="absolute top-2.5 right-3 flex gap-1 opacity-0 group-hover:opacity-100 focus-within:opacity-100 [@media(hover:none)]:opacity-100">
+          <button
+            type="button"
+            aria-label={t("segmentEdit.editText")}
+            title={t("segmentEdit.editText")}
+            className={iconButton}
+            onClick={startText}
+          >
+            <Pencil className="size-4" aria-hidden="true" />
           </button>
           {speakers.length > 0 && (
             <button
               type="button"
-              className={buttonClass()}
+              aria-label={t("segmentEdit.editSpeaker")}
+              title={t("segmentEdit.editSpeaker")}
+              className={iconButton}
               onClick={startSpeaker}
             >
-              {t("segmentEdit.editSpeaker")}
+              <UserPen className="size-4" aria-hidden="true" />
             </button>
           )}
         </div>

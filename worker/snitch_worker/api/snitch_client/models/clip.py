@@ -15,8 +15,11 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.audio_track_selection import AudioTrackSelection
+  from ..models.clip_detected_type_0 import ClipDetectedType0
+  from ..models.clip_origins_item import ClipOriginsItem
   from ..models.clip_person import ClipPerson
   from ..models.clip_progress import ClipProgress
+  from ..models.clip_waveforms_item import ClipWaveformsItem
   from ..models.media_track import MediaTrack
   from ..models.transcription import Transcription
 
@@ -36,10 +39,14 @@ class Clip:
             owner_id (int):
             owner (str):
             visibility (ClipVisibility):
+            display_title (None | str): Titre affiché choisi par un administrateur ; absent, le nom du fichier
+                (original_name) sert de titre. original_name reste le nom physique, jamais modifié.
+            detected (ClipDetectedType0 | None): Valeurs détectées automatiquement, conservées à la première modification
+                manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai.
             original_name (str):
             size_bytes (int):
             discovered_at (datetime.datetime):
-            recorded_at (datetime.datetime):
+            recorded_at (datetime.datetime | None):
             recorded_at_estimated (bool):
             format_name (str):
             video_codec (str):
@@ -47,6 +54,12 @@ class Clip:
             tracks (list[MediaTrack]):
             uploaders (list[str]):
             owner_deleted (bool | Unset): Le compte propriétaire a été supprimé.
+            origins (list[ClipOriginsItem] | Unset):
+            waveforms (list[ClipWaveformsItem] | Unset): Pics de forme d’onde par piste audio (ADR 0034), un élément par
+                piste ayant reçu des pics ; liste vide tant qu’aucune analyse n’en a fourni.
+            game (None | str | Unset):
+            game_origin (None | str | Unset):
+            capture_time_origin (None | str | Unset):
             duration_seconds (float | None | Unset):
             status (str | Unset):
             sources (list[str] | Unset):
@@ -62,10 +75,12 @@ class Clip:
     owner_id: int
     owner: str
     visibility: ClipVisibility
+    display_title: None | str
+    detected: ClipDetectedType0 | None
     original_name: str
     size_bytes: int
     discovered_at: datetime.datetime
-    recorded_at: datetime.datetime
+    recorded_at: datetime.datetime | None
     recorded_at_estimated: bool
     format_name: str
     video_codec: str
@@ -73,6 +88,11 @@ class Clip:
     tracks: list[MediaTrack]
     uploaders: list[str]
     owner_deleted: bool | Unset = UNSET
+    origins: list[ClipOriginsItem] | Unset = UNSET
+    waveforms: list[ClipWaveformsItem] | Unset = UNSET
+    game: None | str | Unset = UNSET
+    game_origin: None | str | Unset = UNSET
+    capture_time_origin: None | str | Unset = UNSET
     duration_seconds: float | None | Unset = UNSET
     status: str | Unset = UNSET
     sources: list[str] | Unset = UNSET
@@ -88,8 +108,11 @@ class Clip:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
+        from ..models.clip_detected_type_0 import ClipDetectedType0 # noqa: PLC0415
+        from ..models.clip_origins_item import ClipOriginsItem # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.clip_progress import ClipProgress # noqa: PLC0415
+        from ..models.clip_waveforms_item import ClipWaveformsItem # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         id = self.id
@@ -100,13 +123,26 @@ class Clip:
 
         visibility = self.visibility.value
 
+        display_title: None | str
+        display_title = self.display_title
+
+        detected: dict[str, Any] | None
+        if isinstance(self.detected, ClipDetectedType0):
+            detected = self.detected.to_dict()
+        else:
+            detected = self.detected
+
         original_name = self.original_name
 
         size_bytes = self.size_bytes
 
         discovered_at = self.discovered_at.isoformat()
 
-        recorded_at = self.recorded_at.isoformat()
+        recorded_at: None | str
+        if isinstance(self.recorded_at, datetime.datetime):
+            recorded_at = self.recorded_at.isoformat()
+        else:
+            recorded_at = self.recorded_at
 
         recorded_at_estimated = self.recorded_at_estimated
 
@@ -128,6 +164,42 @@ class Clip:
 
 
         owner_deleted = self.owner_deleted
+
+        origins: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.origins, Unset):
+            origins = []
+            for origins_item_data in self.origins:
+                origins_item = origins_item_data.to_dict()
+                origins.append(origins_item)
+
+
+
+        waveforms: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.waveforms, Unset):
+            waveforms = []
+            for waveforms_item_data in self.waveforms:
+                waveforms_item = waveforms_item_data.to_dict()
+                waveforms.append(waveforms_item)
+
+
+
+        game: None | str | Unset
+        if isinstance(self.game, Unset):
+            game = UNSET
+        else:
+            game = self.game
+
+        game_origin: None | str | Unset
+        if isinstance(self.game_origin, Unset):
+            game_origin = UNSET
+        else:
+            game_origin = self.game_origin
+
+        capture_time_origin: None | str | Unset
+        if isinstance(self.capture_time_origin, Unset):
+            capture_time_origin = UNSET
+        else:
+            capture_time_origin = self.capture_time_origin
 
         duration_seconds: float | None | Unset
         if isinstance(self.duration_seconds, Unset):
@@ -172,6 +244,8 @@ class Clip:
             "owner_id": owner_id,
             "owner": owner,
             "visibility": visibility,
+            "display_title": display_title,
+            "detected": detected,
             "original_name": original_name,
             "size_bytes": size_bytes,
             "discovered_at": discovered_at,
@@ -185,6 +259,16 @@ class Clip:
         })
         if owner_deleted is not UNSET:
             field_dict["owner_deleted"] = owner_deleted
+        if origins is not UNSET:
+            field_dict["origins"] = origins
+        if waveforms is not UNSET:
+            field_dict["waveforms"] = waveforms
+        if game is not UNSET:
+            field_dict["game"] = game
+        if game_origin is not UNSET:
+            field_dict["game_origin"] = game_origin
+        if capture_time_origin is not UNSET:
+            field_dict["capture_time_origin"] = capture_time_origin
         if duration_seconds is not UNSET:
             field_dict["duration_seconds"] = duration_seconds
         if status is not UNSET:
@@ -207,8 +291,11 @@ class Clip:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.audio_track_selection import AudioTrackSelection # noqa: PLC0415
+        from ..models.clip_detected_type_0 import ClipDetectedType0 # noqa: PLC0415
+        from ..models.clip_origins_item import ClipOriginsItem # noqa: PLC0415
         from ..models.clip_person import ClipPerson # noqa: PLC0415
         from ..models.clip_progress import ClipProgress # noqa: PLC0415
+        from ..models.clip_waveforms_item import ClipWaveformsItem # noqa: PLC0415
         from ..models.media_track import MediaTrack # noqa: PLC0415
         from ..models.transcription import Transcription # noqa: PLC0415
         d = dict(src_dict)
@@ -223,6 +310,32 @@ class Clip:
 
 
 
+        def _parse_display_title(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        display_title = _parse_display_title(d.pop("display_title"))
+
+
+        def _parse_detected(data: object) -> ClipDetectedType0 | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                detected_type_0 = ClipDetectedType0.from_dict(data)
+
+
+
+                return detected_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(ClipDetectedType0 | None, data)
+
+        detected = _parse_detected(d.pop("detected"))
+
+
         original_name = d.pop("original_name")
 
         size_bytes = d.pop("size_bytes")
@@ -232,9 +345,22 @@ class Clip:
 
 
 
-        recorded_at = datetime.datetime.fromisoformat(d.pop("recorded_at"))
+        def _parse_recorded_at(data: object) -> datetime.datetime | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                recorded_at_type_0 = datetime.datetime.fromisoformat(data)
 
 
+
+                return recorded_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None, data)
+
+        recorded_at = _parse_recorded_at(d.pop("recorded_at"))
 
 
         recorded_at_estimated = d.pop("recorded_at_estimated")
@@ -259,6 +385,60 @@ class Clip:
 
 
         owner_deleted = d.pop("owner_deleted", UNSET)
+
+        _origins = d.pop("origins", UNSET)
+        origins: list[ClipOriginsItem] | Unset = UNSET
+        if _origins is not UNSET:
+            origins = []
+            for origins_item_data in _origins:
+                origins_item = ClipOriginsItem.from_dict(origins_item_data)
+
+
+
+                origins.append(origins_item)
+
+
+        _waveforms = d.pop("waveforms", UNSET)
+        waveforms: list[ClipWaveformsItem] | Unset = UNSET
+        if _waveforms is not UNSET:
+            waveforms = []
+            for waveforms_item_data in _waveforms:
+                waveforms_item = ClipWaveformsItem.from_dict(waveforms_item_data)
+
+
+
+                waveforms.append(waveforms_item)
+
+
+        def _parse_game(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        game = _parse_game(d.pop("game", UNSET))
+
+
+        def _parse_game_origin(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        game_origin = _parse_game_origin(d.pop("game_origin", UNSET))
+
+
+        def _parse_capture_time_origin(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        capture_time_origin = _parse_capture_time_origin(d.pop("capture_time_origin", UNSET))
+
 
         def _parse_duration_seconds(data: object) -> float | None | Unset:
             if data is None:
@@ -322,6 +502,8 @@ class Clip:
             owner_id=owner_id,
             owner=owner,
             visibility=visibility,
+            display_title=display_title,
+            detected=detected,
             original_name=original_name,
             size_bytes=size_bytes,
             discovered_at=discovered_at,
@@ -333,6 +515,11 @@ class Clip:
             tracks=tracks,
             uploaders=uploaders,
             owner_deleted=owner_deleted,
+            origins=origins,
+            waveforms=waveforms,
+            game=game,
+            game_origin=game_origin,
+            capture_time_origin=capture_time_origin,
             duration_seconds=duration_seconds,
             status=status,
             sources=sources,

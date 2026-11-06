@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 import signal
@@ -9,14 +10,16 @@ import ssl
 import subprocess
 import tempfile
 import threading
+import time
 import wave
 import struct
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor, wait
 from typing import Any, Mapping, Protocol
 from urllib.parse import urljoin, urlparse
 
 import httpx
 from snitch_client.api.default.claim_worker_job import sync as claim_job
+from snitch_client.api.default.append_worker_job_logs import sync as append_job_logs
 from snitch_client.api.default.complete_worker_job import sync as complete_job
 from snitch_client.api.default.fail_worker_job import sync as fail_job
 from snitch_client.api.default.get_worker_job_input import sync as get_job_input
@@ -25,13 +28,20 @@ from snitch_client.api.default.worker_pulse import sync as pulse
 from snitch_client.client import AuthenticatedClient
 from snitch_client.models.error import Error
 from snitch_client.models.worker_failure_input import WorkerFailureInput
+from snitch_client.models.worker_job_logs_input import WorkerJobLogsInput
 from snitch_client.models.worker_pulse_input import WorkerPulseInput
+from snitch_client.models.worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
+from snitch_worker import cancellation, log, revocation
+from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
+from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
-from snitch_worker.voice import ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
+from snitch_worker import transcription_config
+from snitch_worker.transcription_config import ReachabilityMonitor, active_configuration, sync_configuration
+from snitch_worker.voice import DIARIZATION_STEP, VoiceProviderUnavailable, ensure_provider_ready, is_voice_step, process_voice_step, requires_audio
 
 
 def fake_provider(step: str) -> dict[str, Any]:
@@ -42,6 +52,53 @@ def fake_provider(step: str) -> dict[str, Any]:
         "provider": "fixture",
         "step": step,
     }
+
+
+class TranscriptionError(RuntimeError):
+    """A categorised Whisper failure. It carries a catalogue code and a status, never the provider text."""
+
+    def __init__(self, code: str, http_status: int | None = None, url: str = "", excerpt: str = "") -> None:
+        super().__init__(code)
+        self.code = code
+        self.http_status = http_status
+        # What the Worker observed of its own call (ADR 0028); only log_whisper_failure writes them, scrubbed.
+        self.method = "POST"
+        self.url = url
+        self.excerpt = excerpt
+
+
+EXCERPT_LIMIT = 240
+
+
+def log_whisper_failure(error: "TranscriptionError", latency_ms: int) -> None:
+    """Log the Worker's view of a failed Whisper call: method, URL, status, latency and a bounded cleaned excerpt."""
+    fields: dict[str, Any] = {"code": error.code, "method": error.method, "url": error.url, "latency_ms": latency_ms}
+    if error.http_status is not None:
+        fields["http_status"] = error.http_status
+    if error.excerpt:
+        fields["excerpt"] = log.scrub(error.excerpt)[:EXCERPT_LIMIT]
+    log.emit(logging.WARNING, "whisper_request_failed", **fields)
+
+
+# Provider reasons of a diarization step mapped to the catalogue; other reasons keep the generic code.
+DIARIZATION_FAILURE_CODES = {
+    "model_path_missing": "pyannote_model_missing",
+    "model_access_denied": "pyannote_access_denied",
+    "cuda_unavailable": "gpu_unavailable",
+    "gpu_out_of_memory": "gpu_out_of_memory",
+    "model_load_failed": "diarization_inference_failed",
+    "inference_failed": "diarization_inference_failed",
+}
+
+
+def _is_diarization_step(step: str) -> bool:
+    return bool(DIARIZATION_STEP.fullmatch(step))
+
+
+def _voice_config(task_input: Any) -> dict[str, Any]:
+    voice_value = getattr(task_input, "voice", None)
+    voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+    return voice_input.get("config") or {}
 
 
 class Transcriber(Protocol):
@@ -60,8 +117,30 @@ class OpenAICompatibleTranscriber:
 
     def transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None = None, language: str = "fr") -> dict[str, Any]:
         headers = {"Authorization": f"Bearer {self.api_key}"} if self.api_key else {}
-        with open(wav_path, "rb") as audio:
-            response = httpx.post(
+        try:
+            return self._transcribe(wav_path, vocabulary, language, headers)
+        except TranscriptionError:
+            raise
+        except httpx.TimeoutException as exc:
+            raise TranscriptionError("whisper_timeout") from exc
+        except httpx.HTTPStatusError as exc:
+            status = exc.response.status_code
+            try:
+                excerpt = " ".join(exc.response.text.split())[:1000]
+            except (httpx.HTTPError, UnicodeError):
+                excerpt = ""
+            code = "whisper_model_missing" if status == 404 else "whisper_http_error"
+            raise TranscriptionError(code, status, self.endpoint + "/v1/audio/transcriptions", excerpt) from exc
+        except httpx.TransportError as exc:
+            raise TranscriptionError("whisper_network") from exc
+        except (TypeError, ValueError, KeyError, AttributeError) as exc:
+            raise TranscriptionError("whisper_invalid_response") from exc
+
+    def _transcribe(self, wav_path: str, vocabulary: list[dict[str, Any]] | None, language: str, headers: dict[str, str]) -> dict[str, Any]:
+        # A refused lease stops waiting for the server and closes the connection (ADR 0029).
+        http = httpx.Client(timeout=3600)
+        with http, open(wav_path, "rb") as audio:
+            response = cancellation.wait_for(lambda: http.post(
                 self.endpoint + "/v1/audio/transcriptions",
                 headers=headers,
                 data={
@@ -75,8 +154,7 @@ class OpenAICompatibleTranscriber:
                     )} if vocabulary else {}),
                 },
                 files={"file": ("audio.wav", audio, "audio/wav")},
-                timeout=3600,
-            )
+            ), on_cancel=http.close)
         response.raise_for_status()
         payload = response.json()
         if not isinstance(payload, dict) or not isinstance(
@@ -121,7 +199,8 @@ class OpenAICompatibleTranscriber:
 def prepare_audio(media_path: str, wav_path: str, stream_index: int) -> None:
     if stream_index < 0:
         raise ValueError("invalid audio stream index")
-    subprocess.run(
+    # ffmpeg is killed when the job's lease is refused.
+    cancellation.run_process(
         [
             "ffmpeg",
             "-nostdin",
@@ -141,10 +220,9 @@ def prepare_audio(media_path: str, wav_path: str, stream_index: int) -> None:
             "-y",
             wav_path,
         ],
-        check=True,
         timeout=3600,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
     )
 
 
@@ -155,13 +233,16 @@ def download_media(client: AuthenticatedClient, task_input: Any, lease_token: st
     with client.get_httpx_client().stream("GET", media_url, headers={"X-Worker-Lease-Token": lease_token}) as media:
         media.raise_for_status()
         with open(destination, "wb") as output:
-            output.writelines(media.iter_bytes())
+            for chunk in media.iter_bytes():
+                cancellation.check()
+                output.write(chunk)
 
 
 def configured_transcriber(model: str = "", override: str | None = None) -> OpenAICompatibleTranscriber:
+    active = active_configuration()
     return OpenAICompatibleTranscriber(
-        os.environ.get("TRANSCRIPTION_API_URL", ""),
-        (os.environ.get("TRANSCRIPTION_MODEL", "").strip() if override is None else override.strip()) or model.strip(),
+        active.endpoint if active is not None else os.environ.get("TRANSCRIPTION_API_URL", ""),
+        ((active.model if active is not None else os.environ.get("TRANSCRIPTION_MODEL", "").strip()) if override is None else override.strip()) or model.strip(),
         os.environ.get("TRANSCRIPTION_API_KEY", ""),
     )
 
@@ -229,6 +310,7 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
     results: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="snitch-vad-") as temporary:
         for index, (start, end) in enumerate(spans):
+            cancellation.check()
             chunk_path = os.path.join(temporary, f"speech-{index}.wav")
             with wave.open(wav_path, "rb") as source:
                 rate, width, channels = source.getframerate(), source.getsampwidth(), source.getnchannels()
@@ -256,10 +338,203 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
     return metadata
 
 
+class WorkerUnauthorized(RuntimeError):
+    """Snitch refused the Worker token (401). Not a revocation until the narrow endpoint confirms it."""
+
+
 def _require_response(value: Any, operation: str) -> Any:
+    if isinstance(value, Error) and value.error == "worker_token_invalid":
+        raise WorkerUnauthorized(f"worker API {operation} refused the token")
     if value is None or isinstance(value, Error):
-        raise RuntimeError(f"worker API {operation} failed")
+        code = value.error if isinstance(value, Error) and isinstance(value.error, str) else ""
+        raise ApiError(operation, code)
     return value
+
+
+# ADR 0029. Presence pulses from a dedicated thread, independently of jobs and leases.
+PRESENCE_INTERVAL = 10.0
+# ADR 0029. The lease renewal is what hears a refusal from the server (job reassigned, cancelled,
+# Worker revoked): renewing every 10 s cancels the job within 10 s. The server lease lasts 2
+# minutes, which leaves about a dozen renewals for a network error to be retried.
+HEARTBEAT_INTERVAL = 10.0
+# Reconnection delays grow from 1 s and never exceed this cap.
+PRESENCE_RETRY_CAP = 10.0
+# Lease duration set by the server on claim and on each renewal (2 minutes).
+LEASE_TTL = 120.0
+# Heartbeat answers meaning the server no longer accepts this lease: reassigned, cancelled or revoked.
+LEASE_REFUSALS = frozenset({"lease_not_owned", "worker_token_invalid"})
+
+
+def presence_retry_delay(attempt: int) -> float:
+    """Delay before retry number `attempt` (1-based): 1, 2, 4, 8 seconds, then the cap."""
+    return min(PRESENCE_RETRY_CAP, 2.0 ** min(max(attempt - 1, 0), 4))
+
+
+# Issue #321. While claiming keeps failing, one line at most per interval, plus the first failure and the recovery.
+CLAIM_LOG_INTERVAL = 60.0
+# Issue #321. After consecutive claiming failures the wait doubles from the poll interval and never exceeds this.
+CLAIM_RETRY_CAP = 10.0
+
+
+def _error_category(error: BaseException) -> str:
+    """Stable category of a claiming failure; the exception text is never logged (it can carry URLs)."""
+    if isinstance(error, WorkerUnauthorized):
+        return "unauthorized"
+    if isinstance(error, httpx.TimeoutException):
+        return "timeout"
+    if isinstance(error, httpx.HTTPStatusError):
+        return "http_status"
+    if isinstance(error, httpx.TransportError):
+        return "network"
+    if isinstance(error, (ValueError, KeyError, TypeError, AttributeError)):
+        # A proxy page, or JSON the generated client cannot read (JSONDecodeError is a ValueError).
+        return "invalid_response"
+    if isinstance(error, ApiError):
+        return "api_error"
+    return "internal"
+
+
+class ApiError(RuntimeError):
+    """Snitch answered with an error, or an answer the generated client could not type. Carries its stable code."""
+
+    def __init__(self, operation: str, code: str = "") -> None:
+        super().__init__(f"worker API {operation} failed")
+        self.code = code
+
+
+class ClaimCycle:
+    """The step of the current claiming cycle, so a failure names the logical endpoint that failed."""
+
+    def __init__(self, health: "ClaimHealth | None" = None) -> None:
+        self.operation = "pulse"
+        self._health = health
+
+    def answered(self) -> None:
+        """Snitch answered the claim: claiming is operational again."""
+        if self._health is not None:
+            self._health.succeeded()
+
+
+class ClaimHealth:
+    """Health of one claiming loop, distinct from presence (a healthy pulse says nothing of it). Each loop has
+    its own: a success on one loop must not hide, or reset the backoff of, failures on another.
+
+    Failures are logged without secrets and without noise: the first one, then at most one line per
+    CLAIM_LOG_INTERVAL while they continue, and the recovery with how long claiming was down."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._failures = 0
+        self._failing_since = 0.0
+        self._last_success = time.monotonic()
+        self._last_logged = 0.0
+        self._suppressed = 0
+
+    def failed(self, operation: str, error: BaseException) -> int:
+        """Record a failed cycle and return the number of consecutive failures."""
+        now = time.monotonic()
+        with self._lock:
+            self._failures += 1
+            failures = self._failures
+            if failures == 1:
+                self._failing_since = now
+            due = failures == 1 or now - self._last_logged >= CLAIM_LOG_INTERVAL
+            if not due:
+                self._suppressed += 1
+                return failures
+            suppressed, self._suppressed, self._last_logged = self._suppressed, 0, now
+            since_success = now - self._last_success
+        fields: dict[str, Any] = {
+            "operation": operation,
+            "error_category": _error_category(error),
+            "error_type": type(error).__name__,
+            "attempt": failures,
+            "since_last_success_s": round(since_success, 1),
+        }
+        if isinstance(error, httpx.HTTPStatusError):
+            fields["http_status"] = error.response.status_code
+        if isinstance(error, ApiError) and error.code:
+            fields["error_code"] = error.code
+        if suppressed:
+            fields["suppressed"] = suppressed
+        log.emit(logging.WARNING, "claim_poll_failed", **fields)
+        return failures
+
+    def succeeded(self) -> None:
+        now = time.monotonic()
+        with self._lock:
+            failures, self._failures, self._suppressed = self._failures, 0, 0
+            down_since = self._failing_since
+            self._last_success = now
+        if failures:
+            log.emit(logging.INFO, "claim_poll_recovered", failures=failures, downtime_s=round(now - down_since, 1))
+
+
+class LeaseWatch:
+    """Set by the lease renewal thread when the job no longer owns its lease."""
+
+    def __init__(self) -> None:
+        self.lost = threading.Event()
+        self.reason = ""
+
+    def lose(self, reason: str) -> None:
+        if not self.lost.is_set():
+            self.reason = reason
+            self.lost.set()
+
+
+def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
+    """A job whose lease was lost records neither a result nor a failure. Always returns True (the job is done)."""
+    log.emit(logging.WARNING, "job_result_discarded", reason=lease.reason, **context)
+    return True
+
+
+def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
+    body = WorkerPulseInput(
+        capacity=capacity,
+        supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
+        models=declared_models(os.environ, voice_models.active_repo()),
+        machine=declared_machine(),
+    )
+    # The probe runs on its own thread: the pulse only reads its last result, never waits for it.
+    snapshot = (reachability or transcription_config.reachability).snapshot()
+    if snapshot is not None:
+        # The generated client accepts an omitted field but not an explicit None.
+        snapshot = {key: value for key, value in snapshot.items() if value is not None}
+        body.transcription_reachability = WorkerTranscriptionReachabilityInput.from_dict(snapshot)
+    _require_response(pulse(client=client, body=body), "pulse")
+
+
+def _presence_loop(
+    client: AuthenticatedClient,
+    capacity: int,
+    stop: threading.Event,
+    interval: float,
+    guard: revocation.RevocationGuard | None = None,
+    reachability: ReachabilityMonitor | None = None,
+) -> None:
+    failures = 0
+    delay = interval
+    while not stop.wait(delay):
+        if guard is not None and guard.revoked.is_set():
+            return
+        try:
+            _send_pulse(client, capacity, reachability)
+        except (httpx.HTTPError, RuntimeError):
+            # Exception text is never logged: HTTP client errors can include URLs.
+            failures += 1
+            delay = presence_retry_delay(failures)
+            log.emit(logging.WARNING, "presence_pulse_failed", attempt=failures)
+            continue
+        except Exception as error:  # noqa: BLE001 - a bug in a pulse must never kill presence for good
+            failures += 1
+            delay = presence_retry_delay(failures)
+            log.emit(logging.ERROR, "presence_pulse_error", attempt=failures, error_type=type(error).__name__)
+            continue
+        if failures:
+            log.emit(logging.INFO, "presence_reconnected", attempts=failures)
+            failures = 0
+        delay = interval
 
 
 def _heartbeat_loop(
@@ -268,55 +543,142 @@ def _heartbeat_loop(
     lease_token: str,
     interval: float,
     stop: threading.Event,
-    errors: list[Exception],
+    lease: LeaseWatch,
+    context: dict[str, Any] | None = None,
 ) -> None:
-    while not stop.wait(interval):
+    renewed_at = time.monotonic()
+    delay = interval
+    attempt = 0
+    while not stop.wait(delay):
         try:
-            _require_response(
-                heartbeat_job(
-                    client=client,
-                    id=job_id,
-                    x_worker_lease_token=lease_token,
-                ),
-                "heartbeat",
+            value = heartbeat_job(
+                client=client,
+                id=job_id,
+                x_worker_lease_token=lease_token,
             )
-        except (httpx.HTTPError, RuntimeError) as exc:
-            errors.append(exc)
+        except (httpx.HTTPError, KeyError, TypeError, ValueError, AttributeError):
+            # A proxy may answer HTML or a different JSON shape while Snitch restarts.
+            # Treat an unreadable API response like a network outage, not a lost thread.
+            value = None
+        if isinstance(value, Error) and value.error in LEASE_REFUSALS:
+            log.emit(logging.WARNING, "job_lease_refused", error_code=value.error, **(context or {}))
+            lease.lose("refused")
             return
+        if value is None or isinstance(value, Error):
+            # Transient failure: retry until the lease would have expired.
+            attempt += 1
+            remaining = renewed_at + LEASE_TTL - time.monotonic()
+            if remaining <= 0:
+                log.emit(logging.WARNING, "job_lease_expired", **(context or {}))
+                lease.lose("expired")
+                return
+            delay = min(presence_retry_delay(attempt), remaining)
+            continue
+        attempt = 0
+        renewed_at = time.monotonic()
+        delay = interval
+        log.emit(logging.DEBUG, "job_heartbeat", **(context or {}))
 
 
 def run_once(
     client: AuthenticatedClient,
     capacity: int = 1,
-    heartbeat_interval: float = 45.0,
+    heartbeat_interval: float = HEARTBEAT_INTERVAL,
     stop: threading.Event | None = None,
     transcriber: Transcriber | None = None,
     voice_providers: Mapping[str, Any] | None = None,
+    cycle: ClaimCycle | None = None,
 ) -> bool:
-    """Process at most one leased task. Return False when the queue is empty."""
+    """Process at most one leased task. Return False when the queue is empty.
+
+    ``cycle`` follows the step in progress, so the claiming loop can name the one that failed."""
     if heartbeat_interval <= 0:
         raise ValueError("heartbeat interval must be positive")
-    _require_response(
-        pulse(
-            client=client,
-            body=WorkerPulseInput(
-                capacity=capacity,
-                supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
-                models=declared_models(os.environ),
-                machine=declared_machine(),
-            ),
-        ),
-        "pulse",
-    )
+    cycle = cycle or ClaimCycle()
+    cycle.operation = "pulse"
+    try:
+        _send_pulse(client, capacity)
+    except WorkerUnauthorized:
+        raise
+    except Exception as error:  # noqa: BLE001 - the presence thread keeps the canonical pulse (#321)
+        # Claiming never depends on this pulse: a pulse Snitch keeps refusing must not stop the claims
+        # while the other calls keep the Worker Online. Presence logs its own failures.
+        log.emit(logging.DEBUG, "claim_cycle_pulse_failed", error_category=_error_category(error), error_type=type(error).__name__)
     if stop is not None and stop.is_set():
         return False
+    if isinstance(client, AuthenticatedClient):
+        # Kept blocking: a transcription job is only taken with the server's configuration validated here.
+        cycle.operation = "transcription_config"
+        sync_configuration(client)
+        try:
+            hf_token_sync.sync(client, voice_download.default_token_file(os.environ))
+        except Exception:  # noqa: BLE001 - the token sync must never stop claiming, and its error text may carry the value
+            log.emit(logging.WARNING, "hf_token_sync_unavailable")
+        try:
+            voice_models.sync_voice_models(client, voice_models.default_manager())
+        except Exception:  # noqa: BLE001 - the model manager must never stop claiming
+            log.emit(logging.WARNING, "voice_model_sync_failed")
+        try:
+            model_orders.sync_orders(client, model_orders.default_executor())
+        except Exception:  # noqa: BLE001 - the orders must never stop claiming
+            log.emit(logging.WARNING, "voice_order_sync_failed")
+    cycle.operation = "claim"
     claim = _require_response(claim_job(client=client), "claim")
-    if claim is None or claim.job is None:
+    if claim.job is not None and not hasattr(claim.job, "id"):
+        # The generated client keeps a job it could not type as a plain value: never run an unreadable job.
+        raise ApiError("claim", "unreadable_job")
+    # Claiming works again from here, whatever the job then does.
+    cycle.answered()
+    cycle.operation = "job"
+    if claim.job is None:
+        log.emit(logging.DEBUG, "claim_empty")
         return False
+    # The Worker's log lines of this job are shipped in batches while the job runs (ADR 0028).
+    job_id = claim.job.id
+    shipper = log.LineShipper(job_id, lambda lines: _send_job_logs(client, job_id, claim.lease_token, lines))
+    log.get_logger().addHandler(shipper)
+    try:
+        return _run_claimed(client, claim, heartbeat_interval, transcriber, voice_providers, shipper)
+    finally:
+        log.get_logger().removeHandler(shipper)
+        shipper.close()
+
+
+def _send_job_logs(client: AuthenticatedClient, job_id: int, lease_token: str, lines: list[str]) -> None:
+    _require_response(
+        append_job_logs(client=client, id=job_id, body=WorkerJobLogsInput(lines=lines), x_worker_lease_token=lease_token),
+        "logs",
+    )
+
+
+def _run_claimed(
+    client: AuthenticatedClient,
+    claim: Any,
+    heartbeat_interval: float,
+    transcriber: Transcriber | None,
+    voice_providers: Mapping[str, Any] | None,
+    shipper: log.LineShipper,
+) -> bool:
+    """Run the claimed job to its end and report it. Always True: a job was taken.
+
+    Log lines are flushed before the outcome is reported: once the job is completed or failed the
+    lease is gone and the server no longer accepts lines for it."""
     job = claim.job
     lease_token = claim.lease_token
+    # Correlation context taken from the claim; the lease token is never part of it.
+    context = {
+        "clip_id": getattr(job, "clip_id", None),
+        "job_id": job.id,
+        "step": job.step,
+        "cycle": getattr(job, "cycle", None),
+        "attempt": getattr(job, "attempts", None),
+        "worker_id": getattr(job, "lease_owner", None),
+    }
+    started = time.monotonic()
+    log.emit(logging.INFO, "job_claimed", **context)
+    active_transcriber: Transcriber | None = None
     heartbeat_stop = threading.Event()
-    heartbeat_errors: list[Exception] = []
+    lease = LeaseWatch()
     heartbeater = threading.Thread(
         target=_heartbeat_loop,
         args=(
@@ -325,66 +687,93 @@ def run_once(
             lease_token,
             heartbeat_interval,
             heartbeat_stop,
-            heartbeat_errors,
+            lease,
+            context,
         ),
         daemon=True,
     )
     heartbeater.start()
+    log.emit(logging.INFO, "job_started", **context)
     try:
-        task_input = _require_response(
-            get_job_input(
-                client=client,
-                id=job.id,
-                x_worker_lease_token=lease_token,
-            ),
-            "task input",
-        )
-        if job.step.startswith("fixture."):
-            result = fake_provider(job.step)
-        elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
-            with tempfile.TemporaryDirectory(
-                prefix="snitch-transcription-"
-            ) as temporary:
-                original = os.path.join(temporary, "original.media")
-                wav_path = os.path.join(temporary, "prepared.wav")
-                download_media(client, task_input, lease_token, original)
-                stream_index = int(job.step.rsplit(".", 1)[1])
-                prepare_audio(original, wav_path, stream_index)
-                pipeline_value = getattr(task_input, "pipeline", None)
-                pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
-                override = getattr(task_input, "transcription_model", None)
-                if not isinstance(override, str):
-                    override = None
-                active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), override)
-                vocabulary = [
-                    {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
-                    for term in (task_input.vocabulary or [])
-                ]
-                result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
-                result["audio_stream_index"] = stream_index
-        elif is_voice_step(job.step):
-            voice_value = getattr(task_input, "voice", None)
-            voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
-            duration = getattr(task_input, "duration_seconds", None)
-            duration = duration if isinstance(duration, (int, float)) else None
-            voice_config = voice_input.get("config") or {}
-            if requires_audio(voice_config):
-                # Fail on a missing model path before downloading any media.
-                ensure_provider_ready(voice_input, voice_providers)
-                with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
+        # A refused lease cancels the work in progress (ADR 0029, cancellation.py).
+        with cancellation.scope(lease.lost):
+            task_input = _require_response(
+                get_job_input(
+                    client=client,
+                    id=job.id,
+                    x_worker_lease_token=lease_token,
+                ),
+                "task input",
+            )
+            if job.step.startswith("fixture."):
+                result = fake_provider(job.step)
+            elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
+                with tempfile.TemporaryDirectory(
+                    prefix="snitch-transcription-"
+                ) as temporary:
                     original = os.path.join(temporary, "original.media")
                     wav_path = os.path.join(temporary, "prepared.wav")
                     download_media(client, task_input, lease_token, original)
-                    prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
-                    result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
+                    stream_index = int(job.step.rsplit(".", 1)[1])
+                    cancellation.check()
+                    prepare_audio(original, wav_path, stream_index)
+                    cancellation.check()
+                    pipeline_value = getattr(task_input, "pipeline", None)
+                    pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
+                    override = getattr(task_input, "transcription_model", None)
+                    if not isinstance(override, str):
+                        override = None
+                    active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), override)
+                    vocabulary = [
+                        {"term": term.term, "variants": term.variants, "preferred_spelling": term.preferred_spelling}
+                        for term in (task_input.vocabulary or [])
+                    ]
+                    cancellation.check()
+                    result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
+                    result["audio_stream_index"] = stream_index
+                    attach_peaks(result, wav_path)
+            elif is_voice_step(job.step):
+                voice_value = getattr(task_input, "voice", None)
+                voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
+                duration = getattr(task_input, "duration_seconds", None)
+                duration = duration if isinstance(duration, (int, float)) else None
+                voice_config = voice_input.get("config") or {}
+                if requires_audio(voice_config):
+                    # Fail on a missing model path before downloading any media.
+                    ensure_provider_ready(voice_input, voice_providers)
+                    with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
+                        original = os.path.join(temporary, "original.media")
+                        wav_path = os.path.join(temporary, "prepared.wav")
+                        download_media(client, task_input, lease_token, original)
+                        prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
+                        result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
+                        if _is_diarization_step(job.step):
+                            attach_peaks(result, wav_path)
+                else:
+                    # No audio is prepared here, so no peaks: a result without them is accepted (ADR 0034).
+                    result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
             else:
-                result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
-        else:
-            raise ValueError("unsupported worker step")
+                raise ValueError("unsupported worker step")
         heartbeat_stop.set()
         heartbeater.join()
-        if heartbeat_errors:
-            raise RuntimeError("worker lease lost")
+        if lease.lost.is_set():
+            # ADR 0029: a job whose lease was refused or expired sends no result.
+            return _discard_lost_result(lease, context)
+        if _is_diarization_step(job.step):
+            config = _voice_config(task_input)
+            speakers = result.get("speakers") or []
+            log.emit(
+                logging.INFO,
+                "diarization_done",
+                provider=config.get("provider"),
+                model=config.get("model"),
+                revision=config.get("model_version"),
+                speakers=len(speakers),
+                segments=sum(len(speaker.get("turns") or []) for speaker in speakers),
+                duration_ms=int((time.monotonic() - started) * 1000),
+                **context,
+            )
+        shipper.flush()
         result_model = WorkerResultInputResult()
         result_model.additional_properties.update(result)
         _require_response(
@@ -398,36 +787,70 @@ def run_once(
             ),
             "complete",
         )
-    except (
-        httpx.HTTPError,
-        KeyError,
-        OSError,
-        RuntimeError,
-        subprocess.SubprocessError,
-        TypeError,
-        ValueError,
-    ) as exc:
+        log.emit(logging.INFO, "job_completed", duration_ms=int((time.monotonic() - started) * 1000), **context)
+    except cancellation.JobCancelled:
+        # The lease was refused while the job ran: the work stopped, nothing is recorded.
         heartbeat_stop.set()
         heartbeater.join()
-        error_code = (
-            "audio_preparation_failed"
-            if isinstance(exc, (OSError, subprocess.SubprocessError))
-            else "provider_unavailable"
+        log.emit(logging.WARNING, "job_cancelled", reason=lease.reason, duration_ms=int((time.monotonic() - started) * 1000), **context)
+    except Exception as exc:  # noqa: BLE001 - any error of the job is a recorded failure, never a lost claiming thread (#321)
+        heartbeat_stop.set()
+        heartbeater.join()
+        if lease.lost.is_set():
+            # The job was reassigned or expired: neither a result nor a failure may be recorded.
+            return _discard_lost_result(lease, context)
+        diagnostic: dict[str, Any] = {}
+        if isinstance(exc, TranscriptionError):
+            error_code = exc.code
+            diagnostic = {"provider": "openai-compatible", "duration_ms": int((time.monotonic() - started) * 1000)}
+            model = getattr(transcriber, "model", None) or getattr(active_transcriber, "model", None)
+            if isinstance(model, str) and model:
+                diagnostic["model"] = model
+            if exc.http_status is not None:
+                diagnostic["http_status"] = exc.http_status
+            log_whisper_failure(exc, diagnostic["duration_ms"])
+        elif isinstance(exc, VoiceProviderUnavailable) and _is_diarization_step(job.step) and exc.reason in DIARIZATION_FAILURE_CODES:
+            error_code = DIARIZATION_FAILURE_CODES[exc.reason]
+            voice_config = _voice_config(task_input)
+            diagnostic = {"duration_ms": int((time.monotonic() - started) * 1000)}
+            for field, key in (("provider", "provider"), ("model", "model"), ("revision", "model_version")):
+                value = voice_config.get(key)
+                if isinstance(value, str) and value:
+                    diagnostic[field] = value
+        else:
+            error_code = (
+                "audio_preparation_failed"
+                if isinstance(exc, (OSError, subprocess.SubprocessError))
+                else "provider_unavailable"
+            )
+        # Only the code and the exception class: the raw text can echo URLs, paths or tokens.
+        log.emit(
+            logging.WARNING,
+            "job_failed",
+            error_code=error_code,
+            error_class=type(exc).__name__,
+            duration_ms=int((time.monotonic() - started) * 1000),
+            **context,
         )
+        shipper.flush()
         try:
             _require_response(
                 fail_job(
                     client=client,
                     id=job.id,
-                    body=WorkerFailureInput(error=error_code),
+                    body=WorkerFailureInput(error=error_code, **diagnostic),
                     x_worker_lease_token=lease_token,
                 ),
                 "fail",
             )
-        except (httpx.HTTPError, RuntimeError):
+        except Exception:  # noqa: BLE001 - an unrecorded failure only lets the lease expire
             # The lease may have expired or moved while the provider was busy.
             # In that case the old attempt must not mutate the recovered task.
-            pass
+            log.emit(logging.WARNING, "job_failure_not_recorded", **context)
+    finally:
+        # Whatever ends the job, its lease is no longer renewed: a renewal left running would keep
+        # the job leased forever by a Worker that no longer works on it.
+        heartbeat_stop.set()
     return True
 
 
@@ -437,16 +860,39 @@ def _worker_loop(
     stop: threading.Event,
     poll_interval: float,
     heartbeat_interval: float,
+    guard: revocation.RevocationGuard | None = None,
+    health: ClaimHealth | None = None,
 ) -> None:
+    """Claim until stopped. No recoverable error ends this loop (#321): a redeploy, a proxy page, a stale
+    socket or an answer the generated client cannot read is logged and retried with a bounded backoff."""
+    health = health or ClaimHealth()
+    failures = 0
     while not stop.is_set():
+        if guard is not None and guard.revoked.is_set():
+            return
+        cycle = ClaimCycle(health)
         try:
-            completed = run_once(client, capacity, heartbeat_interval, stop)
-        except (httpx.HTTPError, RuntimeError):
-            # Network outages are retried on the next poll. Do not log exception
-            # details because HTTP client errors can include sensitive URLs.
+            completed = run_once(client, capacity, heartbeat_interval, stop, cycle=cycle)
+            failures = 0
+        except WorkerUnauthorized as error:
+            if guard is not None and guard.on_unauthorized(client):
+                stop.set()
+                return
+            failures = health.failed(cycle.operation, error)
+            completed = False
+        except (Exception, cancellation.JobCancelled) as error:  # noqa: BLE001 - see the docstring
+            # Exception text is never logged: HTTP client errors can include URLs.
+            failures = health.failed(cycle.operation, error)
             completed = False
         if not completed:
-            stop.wait(poll_interval)
+            stop.wait(claim_retry_delay(failures, poll_interval))
+
+
+def claim_retry_delay(failures: int, poll_interval: float) -> float:
+    """The poll interval while claiming works; after consecutive failures, doubled up to a bounded wait."""
+    if failures <= 0:
+        return poll_interval
+    return min(max(poll_interval, CLAIM_RETRY_CAP), poll_interval * 2.0 ** min(failures - 1, 10))
 
 
 def run_until_stopped(
@@ -454,33 +900,80 @@ def run_until_stopped(
     capacity: int,
     stop: threading.Event,
     poll_interval: float = 5.0,
-    heartbeat_interval: float = 45.0,
-) -> None:
-    """Run a bounded pool; stop claiming on shutdown and drain active tasks."""
+    heartbeat_interval: float = HEARTBEAT_INTERVAL,
+    models_dir: str | None = None,
+    presence_interval: float = PRESENCE_INTERVAL,
+    reachability: ReachabilityMonitor | None = None,
+) -> bool:
+    """Run a bounded pool; stop claiming on shutdown and drain active tasks.
+
+    Presence runs on its own thread, so a long job never makes the Worker look Offline.
+    Return True when Snitch confirmed this Worker's deletion (the models volume is then erased)."""
     if capacity < 1 or capacity > 4:
         raise ValueError("worker capacity must be an integer from 1 to 4")
-    if poll_interval <= 0 or heartbeat_interval <= 0:
+    if poll_interval <= 0 or heartbeat_interval <= 0 or presence_interval <= 0:
         raise ValueError("worker intervals must be positive")
 
+    guard = revocation.RevocationGuard(models_dir or revocation.models_dir(os.environ))
+    monitor = reachability or transcription_config.reachability
+    presence = threading.Thread(
+        target=_presence_loop,
+        args=(client, capacity, stop, presence_interval, guard, monitor),
+        daemon=True,
+        name="snitch-presence",
+    )
+    probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
+    presence.start()
+    probe.start()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
-        workers = [
-            executor.submit(
-                _worker_loop,
-                client,
-                capacity,
-                stop,
-                poll_interval,
-                heartbeat_interval,
-            )
-            for _ in range(capacity)
-        ]
+
+        def launch() -> Future[None]:
+            return executor.submit(_worker_loop, client, capacity, stop, poll_interval, heartbeat_interval, guard, ClaimHealth())
+
+        workers = [launch() for _ in range(capacity)]
+        restarts = [0] * capacity
+        restart_at: dict[int, float] = {}
         while not stop.wait(0.1):
-            pass
-        for worker in workers:
-            worker.result()
+            # Supervision (#321): a claiming loop that ended while the Worker runs is reported and restarted
+            # in-process, with the same client and identity, without relying on an external watchdog.
+            for index, worker in enumerate(workers):
+                if index in restart_at:
+                    if time.monotonic() >= restart_at[index] and not stop.is_set() and not guard.revoked.is_set():
+                        del restart_at[index]
+                        workers[index] = launch()
+                    continue
+                if not worker.done() or guard.revoked.is_set():
+                    continue
+                error = worker.exception()
+                restarts[index] += 1
+                log.emit(
+                    logging.ERROR,
+                    "claim_loop_stopped",
+                    error_type=type(error).__name__ if error is not None else "none",
+                    restarts=restarts[index],
+                )
+                restart_at[index] = time.monotonic() + claim_retry_delay(restarts[index], poll_interval)
+        wait(workers)
+    presence.join()
+    probe.join()
+    return guard.revoked.is_set()
 
 
 def main() -> None:
+    log.configure()
+    shutdown = threading.Event()
+
+    def request_shutdown(_signum: int, _frame: object) -> None:
+        shutdown.set()
+
+    models_dir = revocation.models_dir(os.environ)
+    if revocation.is_revoked(models_dir):
+        # Deleted in Snitch earlier: no client, no network call. Staying alive keeps the restart
+        # policy from looping, and a valid Worker (no marker) still restarts after a host reboot.
+        signal.signal(signal.SIGTERM, request_shutdown)
+        signal.signal(signal.SIGINT, request_shutdown)
+        revocation.wait_inert(shutdown)
+        return
     api_url = os.environ.get("SNITCH_API_URL", os.environ.get("RECEIPTS_API_URL", "")).strip()
     token = os.environ.get("SNITCH_WORKER_TOKEN", os.environ.get("RECEIPTS_WORKER_TOKEN", "")).strip()
     capacity_text = os.environ.get("SNITCH_WORKER_CAPACITY", os.environ.get("RECEIPTS_WORKER_CAPACITY", "1"))
@@ -512,10 +1005,13 @@ def main() -> None:
 
         def request_stop(_signum: int, _frame: object) -> None:
             stop.set()
+            shutdown.set()
 
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
-        run_until_stopped(client, capacity, stop)
+        revoked = run_until_stopped(client, capacity, stop, models_dir=models_dir)
+    if revoked:
+        revocation.wait_inert(shutdown)
 
 
 if __name__ == "__main__":

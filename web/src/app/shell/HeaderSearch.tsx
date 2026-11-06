@@ -22,8 +22,17 @@ export function HeaderSearch() {
     const trimmed = query.trim();
     const current = new URLSearchParams(location.search);
     const params = new URLSearchParams();
-    // Preserve library filters that exist in the current LibraryPage.
-    for (const key of ["from", "to", "source", "owner", "person", "state"]) {
+    for (const key of [
+      "from",
+      "to",
+      "source",
+      "visibility",
+      "owner",
+      "person",
+      "state",
+      // The Library filter rides along so it is still there on return.
+      "filter",
+    ]) {
       const value = current.get(key);
       if (value) params.set(key, value);
     }

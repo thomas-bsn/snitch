@@ -49,6 +49,7 @@ const FINAL_CODES = new Set([
   "invalid_video",
   "upload_expired",
   "upload_conflict",
+  "video_path_unavailable",
   "not_found",
 ]);
 

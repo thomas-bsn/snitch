@@ -119,6 +119,7 @@ type voiceView struct {
 		Status    string `json:"status"`
 		LastError string `json:"last_error"`
 	} `json:"steps"`
+	History  []voiceHistoryEntry `json:"history"`
 	Speakers []struct {
 		ID            int64  `json:"id"`
 		Label         string `json:"label"`
@@ -165,6 +166,12 @@ func newVoiceHarness(t *testing.T, pool *pgxpool.Pool) *voiceHarness {
 // (matching) can be exercised; clipID is the first one found.
 func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHarness {
 	t.Helper()
+	return newVoiceHarnessLogged(t, pool, clips, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+}
+
+// newVoiceHarnessLogged is newVoiceHarnessClips with a logger the test can capture.
+func newVoiceHarnessLogged(t *testing.T, pool *pgxpool.Pool, clips int, logger *slog.Logger) *voiceHarness {
+	t.Helper()
 	sourceRoot := t.TempDir()
 	for i := 0; i < clips; i++ {
 		name := "voice-clip.mp4"
@@ -180,13 +187,12 @@ func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHar
 		t.Fatal(err)
 	}
 	ffmpegPath, ffmpegLog := syntheticFFmpegFixture(t)
-	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, logger)
 	if err = api.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(api.Close)
 	ts := httptest.NewUnstartedServer(api.Handler())
-	api.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	t.Cleanup(ts.Close)
 	jar, _ := cookiejar.New(nil)
@@ -266,7 +272,7 @@ func (h *voiceHarness) putPipeline(config map[string]any) string {
 }
 
 func fakePipeline(speakers int) map[string]any {
-	return map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": speakers, "dimensions": 4}}
+	return map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": speakers, "dimensions": 4}}
 }
 
 func diarizationPayload(speakers ...string) map[string]any {
@@ -302,9 +308,6 @@ func testVoiceDiarization(t *testing.T, pool *pgxpool.Pool) {
 	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE step LIKE 'voice.%'`).Scan(&jobsBefore)
 	if jobsBefore != 0 {
 		t.Fatal("voice tasks must never be scheduled implicitly")
-	}
-	if body := h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), scheduleBody, http.StatusConflict); !bytes.Contains(body, []byte("voice_model_access_unconfirmed")) {
-		t.Fatalf("default model must require explicit access confirmation: %s", body)
 	}
 	h.adminCall(http.MethodPut, "/api/admin/voice-pipeline", map[string]any{"provider": "unknown"}, http.StatusBadRequest)
 	pipelineV1 := h.putPipeline(fakePipeline(2))
@@ -354,8 +357,18 @@ func testVoiceDiarization(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("a rejected result left partial speakers")
 	}
 	h.workerCall(http.MethodPost, fmt.Sprintf("/api/worker/jobs/%d/complete", job.ID), map[string]any{"input_version": "d5-stale", "result": diarizationPayload("A")}, job.Lease, http.StatusConflict)
-	h.complete(job, diarizationPayload("SPEAKER_00", "SPEAKER_01"), http.StatusOK)
-	h.complete(job, diarizationPayload("SPEAKER_00", "SPEAKER_01"), http.StatusOK) // lost response retried
+	withPeaks := diarizationPayload("SPEAKER_00", "SPEAKER_01")
+	withPeaks["peaks"] = []int{0, 128, 255}
+	h.complete(job, withPeaks, http.StatusOK)
+	h.complete(job, withPeaks, http.StatusOK) // lost response retried
+	var storedPeaks bool
+	var storedWaveforms int
+	if err := pool.QueryRow(context.Background(), `SELECT result ? 'peaks' FROM jobs WHERE id=$1`, job.ID).Scan(&storedPeaks); err != nil || storedPeaks {
+		t.Fatalf("diarization result kept peaks in jobs.result: %v err=%v", storedPeaks, err)
+	}
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM clip_waveforms WHERE audio_stream_index=2 AND job_id=$1`, job.ID).Scan(&storedWaveforms); err != nil || storedWaveforms != 1 {
+		t.Fatalf("diarization peaks were not stored for the track: %d err=%v", storedWaveforms, err)
+	}
 
 	view := h.voice()
 	if len(view.Speakers) != 2 || view.Speakers[0].State != "unidentified" || view.Status != "queued" {

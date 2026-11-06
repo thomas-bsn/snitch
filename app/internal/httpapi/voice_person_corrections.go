@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"snitch/internal/logging"
 	"sort"
 	"strconv"
 	"sync"
@@ -97,12 +98,12 @@ func (s *Server) reconcileMicrophones(ctx context.Context, affected *affectedMic
 	ctx = context.WithoutCancel(ctx)
 	for id := range affected.sources {
 		if _, err := s.applySource(ctx, id, author); err != nil {
-			s.Log.Error("microphone reconcile failed", "source_id", id, "error", err)
+			s.Log.Error("microphone reconcile failed", append([]any{"source_id", id}, logging.Failure(err)...)...)
 		}
 	}
 	for id := range affected.clips {
 		if _, err := s.applyMicrophone(ctx, id, author); err != nil {
-			s.Log.Error("microphone reconcile failed", "clip_id", id, "error", err)
+			s.Log.Error("microphone reconcile failed", append([]any{"clip_id", id}, logging.Failure(err)...)...)
 		}
 	}
 }
@@ -236,7 +237,7 @@ func (s *Server) refuseHiddenVoices(ctx context.Context, w http.ResponseWriter, 
 		return false
 	}
 	var hidden bool
-	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=$1 AND NOT (c.visibility='shared' OR c.owner_id=$2))`, personID, ss.User.ID).Scan(&hidden); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=$1 AND NOT clip_readable(c.id,c.owner_id,c.visibility,$2,false))`, personID, ss.User.ID).Scan(&hidden); err != nil {
 		s.internal(w, err)
 		return true
 	}
@@ -362,7 +363,7 @@ func (s *Server) separatePerson(w http.ResponseWriter, r *http.Request) {
 	author := s.authorOf(r)
 	ctx := r.Context()
 	var visible int
-	if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=ANY($1) AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, speakerIDs, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&visible); err != nil {
+	if err := s.Pool.QueryRow(ctx, `SELECT count(*) FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=ANY($1) AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3)`, speakerIDs, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&visible); err != nil {
 		s.internal(w, err)
 		return
 	}

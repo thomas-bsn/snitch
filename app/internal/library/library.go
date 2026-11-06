@@ -68,6 +68,8 @@ type Service struct {
 	closed         bool
 	locks          sync.Map
 	OnManagedReady func(context.Context, int64) error
+	// OnIndexed is told about each clip once its indexing is committed. It must not block.
+	OnIndexed func(clipID int64)
 }
 
 type Source struct {
@@ -140,6 +142,7 @@ type Metadata struct {
 	VideoCodec          string
 	AudioCodec          string
 	Tracks              []Track
+	ContainerTags       map[string]string
 }
 
 // ProbeFile checks an already-stored local video without changing it.
@@ -297,7 +300,7 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 }
 
 func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.recorded_at,COALESCE(c.recorded_at_estimated,true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.capture_time,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
 	if err != nil {
 		return nil, err
 	}
@@ -387,7 +390,7 @@ func (s *Service) WatchSource(source Source) {
 	if watcher == nil || !source.Enabled {
 		return
 	}
-	err := filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, err error) error {
+	err := WalkMediaDir(source.Path, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -463,7 +466,7 @@ func (s *Service) WatchSubtree(source Source, path string) {
 	if watcher == nil {
 		return
 	}
-	_ = filepath.WalkDir(path, func(dir string, entry os.DirEntry, err error) error {
+	_ = WalkMediaDir(path, func(dir string, entry os.DirEntry, err error) error {
 		if err != nil || !entry.IsDir() || entry.Type()&os.ModeSymlink != 0 {
 			return err
 		}
@@ -560,7 +563,7 @@ func (s *Service) ScanSource(ctx context.Context, sourceID int64) error {
 	pending := false
 	var unreadable bool
 	var incomplete bool
-	err = filepath.WalkDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
+	err = WalkMediaDir(source.Path, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			incomplete = true
 			return nil
@@ -655,7 +658,7 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 		stableSince = time.Now().UTC()
 		clipID = nil
 		status = "waiting_stability"
-		_, err = s.pool.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status) VALUES($1,$2,$3,$4,$5,$6,'waiting_stability') ON CONFLICT(source_id,relative_path) DO UPDATE SET clip_id=NULL,size_bytes=EXCLUDED.size_bytes,modified_at=EXCLUDED.modified_at,stable_since=EXCLUDED.stable_since,last_seen_generation=EXCLUDED.last_seen_generation,status='waiting_stability',error_code=NULL`, source.ID, relativePath, stat.Size(), modified, stableSince, generation)
+		_, err = s.pool.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status) VALUES($1,$2,$3,$4,$5,$6,'waiting_stability') ON CONFLICT(source_id,relative_path) DO UPDATE SET previous_clip_id=COALESCE(source_files.clip_id,source_files.previous_clip_id),clip_id=NULL,size_bytes=EXCLUDED.size_bytes,modified_at=EXCLUDED.modified_at,stable_since=EXCLUDED.stable_since,last_seen_generation=EXCLUDED.last_seen_generation,status='waiting_stability',error_code=NULL`, source.ID, relativePath, stat.Size(), modified, stableSince, generation)
 		if err != nil {
 			return false, false, err
 		}
@@ -697,22 +700,29 @@ func (s *Service) observe(ctx context.Context, source Source, relativePath, abso
 	if err != nil {
 		return false, false, err
 	}
+	game, gameOrigin, captureTime, captureOrigin, err := CaptureMetadata(ctx, s.pool, filepath.Base(absolutePath), metadata.ContainerTags)
+	if err != nil {
+		return false, false, err
+	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
 		return false, false, err
 	}
 	defer tx.Rollback(ctx)
 	var newClipID int64
-	err = tx.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id`, sourceOwnerID(source), source.Visibility, filepath.Base(absolutePath), stat.Size(), modified, metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, contentHash[:]).Scan(&newClipID)
+	err = tx.QueryRow(ctx, `INSERT INTO clips(owner_id,visibility,original_name,size_bytes,modified_at,recorded_at,recorded_at_estimated,duration_seconds,format_name,video_codec,audio_codec,tracks,content_sha256,game,game_origin,capture_time,capture_time_origin) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,NULLIF($14,''),NULLIF($15,''),$16,NULLIF($17,'')) ON CONFLICT(content_sha256) DO UPDATE SET content_sha256=EXCLUDED.content_sha256 RETURNING id`, sourceOwnerID(source), source.Visibility, filepath.Base(absolutePath), stat.Size(), modified, metadata.RecordedAt, metadata.RecordedAtEstimated, metadata.Duration, metadata.FormatName, metadata.VideoCodec, metadata.AudioCodec, tracks, contentHash[:], game, gameOrigin, captureTime, captureOrigin).Scan(&newClipID)
 	if err != nil {
 		return false, false, err
 	}
-	_, err = tx.Exec(ctx, `UPDATE source_files SET clip_id=$3,status='ready',error_code=NULL,last_seen_generation=$4 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, newClipID, generation)
+	_, err = tx.Exec(ctx, `UPDATE source_files SET first_seen_at=CASE WHEN previous_clip_id IS NOT NULL AND previous_clip_id<>$3 THEN now() ELSE first_seen_at END,previous_clip_id=NULL,clip_id=$3,status='ready',error_code=NULL,last_seen_generation=$4 WHERE source_id=$1 AND relative_path=$2`, source.ID, relativePath, newClipID, generation)
 	if err != nil {
 		return false, false, err
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return false, false, err
+	}
+	if s.OnIndexed != nil {
+		s.OnIndexed(newClipID)
 	}
 	return false, false, nil
 }
@@ -734,7 +744,7 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 	defer cancel()
 	cmd := exec.CommandContext(probeCtx, s.config.ProbePath,
 		"-v", "error", "-protocol_whitelist", "file,pipe",
-		"-show_entries", "format=duration,format_name:format_tags=creation_time:stream=index,codec_type,codec_name,width,height,channels,channel_layout:stream_tags=title,language",
+		"-show_entries", "format=duration,format_name:format_tags=creation_time,game:stream=index,codec_type,codec_name,width,height,channels,channel_layout:stream_tags=title,language",
 		"-of", "json", path,
 	)
 	output := &cappedBuffer{max: 1 << 20}
@@ -747,7 +757,7 @@ func (s *Service) probe(ctx context.Context, path string, modified time.Time) (M
 	if err := json.Unmarshal(output.Bytes(), &result); err != nil {
 		return Metadata{}, errProbe
 	}
-	metadata := Metadata{RecordedAt: modified, RecordedAtEstimated: true, FormatName: result.Format.FormatName, Tracks: []Track{}}
+	metadata := Metadata{RecordedAt: modified, RecordedAtEstimated: true, FormatName: result.Format.FormatName, Tracks: []Track{}, ContainerTags: result.Format.Tags}
 	if creation := tag(result.Format.Tags, "creation_time"); creation != "" {
 		if parsed, err := time.Parse(time.RFC3339Nano, creation); err == nil {
 			metadata.RecordedAt = parsed.UTC()

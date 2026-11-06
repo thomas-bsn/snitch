@@ -49,6 +49,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
     page,
   }) => {
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await expect(page.getByRole("heading", { name: "Import" })).toBeVisible();
     await expectNoViolations(page);
     await page
@@ -70,6 +71,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
 
   test("un glisser-déposer lance le transfert", async ({ page }) => {
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await expect(page.getByText("Drop videos here")).toBeVisible();
     await page.evaluate(() => {
       const data = new DataTransfer();
@@ -92,6 +94,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
 
   test("un transfert interrompu est repris", async ({ page }) => {
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     const restore = await cutAfterFirstPart(page);
     await page.getByLabel("choose files").setInputFiles(video("cut.mp4", 3));
     const item = row(page, "cut.mp4");
@@ -113,6 +116,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
     page,
   }) => {
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await cutAfterFirstPart(page);
     await page.getByLabel("choose files").setInputFiles(video("reload.mp4", 4));
     await expect(row(page, "reload.mp4")).toContainText("Interrupted");
@@ -133,6 +137,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
 
   test("un transfert interrompu peut être annulé", async ({ page }) => {
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await cutAfterFirstPart(page);
     await page
       .getByLabel("choose files")
@@ -153,6 +158,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
     page,
   }) => {
     await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
     await page.getByLabel("choose files").setInputFiles({
       name: "notes.txt",
       mimeType: "text/plain",
@@ -171,6 +177,7 @@ test.describe.serial("import dans la nouvelle interface", () => {
 
     await page.evaluate(() => localStorage.setItem("snitch-ui-language", "fr"));
     await page.goto("/import");
+    await page.getByRole("button", { name: "Depuis mon ordinateur" }).click();
     await expect(page.getByRole("heading", { name: "Importer" })).toBeVisible();
     await page
       .getByLabel("choisissez des fichiers")

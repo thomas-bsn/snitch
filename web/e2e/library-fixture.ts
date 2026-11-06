@@ -7,7 +7,7 @@ import { ADMIN, sessionFor } from "./shell-fixture";
 
 const origin = () => process.env.SNITCH_TEST_URL!;
 
-async function adminApi(): Promise<{
+export async function adminApi(): Promise<{
   api: APIRequestContext;
   post: (path: string, data?: unknown) => Promise<unknown>;
   put: (path: string, data: unknown) => Promise<unknown>;
@@ -76,9 +76,14 @@ export const SEGMENTS: Segment[] = [
  * (SPEAKER_00 until 2.2 s, SPEAKER_01 after) and gives them fingerprints. Returns the ids
  * of the two local speakers.
  */
+/** Amplitude peaks sent with the simulated results when a test wants a drawn waveform. */
+const PEAKS = Array.from({ length: 400 }, (_, index) =>
+  Math.round(40 + 180 * Math.abs(Math.sin(index / 9))),
+);
+
 export async function transcribeAndDiarize(
   clipId: number,
-  options: { secondFingerprintEnd?: number } = {},
+  options: { secondFingerprintEnd?: number; peaks?: boolean } = {},
 ) {
   const { api, post, put } = await adminApi();
   await put(`/api/admin/clips/${clipId}/audio-track`, {
@@ -115,6 +120,7 @@ export async function transcribeAndDiarize(
         version: "deterministic-v1",
         language: "fr",
         audio_stream_index: 2,
+        ...(options.peaks ? { peaks: PEAKS } : {}),
         segments: SEGMENTS.map((segment) => ({
           ...segment,
           words: [
@@ -130,7 +136,6 @@ export async function transcribeAndDiarize(
     provider: "fake",
     model: "fixture-diarization",
     model_version: "fixture-v1",
-    access_confirmed: false,
     min_fingerprint_seconds: 1,
     min_quality: 0.5,
     fake: { speakers: 2, dimensions: 2 },
@@ -155,6 +160,7 @@ export async function transcribeAndDiarize(
         model: config.model,
         model_version: config.model_version,
         audio_stream_index: 2,
+        ...(options.peaks ? { peaks: PEAKS } : {}),
         speakers: [
           { label: "SPEAKER_00", turns: [{ start: 0, end: 2.2 }] },
           { label: "SPEAKER_01", turns: [{ start: 2.2, end: 4.2 }] },
@@ -244,5 +250,95 @@ export async function correctSpeaker(
     expected_version: 0,
     transcription_job_id: clip.transcription.transcription_job_id,
   });
+  await api.dispose();
+}
+
+/** A simulated Worker claims the queued transcription of a clip and completes it. */
+export async function completeQueuedTranscription(text = "Bonjour") {
+  const { api, post } = await adminApi();
+  const worker = (await post("/api/admin/workers", {
+    name: `synthetic-analysis-${Date.now()}`,
+    max_concurrency: 1,
+  })) as { token: string };
+  const call = async (path: string, body?: unknown, lease?: string) => {
+    const response = await api.post(path, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${worker.token}`,
+        ...(lease ? { "X-Worker-Lease-Token": lease } : {}),
+      },
+    });
+    if (!response.ok()) throw new Error(`${path}: ${response.status()}`);
+    return response.json().catch(() => null);
+  };
+  await call("/api/worker/pulse", {
+    capacity: 1,
+    supported_steps: ["transcription.audio.*"],
+  });
+  const claimed = await call("/api/worker/jobs/claim");
+  if (!claimed?.job) throw new Error("no transcription task to claim");
+  await call(
+    `/api/worker/jobs/${claimed.job.id}/complete`,
+    {
+      input_version: claimed.job.input_version,
+      result: {
+        provider: "fixture",
+        model: "deterministic-v1",
+        version: "deterministic-v1",
+        language: "fr",
+        audio_stream_index: Number(claimed.job.step.split(".").pop()),
+        segments: [
+          {
+            start: 0.2,
+            end: 0.9,
+            text,
+            words: [{ word: text, start: 0.2, end: 0.9 }],
+          },
+        ],
+      },
+    },
+    claimed.lease_token,
+  );
+  await api.dispose();
+}
+
+/**
+ * A simulated Worker claims the queued transcription of a clip and reports it failed with a
+ * cause of the closed catalogue. `invalid_input` is final at once, so the step ends "failed".
+ */
+export async function failQueuedTranscription(code = "invalid_input") {
+  const { api, post } = await adminApi();
+  const worker = (await post("/api/admin/workers", {
+    name: `synthetic-failure-${Date.now()}`,
+    max_concurrency: 1,
+  })) as { token: string };
+  const call = async (path: string, body?: unknown, lease?: string) => {
+    const response = await api.post(path, {
+      data: body,
+      headers: {
+        Authorization: `Bearer ${worker.token}`,
+        ...(lease ? { "X-Worker-Lease-Token": lease } : {}),
+      },
+    });
+    if (!response.ok()) throw new Error(`${path}: ${response.status()}`);
+    return response.json().catch(() => null);
+  };
+  await call("/api/worker/pulse", {
+    capacity: 1,
+    supported_steps: ["transcription.audio.*"],
+  });
+  // Tasks left by earlier journeys of the run fail too: the queue holds nothing else to claim.
+  let failed = 0;
+  for (;;) {
+    const claimed = await call("/api/worker/jobs/claim");
+    if (!claimed?.job) break;
+    await call(
+      `/api/worker/jobs/${claimed.job.id}/fail`,
+      { error: code },
+      claimed.lease_token,
+    );
+    failed++;
+  }
+  if (!failed) throw new Error("no transcription task to claim");
   await api.dispose();
 }

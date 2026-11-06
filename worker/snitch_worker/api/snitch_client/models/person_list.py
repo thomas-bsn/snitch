@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -26,9 +27,11 @@ class PersonList:
     """
         Attributes:
             items (list[Person]):
+            total (int | Unset): Présent seulement lorsque la liste est paginée : nombre de Personnes correspondant à q.
      """
 
     items: list[Person]
+    total: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -44,12 +47,16 @@ class PersonList:
 
 
 
+        total = self.total
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "items": items,
         })
+        if total is not UNSET:
+            field_dict["total"] = total
 
         return field_dict
 
@@ -69,8 +76,11 @@ class PersonList:
             items.append(items_item)
 
 
+        total = d.pop("total", UNSET)
+
         person_list = cls(
             items=items,
+            total=total,
         )
 
 

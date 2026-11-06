@@ -1,6 +1,7 @@
 import { Plus } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useLoaded } from "../../api/loaded";
+import { useEventStream } from "../../api/useEventStream";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { StatusPill } from "../../components/StatusPill";
@@ -9,8 +10,8 @@ import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { WorkerCreateForm } from "./WorkerCreateForm";
 import { WorkerDetailPage } from "./WorkerDetailPage";
-import { fetchWorkers, type Worker } from "./workersApi";
-import { workerModelSummary, workerStatus } from "./workerView";
+import { fetchWorkers, type Worker, type WorkerPage } from "./workersApi";
+import { installStatus, workerModelSummary, workerStatus } from "./workerView";
 
 /** The Workers tab of the administration: the list, the creation form and a Worker's page. */
 export function WorkersTab() {
@@ -43,7 +44,9 @@ function CreateWorker() {
 function WorkersList() {
   const { t, error } = useI18n();
   const formatDate = useFormatDate();
-  const { state } = useLoaded(fetchWorkers);
+  const { state, set, reload } = useLoaded(fetchWorkers);
+  // Live: the list is redrawn from each change of the stream; the reload is the fallback.
+  useEventStream<WorkerPage>("/api/admin/workers/events", set, reload);
   useDocumentTitle(t("workers.title"));
 
   return (
@@ -81,6 +84,9 @@ function WorkersList() {
                 </th>
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t("workers.columns.status")}
+                </th>
+                <th scope="col" className="px-3 py-2 font-medium">
+                  {t("workers.install.column")}
                 </th>
                 <th scope="col" className="px-3 py-2 font-medium">
                   {t("workers.columns.lastPulse")}
@@ -133,6 +139,15 @@ function WorkerRow({
       </th>
       <td className="px-3 py-2.5">
         <StatusPill tone={tone}>{t(label)}</StatusPill>
+      </td>
+      <td className="px-3 py-2.5">
+        {worker.install && !worker.revoked_at ? (
+          <StatusPill {...installStatus(worker.install)}>
+            {t(installStatus(worker.install).label)}
+          </StatusPill>
+        ) : (
+          <span className="text-mute">{t("workers.notDeclared")}</span>
+        )}
       </td>
       <td className="px-3 py-2.5 text-mute">{lastPulse}</td>
       <td className="px-3 py-2.5 text-mute">

@@ -1,5 +1,6 @@
 import { MembersTab } from "./admin/members/MembersTab";
 import { SignupsTab } from "./admin/members/SignupsTab";
+import { PersonLinksTab } from "./admin/members/PersonLinksTab";
 import { ExportsTab } from "./admin/members/ExportsTab";
 import { VoiceTab } from "./admin/voice/VoiceTab";
 import { VocabularyTab } from "./admin/transcription/VocabularyTab";
@@ -12,12 +13,14 @@ import {
   Routes,
   useLocation,
 } from "react-router";
+import { MetadataSettings } from "./admin/metadata/MetadataSettings";
 import { AdminLayout, AdminPlaceholder } from "./admin/AdminLayout";
 import { ADMIN_TABS } from "./admin/tabs";
 import { FoldersTab } from "./admin/folders/FoldersTab";
-import { QueueTab } from "./admin/queue/QueueTab";
+import { QueuePage } from "./admin/queue/QueuePage";
 import { SemanticTab } from "./admin/semantic/SemanticTab";
 import { WorkersTab } from "./admin/workers/WorkersTab";
+import { WorkerUpdatesTab } from "./admin/workers/WorkerUpdatesTab";
 import { useServerUnreachable } from "./api/connection";
 import { I18nProvider } from "./i18n";
 import { Forbidden, NotFound } from "./pages/pages";
@@ -34,8 +37,9 @@ import { SetupWizard } from "./setup/SetupWizard";
 import { AppShell } from "./shell/AppShell";
 import { GroupsTab } from "./people/GroupsTab";
 import { PeopleLayout } from "./people/PeopleLayout";
-import { PersonList } from "./people/PersonList";
+import { PersonDirectory } from "./people/PersonDirectory";
 import { VerificationTab } from "./people/VerificationTab";
+import { NotificationsPage } from "./notifications/NotificationsPage";
 import { SearchPage } from "./search/SearchPage";
 import { ThemeProvider } from "./theme";
 
@@ -93,22 +97,27 @@ function Routing() {
           <Route path="clips/:id" element={<ClipPage />} />
           <Route path="search" element={<SearchPage />} />
           <Route path="people" element={<PeopleLayout />}>
-            <Route index element={<PersonList />} />
+            <Route path=":id?" element={<PersonDirectory />} />
             <Route path="verification" element={<VerificationTab />} />
             <Route path="groups" element={<GroupsTab />} />
             <Route path="*" element={<NotFound />} />
           </Route>
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="import" element={<ImportPage />} />
           <Route path="account/*" element={<AccountPage />} />
           <Route element={<RequireAdministrator />}>
+            <Route path="queue" element={<QueuePage />} />
             <Route path="admin" element={<AdminLayout />}>
               <Route index element={<Navigate to="workers" replace />} />
               <Route path="users" element={<MembersTab />} />
               <Route path="users/signups" element={<SignupsTab />} />
+              <Route path="users/person-links" element={<PersonLinksTab />} />
               <Route path="exports" element={<ExportsTab />} />
               <Route path="workers" element={<WorkersTab />} />
-              <Route path="queue" element={<QueueTab />} />
+              <Route path="worker-updates" element={<WorkerUpdatesTab />} />
+              <Route path="queue" element={<Navigate to="/queue" replace />} />
               <Route path="folders" element={<FoldersTab />} />
+              <Route path="metadata" element={<MetadataSettings reprocess />} />
               <Route path="semantic" element={<SemanticTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
               <Route path="voice" element={<VoiceTab />} />
@@ -121,8 +130,10 @@ function Routing() {
                 (tab) =>
                   ![
                     "workers",
+                    "worker-updates",
                     "queue",
                     "folders",
+                    "metadata",
                     "semantic",
                     "voice",
                     "transcription",

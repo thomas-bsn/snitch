@@ -25,11 +25,15 @@ class BrowseVideoRootResponse200ItemsItem:
             path (str):
             directory (bool):
             size_bytes (int):
+            private (bool):
+            locked (bool):
      """
 
     path: str
     directory: bool
     size_bytes: int
+    private: bool
+    locked: bool
 
 
 
@@ -42,6 +46,10 @@ class BrowseVideoRootResponse200ItemsItem:
 
         size_bytes = self.size_bytes
 
+        private = self.private
+
+        locked = self.locked
+
 
         field_dict: dict[str, Any] = {}
 
@@ -49,6 +57,8 @@ class BrowseVideoRootResponse200ItemsItem:
             "path": path,
             "directory": directory,
             "size_bytes": size_bytes,
+            "private": private,
+            "locked": locked,
         })
 
         return field_dict
@@ -64,10 +74,16 @@ class BrowseVideoRootResponse200ItemsItem:
 
         size_bytes = d.pop("size_bytes")
 
+        private = d.pop("private")
+
+        locked = d.pop("locked")
+
         browse_video_root_response_200_items_item = cls(
             path=path,
             directory=directory,
             size_bytes=size_bytes,
+            private=private,
+            locked=locked,
         )
 
         return browse_video_root_response_200_items_item

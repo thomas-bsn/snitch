@@ -1,3 +1,4 @@
+import { RootIndexingPanel } from "../../library/RootIndexingPanel";
 import { VideoStorage } from "../../library/VideoStorage";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
@@ -18,12 +19,13 @@ export function ImportStep({
   return (
     <div className="flex max-w-xl flex-col gap-5">
       <StepHeader
-        position={6}
-        total={7}
+        position={8}
+        total={9}
         title={t("setup.import.title")}
         lead={t("setup.import.lead")}
       />
       <VideoStorage settings />
+      <RootIndexingPanel />
       <p className="rounded-lg border border-line bg-side p-4 text-mute">
         {t("setup.import.nothing")}
       </p>

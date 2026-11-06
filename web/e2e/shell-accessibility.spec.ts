@@ -30,6 +30,15 @@ async function expectTouchTargets(page: Page) {
         if (element.classList.contains("sr-only")) {
           return [];
         }
+        // A form-only input (e.g. Base UI's hidden combobox value) is neither
+        // reachable nor exposed: it is not a touch target.
+        if (
+          element.tagName === "INPUT" &&
+          element.getAttribute("aria-hidden") === "true" &&
+          element.getAttribute("tabindex") === "-1"
+        ) {
+          return [];
+        }
         let target = element;
         if (
           element.tagName === "INPUT" &&
@@ -47,7 +56,7 @@ async function expectTouchTargets(page: Page) {
         if (box.width === 0 || box.height === 0) return [];
         return box.width < 44 || box.height < 44
           ? [
-              `${element.tagName.toLowerCase()} ${element.getAttribute("type") ?? ""} ${element.getAttribute("aria-label") ?? ""} ${Math.round(box.width)}x${Math.round(box.height)}`,
+              `${element.tagName.toLowerCase()} ${element.getAttribute("type") ?? ""} ${element.getAttribute("aria-label") ?? ""} ${Math.round(box.width)}x${Math.round(box.height)} text="${(element.textContent ?? "").trim().slice(0, 60)}" html=${element.outerHTML.slice(0, 300)}`,
             ]
           : [];
       }),
@@ -113,7 +122,7 @@ test.describe.serial("accessibilité de la nouvelle interface", () => {
         "/admin",
         "/admin/workers",
         "/admin/workers/999999",
-        "/admin/queue",
+        "/queue",
         "/admin/folders",
         "/admin/transcription",
         "/admin/transcription/vocabulary",
@@ -166,7 +175,7 @@ test.describe.serial("accessibilité de la nouvelle interface", () => {
       "/account/voice",
       "/admin/workers",
       "/admin/workers/999999",
-      "/admin/queue",
+      "/queue",
       "/admin/folders",
       "/admin/transcription",
       "/admin/transcription/vocabulary",
@@ -186,6 +195,7 @@ test.describe.serial("accessibilité de la nouvelle interface", () => {
         await page.evaluate(
           () => document.documentElement.scrollWidth <= window.innerWidth,
         ),
+        path,
       ).toBe(true);
     }
 

@@ -1,4 +1,7 @@
 name: Verify and distribute
+# Build once, test once, publish once (ADR 0040). Verification jobs run in parallel with the image builds; on main and on a
+# version tag the images are pushed by digest (no tag), and only the final "promote" jobs give them their tags, once the
+# `check` gate is green. A promotion is a copy of the manifest: the published image is the tested one, same digest.
 on:
   pull_request:
   push:
@@ -13,80 +16,33 @@ on:
         default: false
 permissions:
   contents: read
+concurrency:
+  # A new push to a pull request supersedes its previous run. Nothing else is ever cancelled or replaced: a queued run of
+  # main would be dropped by a shared group, and "changes" diffs against the previous push, so a dropped commit could
+  # lose a publication.
+  group: verify-${{ github.event_name == 'pull_request' && github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
-  check:
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Free runner disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          df -h /
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff
-        with:
-          go-version: '1.27.3'
-          cache-dependency-path: app/go.sum
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
-        with:
-          node-version: '24.21.0'
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
-        with:
-          python-version: '3.12.15'
-      - run: |
-          python -m venv .venv
-          .venv/bin/pip install -r contracts/generators/requirements.lock
-          npm --prefix web ci --ignore-scripts --no-audit --no-fund
-          cd web && npx playwright install --with-deps chromium
-      - run: |
-          test -z "$(gofmt -l app)"
-          (cd app && go vet ./...)
-          npm --prefix web run lint
-          npm --prefix web run build
-          .venv/bin/python scripts/check_generated.py
-          .venv/bin/python scripts/check_compose.py
-          .venv/bin/python scripts/check_error_codes.py
-          SNITCH_E2E=1 bash scripts/test.sh
-  build:
-    needs: check
-    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Free runner disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          df -h /
-      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
-      - run: |
-          docker build -f deploy/docker/app.Dockerfile -t snitch-smoke:local .
-          python scripts/smoke_compose.py snitch-smoke:local
-      - name: Build the worker image (needs no GPU, never pushed)
-        run: |
-          docker system prune -af
-          docker build -f deploy/docker/worker.Dockerfile -t snitch-worker:local .
-          docker run --rm snitch-worker:local python -m pip check
   changes:
-    # Decides what a push to main or a version tag must publish, and under which tags. Pure git: no third-party action (only the
-    # pinned checkout). Any doubt (new branch, unknown or non-ancestor "before" such as after
-    # a force-push, manual "all") publishes everything.
-    # app    = what goes into deploy/docker/app.Dockerfile: app/, web/, the shared contracts/,
-    #          the Dockerfile, compose.yaml (image names and tags), LICENSE,
-    #          the ffmpeg licenses it copies and the notice/generation scripts it runs.
-    # worker = what goes into deploy/docker/worker.Dockerfile: worker/ (code and locks), the
-    #          shared contracts/ (generated client), the Dockerfile, collect_python_notices.py,
-    #          deploy/licenses/** (voice extras) and LICENSE.
-    # A version tag (v*) always publishes every image under that tag (consistent pinned versions);
-    # main publishes "latest" plus an immutable sha-<commit> tag.
-    needs: build
-    if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    # First job, for every event: decides what must be verified, built and published.
+    # core   = anything that can affect the Go, web or contract tests. Fail-safe: everything EXCEPT a short list of paths
+    #          known to be irrelevant to them (docs, Markdown, the Python worker and its image), so an unknown path runs the tests.
+    # app    = what goes into deploy/docker/app.Dockerfile: app/, web/, the shared contracts/, the Dockerfile, compose.yaml
+    #          (image names and tags), LICENSE, the ffmpeg licenses it copies and the notice/generation scripts it runs.
+    # worker = what goes into deploy/docker/worker.Dockerfile: worker/ (code and locks), the shared contracts/ (generated
+    #          client), the Dockerfile, collect_python_notices.py, deploy/licenses/** (voice extras) and LICENSE.
+    # Pure git, no third-party action. Any doubt (new branch, unknown or non-ancestor "before" such as after a force-push,
+    # manual "all") counts as everything. A version tag (v*) always means everything, published under that tag; main
+    # publishes "latest" plus an immutable sha-<commit> tag. Pull requests never publish.
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     outputs:
-      tags: ${{ steps.diff.outputs.tags }}
-      release: ${{ steps.diff.outputs.release }}
+      core: ${{ steps.diff.outputs.core }}
       app: ${{ steps.diff.outputs.app }}
       worker: ${{ steps.diff.outputs.worker }}
+      publish: ${{ steps.diff.outputs.publish }}
+      release: ${{ steps.diff.outputs.release }}
+      tags: ${{ steps.diff.outputs.tags }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -97,112 +53,382 @@ jobs:
           BEFORE: ${{ github.event.before }}
           ALL: ${{ inputs.all }}
           SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           set -eu
           everything=false
           release=false
+          publish=false
           tags="latest sha-${SHA::7}"
-          if [ "$REF_TYPE" = tag ]; then everything=true; release=true; tags="$REF_NAME"; fi
+          if [ "$REF_TYPE" = tag ]; then everything=true; release=true; publish=true; tags="$REF_NAME"; fi
+          if [ "$EVENT" = push ] && [ "$REF" = refs/heads/main ]; then publish=true; fi
           if [ "$EVENT" = workflow_dispatch ]; then
+            if [ "$REF" = refs/heads/main ]; then publish=true; fi
             if [ "$ALL" = true ]; then everything=true; else BEFORE=$(git rev-parse --verify -q "$SHA^" || true); fi
+          fi
+          if [ "$EVENT" = pull_request ]; then
+            # The checked-out commit is the merge of the PR into its base: its first parent is the base.
+            BEFORE=$(git rev-parse --verify -q "HEAD^1" || true)
           fi
           if [ -z "$BEFORE" ] || [ "$BEFORE" = 0000000000000000000000000000000000000000 ] \
             || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null \
-            || ! git merge-base --is-ancestor "$BEFORE" "$SHA"; then
+            || ! git merge-base --is-ancestor "$BEFORE" HEAD; then
             everything=true
           fi
-          app=false; worker=false
+          app=false; worker=false; core=false
           if [ "$everything" = true ]; then
-            app=true; worker=true
+            app=true; worker=true; core=true
           else
-            files=$(git diff --name-only "$BEFORE" "$SHA")
+            files=$(git diff --name-only "$BEFORE" HEAD)
             echo "$files"
             if echo "$files" | grep -Eq '^(app|web|contracts)/|^deploy/docker/app\.Dockerfile$|^compose\.yaml$|^deploy/licenses/ffmpeg/|^LICENSE$|^scripts/(collect_go_notices\.sh|collect_web_notices\.mjs|generate\.sh|normalize_generated_python\.py)$'; then app=true; fi
             if echo "$files" | grep -Eq '^(worker|contracts|deploy/licenses)/|^deploy/docker/worker\.Dockerfile$|^scripts/collect_python_notices\.py$|^LICENSE$'; then worker=true; fi
+            if [ -n "$(echo "$files" | grep -Ev '^(docs/|worker/|\.claude/)|\.md$|^deploy/docker/worker\.Dockerfile$|^scripts/(collect_python_notices\.py|reserve_worker_version\.py|test_reserve_worker_version\.py)$' || true)" ]; then core=true; fi
           fi
-          echo "tags=$tags" >> "$GITHUB_OUTPUT"
-          echo "release=$release" >> "$GITHUB_OUTPUT"
-          echo "app=$app" >> "$GITHUB_OUTPUT"
-          echo "worker=$worker" >> "$GITHUB_OUTPUT"
-          echo "everything=$everything app=$app worker=$worker"
-  publish-app:
-    # Publishes the app image after build, only when the app changed (always for a version tag),
-    # under the tags computed by "changes" (latest + sha on main, the version on a tag).
-    # Never runs for pull requests or other branches.
-    needs: [build, changes]
+          {
+            echo "core=$core"
+            echo "app=$app"
+            echo "worker=$worker"
+            echo "publish=$publish"
+            echo "release=$release"
+            echo "tags=$tags"
+          } >> "$GITHUB_OUTPUT"
+          echo "everything=$everything core=$core app=$app worker=$worker publish=$publish"
+
+  lint:
+    # Static checks, always run (a few minutes at most): format, vet, types, generated files, compose, error codes.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ./.github/actions/setup
+        with:
+          go: 'true'
+          node: 'true'
+          python: 'true'
+          go-cache: lint
+          go-cache-save: ${{ github.ref == 'refs/heads/main' }}
+      - run: |
+          python -m venv .venv
+          .venv/bin/pip install -r contracts/generators/requirements.lock
+          npm --prefix web ci --ignore-scripts --no-audit --no-fund
+          npm --prefix web run build
+      - run: |
+          test -z "$(gofmt -l app)"
+          (cd app && go vet ./...)
+          npm --prefix web run lint
+          (cd web && npx tsc --noEmit)
+          .venv/bin/python scripts/check_generated.py
+          .venv/bin/python scripts/check_compose.py
+          .venv/bin/python scripts/check_error_codes.py
+          (cd scripts && ../.venv/bin/python -m unittest test_reserve_worker_version test_ci_metrics test_verify_workflow)
+
+  go-test:
+    # Every Go package with the race detector and the integration tag (PostgreSQL through Testcontainers), except the
+    # browser suites, which the e2e shards run.
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ./.github/actions/setup
+        with:
+          go: 'true'
+          node: 'true'
+          go-cache: race
+          go-cache-save: ${{ github.ref == 'refs/heads/main' }}
+      - run: |
+          npm --prefix web ci --ignore-scripts --no-audit --no-fund
+          npm --prefix web run build
+      - run: bash scripts/test.sh
+
+  e2e:
+    # The Playwright suites, split over parallel jobs. Each shard has its own PostgreSQL and runs its share of the suites
+    # (SNITCH_E2E_SHARD=i/n, balanced by e2eWeights; a unit test proves that every suite runs in exactly one shard).
+    # The number of shards is the length of the matrix. A failing shard does not hide the others.
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ./.github/actions/setup
+        with:
+          go: 'true'
+          node: 'true'
+          go-cache: race
+      - run: |
+          npm --prefix web ci --ignore-scripts --no-audit --no-fund
+          npm --prefix web run build
+          cd web && npx playwright install --with-deps chromium
+      - env:
+          SNITCH_E2E: '1'
+          SNITCH_E2E_SHARD: ${{ matrix.shard }}/${{ strategy.job-total }}
+        run: bash scripts/test.sh ./internal/httpapi -run 'TestFoundation/browser'
+
+  worker-test:
+    # Unit tests of the Python worker (they were not part of the CI before this workflow).
+    needs: changes
+    if: needs.changes.outputs.worker == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: ./.github/actions/setup
+        with:
+          python: 'true'
+      - run: |
+          python -m venv .venv-worker
+          python scripts/worker_test_deps.py > "$RUNNER_TEMP/worker-test.txt"
+          .venv-worker/bin/pip install --require-hashes --no-deps -r "$RUNNER_TEMP/worker-test.txt"
+      - working-directory: worker
+        env:
+          PYTHONPATH: .:snitch_worker/api
+        run: ../.venv-worker/bin/python -m unittest discover -s tests
+
+  image-app:
+    # Builds the app image. Pull request: built and smoke-tested locally, nothing pushed, nothing logged in to write.
+    # main / tag: pushed BY DIGEST ONLY (no tag, so nobody can pull it by accident), then that exact digest is pulled and
+    # smoke-tested. It only gets its tags in promote-app, after the gate.
+    needs: changes
     if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    env:
+      PUBLISH: ${{ needs.changes.outputs.publish }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Portable repository image namespace
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "CACHE=ghcr.io/${GITHUB_REPOSITORY,,}-cache:app" >> "$GITHUB_ENV"
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        # A pull request only reads the build cache; a fork has no token for it, which is not an error.
+        continue-on-error: ${{ needs.changes.outputs.publish != 'true' }}
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Portable repository image namespace and tags
-        env:
-          TAG_NAMES: ${{ needs.changes.outputs.tags }}
-        run: |
-          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "IMAGE_ROOT=$IMAGE_ROOT" >> "$GITHUB_ENV"
-          {
-            echo "IMAGE_TAGS<<EOF"
-            for tag in $TAG_NAMES; do echo "$IMAGE_ROOT:$tag"; done
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+      - name: Build (pull request, local image)
+        if: needs.changes.outputs.publish != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
           file: deploy/docker/app.Dockerfile
           platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE_TAGS }}
-          cache-from: type=gha,scope=app
-          cache-to: type=gha,scope=app,mode=max
-  publish-worker:
-    # Same rules as publish-app, only when the worker changed (always for a version tag). The single worker image is large.
-    needs: [build, changes]
+          load: true
+          tags: snitch-smoke:local
+          cache-from: type=registry,ref=${{ env.CACHE }}
+      - name: Build and push by digest (main, tag)
+        id: build
+        if: needs.changes.outputs.publish == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/app.Dockerfile
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.CACHE }}
+          cache-to: type=registry,ref=${{ env.CACHE }},mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd
+      - name: Smoke test of the image that will be published
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -eu
+          if [ "$PUBLISH" = true ]; then
+            docker pull "$IMAGE@$DIGEST"
+            python3 scripts/smoke_compose.py "$IMAGE@$DIGEST"
+          else
+            python3 scripts/smoke_compose.py snitch-smoke:local
+          fi
+
+  image-worker:
+    # Builds the (very large) worker image. It needs no GPU: the Dockerfile checks the torch/CUDA pairing, pip check and
+    # the NeMo import itself, so a successful build is the validation. Same pull request / digest rules as image-app.
+    # The layer cache lives in the registry, not in the 10 GB GitHub Actions cache that one torch layer (4.4 GB) filled.
+    needs: changes
     if: needs.changes.outputs.worker == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Free runner disk space (a cold build needs it; the slow part runs in the background)
+        run: |
+          docker system prune -af
+          nohup setsid bash -c 'sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL; touch /tmp/disk-freed' >/dev/null 2>&1 &
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - name: Portable repository image namespace
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}-worker" >> "$GITHUB_ENV"
+          echo "CACHE=ghcr.io/${GITHUB_REPOSITORY,,}-cache:worker" >> "$GITHUB_ENV"
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
+        continue-on-error: ${{ needs.changes.outputs.publish != 'true' }}
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Wait for the disk cleanup
+        run: |
+          for _ in $(seq 1 90); do [ -e /tmp/disk-freed ] && break; sleep 2; done
+          df -h /
+      - name: Build (pull request, nothing pushed)
+        if: needs.changes.outputs.publish != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/worker.Dockerfile
+          platforms: linux/amd64
+          push: false
+          cache-from: type=registry,ref=${{ env.CACHE }}
+      - name: Build and push by digest (main, tag)
+        id: build
+        if: needs.changes.outputs.publish == 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+        with:
+          context: .
+          file: deploy/docker/worker.Dockerfile
+          platforms: linux/amd64
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=registry,ref=${{ env.CACHE }}
+          cache-to: type=registry,ref=${{ env.CACHE }},mode=max,image-manifest=true,oci-mediatypes=true,compression=zstd
+
+  check:
+    # The gate, and the only status to require: green when every job that had to run succeeded. A job skipped because the
+    # change cannot affect it is fine; a skipped job whose prerequisite failed is not (hence the explicit checks).
+    if: always()
+    needs: [changes, lint, go-test, e2e, worker-test, image-app, image-worker]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | python3 -c '
+          import json, sys
+          needs = json.load(sys.stdin)
+          bad = {k: v["result"] for k, v in needs.items() if v["result"] not in ("success", "skipped")}
+          bad.update({k: needs[k]["result"] for k in ("changes", "lint") if needs[k]["result"] != "success"})
+          for name, result in sorted(needs.items()):
+              print("%-12s %s" % (name, result["result"]))
+          sys.exit("failed: %s" % bad if bad else 0)
+          '
+
+  promote-app:
+    # Gives the verified image its tags (latest + sha-<commit> on main, the version on a tag) by copying the manifest of the
+    # digest built above: no rebuild, no layer transfer, and the digest is checked afterwards.
+    # Override implicit success(): check has intentionally skipped ancestors on app-only/worker-only changes.
+    # !cancelled() allows those skips, while the explicit results still require the gate AND the tested image.
+    needs: [changes, check, image-app]
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request' &&
+          needs.changes.result == 'success' && needs.changes.outputs.publish == 'true' &&
+          needs.changes.outputs.app == 'true' && needs.check.result == 'success' &&
+          needs.image-app.result == 'success' && needs.image-app.outputs.digest != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - name: Free runner disk space for the worker image
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
-          docker system prune -af
-          df -h /
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Portable repository image namespace and tags
-        env:
+      - env:
           TAG_NAMES: ${{ needs.changes.outputs.tags }}
+          DIGEST: ${{ needs.image-app.outputs.digest }}
         run: |
-          IMAGE_ROOT="ghcr.io/${GITHUB_REPOSITORY,,}"
-          echo "IMAGE_ROOT=$IMAGE_ROOT" >> "$GITHUB_ENV"
-          {
-            echo "IMAGE_TAGS<<EOF"
-            for tag in $TAG_NAMES; do echo "$IMAGE_ROOT-worker:$tag"; done
-            echo "EOF"
-          } >> "$GITHUB_ENV"
-      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
+          set -eu
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}"
+          args=""
+          for tag in $TAG_NAMES; do args="$args --tag $IMAGE:$tag"; done
+          docker buildx imagetools create $args "$IMAGE@$DIGEST"
+          for tag in $TAG_NAMES; do
+            got=$(docker buildx imagetools inspect "$IMAGE:$tag" --format '{{.Manifest.Digest}}')
+            echo "$IMAGE:$tag -> $got"
+            [ "$got" = "$DIGEST" ] || { echo "digest mismatch for $tag (expected $DIGEST)"; exit 1; }
+          done
+
+  promote-worker:
+    # Same as promote-app, plus the SemVer tag (ADR 0036). The version is reserved only now that the commit is verified, as
+    # the Git tag worker/vX.Y.Z (created through the refs API, which refuses an existing tag: that refusal is the lock
+    # between concurrent runs; a re-run of the same commit reuses its tag). A failed build or test no longer burns a version.
+    # "worker/*" does not match the "v*" trigger, and tags created with GITHUB_TOKEN start no workflow: no loop.
+    # On a manual release tag it only checks that the version was not already taken by an automatic publication.
+    needs: [changes, check, image-worker]
+    # Same explicit status policy as promote-app: skips elsewhere must not prevent a validated publication.
+    if: >-
+      ${{ !cancelled() && github.event_name != 'pull_request' &&
+          needs.changes.result == 'success' && needs.changes.outputs.publish == 'true' &&
+          needs.changes.outputs.worker == 'true' && needs.check.result == 'success' &&
+          needs.image-worker.result == 'success' && needs.image-worker.outputs.digest != '' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9
         with:
-          context: .
-          file: deploy/docker/worker.Dockerfile
-          platforms: linux/amd64
-          push: true
-          tags: ${{ env.IMAGE_TAGS }}
-          cache-from: type=gha,scope=worker
-          cache-to: type=gha,scope=worker,mode=max
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_SHA: ${{ github.sha }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          TAG_NAMES: ${{ needs.changes.outputs.tags }}
+          DIGEST: ${{ needs.image-worker.outputs.digest }}
+        run: |
+          set -eu
+          version=$(python3 scripts/reserve_worker_version.py)
+          case "$REF_TYPE" in tag) tags="$TAG_NAMES" ;; *) tags="$TAG_NAMES $version" ;; esac
+          echo "Worker tags: $tags"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}-worker"
+          args=""
+          for tag in $tags; do args="$args --tag $IMAGE:$tag"; done
+          docker buildx imagetools create $args "$IMAGE@$DIGEST"
+          for tag in $tags; do
+            got=$(docker buildx imagetools inspect "$IMAGE:$tag" --format '{{.Manifest.Digest}}')
+            echo "$IMAGE:$tag -> $got"
+            [ "$got" = "$DIGEST" ] || { echo "digest mismatch for $tag (expected $DIGEST)"; exit 1; }
+          done
+
+  metrics:
+    # Durations of the jobs of this run in the job summary, to follow the performance of the CI over time
+    # (`python3 scripts/ci_metrics.py --history 20` compares the last runs of main).
+    if: always()
+    needs: [check, promote-app, promote-worker]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 scripts/ci_metrics.py >> "$GITHUB_STEP_SUMMARY" || echo "metrics unavailable"

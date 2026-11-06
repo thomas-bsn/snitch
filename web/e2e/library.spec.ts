@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 import {
   SEGMENTS,
   correctSpeaker,
@@ -79,34 +79,38 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       });
       const page = await context.newPage();
       await page.goto("/library");
-      await expect(page.getByText("2 clips", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 2 video(s)", { exact: true }),
+      ).toBeVisible();
       const card = (name: string) =>
         page.getByRole("link", { name: `Open the clip ${name}` });
       await expect(card("synthetic-shared.mp4")).toBeVisible();
       await expect(card("synthetic-private.mp4")).toBeVisible();
-      // A state has a label (and a symbol), not only a color.
+      // A state has a label (and a symbol), not only a color: the transcribed clip is not "Not analysed".
       await expect(
-        page.locator("article").getByText("Ready", { exact: true }),
-      ).toHaveCount(2);
+        page.getByRole("table").getByText("Not analysed", { exact: true }),
+      ).toHaveCount(1);
 
-      // A filter lives in the address and narrows the grid.
-      await page.getByLabel("Person").selectOption({ label: "Alice" });
-      await expect(page).toHaveURL(/person=\d+/);
-      await expect(card("synthetic-shared.mp4")).toBeVisible();
-      await expect(card("synthetic-private.mp4")).toHaveCount(0);
-      await expect(page.getByText("1 clip", { exact: true })).toBeVisible();
+      // Filters are folded behind a button by default (mockup).
+      await expect(page.getByLabel("Owner")).toHaveCount(0);
+      await page.getByRole("button", { name: "Filters" }).click();
+      // A filter lives in the address and narrows the list.
+      await page.getByLabel("Owner").selectOption({ label: "administrator" });
+      await expect(card("synthetic-private.mp4")).toBeVisible();
       await page.getByRole("button", { name: "Clear the filters" }).click();
       await expect(card("synthetic-private.mp4")).toBeVisible();
 
-      await page.getByLabel("Owner").selectOption({ label: "administrator" });
-      await expect(card("synthetic-private.mp4")).toBeVisible();
-      await page.getByLabel("State").selectOption({ label: "Missing" });
+      await page.getByLabel("State").selectOption({ label: "Not indexed" });
       await expect(
         page.getByRole("heading", {
           name: "No clip matches these filters",
         }),
       ).toBeVisible();
-      await page.getByRole("button", { name: "Clear the filters" }).click();
+      // The empty state offers the same action next to the filter bar's own button.
+      await page
+        .getByRole("button", { name: "Clear the filters" })
+        .first()
+        .click();
 
       await page.getByLabel("From").fill("2099-01-01");
       await expect(
@@ -124,7 +128,9 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await expect(
         page.getByRole("link", { name: "Open the clip synthetic-shared.mp4" }),
       ).toBeVisible();
-      await expect(page.getByText("1 clip", { exact: true })).toBeVisible();
+      await expect(
+        page.getByText("0 folder(s) · 1 video(s)", { exact: true }),
+      ).toBeVisible();
       await expect(
         page.getByRole("link", {
           name: "Open the clip synthetic-private.mp4",
@@ -236,6 +242,75 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await context.close();
     });
 
+    test("la fiche : en-tête, lecteur et onglets côte à côte, métadonnées repliées", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${sharedId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+      // The file name is always in the header, as the title is still the file name.
+      await expect(
+        page.getByText("File: synthetic-shared.mp4", { exact: true }),
+      ).toBeVisible();
+
+      // The player and the tabs share the row: the tabs start after the player ends.
+      const video = await page.locator("video").boundingBox();
+      const tabs = await page.getByRole("tablist").boundingBox();
+      expect(video).not.toBeNull();
+      expect(tabs).not.toBeNull();
+      expect(tabs!.x).toBeGreaterThanOrEqual(video!.x + video!.width);
+
+      // Full metadata folds under the player and unfolds on demand.
+      const toggle = page.getByRole("button", { name: "Full metadata" });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByText("Codecs", { exact: true })).toBeHidden();
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+      await expect(page.getByText("Codecs", { exact: true })).toBeVisible();
+      await expect(page.getByText("Format", { exact: true })).toBeVisible();
+      await expect(page.getByText("Size", { exact: true })).toBeVisible();
+      await expectNoViolations(page);
+
+      // The transcription action lives in the Transcript tab, not stacked above the tabs.
+      await expect(
+        page.getByRole("tabpanel").getByRole("button", {
+          name: "Transcribe again",
+        }),
+      ).toHaveCount(1);
+      await context.close();
+    });
+
+    test("une fiche jamais analysée met le lancement en évidence", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${privateId}`);
+      await expect(
+        page.getByText("This clip has never been analysed.", { exact: true }),
+      ).toBeVisible();
+      // The launch is on the page itself, not behind the analysis pill.
+      const launch = page.getByRole("button", { name: "Launch analysis…" });
+      await expect(launch).toBeVisible();
+      await launch.click();
+      await expect(
+        page.getByRole("dialog", { name: "Launch analysis" }),
+      ).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(
+        page.getByRole("button", { name: "Transcribe again" }),
+      ).toHaveCount(0);
+      await expectNoViolations(page);
+      await context.close();
+    });
+
     for (const theme of ["light", "dark"] as const) {
       test(`accessibilité de la bibliothèque et du clip, thème ${theme}`, async ({
         browser,
@@ -290,7 +365,59 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
       await context.close();
     });
 
-    test("la pagination parcourt plus de douze clips", async ({ browser }) => {
+    // The explorer has no row action for the permanent deletion (ADR 0032): it stays an API action of
+    // the Super-administrator, and the library must forget the clip afterwards.
+    test("le super-administrateur supprime définitivement un clip, un membre ne le peut pas", async ({
+      browser,
+    }) => {
+      const id = await uploadClip("synthetic-delete.mp4", "shared");
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto("/library");
+      await expect(
+        page.getByText("0 folder(s) · 3 video(s)", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-delete.mp4" }),
+      ).toBeVisible();
+
+      const memberApi = await request.newContext({
+        baseURL: process.env.SNITCH_TEST_URL!,
+        extraHTTPHeaders: { Origin: process.env.SNITCH_TEST_URL! },
+        storageState: await sessionFor(MEMBER),
+      });
+      const memberMe = await (await memberApi.get("/api/auth/me")).json();
+      const refused = await memberApi.delete(`/api/admin/clips/${id}`, {
+        headers: { "X-CSRF-Token": memberMe.csrf_token },
+      });
+      expect(refused.status()).toBe(403);
+      await memberApi.dispose();
+
+      const me = await (await page.request.get("/api/auth/me")).json();
+      const deleted = await page.request.delete(`/api/admin/clips/${id}`, {
+        headers: {
+          "X-CSRF-Token": me.csrf_token,
+          Origin: process.env.SNITCH_TEST_URL!,
+        },
+      });
+      expect(deleted.status()).toBe(200);
+
+      await page.reload();
+      await expect(
+        page.getByText("0 folder(s) · 2 video(s)", { exact: true }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-delete.mp4" }),
+      ).toHaveCount(0);
+      await context.close();
+    });
+
+    // The explorer pages on the server: the address carries the page and its size (#243).
+    test("l'explorateur pagine côté serveur et compte toute la sélection", async ({
+      browser,
+    }) => {
       for (let i = 1; i <= 11; i++) {
         await uploadClip(`synthetic-bulk-${i}.mp4`, "shared");
       }
@@ -298,17 +425,128 @@ test.describe.serial("bibliothèque et page d'un clip", () => {
         storageState: await sessionFor(ADMIN),
       });
       const page = await context.newPage();
-      await page.goto("/library");
-      await expect(page.getByText("13 clips", { exact: true })).toBeVisible();
-      const grid = page.getByRole("link", { name: /^Open the clip / });
-      await expect(grid).toHaveCount(12);
-      await expect(page.getByText("Page 1 of 2")).toBeVisible();
+      const links = page.getByRole("link", { name: /^Open the clip / });
+      await page.goto("/library?size=5");
+      await expect(
+        page.getByText("0 folder(s) · 13 video(s)", { exact: true }),
+      ).toBeVisible();
+      await expect(links).toHaveCount(5);
+      await expect(page.getByText("Page 1 of 3")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Previous page" }),
+      ).toBeDisabled();
+      const hrefs = () =>
+        links.evaluateAll((all) => all.map((a) => a.getAttribute("href")));
+      const firstPage = await hrefs();
+
       await page.getByRole("button", { name: "Next page" }).click();
-      await expect(page).toHaveURL(/page=2/);
-      await expect(grid).toHaveCount(1);
-      await expect(page.getByText("Page 2 of 2")).toBeVisible();
-      await page.getByRole("button", { name: "Previous page" }).click();
-      await expect(grid).toHaveCount(12);
+      await expect(page.getByText("Page 2 of 3")).toBeVisible();
+      await expect(links).toHaveCount(5);
+      await expect.poll(hrefs).not.toEqual(firstPage);
+
+      await page.getByRole("button", { name: "Next page" }).click();
+      await expect(page.getByText("Page 3 of 3")).toBeVisible();
+      await expect(links).toHaveCount(3);
+      await expect(
+        page.getByRole("button", { name: "Next page" }),
+      ).toBeDisabled();
+      // The total stays the whole selection, not the page.
+      await expect(
+        page.getByText("0 folder(s) · 13 video(s)", { exact: true }),
+      ).toBeVisible();
+
+      // Without a size in the address, a short library fits on one page and shows no pager.
+      await page.goto("/library");
+      await expect(links).toHaveCount(13);
+      await expect(page.getByRole("button", { name: "Next page" })).toHaveCount(
+        0,
+      );
+      await context.close();
+    });
+
+    test("un administrateur modifie titre, jeu et date ; les corrections se restaurent", async ({
+      browser,
+    }) => {
+      const context = await browser.newContext({
+        storageState: await sessionFor(ADMIN),
+      });
+      const page = await context.newPage();
+      await page.goto(`/clips/${sharedId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+
+      // Members see no editing action at all.
+      const member = await browser.newContext({
+        storageState: await sessionFor(MEMBER),
+      });
+      const memberPage = await member.newPage();
+      await memberPage.goto(`/clips/${sharedId}`);
+      await expect(memberPage.getByRole("heading", { level: 1 })).toBeVisible();
+      await expect(
+        memberPage.getByRole("button", { name: "Edit metadata" }),
+      ).toHaveCount(0);
+      await member.close();
+
+      await page.getByRole("button", { name: "Edit metadata" }).click();
+      const dialog = page.getByRole("dialog", { name: "Edit metadata" });
+      await expect(dialog.getByLabel("Displayed title")).toHaveValue(
+        "synthetic-shared.mp4",
+      );
+      await expectNoViolations(page);
+      // An empty title is refused with an explanation; nothing is sent.
+      await dialog.getByLabel("Displayed title").fill("   ");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(dialog.getByRole("alert")).toContainText("cannot be empty");
+
+      await dialog.getByLabel("Displayed title").fill("Clutch 1v4 — Mirage 🎮");
+      await dialog.getByLabel("Game").fill("Counter-Strike 2");
+      await dialog.getByLabel("Recording date").fill("2026-10-31T21:45");
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(dialog).toBeHidden();
+
+      // The page shows the title at once, keeps the file name, and tells what was corrected by hand.
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Clutch 1v4 — Mirage 🎮" }),
+      ).toBeVisible();
+      await expect(
+        page.getByText("File name: synthetic-shared.mp4 (unchanged)"),
+      ).toBeVisible();
+      await expect(page.getByText("Manual correction")).toHaveCount(2);
+      await expect(page).toHaveTitle(/Clutch 1v4/);
+
+      // The library uses the title, the file name stays reachable as technical information.
+      await page.goto("/library");
+      await expect(
+        page.getByRole("link", {
+          name: "Open the clip Clutch 1v4 — Mirage 🎮",
+        }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: "Open the clip synthetic-shared.mp4" }),
+      ).toHaveCount(0);
+
+      // Restoring the detected game puts the automatic value back; the file name restores the title.
+      await page.goto(`/clips/${sharedId}`);
+      await page.getByRole("button", { name: "Edit metadata" }).click();
+      await expect(dialog.getByText("Detected value:").first()).toBeVisible();
+      await dialog.getByRole("button", { name: "Restore" }).first().click();
+      await dialog.getByRole("button", { name: "Use the file name" }).click();
+      await expectNoViolations(page);
+      await dialog.getByRole("button", { name: "Save" }).click();
+      await expect(dialog).toBeHidden();
+      await expect(
+        page.getByRole("heading", { level: 1, name: "synthetic-shared.mp4" }),
+      ).toBeVisible();
+      await expect(page.getByText("Manual correction")).toHaveCount(1);
+
+      // On a phone the panel still fits.
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.getByRole("button", { name: "Edit metadata" }).click();
+      await expect(dialog).toBeVisible();
+      expect(await noOverflow(page)).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
       await context.close();
     });
   });

@@ -150,6 +150,7 @@ func (s *Server) putClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, _, _ = s.scheduleResolvedTranscription(r.Context(), id, &input.AudioStreamIndex, false)
+	s.reconcileAnalysis(r.Context(), id)
 	reply(w, 200, map[string]any{"audio_stream_index": input.AudioStreamIndex})
 }
 func (s *Server) deleteClipAudioTrack(w http.ResponseWriter, r *http.Request) {
@@ -166,6 +167,7 @@ func (s *Server) deleteClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, _, _ = s.scheduleResolvedTranscription(r.Context(), id, nil, false)
+	s.reconcileAnalysis(r.Context(), id)
 	reply(w, 200, map[string]string{"status": "removed"})
 }
 func (s *Server) clipAudioTracks(ctx context.Context, id int64) ([]audioTrack, error) {
@@ -233,53 +235,66 @@ func (s *Server) audioSelection(ctx context.Context, id int64, tracks []audioTra
 	return audioSelection{Status: "selected", AudioStreamIndex: &n, Source: "single_audio_track"}, nil
 }
 func (s *Server) scheduleResolvedTranscription(ctx context.Context, id int64, explicit *int, requireReady bool) (jobs.Job, bool, error) {
+	plan, err := s.planTranscription(ctx, id, explicit, requireReady)
+	if err != nil || !plan.ready {
+		return jobs.Job{}, false, err
+	}
+	return s.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: id, Step: plan.step, InputVersion: plan.version, MaxAttempts: 3})
+}
+
+// transcriptionPlan is the transcription job a clip needs now: its step and input version.
+// ready is false when the clip media is not ready (nothing to plan yet).
+type transcriptionPlan struct {
+	step, version string
+	ready         bool
+}
+
+func (s *Server) planTranscription(ctx context.Context, id int64, explicit *int, requireReady bool) (transcriptionPlan, error) {
 	tracks, err := s.clipAudioTracks(ctx, id)
 	if err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
 	selection, err := s.audioSelection(ctx, id, tracks)
 	if err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
 	index := selection.AudioStreamIndex
 	if explicit != nil {
 		if !hasAudioTrack(tracks, *explicit) {
-			return jobs.Job{}, false, errors.New("audio stream not found")
+			return transcriptionPlan{}, errors.New("audio stream not found")
 		}
 		index = explicit
 	}
 	if index == nil {
-		return jobs.Job{}, false, errors.New("audio selection required")
+		return transcriptionPlan{}, errors.New("audio selection required")
 	}
 	var ready bool
 	if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM uploaded_media WHERE clip_id=$1) OR EXISTS(SELECT 1 FROM source_files WHERE clip_id=$1 AND status='ready')`, id).Scan(&ready); err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
 	if requireReady && !ready {
-		return jobs.Job{}, false, errors.New("clip not ready")
+		return transcriptionPlan{}, errors.New("clip not ready")
 	}
 	if !ready {
-		return jobs.Job{}, false, nil
+		return transcriptionPlan{}, nil
 	}
 	vocabulary, err := s.activeVocabulary(ctx)
 	if err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
 	vocabVersion := vocabularyVersion(vocabulary)
 	vocabularyJSON, err := json.Marshal(vocabulary)
 	if err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
 	if _, err = s.Pool.Exec(ctx, `INSERT INTO transcription_vocabulary_versions(version,terms) VALUES($1,$2) ON CONFLICT(version) DO NOTHING`, vocabVersion, vocabularyJSON); err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
 	pipelineVersion, err := s.activeTranscriptionPipeline(ctx)
 	if err != nil {
-		return jobs.Job{}, false, err
+		return transcriptionPlan{}, err
 	}
-	version := fmt.Sprintf("t4-a%d-r%d-v%s-p%s", *index, selection.RuleVersion, vocabVersion, pipelineVersion)
-	job, created, err := s.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: id, Step: fmt.Sprintf("transcription.audio.%d", *index), InputVersion: version, MaxAttempts: 3})
-	return job, created, err
+	return transcriptionPlan{step: fmt.Sprintf("transcription.audio.%d", *index), version: fmt.Sprintf("t4-a%d-r%d-v%s-p%s", *index, selection.RuleVersion, vocabVersion, pipelineVersion), ready: true}, nil
 }
 
 func (s *Server) activeTranscriptionPipeline(ctx context.Context) (string, error) {

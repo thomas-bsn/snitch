@@ -35,7 +35,6 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
-	server.Config.PublicURL = ts.URL
 	jar, _ := cookiejar.New(nil)
 	admin := ts.Client()
 	admin.Jar = jar
@@ -87,9 +86,12 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 		FirstWorker   bool   `json:"first_worker"`
 		SnitchURL     string `json:"snitch_url"`
 		Transcription struct {
-			Model    string `json:"model"`
-			Language string `json:"language"`
-			Version  string `json:"version"`
+			Mode            string `json:"mode"`
+			Endpoint        string `json:"endpoint"`
+			SettingsVersion string `json:"settings_version"`
+			Model           string `json:"model"`
+			Language        string `json:"language"`
+			Version         string `json:"version"`
 		} `json:"transcription"`
 		Items []struct {
 			ID string `json:"id"`
@@ -107,30 +109,30 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 	if !before.FirstWorker || before.SnitchURL != ts.URL || len(before.Items) != 0 {
 		t.Fatalf("listing before any Worker: %+v", before)
 	}
-	profileBefore := before.Transcription
+	if before.Transcription.Mode != "unconfigured" {
+		t.Fatalf("unexpected initial transcription mode: %+v", before.Transcription)
+	}
 
-	// The first Worker must fix the library's model and language: a missing one is refused and
-	// nothing is created.
+	// Settings are chosen in Transcription, before any Worker exists. The registration
+	// API rejects legacy per-worker overrides rather than silently diverging.
+	call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://host.docker.internal:8000", "model": "whisper-large-v3", "language": "fr"}, me.CSRF, "", http.StatusOK)
 	register := func(body map[string]any, want int) []byte {
 		t.Helper()
 		return call(admin, http.MethodPost, "/api/admin/workers", body, me.CSRF, "", want)
 	}
-	for name, body := range map[string]map[string]any{
-		"transcription_model_required":    {"name": "gpu-1", "max_concurrency": 1, "transcription": map[string]any{"language": "fr"}},
-		"transcription_language_required": {"name": "gpu-1", "max_concurrency": 1, "transcription": map[string]any{"model": "whisper-large-v3"}},
-		"invalid_transcription_model":     {"name": "gpu-1", "max_concurrency": 1, "transcription": map[string]any{"model": "not a model", "language": "fr"}},
-		"invalid_transcription_language":  {"name": "gpu-1", "max_concurrency": 1, "transcription": map[string]any{"model": "whisper-large-v3", "language": "French!"}},
-		"invalid_transcription_url":       {"name": "gpu-1", "max_concurrency": 1, "transcription_url": "http://user:secret@host:8000", "transcription": map[string]any{"model": "whisper-large-v3", "language": "fr"}},
+	for _, body := range []map[string]any{
+		{"name": "gpu-1", "max_concurrency": 1, "transcription_url": "http://other:8000"},
+		{"name": "gpu-1", "max_concurrency": 1, "transcription": map[string]any{"model": "other", "language": "en"}},
 	} {
-		if got := errorCode(register(body, http.StatusBadRequest)); got != name {
-			t.Fatalf("error code %q, want %q", got, name)
+		if got := errorCode(register(body, http.StatusBadRequest)); got != "invalid_request" {
+			t.Fatalf("legacy override accepted: %q", got)
 		}
 	}
-	if after := list(); !after.FirstWorker || len(after.Items) != 0 || after.Transcription != profileBefore {
-		t.Fatalf("a refused first Worker changed the state: %+v", after)
+	if after := list(); !after.FirstWorker || len(after.Items) != 0 || after.Transcription.Mode != "enabled" || after.Transcription.Endpoint != "http://host.docker.internal:8000" || after.Transcription.SettingsVersion == "" {
+		t.Fatalf("central settings not visible before Worker: %+v", after)
 	}
 
-	created := register(map[string]any{"name": "gpu-1", "max_concurrency": 1, "transcription_url": "http://host.docker.internal:8000", "transcription": map[string]any{"model": "whisper-large-v3", "language": "fr"}}, http.StatusCreated)
+	created := register(map[string]any{"name": "gpu-1", "max_concurrency": 1}, http.StatusCreated)
 	var first struct {
 		ID     string `json:"id"`
 		Token  string `json:"token"`
@@ -143,16 +145,19 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	env := "\n" + first.Bundle.Env + "\n"
-	for _, line := range []string{"TRANSCRIPTION_API_URL=http://host.docker.internal:8000", "SNITCH_WORKER_TOKEN=" + first.Token, "HF_TOKEN=A_RENSEIGNER"} {
+	for _, line := range []string{"TRANSCRIPTION_API_URL=http://host.docker.internal:8000", "SNITCH_WORKER_TOKEN=" + first.Token} {
 		if !strings.Contains(env, "\n"+line+"\n") {
 			t.Fatalf("generated .env lacks %q:\n%s", line, first.Bundle.Env)
 		}
+	}
+	if strings.Contains(env, "HF_TOKEN") {
+		t.Fatalf("a new Worker downloads no voice model, its .env carries no token:\n%s", first.Bundle.Env)
 	}
 	// The deployment files never require a model name (it is the library's).
 	if strings.Contains(env, "\nTRANSCRIPTION_MODEL=") || strings.Contains(first.Bundle.Compose, "TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:?") {
 		t.Fatalf("the deployment files require a model name:\n%s", first.Bundle.Env)
 	}
-	// The first Worker created the library's profile: a new version, visible in the pipeline.
+	// The library profile was chosen before the first Worker; registration does not change it.
 	var pipeline struct {
 		Version string `json:"version"`
 		Config  struct {
@@ -167,23 +172,22 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	if pipeline.Config.Model != "whisper-large-v3" || pipeline.Config.Language != "fr" || pipeline.Config.VAD.Mode != "off" || pipeline.Version == "pipeline-v1" {
-		t.Fatalf("the first Worker did not create the profile: %+v", pipeline)
+		t.Fatalf("central profile changed unexpectedly: %+v", pipeline)
 	}
 	afterFirst := list()
 	if afterFirst.FirstWorker || afterFirst.Transcription.Model != "whisper-large-v3" || afterFirst.Transcription.Language != "fr" || afterFirst.Transcription.Version != pipeline.Version {
 		t.Fatalf("listing after the first Worker: %+v", afterFirst)
 	}
 
-	// Later Workers inherit the profile: trying to set another one is refused, omitting it works
-	// and the profile is untouched.
-	if got := errorCode(register(map[string]any{"name": "gpu-2", "max_concurrency": 1, "transcription": map[string]any{"model": "other", "language": "en"}}, http.StatusConflict)); got != "transcription_profile_already_set" {
-		t.Fatalf("second Worker with a profile: %q", got)
+	// Later Workers inherit the same settings; per-Worker URL is not accepted here.
+	if got := errorCode(register(map[string]any{"name": "gpu-2", "max_concurrency": 1, "transcription_url": "https://whisper.example.org"}, http.StatusBadRequest)); got != "invalid_request" {
+		t.Fatalf("second Worker with manual URL: %q", got)
 	}
 	var second struct {
 		ID    string `json:"id"`
 		Token string `json:"token"`
 	}
-	if err = json.Unmarshal(register(map[string]any{"name": "gpu-2", "max_concurrency": 2, "transcription_url": "https://whisper.example.org"}, http.StatusCreated), &second); err != nil {
+	if err = json.Unmarshal(register(map[string]any{"name": "gpu-2", "max_concurrency": 2}, http.StatusCreated), &second); err != nil {
 		t.Fatal(err)
 	}
 	if again := list(); again.Transcription != afterFirst.Transcription || len(again.Items) != 2 {
@@ -289,14 +293,24 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 	if err = json.Unmarshal(call(admin, http.MethodPost, "/api/admin/workers/"+first.ID+"/token", nil, me.CSRF, "", http.StatusCreated), &renewed); err != nil {
 		t.Fatal(err)
 	}
-	if renewed.ID != first.ID || !strings.HasPrefix(renewed.Token, "rw_") || renewed.Token == first.Token || !strings.Contains("\n"+renewed.Bundle.Env+"\n", "\nSNITCH_WORKER_TOKEN="+renewed.Token+"\n") {
+	if renewed.ID == first.ID || !strings.HasPrefix(renewed.Token, "rw_") || renewed.Token == first.Token || !strings.Contains("\n"+renewed.Bundle.Env+"\n", "\nSNITCH_WORKER_TOKEN="+renewed.Token+"\n") {
 		t.Fatalf("unexpected renewed token: %+v", renewed)
 	}
 	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", first.Token, http.StatusUnauthorized)
 	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", renewed.Token, http.StatusOK)
-	if bytes.Contains(call(admin, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusOK), []byte(renewed.Token)) {
+	if bytes.Contains(call(admin, http.MethodGet, "/api/admin/workers/"+renewed.ID, nil, "", "", http.StatusOK), []byte(renewed.Token)) {
 		t.Fatal("the Worker detail exposed the new token")
 	}
+	// A lost token means a new identity: the old one is revoked with a minimal audit and cannot be renewed again.
+	var old struct {
+		RevokedAt    *string `json:"revoked_at"`
+		RevokeReason string  `json:"revoke_reason"`
+	}
+	if err = json.Unmarshal(call(admin, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusOK), &old); err != nil || old.RevokedAt == nil || old.RevokeReason != "token_renewed" {
+		t.Fatalf("old identity must be revoked by the renewal: %v %+v", err, old)
+	}
+	call(admin, http.MethodPost, "/api/admin/workers/"+first.ID+"/token", nil, me.CSRF, "", http.StatusNotFound)
+	first.ID = renewed.ID
 
 	// Revocation takes effect at once and leaves the Worker (and its history) visible; a revoked
 	// Worker cannot get a new token.

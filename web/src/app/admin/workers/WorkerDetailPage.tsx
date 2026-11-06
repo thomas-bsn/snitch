@@ -1,7 +1,8 @@
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useId, useState, type ReactNode } from "react";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useLoaded } from "../../api/loaded";
+import { useEventStream } from "../../api/useEventStream";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
@@ -10,8 +11,21 @@ import { useDocumentTitle } from "../../components/useDocumentTitle";
 import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
-import { fetchWorker, useWorkerActions, type WorkerBundle } from "./workersApi";
-import { ROLES, declaredModelText, workerStatus } from "./workerView";
+import { InstallProgress } from "./InstallProgress";
+import { InstallGuide } from "./InstallGuide";
+import { CommandLine, OfflineDiagnostics } from "./OfflineDiagnostics";
+import {
+  fetchWorker,
+  useWorkerActions,
+  type WorkerDetail,
+  type WorkerRegistration,
+} from "./workersApi";
+import {
+  ROLES,
+  declaredModelText,
+  restartCommands,
+  workerStatus,
+} from "./workerView";
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
@@ -50,13 +64,21 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const { t, error } = useI18n();
   const formatDate = useFormatDate();
   const actions = useWorkerActions();
+  const navigate = useNavigate();
   const load = useCallback(() => fetchWorker(id), [id]);
-  const { state, reload } = useLoaded(load);
-  const [confirm, setConfirm] = useState<"token" | "revoke" | null>(null);
+  const { state, reload, set } = useLoaded(load);
+  // Live: the page follows the stream; the reload is the fallback while the stream is down.
+  useEventStream<WorkerDetail>(`/api/admin/workers/${id}/events`, set, reload);
+  const [confirm, setConfirm] = useState<"token" | "revoke" | "forget" | null>(
+    null,
+  );
+  const [reason, setReason] = useState("");
+  const [allowInsecure, setAllowInsecure] = useState(false);
+  const insecure = window.location.protocol !== "https:";
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
-  // Shown once: the files of a freshly generated token, dropped when the page is left.
-  const [fresh, setFresh] = useState<WorkerBundle>();
+  // Shown once: the replacement identity and its single-use command, dropped when the page is left.
+  const [fresh, setFresh] = useState<WorkerRegistration>();
   useDocumentTitle(
     state.status === "ready" ? state.value.name : t("workers.title"),
   );
@@ -89,21 +111,42 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const worker = state.value;
   const { tone, label } = workerStatus(worker);
   const revoked = worker.revoked_at !== null;
+  // Removing a Worker whose machine never confirmed is forced, and the warning says so (#261).
+  const cleanupUnconfirmed = !worker.revocation_acknowledged_at;
+  const forgetBody = cleanupUnconfirmed
+    ? t("workers.detail.forgetUnconfirmedBody")
+    : t("workers.detail.forgetBody");
+  // The local launcher exists only once the installation reached its first pulse.
+  const installed =
+    worker.install?.state === "connected" ||
+    worker.install?.state === "voice_ready";
 
   async function renew() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.renewToken(id);
+    const result = await actions.renewToken(id, insecure && allowInsecure);
     setBusy(false);
     setConfirm(null);
-    if (result.ok) setFresh(result.value.bundle);
+    if (result.ok) {
+      setFresh(result.value);
+      reload();
+    } else setFailure(result.code);
+  }
+
+  async function forget() {
+    setBusy(true);
+    setFailure(undefined);
+    const result = await actions.forget(id, cleanupUnconfirmed);
+    setBusy(false);
+    setConfirm(null);
+    if (result.ok) navigate("/admin/workers");
     else setFailure(result.code);
   }
 
   async function revoke() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.revoke(id);
+    const result = await actions.revoke(id, reason);
     setBusy(false);
     setConfirm(null);
     if (result.ok) {
@@ -111,8 +154,6 @@ export function WorkerDetailPage({ id }: { id: string }) {
       reload();
     } else setFailure(result.code);
   }
-
-  const bundle = fresh ?? worker.bundle;
 
   return (
     <div className="flex flex-col gap-4">
@@ -123,17 +164,46 @@ export function WorkerDetailPage({ id }: { id: string }) {
       </div>
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       {revoked && worker.revoked_at && (
-        <p
+        <div
           role="status"
-          className="rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
+          className="flex flex-col gap-1 rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
         >
-          {t("workers.detail.revokedNotice", {
-            date: formatDate(worker.revoked_at),
-          })}
-        </p>
+          <p>
+            {t("workers.detail.revokedNotice", {
+              date: formatDate(worker.revoked_at),
+            })}
+          </p>
+          {worker.revoke_reason && (
+            <p>
+              {t("workers.detail.revokedReason", {
+                reason: worker.revoke_reason,
+              })}
+            </p>
+          )}
+          <p>
+            {worker.revocation_acknowledged_at
+              ? t("workers.detail.cleanupDone", {
+                  date: formatDate(worker.revocation_acknowledged_at),
+                })
+              : t("workers.detail.cleanupPending")}
+          </p>
+        </div>
       )}
 
+      {worker.install && (
+        <Section title={t("workers.install.title")}>
+          <InstallProgress
+            install={worker.install}
+            transcriptionConfig={worker.transcription_config}
+            createdAt={worker.created_at}
+          />
+        </Section>
+      )}
+
+      <OfflineDiagnostics worker={worker} />
+
       <Section title={t("workers.detail.activity")}>
+        <p className="text-sm text-mute">{t("workers.connection.hint")}</p>
         <Facts>
           <Fact label={t("workers.detail.lastPulse")}>
             {worker.last_seen_at
@@ -250,20 +320,54 @@ export function WorkerDetailPage({ id }: { id: string }) {
         <p className="text-sm text-mute">{t("workers.machine.systemHint")}</p>
       </Section>
 
-      {!revoked && (
-        <Section title={t("workers.detail.deployment")}>
-          <p className="text-mute">{t("workers.detail.deploymentLead")}</p>
-          {fresh ? (
-            <p
-              role="status"
-              className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
-            >
-              {t("workers.detail.newToken")}
-            </p>
-          ) : (
-            <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
+      {fresh && (
+        <Section title={t("workers.detail.replacedTitle")}>
+          <p
+            role="status"
+            className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
+          >
+            {t("workers.detail.newToken")}
+          </p>
+          {!fresh.install_command && (
+            <ErrorAlert>{t("workers.create.insecureUnavailable")}</ErrorAlert>
           )}
-          <DeploymentFiles env={bundle.env} compose={bundle.compose} />
+          <InstallGuide />
+          <textarea
+            readOnly
+            aria-label={t("workers.create.installCommand")}
+            value={fresh.install_command ?? ""}
+            rows={4}
+            className="w-full resize-y rounded-lg border border-line-strong bg-side p-3 font-mono text-xs text-ink"
+          />
+          <Link
+            to={`/admin/workers/${fresh.id}`}
+            className="text-accent-ink underline"
+          >
+            {t("workers.detail.openReplacement")}
+          </Link>
+        </Section>
+      )}
+
+      {!revoked && (
+        <Section title={t("workers.detail.oneCommand")}>
+          <p className="text-mute">{t("workers.detail.oneCommandLead")}</p>
+          {installed && (
+            <>
+              <h4 className="font-medium">
+                {t("workers.detail.alreadyInstalledTitle")}
+              </h4>
+              <p className="text-mute">
+                {t("workers.detail.alreadyInstalledBody")}
+              </p>
+              <CommandLine
+                label={t("workers.diagnostics.launcher")}
+                hint={t("workers.diagnostics.launcherHint")}
+                command={restartCommands(worker.id).launcher}
+              />
+            </>
+          )}
+          <h4 className="font-medium">{t("workers.detail.newMachineTitle")}</h4>
+          <p className="text-mute">{t("workers.detail.newMachineBody")}</p>
           <div>
             <button
               type="button"
@@ -271,6 +375,34 @@ export function WorkerDetailPage({ id }: { id: string }) {
               onClick={() => setConfirm("token")}
             >
               {t("workers.detail.regenerate")}
+            </button>
+          </div>
+          <details>
+            <summary className="cursor-pointer text-accent-ink">
+              {t("workers.create.advancedFiles")}
+            </summary>
+            <div className="mt-3 flex flex-col gap-3">
+              <p className="text-mute">{t("workers.detail.deploymentLead")}</p>
+              <p className="text-mute">{t("workers.detail.tokenHidden")}</p>
+              <DeploymentFiles
+                env={worker.bundle.env}
+                compose={worker.bundle.compose}
+              />
+            </div>
+          </details>
+        </Section>
+      )}
+
+      {revoked && (
+        <Section title={t("workers.detail.forget")}>
+          <p className="text-mute">{forgetBody}</p>
+          <div>
+            <button
+              type="button"
+              className={buttonClass("danger")}
+              onClick={() => setConfirm("forget")}
+            >
+              {t("workers.detail.forget")}
             </button>
           </div>
         </Section>
@@ -301,6 +433,39 @@ export function WorkerDetailPage({ id }: { id: string }) {
         busy={busy}
       >
         <p>{t("workers.detail.regenerateBody")}</p>
+        {insecure && (
+          <>
+            <label className="mt-3 flex items-start gap-2">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={allowInsecure}
+                onChange={(event) => setAllowInsecure(event.target.checked)}
+              />
+              <span>{t("workers.create.allowInsecure")}</span>
+            </label>
+            {allowInsecure && (
+              <p
+                role="alert"
+                className="mt-2 rounded-lg bg-bad-bg px-3 py-2.5 text-bad-fg"
+              >
+                {t("workers.create.allowInsecureWarning")}
+              </p>
+            )}
+          </>
+        )}
+      </ConfirmDialog>
+      <ConfirmDialog
+        open={confirm === "forget"}
+        onOpenChange={(open) => !open && setConfirm(null)}
+        title={t("workers.detail.forgetTitle", { name: worker.name })}
+        cancelLabel={t("workers.dialog.cancel")}
+        confirmLabel={t("workers.detail.forgetConfirm")}
+        onConfirm={() => void forget()}
+        danger
+        busy={busy}
+      >
+        <p>{forgetBody}</p>
       </ConfirmDialog>
       <ConfirmDialog
         open={confirm === "revoke"}
@@ -313,6 +478,16 @@ export function WorkerDetailPage({ id }: { id: string }) {
         busy={busy}
       >
         <p>{t("workers.detail.revokeConfirmBody")}</p>
+        <label className="mt-3 flex flex-col gap-1 text-sm">
+          {t("workers.detail.revokeReason")}
+          <input
+            type="text"
+            maxLength={200}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            className="rounded-lg border border-line-strong bg-side px-3 py-2 text-ink"
+          />
+        </label>
       </ConfirmDialog>
     </div>
   );

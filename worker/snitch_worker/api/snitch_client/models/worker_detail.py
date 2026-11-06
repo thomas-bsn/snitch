@@ -14,9 +14,12 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.worker_bundle import WorkerBundle
+  from ..models.worker_install import WorkerInstall
   from ..models.worker_machine import WorkerMachine
   from ..models.worker_models import WorkerModels
   from ..models.worker_recent_task import WorkerRecentTask
+  from ..models.worker_transcription_config import WorkerTranscriptionConfig
+  from ..models.worker_transcription_reachability import WorkerTranscriptionReachability
 
 
 
@@ -37,15 +40,30 @@ class WorkerDetail:
             last_seen_at (datetime.datetime | None):
             created_at (datetime.datetime):
             revoked_at (datetime.datetime | None):
+            revoke_reason (str): Motif facultatif de suppression, conservé dans l'audit minimal.
+            revocation_acknowledged_at (datetime.datetime | None): Date de la première confirmation de la révocation par la
+                machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif,
+                ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne
+                dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
             connected (bool):
             recent_tasks (list[WorkerRecentTask]): Dernières tâches de ce worker, une ligne par tâche, la plus récente
                 d'abord.
             bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
                 ensuite. Le .env contient le jeton.
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
+            transcription_config (WorkerTranscriptionConfig | Unset): Statut de synchronisation de la configuration de
+                transcription pour un Worker.
+            transcription_reachability (WorkerTranscriptionReachability | Unset): Dernier test GET /v1/models par le Worker.
+                Détail du dernier échec réservé aux administrateurs.
+            transcription_config_ready (bool | Unset): Indique si le Worker supporte la configuration de transcription
+                centralisée (capability transcription.config.v1).
+            install (WorkerInstall | Unset): Progression d'installation, indépendante de la transcription
+                (transcription_config) et de la voix (voice).
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
             remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
+            claim_stalled (bool | Unset): Vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2
+                minutes (issue #321) : la présence seule ne dit pas qu'il peut réclamer des tâches.
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
@@ -58,12 +76,19 @@ class WorkerDetail:
     last_seen_at: datetime.datetime | None
     created_at: datetime.datetime
     revoked_at: datetime.datetime | None
+    revoke_reason: str
+    revocation_acknowledged_at: datetime.datetime | None
     connected: bool
     recent_tasks: list[WorkerRecentTask]
     bundle: WorkerBundle
     transcription_model: str | Unset = UNSET
+    transcription_config: WorkerTranscriptionConfig | Unset = UNSET
+    transcription_reachability: WorkerTranscriptionReachability | Unset = UNSET
+    transcription_config_ready: bool | Unset = UNSET
+    install: WorkerInstall | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
+    claim_stalled: bool | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -73,9 +98,12 @@ class WorkerDetail:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
+        from ..models.worker_install import WorkerInstall # noqa: PLC0415
         from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
+        from ..models.worker_transcription_config import WorkerTranscriptionConfig # noqa: PLC0415
+        from ..models.worker_transcription_reachability import WorkerTranscriptionReachability # noqa: PLC0415
         id = self.id
 
         name = self.name
@@ -98,6 +126,14 @@ class WorkerDetail:
         else:
             revoked_at = self.revoked_at
 
+        revoke_reason = self.revoke_reason
+
+        revocation_acknowledged_at: None | str
+        if isinstance(self.revocation_acknowledged_at, datetime.datetime):
+            revocation_acknowledged_at = self.revocation_acknowledged_at.isoformat()
+        else:
+            revocation_acknowledged_at = self.revocation_acknowledged_at
+
         connected = self.connected
 
         recent_tasks = []
@@ -111,11 +147,27 @@ class WorkerDetail:
 
         transcription_model = self.transcription_model
 
+        transcription_config: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.transcription_config, Unset):
+            transcription_config = self.transcription_config.to_dict()
+
+        transcription_reachability: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.transcription_reachability, Unset):
+            transcription_reachability = self.transcription_reachability.to_dict()
+
+        transcription_config_ready = self.transcription_config_ready
+
+        install: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.install, Unset):
+            install = self.install.to_dict()
+
         machine: dict[str, Any] | Unset = UNSET
         if not isinstance(self.machine, Unset):
             machine = self.machine.to_dict()
 
         remote_address = self.remote_address
+
+        claim_stalled = self.claim_stalled
 
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
@@ -132,16 +184,28 @@ class WorkerDetail:
             "last_seen_at": last_seen_at,
             "created_at": created_at,
             "revoked_at": revoked_at,
+            "revoke_reason": revoke_reason,
+            "revocation_acknowledged_at": revocation_acknowledged_at,
             "connected": connected,
             "recent_tasks": recent_tasks,
             "bundle": bundle,
         })
         if transcription_model is not UNSET:
             field_dict["transcription_model"] = transcription_model
+        if transcription_config is not UNSET:
+            field_dict["transcription_config"] = transcription_config
+        if transcription_reachability is not UNSET:
+            field_dict["transcription_reachability"] = transcription_reachability
+        if transcription_config_ready is not UNSET:
+            field_dict["transcription_config_ready"] = transcription_config_ready
+        if install is not UNSET:
+            field_dict["install"] = install
         if machine is not UNSET:
             field_dict["machine"] = machine
         if remote_address is not UNSET:
             field_dict["remote_address"] = remote_address
+        if claim_stalled is not UNSET:
+            field_dict["claim_stalled"] = claim_stalled
         if models is not UNSET:
             field_dict["models"] = models
 
@@ -152,9 +216,12 @@ class WorkerDetail:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker_bundle import WorkerBundle # noqa: PLC0415
+        from ..models.worker_install import WorkerInstall # noqa: PLC0415
         from ..models.worker_machine import WorkerMachine # noqa: PLC0415
         from ..models.worker_models import WorkerModels # noqa: PLC0415
         from ..models.worker_recent_task import WorkerRecentTask # noqa: PLC0415
+        from ..models.worker_transcription_config import WorkerTranscriptionConfig # noqa: PLC0415
+        from ..models.worker_transcription_reachability import WorkerTranscriptionReachability # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -205,6 +272,26 @@ class WorkerDetail:
         revoked_at = _parse_revoked_at(d.pop("revoked_at"))
 
 
+        revoke_reason = d.pop("revoke_reason")
+
+        def _parse_revocation_acknowledged_at(data: object) -> datetime.datetime | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                revocation_acknowledged_at_type_0 = datetime.datetime.fromisoformat(data)
+
+
+
+                return revocation_acknowledged_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None, data)
+
+        revocation_acknowledged_at = _parse_revocation_acknowledged_at(d.pop("revocation_acknowledged_at"))
+
+
         connected = d.pop("connected")
 
         recent_tasks = []
@@ -224,6 +311,38 @@ class WorkerDetail:
 
         transcription_model = d.pop("transcription_model", UNSET)
 
+        _transcription_config = d.pop("transcription_config", UNSET)
+        transcription_config: WorkerTranscriptionConfig | Unset
+        if isinstance(_transcription_config,  Unset):
+            transcription_config = UNSET
+        else:
+            transcription_config = WorkerTranscriptionConfig.from_dict(_transcription_config)
+
+
+
+
+        _transcription_reachability = d.pop("transcription_reachability", UNSET)
+        transcription_reachability: WorkerTranscriptionReachability | Unset
+        if isinstance(_transcription_reachability,  Unset):
+            transcription_reachability = UNSET
+        else:
+            transcription_reachability = WorkerTranscriptionReachability.from_dict(_transcription_reachability)
+
+
+
+
+        transcription_config_ready = d.pop("transcription_config_ready", UNSET)
+
+        _install = d.pop("install", UNSET)
+        install: WorkerInstall | Unset
+        if isinstance(_install,  Unset):
+            install = UNSET
+        else:
+            install = WorkerInstall.from_dict(_install)
+
+
+
+
         _machine = d.pop("machine", UNSET)
         machine: WorkerMachine | Unset
         if isinstance(_machine,  Unset):
@@ -235,6 +354,8 @@ class WorkerDetail:
 
 
         remote_address = d.pop("remote_address", UNSET)
+
+        claim_stalled = d.pop("claim_stalled", UNSET)
 
         _models = d.pop("models", UNSET)
         models: WorkerModels | Unset
@@ -254,12 +375,19 @@ class WorkerDetail:
             last_seen_at=last_seen_at,
             created_at=created_at,
             revoked_at=revoked_at,
+            revoke_reason=revoke_reason,
+            revocation_acknowledged_at=revocation_acknowledged_at,
             connected=connected,
             recent_tasks=recent_tasks,
             bundle=bundle,
             transcription_model=transcription_model,
+            transcription_config=transcription_config,
+            transcription_reachability=transcription_reachability,
+            transcription_config_ready=transcription_config_ready,
+            install=install,
             machine=machine,
             remote_address=remote_address,
+            claim_stalled=claim_stalled,
             models=models,
         )
 

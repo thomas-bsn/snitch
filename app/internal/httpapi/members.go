@@ -11,15 +11,17 @@ import (
 )
 
 type memberView struct {
-	ID        int64     `json:"id"`
-	Username  string    `json:"username"`
-	Role      string    `json:"role"`
-	CreatedAt time.Time `json:"created_at"`
-	ClipCount int64     `json:"clip_count"`
+	ID            int64     `json:"id"`
+	Username      string    `json:"username"`
+	DisplayName   string    `json:"display_name"`
+	DiscordLinked bool      `json:"discord_linked"`
+	Role          string    `json:"role"`
+	CreatedAt     time.Time `json:"created_at"`
+	ClipCount     int64     `json:"clip_count"`
 }
 
 func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.Pool.Query(r.Context(), `SELECT u.id,u.username,u.role,u.created_at,count(c.id) FROM users u LEFT JOIN clips c ON c.owner_id=u.id WHERE u.approved AND u.deleted_at IS NULL GROUP BY u.id ORDER BY lower(u.username),u.id`)
+	rows, err := s.Pool.Query(r.Context(), `SELECT u.id,u.username,COALESCE(u.display_name,CASE WHEN u.password_hash IS NULL AND starts_with(u.username,'discord_') THEN u.discord_name END,u.username),u.discord_id IS NOT NULL,u.role,u.created_at,count(c.id) FROM users u LEFT JOIN clips c ON c.owner_id=u.id WHERE u.approved AND u.deleted_at IS NULL GROUP BY u.id ORDER BY lower(u.username),u.id`)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -28,7 +30,7 @@ func (s *Server) listMembers(w http.ResponseWriter, r *http.Request) {
 	members := []memberView{}
 	for rows.Next() {
 		var v memberView
-		if err = rows.Scan(&v.ID, &v.Username, &v.Role, &v.CreatedAt, &v.ClipCount); err != nil {
+		if err = rows.Scan(&v.ID, &v.Username, &v.DisplayName, &v.DiscordLinked, &v.Role, &v.CreatedAt, &v.ClipCount); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -80,43 +82,13 @@ func (s *Server) changeMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(r.Context())
-	// Lock both accounts in a deterministic order and recheck the actor after locking.
-	rows, err := tx.Query(r.Context(), `SELECT id,role,approved,deleted_at IS NOT NULL FROM users WHERE id IN ($1,$2) ORDER BY id FOR UPDATE`, ss.User.ID, id)
+	actorRole, targetRole, status, code, err := lockMembers(r.Context(), tx, ss.User.ID, id)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	var actorRole, targetRole string
-	var actorActive, targetActive bool
-	for rows.Next() {
-		var uid int64
-		var current string
-		var approved, deleted bool
-		if err = rows.Scan(&uid, &current, &approved, &deleted); err != nil {
-			break
-		}
-		if uid == ss.User.ID {
-			actorRole = current
-			actorActive = approved && !deleted
-		} else {
-			targetRole = current
-			targetActive = approved && !deleted
-		}
-	}
-	if err == nil {
-		err = rows.Err()
-	}
-	rows.Close()
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if !actorActive || !isAdministrator(actorRole) {
-		fail(w, 403, "forbidden")
-		return
-	}
-	if !targetActive {
-		fail(w, 404, "member_not_found")
+	if status != 0 {
+		fail(w, status, code)
 		return
 	}
 	if isSuperAdministrator(targetRole) {
@@ -151,7 +123,10 @@ func retireMember(ctx context.Context, tx pgx.Tx, id int64, hide bool) error {
 			return err
 		}
 	}
-	if _, err := tx.Exec(ctx, `UPDATE users SET username='Utilisateur supprimé',password_hash=NULL,discord_id=NULL,approved=false,role='user',deleted_at=now() WHERE id=$1`, id); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE users SET username='Utilisateur supprimé',password_hash=NULL,discord_id=NULL,discord_name=NULL,approved=false,role='user',deleted_at=now() WHERE id=$1`, id); err != nil {
+		return err
+	}
+	if err := dropDiscordAvatar(ctx, tx, id); err != nil {
 		return err
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM sessions WHERE user_id=$1`, id); err != nil {
@@ -195,4 +170,42 @@ func (s *Server) closeAccount(w http.ResponseWriter, r *http.Request) {
 	}
 	s.cookie(w, r, "snitch_session", "", -1)
 	reply(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+// lockMembers locks the acting administrator and the target in a deterministic order and rechecks the actor
+// after locking. A non-zero status is the refusal to send. When the target is the actor, both roles are the actor's.
+func lockMembers(ctx context.Context, tx pgx.Tx, actorID, id int64) (actorRole, targetRole string, status int, code string, err error) {
+	rows, err := tx.Query(ctx, `SELECT id,role,approved,deleted_at IS NOT NULL FROM users WHERE id IN ($1,$2) ORDER BY id FOR UPDATE`, actorID, id)
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	var actorActive, targetActive bool
+	for rows.Next() {
+		var uid int64
+		var current string
+		var approved, deleted bool
+		if err = rows.Scan(&uid, &current, &approved, &deleted); err != nil {
+			break
+		}
+		if uid == actorID {
+			actorRole, actorActive = current, approved && !deleted
+		}
+		if uid == id {
+			targetRole, targetActive = current, approved && !deleted
+		}
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	rows.Close()
+	if err != nil {
+		return "", "", 0, "", err
+	}
+	if !actorActive || !isAdministrator(actorRole) {
+		return "", "", 403, "forbidden", nil
+	}
+	if !targetActive {
+		return "", "", 404, "member_not_found", nil
+	}
+	return actorRole, targetRole, 0, "", nil
 }

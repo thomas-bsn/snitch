@@ -53,6 +53,183 @@ func (e AccountPreferencesInputLanguage) Valid() bool {
 	}
 }
 
+// Defines values for AnalysisQueueRunForcedSteps.
+const (
+	AnalysisQueueRunForcedStepsDiarization   AnalysisQueueRunForcedSteps = "diarization"
+	AnalysisQueueRunForcedStepsIndexing      AnalysisQueueRunForcedSteps = "indexing"
+	AnalysisQueueRunForcedStepsTranscription AnalysisQueueRunForcedSteps = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisQueueRunForcedSteps enum.
+func (e AnalysisQueueRunForcedSteps) Valid() bool {
+	switch e {
+	case AnalysisQueueRunForcedStepsDiarization:
+		return true
+	case AnalysisQueueRunForcedStepsIndexing:
+		return true
+	case AnalysisQueueRunForcedStepsTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalysisQueueRunMode.
+const (
+	AnalysisQueueRunModeFull    AnalysisQueueRunMode = "full"
+	AnalysisQueueRunModeMissing AnalysisQueueRunMode = "missing"
+	AnalysisQueueRunModeSteps   AnalysisQueueRunMode = "steps"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisQueueRunMode enum.
+func (e AnalysisQueueRunMode) Valid() bool {
+	switch e {
+	case AnalysisQueueRunModeFull:
+		return true
+	case AnalysisQueueRunModeMissing:
+		return true
+	case AnalysisQueueRunModeSteps:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalysisQueueRunScope.
+const (
+	AnalysisQueueRunScopeFull          AnalysisQueueRunScope = "full"
+	AnalysisQueueRunScopeTranscription AnalysisQueueRunScope = "transcription"
+	AnalysisQueueRunScopeVoice         AnalysisQueueRunScope = "voice"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisQueueRunScope enum.
+func (e AnalysisQueueRunScope) Valid() bool {
+	switch e {
+	case AnalysisQueueRunScopeFull:
+		return true
+	case AnalysisQueueRunScopeTranscription:
+		return true
+	case AnalysisQueueRunScopeVoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalysisQueueRunStatus.
+const (
+	AnalysisQueueRunStatusActive    AnalysisQueueRunStatus = "active"
+	AnalysisQueueRunStatusCancelled AnalysisQueueRunStatus = "cancelled"
+	AnalysisQueueRunStatusCompleted AnalysisQueueRunStatus = "completed"
+	AnalysisQueueRunStatusFailed    AnalysisQueueRunStatus = "failed"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisQueueRunStatus enum.
+func (e AnalysisQueueRunStatus) Valid() bool {
+	switch e {
+	case AnalysisQueueRunStatusActive:
+		return true
+	case AnalysisQueueRunStatusCancelled:
+		return true
+	case AnalysisQueueRunStatusCompleted:
+		return true
+	case AnalysisQueueRunStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalysisQueueTaskStatus.
+const (
+	AnalysisQueueTaskStatusCancelled AnalysisQueueTaskStatus = "cancelled"
+	AnalysisQueueTaskStatusDead      AnalysisQueueTaskStatus = "dead"
+	AnalysisQueueTaskStatusDone      AnalysisQueueTaskStatus = "done"
+	AnalysisQueueTaskStatusFailed    AnalysisQueueTaskStatus = "failed"
+	AnalysisQueueTaskStatusLeased    AnalysisQueueTaskStatus = "leased"
+	AnalysisQueueTaskStatusPending   AnalysisQueueTaskStatus = "pending"
+	AnalysisQueueTaskStatusRetryWait AnalysisQueueTaskStatus = "retry_wait"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisQueueTaskStatus enum.
+func (e AnalysisQueueTaskStatus) Valid() bool {
+	switch e {
+	case AnalysisQueueTaskStatusCancelled:
+		return true
+	case AnalysisQueueTaskStatusDead:
+		return true
+	case AnalysisQueueTaskStatusDone:
+		return true
+	case AnalysisQueueTaskStatusFailed:
+		return true
+	case AnalysisQueueTaskStatusLeased:
+		return true
+	case AnalysisQueueTaskStatusPending:
+		return true
+	case AnalysisQueueTaskStatusRetryWait:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalysisStepEventActor.
+const (
+	AnalysisStepEventActorAdmin  AnalysisStepEventActor = "admin"
+	AnalysisStepEventActorSystem AnalysisStepEventActor = "system"
+	AnalysisStepEventActorWorker AnalysisStepEventActor = "worker"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisStepEventActor enum.
+func (e AnalysisStepEventActor) Valid() bool {
+	switch e {
+	case AnalysisStepEventActorAdmin:
+		return true
+	case AnalysisStepEventActorSystem:
+		return true
+	case AnalysisStepEventActorWorker:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AnalysisStepEventEvent.
+const (
+	AnalysisStepEventEventAdminRelaunched AnalysisStepEventEvent = "admin_relaunched"
+	AnalysisStepEventEventAttemptStarted  AnalysisStepEventEvent = "attempt_started"
+	AnalysisStepEventEventCancelled       AnalysisStepEventEvent = "cancelled"
+	AnalysisStepEventEventCompleted       AnalysisStepEventEvent = "completed"
+	AnalysisStepEventEventLeaseExpired    AnalysisStepEventEvent = "lease_expired"
+	AnalysisStepEventEventMarkedDead      AnalysisStepEventEvent = "marked_dead"
+	AnalysisStepEventEventRetryScheduled  AnalysisStepEventEvent = "retry_scheduled"
+	AnalysisStepEventEventWorkerRevoked   AnalysisStepEventEvent = "worker_revoked"
+)
+
+// Valid indicates whether the value is a known member of the AnalysisStepEventEvent enum.
+func (e AnalysisStepEventEvent) Valid() bool {
+	switch e {
+	case AnalysisStepEventEventAdminRelaunched:
+		return true
+	case AnalysisStepEventEventAttemptStarted:
+		return true
+	case AnalysisStepEventEventCancelled:
+		return true
+	case AnalysisStepEventEventCompleted:
+		return true
+	case AnalysisStepEventEventLeaseExpired:
+		return true
+	case AnalysisStepEventEventMarkedDead:
+		return true
+	case AnalysisStepEventEventRetryScheduled:
+		return true
+	case AnalysisStepEventEventWorkerRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AttributionValidationState.
 const (
 	Unvalidated AttributionValidationState = "unvalidated"
@@ -89,6 +266,66 @@ func (e AudioTrackSelectionStatus) Valid() bool {
 	}
 }
 
+// Defines values for AvatarSettingsSource.
+const (
+	AvatarSettingsSourceCustom  AvatarSettingsSource = "custom"
+	AvatarSettingsSourceDiscord AvatarSettingsSource = "discord"
+	AvatarSettingsSourceNone    AvatarSettingsSource = "none"
+)
+
+// Valid indicates whether the value is a known member of the AvatarSettingsSource enum.
+func (e AvatarSettingsSource) Valid() bool {
+	switch e {
+	case AvatarSettingsSourceCustom:
+		return true
+	case AvatarSettingsSourceDiscord:
+		return true
+	case AvatarSettingsSourceNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AvatarSettingsInputSource.
+const (
+	AvatarSettingsInputSourceCustom  AvatarSettingsInputSource = "custom"
+	AvatarSettingsInputSourceDiscord AvatarSettingsInputSource = "discord"
+	AvatarSettingsInputSourceNone    AvatarSettingsInputSource = "none"
+)
+
+// Valid indicates whether the value is a known member of the AvatarSettingsInputSource enum.
+func (e AvatarSettingsInputSource) Valid() bool {
+	switch e {
+	case AvatarSettingsInputSourceCustom:
+		return true
+	case AvatarSettingsInputSourceDiscord:
+		return true
+	case AvatarSettingsInputSourceNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipOriginsKind.
+const (
+	ClipOriginsKindSource ClipOriginsKind = "source"
+	ClipOriginsKindUpload ClipOriginsKind = "upload"
+)
+
+// Valid indicates whether the value is a known member of the ClipOriginsKind enum.
+func (e ClipOriginsKind) Valid() bool {
+	switch e {
+	case ClipOriginsKindSource:
+		return true
+	case ClipOriginsKindUpload:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClipVisibility.
 const (
 	ClipVisibilityPrivate ClipVisibility = "private"
@@ -101,6 +338,267 @@ func (e ClipVisibility) Valid() bool {
 	case ClipVisibilityPrivate:
 		return true
 	case ClipVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisRunForcedSteps.
+const (
+	ClipAnalysisRunForcedStepsDiarization   ClipAnalysisRunForcedSteps = "diarization"
+	ClipAnalysisRunForcedStepsIndexing      ClipAnalysisRunForcedSteps = "indexing"
+	ClipAnalysisRunForcedStepsTranscription ClipAnalysisRunForcedSteps = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisRunForcedSteps enum.
+func (e ClipAnalysisRunForcedSteps) Valid() bool {
+	switch e {
+	case ClipAnalysisRunForcedStepsDiarization:
+		return true
+	case ClipAnalysisRunForcedStepsIndexing:
+		return true
+	case ClipAnalysisRunForcedStepsTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisRunMode.
+const (
+	ClipAnalysisRunModeFull    ClipAnalysisRunMode = "full"
+	ClipAnalysisRunModeMissing ClipAnalysisRunMode = "missing"
+	ClipAnalysisRunModeSteps   ClipAnalysisRunMode = "steps"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisRunMode enum.
+func (e ClipAnalysisRunMode) Valid() bool {
+	switch e {
+	case ClipAnalysisRunModeFull:
+		return true
+	case ClipAnalysisRunModeMissing:
+		return true
+	case ClipAnalysisRunModeSteps:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisRunScope.
+const (
+	ClipAnalysisRunScopeFull          ClipAnalysisRunScope = "full"
+	ClipAnalysisRunScopeTranscription ClipAnalysisRunScope = "transcription"
+	ClipAnalysisRunScopeVoice         ClipAnalysisRunScope = "voice"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisRunScope enum.
+func (e ClipAnalysisRunScope) Valid() bool {
+	switch e {
+	case ClipAnalysisRunScopeFull:
+		return true
+	case ClipAnalysisRunScopeTranscription:
+		return true
+	case ClipAnalysisRunScopeVoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisRunStatus.
+const (
+	ClipAnalysisRunStatusActive    ClipAnalysisRunStatus = "active"
+	ClipAnalysisRunStatusCancelled ClipAnalysisRunStatus = "cancelled"
+	ClipAnalysisRunStatusCompleted ClipAnalysisRunStatus = "completed"
+	ClipAnalysisRunStatusFailed    ClipAnalysisRunStatus = "failed"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisRunStatus enum.
+func (e ClipAnalysisRunStatus) Valid() bool {
+	switch e {
+	case ClipAnalysisRunStatusActive:
+		return true
+	case ClipAnalysisRunStatusCancelled:
+		return true
+	case ClipAnalysisRunStatusCompleted:
+		return true
+	case ClipAnalysisRunStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisStepStatus.
+const (
+	ClipAnalysisStepStatusBlocked         ClipAnalysisStepStatus = "blocked"
+	ClipAnalysisStepStatusDone            ClipAnalysisStepStatus = "done"
+	ClipAnalysisStepStatusFailed          ClipAnalysisStepStatus = "failed"
+	ClipAnalysisStepStatusNotApplicable   ClipAnalysisStepStatus = "not_applicable"
+	ClipAnalysisStepStatusNotYetSupported ClipAnalysisStepStatus = "not_yet_supported"
+	ClipAnalysisStepStatusRetry           ClipAnalysisStepStatus = "retry"
+	ClipAnalysisStepStatusRunning         ClipAnalysisStepStatus = "running"
+	ClipAnalysisStepStatusWaiting         ClipAnalysisStepStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisStepStatus enum.
+func (e ClipAnalysisStepStatus) Valid() bool {
+	switch e {
+	case ClipAnalysisStepStatusBlocked:
+		return true
+	case ClipAnalysisStepStatusDone:
+		return true
+	case ClipAnalysisStepStatusFailed:
+		return true
+	case ClipAnalysisStepStatusNotApplicable:
+		return true
+	case ClipAnalysisStepStatusNotYetSupported:
+		return true
+	case ClipAnalysisStepStatusRetry:
+		return true
+	case ClipAnalysisStepStatusRunning:
+		return true
+	case ClipAnalysisStepStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisStepStep.
+const (
+	ClipAnalysisStepStepDiarization   ClipAnalysisStepStep = "diarization"
+	ClipAnalysisStepStepFingerprints  ClipAnalysisStepStep = "fingerprints"
+	ClipAnalysisStepStepIndexing      ClipAnalysisStepStep = "indexing"
+	ClipAnalysisStepStepMatching      ClipAnalysisStepStep = "matching"
+	ClipAnalysisStepStepPreparation   ClipAnalysisStepStep = "preparation"
+	ClipAnalysisStepStepTranscription ClipAnalysisStepStep = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisStepStep enum.
+func (e ClipAnalysisStepStep) Valid() bool {
+	switch e {
+	case ClipAnalysisStepStepDiarization:
+		return true
+	case ClipAnalysisStepStepFingerprints:
+		return true
+	case ClipAnalysisStepStepIndexing:
+		return true
+	case ClipAnalysisStepStepMatching:
+		return true
+	case ClipAnalysisStepStepPreparation:
+		return true
+	case ClipAnalysisStepStepTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisViewScope.
+const (
+	ClipAnalysisViewScopeFull          ClipAnalysisViewScope = "full"
+	ClipAnalysisViewScopeTranscription ClipAnalysisViewScope = "transcription"
+	ClipAnalysisViewScopeVoice         ClipAnalysisViewScope = "voice"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisViewScope enum.
+func (e ClipAnalysisViewScope) Valid() bool {
+	switch e {
+	case ClipAnalysisViewScopeFull:
+		return true
+	case ClipAnalysisViewScopeTranscription:
+		return true
+	case ClipAnalysisViewScopeVoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisViewStatus.
+const (
+	ClipAnalysisViewStatusActive    ClipAnalysisViewStatus = "active"
+	ClipAnalysisViewStatusCancelled ClipAnalysisViewStatus = "cancelled"
+	ClipAnalysisViewStatusCompleted ClipAnalysisViewStatus = "completed"
+	ClipAnalysisViewStatusFailed    ClipAnalysisViewStatus = "failed"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisViewStatus enum.
+func (e ClipAnalysisViewStatus) Valid() bool {
+	switch e {
+	case ClipAnalysisViewStatusActive:
+		return true
+	case ClipAnalysisViewStatusCancelled:
+		return true
+	case ClipAnalysisViewStatusCompleted:
+		return true
+	case ClipAnalysisViewStatusFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisViewStepsStatus.
+const (
+	ClipAnalysisViewStepsStatusBlocked       ClipAnalysisViewStepsStatus = "blocked"
+	ClipAnalysisViewStepsStatusDone          ClipAnalysisViewStepsStatus = "done"
+	ClipAnalysisViewStepsStatusFailed        ClipAnalysisViewStepsStatus = "failed"
+	ClipAnalysisViewStepsStatusNotApplicable ClipAnalysisViewStepsStatus = "not_applicable"
+	ClipAnalysisViewStepsStatusRetry         ClipAnalysisViewStepsStatus = "retry"
+	ClipAnalysisViewStepsStatusRunning       ClipAnalysisViewStepsStatus = "running"
+	ClipAnalysisViewStepsStatusWaiting       ClipAnalysisViewStepsStatus = "waiting"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisViewStepsStatus enum.
+func (e ClipAnalysisViewStepsStatus) Valid() bool {
+	switch e {
+	case ClipAnalysisViewStepsStatusBlocked:
+		return true
+	case ClipAnalysisViewStepsStatusDone:
+		return true
+	case ClipAnalysisViewStepsStatusFailed:
+		return true
+	case ClipAnalysisViewStepsStatusNotApplicable:
+		return true
+	case ClipAnalysisViewStepsStatusRetry:
+		return true
+	case ClipAnalysisViewStepsStatusRunning:
+		return true
+	case ClipAnalysisViewStepsStatusWaiting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClipAnalysisViewStepsStep.
+const (
+	ClipAnalysisViewStepsStepDiarization   ClipAnalysisViewStepsStep = "diarization"
+	ClipAnalysisViewStepsStepFingerprints  ClipAnalysisViewStepsStep = "fingerprints"
+	ClipAnalysisViewStepsStepIndexing      ClipAnalysisViewStepsStep = "indexing"
+	ClipAnalysisViewStepsStepMatching      ClipAnalysisViewStepsStep = "matching"
+	ClipAnalysisViewStepsStepPreparation   ClipAnalysisViewStepsStep = "preparation"
+	ClipAnalysisViewStepsStepTranscription ClipAnalysisViewStepsStep = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the ClipAnalysisViewStepsStep enum.
+func (e ClipAnalysisViewStepsStep) Valid() bool {
+	switch e {
+	case ClipAnalysisViewStepsStepDiarization:
+		return true
+	case ClipAnalysisViewStepsStepFingerprints:
+		return true
+	case ClipAnalysisViewStepsStepIndexing:
+		return true
+	case ClipAnalysisViewStepsStepMatching:
+		return true
+	case ClipAnalysisViewStepsStepPreparation:
+		return true
+	case ClipAnalysisViewStepsStepTranscription:
 		return true
 	default:
 		return false
@@ -209,6 +707,288 @@ func (e DecisionLevel) Valid() bool {
 	}
 }
 
+// Defines values for DiscordBotStatusStatus.
+const (
+	DiscordBotStatusStatusConnected     DiscordBotStatusStatus = "connected"
+	DiscordBotStatusStatusError         DiscordBotStatusStatus = "error"
+	DiscordBotStatusStatusNotConfigured DiscordBotStatusStatus = "not_configured"
+)
+
+// Valid indicates whether the value is a known member of the DiscordBotStatusStatus enum.
+func (e DiscordBotStatusStatus) Valid() bool {
+	switch e {
+	case DiscordBotStatusStatusConnected:
+		return true
+	case DiscordBotStatusStatusError:
+		return true
+	case DiscordBotStatusStatusNotConfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExplorerEntryState.
+const (
+	ExplorerEntryStateAnalyzed    ExplorerEntryState = "analyzed"
+	ExplorerEntryStateFailed      ExplorerEntryState = "failed"
+	ExplorerEntryStateInProgress  ExplorerEntryState = "in_progress"
+	ExplorerEntryStateNotAnalyzed ExplorerEntryState = "not_analyzed"
+	ExplorerEntryStateNotIndexed  ExplorerEntryState = "not_indexed"
+	ExplorerEntryStateTranscribed ExplorerEntryState = "transcribed"
+)
+
+// Valid indicates whether the value is a known member of the ExplorerEntryState enum.
+func (e ExplorerEntryState) Valid() bool {
+	switch e {
+	case ExplorerEntryStateAnalyzed:
+		return true
+	case ExplorerEntryStateFailed:
+		return true
+	case ExplorerEntryStateInProgress:
+		return true
+	case ExplorerEntryStateNotAnalyzed:
+		return true
+	case ExplorerEntryStateNotIndexed:
+		return true
+	case ExplorerEntryStateTranscribed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExplorerIndexResultState.
+const (
+	ExplorerIndexResultStateInProgress ExplorerIndexResultState = "in_progress"
+	ExplorerIndexResultStateIndexed    ExplorerIndexResultState = "indexed"
+)
+
+// Valid indicates whether the value is a known member of the ExplorerIndexResultState enum.
+func (e ExplorerIndexResultState) Valid() bool {
+	switch e {
+	case ExplorerIndexResultStateInProgress:
+		return true
+	case ExplorerIndexResultStateIndexed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FailureCode.
+const (
+	FailureCodeAudioPreparationFailed     FailureCode = "audio_preparation_failed"
+	FailureCodeCancelledByAdmin           FailureCode = "cancelled_by_admin"
+	FailureCodeDiarizationInferenceFailed FailureCode = "diarization_inference_failed"
+	FailureCodeGpuOutOfMemory             FailureCode = "gpu_out_of_memory"
+	FailureCodeGpuUnavailable             FailureCode = "gpu_unavailable"
+	FailureCodeHfAuthRequired             FailureCode = "hf_auth_required"
+	FailureCodeHfCacheError               FailureCode = "hf_cache_error"
+	FailureCodeHfNetwork                  FailureCode = "hf_network"
+	FailureCodeHfNotFound                 FailureCode = "hf_not_found"
+	FailureCodeInputVersionSuperseded     FailureCode = "input_version_superseded"
+	FailureCodeInvalidInput               FailureCode = "invalid_input"
+	FailureCodeLeaseExpired               FailureCode = "lease_expired"
+	FailureCodeMaxAttemptsExhausted       FailureCode = "max_attempts_exhausted"
+	FailureCodeModelsVolumeUnwritable     FailureCode = "models_volume_unwritable"
+	FailureCodeProviderUnavailable        FailureCode = "provider_unavailable"
+	FailureCodePyannoteAccessDenied       FailureCode = "pyannote_access_denied"
+	FailureCodePyannoteModelMissing       FailureCode = "pyannote_model_missing"
+	FailureCodeWhisperHttpError           FailureCode = "whisper_http_error"
+	FailureCodeWhisperInvalidResponse     FailureCode = "whisper_invalid_response"
+	FailureCodeWhisperModelMissing        FailureCode = "whisper_model_missing"
+	FailureCodeWhisperNetwork             FailureCode = "whisper_network"
+	FailureCodeWhisperTimeout             FailureCode = "whisper_timeout"
+	FailureCodeWorkerFailed               FailureCode = "worker_failed"
+	FailureCodeWorkerRevoked              FailureCode = "worker_revoked"
+)
+
+// Valid indicates whether the value is a known member of the FailureCode enum.
+func (e FailureCode) Valid() bool {
+	switch e {
+	case FailureCodeAudioPreparationFailed:
+		return true
+	case FailureCodeCancelledByAdmin:
+		return true
+	case FailureCodeDiarizationInferenceFailed:
+		return true
+	case FailureCodeGpuOutOfMemory:
+		return true
+	case FailureCodeGpuUnavailable:
+		return true
+	case FailureCodeHfAuthRequired:
+		return true
+	case FailureCodeHfCacheError:
+		return true
+	case FailureCodeHfNetwork:
+		return true
+	case FailureCodeHfNotFound:
+		return true
+	case FailureCodeInputVersionSuperseded:
+		return true
+	case FailureCodeInvalidInput:
+		return true
+	case FailureCodeLeaseExpired:
+		return true
+	case FailureCodeMaxAttemptsExhausted:
+		return true
+	case FailureCodeModelsVolumeUnwritable:
+		return true
+	case FailureCodeProviderUnavailable:
+		return true
+	case FailureCodePyannoteAccessDenied:
+		return true
+	case FailureCodePyannoteModelMissing:
+		return true
+	case FailureCodeWhisperHttpError:
+		return true
+	case FailureCodeWhisperInvalidResponse:
+		return true
+	case FailureCodeWhisperModelMissing:
+		return true
+	case FailureCodeWhisperNetwork:
+		return true
+	case FailureCodeWhisperTimeout:
+		return true
+	case FailureCodeWorkerFailed:
+		return true
+	case FailureCodeWorkerRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FingerprintTransitionPhase.
+const (
+	FingerprintTransitionPhaseCancelled   FingerprintTransitionPhase = "cancelled"
+	FingerprintTransitionPhasePreparing   FingerprintTransitionPhase = "preparing"
+	FingerprintTransitionPhaseRecomputing FingerprintTransitionPhase = "recomputing"
+	FingerprintTransitionPhaseSwitched    FingerprintTransitionPhase = "switched"
+)
+
+// Valid indicates whether the value is a known member of the FingerprintTransitionPhase enum.
+func (e FingerprintTransitionPhase) Valid() bool {
+	switch e {
+	case FingerprintTransitionPhaseCancelled:
+		return true
+	case FingerprintTransitionPhasePreparing:
+		return true
+	case FingerprintTransitionPhaseRecomputing:
+		return true
+	case FingerprintTransitionPhaseSwitched:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HFTokenStatusWorkersErrorCode.
+const (
+	HFTokenStatusWorkersErrorCodeEmpty              HFTokenStatusWorkersErrorCode = ""
+	HFTokenStatusWorkersErrorCodeHfTokenStoreFailed HFTokenStatusWorkersErrorCode = "hf_token_store_failed"
+)
+
+// Valid indicates whether the value is a known member of the HFTokenStatusWorkersErrorCode enum.
+func (e HFTokenStatusWorkersErrorCode) Valid() bool {
+	switch e {
+	case HFTokenStatusWorkersErrorCodeEmpty:
+		return true
+	case HFTokenStatusWorkersErrorCodeHfTokenStoreFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HFTokenStatusWorkersSource.
+const (
+	HFTokenStatusWorkersSourceCentral HFTokenStatusWorkersSource = "central"
+	HFTokenStatusWorkersSourceEmpty   HFTokenStatusWorkersSource = ""
+	HFTokenStatusWorkersSourceLocal   HFTokenStatusWorkersSource = "local"
+	HFTokenStatusWorkersSourceNone    HFTokenStatusWorkersSource = "none"
+)
+
+// Valid indicates whether the value is a known member of the HFTokenStatusWorkersSource enum.
+func (e HFTokenStatusWorkersSource) Valid() bool {
+	switch e {
+	case HFTokenStatusWorkersSourceCentral:
+		return true
+	case HFTokenStatusWorkersSourceEmpty:
+		return true
+	case HFTokenStatusWorkersSourceLocal:
+		return true
+	case HFTokenStatusWorkersSourceNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for HFTokenStatusWorkersState.
+const (
+	HFTokenStatusWorkersStateError   HFTokenStatusWorkersState = "error"
+	HFTokenStatusWorkersStatePending HFTokenStatusWorkersState = "pending"
+	HFTokenStatusWorkersStateSynced  HFTokenStatusWorkersState = "synced"
+)
+
+// Valid indicates whether the value is a known member of the HFTokenStatusWorkersState enum.
+func (e HFTokenStatusWorkersState) Valid() bool {
+	switch e {
+	case HFTokenStatusWorkersStateError:
+		return true
+	case HFTokenStatusWorkersStatePending:
+		return true
+	case HFTokenStatusWorkersStateSynced:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexRunMode.
+const (
+	IndexRunModeCards IndexRunMode = "cards"
+	IndexRunModeFull  IndexRunMode = "full"
+)
+
+// Valid indicates whether the value is a known member of the IndexRunMode enum.
+func (e IndexRunMode) Valid() bool {
+	switch e {
+	case IndexRunModeCards:
+		return true
+	case IndexRunModeFull:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for IndexRunStatus.
+const (
+	IndexRunStatusCancelled IndexRunStatus = "cancelled"
+	IndexRunStatusCompleted IndexRunStatus = "completed"
+	IndexRunStatusPaused    IndexRunStatus = "paused"
+	IndexRunStatusRunning   IndexRunStatus = "running"
+)
+
+// Valid indicates whether the value is a known member of the IndexRunStatus enum.
+func (e IndexRunStatus) Valid() bool {
+	switch e {
+	case IndexRunStatusCancelled:
+		return true
+	case IndexRunStatusCompleted:
+		return true
+	case IndexRunStatusPaused:
+		return true
+	case IndexRunStatusRunning:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for JobStatus.
 const (
 	JobStatusCancelled JobStatus = "cancelled"
@@ -272,6 +1052,7 @@ const (
 	JobEventEventLeaseExpired    JobEventEvent = "lease_expired"
 	JobEventEventMarkedDead      JobEventEvent = "marked_dead"
 	JobEventEventRetryScheduled  JobEventEvent = "retry_scheduled"
+	JobEventEventWorkerRevoked   JobEventEvent = "worker_revoked"
 )
 
 // Valid indicates whether the value is a known member of the JobEventEvent enum.
@@ -290,6 +1071,26 @@ func (e JobEventEvent) Valid() bool {
 	case JobEventEventMarkedDead:
 		return true
 	case JobEventEventRetryScheduled:
+		return true
+	case JobEventEventWorkerRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LocalSpeakerDisposition.
+const (
+	LocalSpeakerDispositionIgnored LocalSpeakerDisposition = "ignored"
+	LocalSpeakerDispositionRandom  LocalSpeakerDisposition = "random"
+)
+
+// Valid indicates whether the value is a known member of the LocalSpeakerDisposition enum.
+func (e LocalSpeakerDisposition) Valid() bool {
+	switch e {
+	case LocalSpeakerDispositionIgnored:
+		return true
+	case LocalSpeakerDispositionRandom:
 		return true
 	default:
 		return false
@@ -380,6 +1181,81 @@ func (e MemberRole) Valid() bool {
 	case MemberRoleSuperAdmin:
 		return true
 	case MemberRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemberDetailLanguage.
+const (
+	MemberDetailLanguageEn MemberDetailLanguage = "en"
+	MemberDetailLanguageFr MemberDetailLanguage = "fr"
+)
+
+// Valid indicates whether the value is a known member of the MemberDetailLanguage enum.
+func (e MemberDetailLanguage) Valid() bool {
+	switch e {
+	case MemberDetailLanguageEn:
+		return true
+	case MemberDetailLanguageFr:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemberDetailRole.
+const (
+	MemberDetailRoleAdmin      MemberDetailRole = "admin"
+	MemberDetailRoleSuperAdmin MemberDetailRole = "super_admin"
+	MemberDetailRoleUser       MemberDetailRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the MemberDetailRole enum.
+func (e MemberDetailRole) Valid() bool {
+	switch e {
+	case MemberDetailRoleAdmin:
+		return true
+	case MemberDetailRoleSuperAdmin:
+		return true
+	case MemberDetailRoleUser:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemberPatchLanguage.
+const (
+	MemberPatchLanguageEn MemberPatchLanguage = "en"
+	MemberPatchLanguageFr MemberPatchLanguage = "fr"
+)
+
+// Valid indicates whether the value is a known member of the MemberPatchLanguage enum.
+func (e MemberPatchLanguage) Valid() bool {
+	switch e {
+	case MemberPatchLanguageEn:
+		return true
+	case MemberPatchLanguageFr:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MemberPatchRole.
+const (
+	MemberPatchRoleAdmin MemberPatchRole = "admin"
+	MemberPatchRoleUser  MemberPatchRole = "user"
+)
+
+// Valid indicates whether the value is a known member of the MemberPatchRole enum.
+func (e MemberPatchRole) Valid() bool {
+	switch e {
+	case MemberPatchRoleAdmin:
+		return true
+	case MemberPatchRoleUser:
 		return true
 	default:
 		return false
@@ -482,6 +1358,81 @@ func (e MicrophoneTrackStatus) Valid() bool {
 	}
 }
 
+// Defines values for NotificationFolderOutcome.
+const (
+	NotificationFolderOutcomeApproved NotificationFolderOutcome = "approved"
+	NotificationFolderOutcomeEmpty    NotificationFolderOutcome = ""
+	NotificationFolderOutcomeRefused  NotificationFolderOutcome = "refused"
+)
+
+// Valid indicates whether the value is a known member of the NotificationFolderOutcome enum.
+func (e NotificationFolderOutcome) Valid() bool {
+	switch e {
+	case NotificationFolderOutcomeApproved:
+		return true
+	case NotificationFolderOutcomeEmpty:
+		return true
+	case NotificationFolderOutcomeRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationKind.
+const (
+	NotificationKindFolderRequestDecided NotificationKind = "folder_request_decided"
+	NotificationKindJobBlocked           NotificationKind = "job_blocked"
+	NotificationKindJobFailed            NotificationKind = "job_failed"
+	NotificationKindModelMissing         NotificationKind = "model_missing"
+	NotificationKindNeedsSpeakerReview   NotificationKind = "needs_speaker_review"
+	NotificationKindProviderUnavailable  NotificationKind = "provider_unavailable"
+	NotificationKindTechnicalIncident    NotificationKind = "technical_incident"
+	NotificationKindWorkerUnavailable    NotificationKind = "worker_unavailable"
+)
+
+// Valid indicates whether the value is a known member of the NotificationKind enum.
+func (e NotificationKind) Valid() bool {
+	switch e {
+	case NotificationKindFolderRequestDecided:
+		return true
+	case NotificationKindJobBlocked:
+		return true
+	case NotificationKindJobFailed:
+		return true
+	case NotificationKindModelMissing:
+		return true
+	case NotificationKindNeedsSpeakerReview:
+		return true
+	case NotificationKindProviderUnavailable:
+		return true
+	case NotificationKindTechnicalIncident:
+		return true
+	case NotificationKindWorkerUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NotificationState.
+const (
+	NotificationStateActive   NotificationState = "active"
+	NotificationStateResolved NotificationState = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the NotificationState enum.
+func (e NotificationState) Valid() bool {
+	switch e {
+	case NotificationStateActive:
+		return true
+	case NotificationStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PersonEventAction.
 const (
 	Delete PersonEventAction = "delete"
@@ -497,6 +1448,42 @@ func (e PersonEventAction) Valid() bool {
 	case Merge:
 		return true
 	case Split:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonExistsError.
+const (
+	PersonExistsErrorPersonExists PersonExistsError = "person_exists"
+)
+
+// Valid indicates whether the value is a known member of the PersonExistsError enum.
+func (e PersonExistsError) Valid() bool {
+	switch e {
+	case PersonExistsErrorPersonExists:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PersonLinkRequestStatus.
+const (
+	PersonLinkRequestStatusApproved PersonLinkRequestStatus = "approved"
+	PersonLinkRequestStatusPending  PersonLinkRequestStatus = "pending"
+	PersonLinkRequestStatusRefused  PersonLinkRequestStatus = "refused"
+)
+
+// Valid indicates whether the value is a known member of the PersonLinkRequestStatus enum.
+func (e PersonLinkRequestStatus) Valid() bool {
+	switch e {
+	case PersonLinkRequestStatusApproved:
+		return true
+	case PersonLinkRequestStatusPending:
+		return true
+	case PersonLinkRequestStatusRefused:
 		return true
 	default:
 		return false
@@ -668,7 +1655,9 @@ func (e SetupStepInputState) Valid() bool {
 // Defines values for SetupStepInputStep.
 const (
 	SetupStepInputStepDiscord        SetupStepInputStep = "discord"
+	SetupStepInputStepHuggingface    SetupStepInputStep = "huggingface"
 	SetupStepInputStepImport         SetupStepInputStep = "import"
+	SetupStepInputStepLocation       SetupStepInputStep = "location"
 	SetupStepInputStepSemanticSearch SetupStepInputStep = "semantic_search"
 	SetupStepInputStepWorker         SetupStepInputStep = "worker"
 )
@@ -678,7 +1667,11 @@ func (e SetupStepInputStep) Valid() bool {
 	switch e {
 	case SetupStepInputStepDiscord:
 		return true
+	case SetupStepInputStepHuggingface:
+		return true
 	case SetupStepInputStepImport:
+		return true
+	case SetupStepInputStepLocation:
 		return true
 	case SetupStepInputStepSemanticSearch:
 		return true
@@ -713,7 +1706,9 @@ func (e SetupStepStateState) Valid() bool {
 // Defines values for SetupStepStateStep.
 const (
 	SetupStepStateStepDiscord        SetupStepStateStep = "discord"
+	SetupStepStateStepHuggingface    SetupStepStateStep = "huggingface"
 	SetupStepStateStepImport         SetupStepStateStep = "import"
+	SetupStepStateStepLocation       SetupStepStateStep = "location"
 	SetupStepStateStepSemanticSearch SetupStepStateStep = "semantic_search"
 	SetupStepStateStepWorker         SetupStepStateStep = "worker"
 )
@@ -723,7 +1718,11 @@ func (e SetupStepStateStep) Valid() bool {
 	switch e {
 	case SetupStepStateStepDiscord:
 		return true
+	case SetupStepStateStepHuggingface:
+		return true
 	case SetupStepStateStepImport:
+		return true
+	case SetupStepStateStepLocation:
 		return true
 	case SetupStepStateStepSemanticSearch:
 		return true
@@ -797,6 +1796,30 @@ func (e SourceFileStatus) Valid() bool {
 	}
 }
 
+// Defines values for SpeakerCoverageCoverageStatus.
+const (
+	NoTranscript       SpeakerCoverageCoverageStatus = "no_transcript"
+	OutsideTranscript  SpeakerCoverageCoverageStatus = "outside_transcript"
+	SpeechWithoutWords SpeakerCoverageCoverageStatus = "speech_without_words"
+	Words              SpeakerCoverageCoverageStatus = "words"
+)
+
+// Valid indicates whether the value is a known member of the SpeakerCoverageCoverageStatus enum.
+func (e SpeakerCoverageCoverageStatus) Valid() bool {
+	switch e {
+	case NoTranscript:
+		return true
+	case OutsideTranscript:
+		return true
+	case SpeechWithoutWords:
+		return true
+	case Words:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TranscriptionPipelinePreparation.
 const (
 	Wav16khzMonoV1 TranscriptionPipelinePreparation = "wav-16khz-mono-v1"
@@ -839,6 +1862,66 @@ func (e TranscriptionPipelineVadMode) Valid() bool {
 	case Energy:
 		return true
 	case Off:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TranscriptionSettingsInputMode.
+const (
+	TranscriptionSettingsInputModeDisabled TranscriptionSettingsInputMode = "disabled"
+	TranscriptionSettingsInputModeEnabled  TranscriptionSettingsInputMode = "enabled"
+)
+
+// Valid indicates whether the value is a known member of the TranscriptionSettingsInputMode enum.
+func (e TranscriptionSettingsInputMode) Valid() bool {
+	switch e {
+	case TranscriptionSettingsInputModeDisabled:
+		return true
+	case TranscriptionSettingsInputModeEnabled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TranscriptionSettingsStateMode.
+const (
+	TranscriptionSettingsStateModeDisabled     TranscriptionSettingsStateMode = "disabled"
+	TranscriptionSettingsStateModeEnabled      TranscriptionSettingsStateMode = "enabled"
+	TranscriptionSettingsStateModeUnconfigured TranscriptionSettingsStateMode = "unconfigured"
+)
+
+// Valid indicates whether the value is a known member of the TranscriptionSettingsStateMode enum.
+func (e TranscriptionSettingsStateMode) Valid() bool {
+	switch e {
+	case TranscriptionSettingsStateModeDisabled:
+		return true
+	case TranscriptionSettingsStateModeEnabled:
+		return true
+	case TranscriptionSettingsStateModeUnconfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TranscriptionSettingsStateStatus.
+const (
+	TranscriptionSettingsStateStatusDisabled     TranscriptionSettingsStateStatus = "disabled"
+	TranscriptionSettingsStateStatusUnconfigured TranscriptionSettingsStateStatus = "unconfigured"
+	TranscriptionSettingsStateStatusUntested     TranscriptionSettingsStateStatus = "untested"
+)
+
+// Valid indicates whether the value is a known member of the TranscriptionSettingsStateStatus enum.
+func (e TranscriptionSettingsStateStatus) Valid() bool {
+	switch e {
+	case TranscriptionSettingsStateStatusDisabled:
+		return true
+	case TranscriptionSettingsStateStatusUnconfigured:
+		return true
+	case TranscriptionSettingsStateStatusUntested:
 		return true
 	default:
 		return false
@@ -989,6 +2072,42 @@ func (e VoiceAutomationEventAction) Valid() bool {
 	}
 }
 
+// Defines values for VoiceDispositionInputDisposition.
+const (
+	VoiceDispositionInputDispositionIgnored VoiceDispositionInputDisposition = "ignored"
+	VoiceDispositionInputDispositionRandom  VoiceDispositionInputDisposition = "random"
+)
+
+// Valid indicates whether the value is a known member of the VoiceDispositionInputDisposition enum.
+func (e VoiceDispositionInputDisposition) Valid() bool {
+	switch e {
+	case VoiceDispositionInputDispositionIgnored:
+		return true
+	case VoiceDispositionInputDispositionRandom:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceDispositionViewDisposition.
+const (
+	VoiceDispositionViewDispositionIgnored VoiceDispositionViewDisposition = "ignored"
+	VoiceDispositionViewDispositionRandom  VoiceDispositionViewDisposition = "random"
+)
+
+// Valid indicates whether the value is a known member of the VoiceDispositionViewDisposition enum.
+func (e VoiceDispositionViewDisposition) Valid() bool {
+	switch e {
+	case VoiceDispositionViewDispositionIgnored:
+		return true
+	case VoiceDispositionViewDispositionRandom:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VoiceFingerprintScope.
 const (
 	VoiceFingerprintScopeSpeaker VoiceFingerprintScope = "speaker"
@@ -1009,19 +2128,325 @@ func (e VoiceFingerprintScope) Valid() bool {
 
 // Defines values for VoiceFingerprintUnusableReason.
 const (
-	Empty      VoiceFingerprintUnusableReason = ""
-	LowQuality VoiceFingerprintUnusableReason = "low_quality"
-	TooShort   VoiceFingerprintUnusableReason = "too_short"
+	VoiceFingerprintUnusableReasonEmpty      VoiceFingerprintUnusableReason = ""
+	VoiceFingerprintUnusableReasonLowQuality VoiceFingerprintUnusableReason = "low_quality"
+	VoiceFingerprintUnusableReasonTooShort   VoiceFingerprintUnusableReason = "too_short"
 )
 
 // Valid indicates whether the value is a known member of the VoiceFingerprintUnusableReason enum.
 func (e VoiceFingerprintUnusableReason) Valid() bool {
 	switch e {
-	case Empty:
+	case VoiceFingerprintUnusableReasonEmpty:
 		return true
-	case LowQuality:
+	case VoiceFingerprintUnusableReasonLowQuality:
 		return true
-	case TooShort:
+	case VoiceFingerprintUnusableReasonTooShort:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceGroupDispositionDisposition.
+const (
+	VoiceGroupDispositionDispositionIgnored VoiceGroupDispositionDisposition = "ignored"
+	VoiceGroupDispositionDispositionRandom  VoiceGroupDispositionDisposition = "random"
+)
+
+// Valid indicates whether the value is a known member of the VoiceGroupDispositionDisposition enum.
+func (e VoiceGroupDispositionDisposition) Valid() bool {
+	switch e {
+	case VoiceGroupDispositionDispositionIgnored:
+		return true
+	case VoiceGroupDispositionDispositionRandom:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceGroupDispositionInputDisposition.
+const (
+	VoiceGroupDispositionInputDispositionIgnored VoiceGroupDispositionInputDisposition = "ignored"
+	VoiceGroupDispositionInputDispositionRandom  VoiceGroupDispositionInputDisposition = "random"
+)
+
+// Valid indicates whether the value is a known member of the VoiceGroupDispositionInputDisposition enum.
+func (e VoiceGroupDispositionInputDisposition) Valid() bool {
+	switch e {
+	case VoiceGroupDispositionInputDispositionIgnored:
+		return true
+	case VoiceGroupDispositionInputDispositionRandom:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelKind.
+const (
+	VoiceModelKindDiarization VoiceModelKind = "diarization"
+	VoiceModelKindFingerprint VoiceModelKind = "fingerprint"
+	VoiceModelKindSeparation  VoiceModelKind = "separation"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelKind enum.
+func (e VoiceModelKind) Valid() bool {
+	switch e {
+	case VoiceModelKindDiarization:
+		return true
+	case VoiceModelKindFingerprint:
+		return true
+	case VoiceModelKindSeparation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelAddKind.
+const (
+	VoiceModelAddKindDiarization VoiceModelAddKind = "diarization"
+	VoiceModelAddKindFingerprint VoiceModelAddKind = "fingerprint"
+	VoiceModelAddKindSeparation  VoiceModelAddKind = "separation"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelAddKind enum.
+func (e VoiceModelAddKind) Valid() bool {
+	switch e {
+	case VoiceModelAddKindDiarization:
+		return true
+	case VoiceModelAddKindFingerprint:
+		return true
+	case VoiceModelAddKindSeparation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelInspectionCompatibleKinds.
+const (
+	VoiceModelInspectionCompatibleKindsDiarization VoiceModelInspectionCompatibleKinds = "diarization"
+	VoiceModelInspectionCompatibleKindsFingerprint VoiceModelInspectionCompatibleKinds = "fingerprint"
+	VoiceModelInspectionCompatibleKindsSeparation  VoiceModelInspectionCompatibleKinds = "separation"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelInspectionCompatibleKinds enum.
+func (e VoiceModelInspectionCompatibleKinds) Valid() bool {
+	switch e {
+	case VoiceModelInspectionCompatibleKindsDiarization:
+		return true
+	case VoiceModelInspectionCompatibleKindsFingerprint:
+		return true
+	case VoiceModelInspectionCompatibleKindsSeparation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelOrderHistoryItemAction.
+const (
+	VoiceModelOrderHistoryItemActionInstall VoiceModelOrderHistoryItemAction = "install"
+	VoiceModelOrderHistoryItemActionRemove  VoiceModelOrderHistoryItemAction = "remove"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelOrderHistoryItemAction enum.
+func (e VoiceModelOrderHistoryItemAction) Valid() bool {
+	switch e {
+	case VoiceModelOrderHistoryItemActionInstall:
+		return true
+	case VoiceModelOrderHistoryItemActionRemove:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelOrderHistoryItemKind.
+const (
+	VoiceModelOrderHistoryItemKindDiarization VoiceModelOrderHistoryItemKind = "diarization"
+	VoiceModelOrderHistoryItemKindFingerprint VoiceModelOrderHistoryItemKind = "fingerprint"
+	VoiceModelOrderHistoryItemKindSeparation  VoiceModelOrderHistoryItemKind = "separation"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelOrderHistoryItemKind enum.
+func (e VoiceModelOrderHistoryItemKind) Valid() bool {
+	switch e {
+	case VoiceModelOrderHistoryItemKindDiarization:
+		return true
+	case VoiceModelOrderHistoryItemKindFingerprint:
+		return true
+	case VoiceModelOrderHistoryItemKindSeparation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelOrderHistoryItemStatus.
+const (
+	VoiceModelOrderHistoryItemStatusAcknowledged VoiceModelOrderHistoryItemStatus = "acknowledged"
+	VoiceModelOrderHistoryItemStatusCancelled    VoiceModelOrderHistoryItemStatus = "cancelled"
+	VoiceModelOrderHistoryItemStatusDone         VoiceModelOrderHistoryItemStatus = "done"
+	VoiceModelOrderHistoryItemStatusFailed       VoiceModelOrderHistoryItemStatus = "failed"
+	VoiceModelOrderHistoryItemStatusPending      VoiceModelOrderHistoryItemStatus = "pending"
+	VoiceModelOrderHistoryItemStatusRefused      VoiceModelOrderHistoryItemStatus = "refused"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelOrderHistoryItemStatus enum.
+func (e VoiceModelOrderHistoryItemStatus) Valid() bool {
+	switch e {
+	case VoiceModelOrderHistoryItemStatusAcknowledged:
+		return true
+	case VoiceModelOrderHistoryItemStatusCancelled:
+		return true
+	case VoiceModelOrderHistoryItemStatusDone:
+		return true
+	case VoiceModelOrderHistoryItemStatusFailed:
+		return true
+	case VoiceModelOrderHistoryItemStatusPending:
+		return true
+	case VoiceModelOrderHistoryItemStatusRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelWorkerStateCauseCode.
+const (
+	VoiceModelWorkerStateCauseCodeDiskFull               VoiceModelWorkerStateCauseCode = "disk_full"
+	VoiceModelWorkerStateCauseCodeEmpty                  VoiceModelWorkerStateCauseCode = ""
+	VoiceModelWorkerStateCauseCodeHfAccessDenied         VoiceModelWorkerStateCauseCode = "hf_access_denied"
+	VoiceModelWorkerStateCauseCodeHfAuthRequired         VoiceModelWorkerStateCauseCode = "hf_auth_required"
+	VoiceModelWorkerStateCauseCodeHfCacheError           VoiceModelWorkerStateCauseCode = "hf_cache_error"
+	VoiceModelWorkerStateCauseCodeHfGatedDenied          VoiceModelWorkerStateCauseCode = "hf_gated_denied"
+	VoiceModelWorkerStateCauseCodeHfNetwork              VoiceModelWorkerStateCauseCode = "hf_network"
+	VoiceModelWorkerStateCauseCodeHfNotFound             VoiceModelWorkerStateCauseCode = "hf_not_found"
+	VoiceModelWorkerStateCauseCodeHfRepoInvalid          VoiceModelWorkerStateCauseCode = "hf_repo_invalid"
+	VoiceModelWorkerStateCauseCodeHfTokenInvalid         VoiceModelWorkerStateCauseCode = "hf_token_invalid"
+	VoiceModelWorkerStateCauseCodeHfTokenMissing         VoiceModelWorkerStateCauseCode = "hf_token_missing"
+	VoiceModelWorkerStateCauseCodeInferenceFailed        VoiceModelWorkerStateCauseCode = "inference_failed"
+	VoiceModelWorkerStateCauseCodeInvalidOrder           VoiceModelWorkerStateCauseCode = "invalid_order"
+	VoiceModelWorkerStateCauseCodeModelsVolumeUnwritable VoiceModelWorkerStateCauseCode = "models_volume_unwritable"
+	VoiceModelWorkerStateCauseCodeRuntimeIncompatible    VoiceModelWorkerStateCauseCode = "runtime_incompatible"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelWorkerStateCauseCode enum.
+func (e VoiceModelWorkerStateCauseCode) Valid() bool {
+	switch e {
+	case VoiceModelWorkerStateCauseCodeDiskFull:
+		return true
+	case VoiceModelWorkerStateCauseCodeEmpty:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfAccessDenied:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfAuthRequired:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfCacheError:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfGatedDenied:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfNetwork:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfNotFound:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfRepoInvalid:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfTokenInvalid:
+		return true
+	case VoiceModelWorkerStateCauseCodeHfTokenMissing:
+		return true
+	case VoiceModelWorkerStateCauseCodeInferenceFailed:
+		return true
+	case VoiceModelWorkerStateCauseCodeInvalidOrder:
+		return true
+	case VoiceModelWorkerStateCauseCodeModelsVolumeUnwritable:
+		return true
+	case VoiceModelWorkerStateCauseCodeRuntimeIncompatible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceModelWorkerStateState.
+const (
+	VoiceModelWorkerStateStateDownloading  VoiceModelWorkerStateState = "downloading"
+	VoiceModelWorkerStateStateFailed       VoiceModelWorkerStateState = "failed"
+	VoiceModelWorkerStateStateNotInstalled VoiceModelWorkerStateState = "not_installed"
+	VoiceModelWorkerStateStateReady        VoiceModelWorkerStateState = "ready"
+	VoiceModelWorkerStateStateRemoving     VoiceModelWorkerStateState = "removing"
+	VoiceModelWorkerStateStateRequested    VoiceModelWorkerStateState = "requested"
+	VoiceModelWorkerStateStateSwitching    VoiceModelWorkerStateState = "switching"
+	VoiceModelWorkerStateStateVerifying    VoiceModelWorkerStateState = "verifying"
+)
+
+// Valid indicates whether the value is a known member of the VoiceModelWorkerStateState enum.
+func (e VoiceModelWorkerStateState) Valid() bool {
+	switch e {
+	case VoiceModelWorkerStateStateDownloading:
+		return true
+	case VoiceModelWorkerStateStateFailed:
+		return true
+	case VoiceModelWorkerStateStateNotInstalled:
+		return true
+	case VoiceModelWorkerStateStateReady:
+		return true
+	case VoiceModelWorkerStateStateRemoving:
+		return true
+	case VoiceModelWorkerStateStateRequested:
+		return true
+	case VoiceModelWorkerStateStateSwitching:
+		return true
+	case VoiceModelWorkerStateStateVerifying:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceOverviewProvider.
+const (
+	VoiceOverviewProviderFake     VoiceOverviewProvider = "fake"
+	VoiceOverviewProviderNemo     VoiceOverviewProvider = "nemo"
+	VoiceOverviewProviderPyannote VoiceOverviewProvider = "pyannote"
+)
+
+// Valid indicates whether the value is a known member of the VoiceOverviewProvider enum.
+func (e VoiceOverviewProvider) Valid() bool {
+	switch e {
+	case VoiceOverviewProviderFake:
+		return true
+	case VoiceOverviewProviderNemo:
+		return true
+	case VoiceOverviewProviderPyannote:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for VoiceOverviewWorkerVoiceState.
+const (
+	VoiceOverviewWorkerVoiceStateModelsMissing VoiceOverviewWorkerVoiceState = "models_missing"
+	VoiceOverviewWorkerVoiceStateReady         VoiceOverviewWorkerVoiceState = "ready"
+	VoiceOverviewWorkerVoiceStateUnavailable   VoiceOverviewWorkerVoiceState = "unavailable"
+	VoiceOverviewWorkerVoiceStateUntested      VoiceOverviewWorkerVoiceState = "untested"
+)
+
+// Valid indicates whether the value is a known member of the VoiceOverviewWorkerVoiceState enum.
+func (e VoiceOverviewWorkerVoiceState) Valid() bool {
+	switch e {
+	case VoiceOverviewWorkerVoiceStateModelsMissing:
+		return true
+	case VoiceOverviewWorkerVoiceStateReady:
+		return true
+	case VoiceOverviewWorkerVoiceStateUnavailable:
+		return true
+	case VoiceOverviewWorkerVoiceStateUntested:
 		return true
 	default:
 		return false
@@ -1030,16 +2455,19 @@ func (e VoiceFingerprintUnusableReason) Valid() bool {
 
 // Defines values for VoicePipelineProvider.
 const (
-	Fake     VoicePipelineProvider = "fake"
-	Pyannote VoicePipelineProvider = "pyannote"
+	VoicePipelineProviderFake     VoicePipelineProvider = "fake"
+	VoicePipelineProviderNemo     VoicePipelineProvider = "nemo"
+	VoicePipelineProviderPyannote VoicePipelineProvider = "pyannote"
 )
 
 // Valid indicates whether the value is a known member of the VoicePipelineProvider enum.
 func (e VoicePipelineProvider) Valid() bool {
 	switch e {
-	case Fake:
+	case VoicePipelineProviderFake:
 		return true
-	case Pyannote:
+	case VoicePipelineProviderNemo:
+		return true
+	case VoicePipelineProviderPyannote:
 		return true
 	default:
 		return false
@@ -1097,6 +2525,417 @@ func (e VoiceVerificationCaseDecisionLevel) Valid() bool {
 	}
 }
 
+// Defines values for WorkerHFTokenAckErrorCode.
+const (
+	WorkerHFTokenAckErrorCodeEmpty              WorkerHFTokenAckErrorCode = ""
+	WorkerHFTokenAckErrorCodeHfTokenStoreFailed WorkerHFTokenAckErrorCode = "hf_token_store_failed"
+)
+
+// Valid indicates whether the value is a known member of the WorkerHFTokenAckErrorCode enum.
+func (e WorkerHFTokenAckErrorCode) Valid() bool {
+	switch e {
+	case WorkerHFTokenAckErrorCodeEmpty:
+		return true
+	case WorkerHFTokenAckErrorCodeHfTokenStoreFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerHFTokenAckOutcome.
+const (
+	WorkerHFTokenAckOutcomeApplied   WorkerHFTokenAckOutcome = "applied"
+	WorkerHFTokenAckOutcomeFailed    WorkerHFTokenAckOutcome = "failed"
+	WorkerHFTokenAckOutcomeKeptLocal WorkerHFTokenAckOutcome = "kept_local"
+	WorkerHFTokenAckOutcomeRemoved   WorkerHFTokenAckOutcome = "removed"
+)
+
+// Valid indicates whether the value is a known member of the WorkerHFTokenAckOutcome enum.
+func (e WorkerHFTokenAckOutcome) Valid() bool {
+	switch e {
+	case WorkerHFTokenAckOutcomeApplied:
+		return true
+	case WorkerHFTokenAckOutcomeFailed:
+		return true
+	case WorkerHFTokenAckOutcomeKeptLocal:
+		return true
+	case WorkerHFTokenAckOutcomeRemoved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerHFTokenAckSource.
+const (
+	WorkerHFTokenAckSourceCentral WorkerHFTokenAckSource = "central"
+	WorkerHFTokenAckSourceLocal   WorkerHFTokenAckSource = "local"
+	WorkerHFTokenAckSourceNone    WorkerHFTokenAckSource = "none"
+)
+
+// Valid indicates whether the value is a known member of the WorkerHFTokenAckSource enum.
+func (e WorkerHFTokenAckSource) Valid() bool {
+	switch e {
+	case WorkerHFTokenAckSourceCentral:
+		return true
+	case WorkerHFTokenAckSourceLocal:
+		return true
+	case WorkerHFTokenAckSourceNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerInstallState.
+const (
+	WorkerInstallStateConnected      WorkerInstallState = "connected"
+	WorkerInstallStateFailed         WorkerInstallState = "failed"
+	WorkerInstallStateInstalling     WorkerInstallState = "installing"
+	WorkerInstallStateNeverConnected WorkerInstallState = "never_connected"
+	WorkerInstallStateVoiceReady     WorkerInstallState = "voice_ready"
+)
+
+// Valid indicates whether the value is a known member of the WorkerInstallState enum.
+func (e WorkerInstallState) Valid() bool {
+	switch e {
+	case WorkerInstallStateConnected:
+		return true
+	case WorkerInstallStateFailed:
+		return true
+	case WorkerInstallStateInstalling:
+		return true
+	case WorkerInstallStateNeverConnected:
+		return true
+	case WorkerInstallStateVoiceReady:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerInstallEventStatus.
+const (
+	WorkerInstallEventStatusFailed    WorkerInstallEventStatus = "failed"
+	WorkerInstallEventStatusStarted   WorkerInstallEventStatus = "started"
+	WorkerInstallEventStatusSucceeded WorkerInstallEventStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the WorkerInstallEventStatus enum.
+func (e WorkerInstallEventStatus) Valid() bool {
+	switch e {
+	case WorkerInstallEventStatusFailed:
+		return true
+	case WorkerInstallEventStatusStarted:
+		return true
+	case WorkerInstallEventStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerInstallEventInputStatus.
+const (
+	WorkerInstallEventInputStatusFailed    WorkerInstallEventInputStatus = "failed"
+	WorkerInstallEventInputStatusStarted   WorkerInstallEventInputStatus = "started"
+	WorkerInstallEventInputStatusSucceeded WorkerInstallEventInputStatus = "succeeded"
+)
+
+// Valid indicates whether the value is a known member of the WorkerInstallEventInputStatus enum.
+func (e WorkerInstallEventInputStatus) Valid() bool {
+	switch e {
+	case WorkerInstallEventInputStatusFailed:
+		return true
+	case WorkerInstallEventInputStatusStarted:
+		return true
+	case WorkerInstallEventInputStatusSucceeded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerInstallPhase.
+const (
+	WorkerInstallPhaseGpu           WorkerInstallPhase = "gpu"
+	WorkerInstallPhaseImage         WorkerInstallPhase = "image"
+	WorkerInstallPhasePermissions   WorkerInstallPhase = "permissions"
+	WorkerInstallPhasePrerequisites WorkerInstallPhase = "prerequisites"
+	WorkerInstallPhaseRegistration  WorkerInstallPhase = "registration"
+	WorkerInstallPhaseService       WorkerInstallPhase = "service"
+	WorkerInstallPhaseVoiceModels   WorkerInstallPhase = "voice-models"
+	WorkerInstallPhaseVoiceTest     WorkerInstallPhase = "voice-test"
+)
+
+// Valid indicates whether the value is a known member of the WorkerInstallPhase enum.
+func (e WorkerInstallPhase) Valid() bool {
+	switch e {
+	case WorkerInstallPhaseGpu:
+		return true
+	case WorkerInstallPhaseImage:
+		return true
+	case WorkerInstallPhasePermissions:
+		return true
+	case WorkerInstallPhasePrerequisites:
+		return true
+	case WorkerInstallPhaseRegistration:
+		return true
+	case WorkerInstallPhaseService:
+		return true
+	case WorkerInstallPhaseVoiceModels:
+		return true
+	case WorkerInstallPhaseVoiceTest:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerInstallVoiceState.
+const (
+	WorkerInstallVoiceStatePending     WorkerInstallVoiceState = "pending"
+	WorkerInstallVoiceStateReady       WorkerInstallVoiceState = "ready"
+	WorkerInstallVoiceStateUnavailable WorkerInstallVoiceState = "unavailable"
+)
+
+// Valid indicates whether the value is a known member of the WorkerInstallVoiceState enum.
+func (e WorkerInstallVoiceState) Valid() bool {
+	switch e {
+	case WorkerInstallVoiceStatePending:
+		return true
+	case WorkerInstallVoiceStateReady:
+		return true
+	case WorkerInstallVoiceStateUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelCellCauseCode.
+const (
+	WorkerModelCellCauseCodeDiskFull               WorkerModelCellCauseCode = "disk_full"
+	WorkerModelCellCauseCodeEmpty                  WorkerModelCellCauseCode = ""
+	WorkerModelCellCauseCodeHfAccessDenied         WorkerModelCellCauseCode = "hf_access_denied"
+	WorkerModelCellCauseCodeHfAuthRequired         WorkerModelCellCauseCode = "hf_auth_required"
+	WorkerModelCellCauseCodeHfCacheError           WorkerModelCellCauseCode = "hf_cache_error"
+	WorkerModelCellCauseCodeHfGatedDenied          WorkerModelCellCauseCode = "hf_gated_denied"
+	WorkerModelCellCauseCodeHfNetwork              WorkerModelCellCauseCode = "hf_network"
+	WorkerModelCellCauseCodeHfNotFound             WorkerModelCellCauseCode = "hf_not_found"
+	WorkerModelCellCauseCodeHfRepoInvalid          WorkerModelCellCauseCode = "hf_repo_invalid"
+	WorkerModelCellCauseCodeHfTokenInvalid         WorkerModelCellCauseCode = "hf_token_invalid"
+	WorkerModelCellCauseCodeHfTokenMissing         WorkerModelCellCauseCode = "hf_token_missing"
+	WorkerModelCellCauseCodeInferenceFailed        WorkerModelCellCauseCode = "inference_failed"
+	WorkerModelCellCauseCodeInvalidOrder           WorkerModelCellCauseCode = "invalid_order"
+	WorkerModelCellCauseCodeModelsVolumeUnwritable WorkerModelCellCauseCode = "models_volume_unwritable"
+	WorkerModelCellCauseCodeRuntimeIncompatible    WorkerModelCellCauseCode = "runtime_incompatible"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelCellCauseCode enum.
+func (e WorkerModelCellCauseCode) Valid() bool {
+	switch e {
+	case WorkerModelCellCauseCodeDiskFull:
+		return true
+	case WorkerModelCellCauseCodeEmpty:
+		return true
+	case WorkerModelCellCauseCodeHfAccessDenied:
+		return true
+	case WorkerModelCellCauseCodeHfAuthRequired:
+		return true
+	case WorkerModelCellCauseCodeHfCacheError:
+		return true
+	case WorkerModelCellCauseCodeHfGatedDenied:
+		return true
+	case WorkerModelCellCauseCodeHfNetwork:
+		return true
+	case WorkerModelCellCauseCodeHfNotFound:
+		return true
+	case WorkerModelCellCauseCodeHfRepoInvalid:
+		return true
+	case WorkerModelCellCauseCodeHfTokenInvalid:
+		return true
+	case WorkerModelCellCauseCodeHfTokenMissing:
+		return true
+	case WorkerModelCellCauseCodeInferenceFailed:
+		return true
+	case WorkerModelCellCauseCodeInvalidOrder:
+		return true
+	case WorkerModelCellCauseCodeModelsVolumeUnwritable:
+		return true
+	case WorkerModelCellCauseCodeRuntimeIncompatible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelCellKind.
+const (
+	WorkerModelCellKindDiarization WorkerModelCellKind = "diarization"
+	WorkerModelCellKindFingerprint WorkerModelCellKind = "fingerprint"
+	WorkerModelCellKindSeparation  WorkerModelCellKind = "separation"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelCellKind enum.
+func (e WorkerModelCellKind) Valid() bool {
+	switch e {
+	case WorkerModelCellKindDiarization:
+		return true
+	case WorkerModelCellKindFingerprint:
+		return true
+	case WorkerModelCellKindSeparation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelCellState.
+const (
+	WorkerModelCellStateDownloading  WorkerModelCellState = "downloading"
+	WorkerModelCellStateFailed       WorkerModelCellState = "failed"
+	WorkerModelCellStateNotInstalled WorkerModelCellState = "not_installed"
+	WorkerModelCellStateReady        WorkerModelCellState = "ready"
+	WorkerModelCellStateRemoving     WorkerModelCellState = "removing"
+	WorkerModelCellStateRequested    WorkerModelCellState = "requested"
+	WorkerModelCellStateSwitching    WorkerModelCellState = "switching"
+	WorkerModelCellStateVerifying    WorkerModelCellState = "verifying"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelCellState enum.
+func (e WorkerModelCellState) Valid() bool {
+	switch e {
+	case WorkerModelCellStateDownloading:
+		return true
+	case WorkerModelCellStateFailed:
+		return true
+	case WorkerModelCellStateNotInstalled:
+		return true
+	case WorkerModelCellStateReady:
+		return true
+	case WorkerModelCellStateRemoving:
+		return true
+	case WorkerModelCellStateRequested:
+		return true
+	case WorkerModelCellStateSwitching:
+		return true
+	case WorkerModelCellStateVerifying:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelOrderAction.
+const (
+	WorkerModelOrderActionInstall WorkerModelOrderAction = "install"
+	WorkerModelOrderActionRemove  WorkerModelOrderAction = "remove"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelOrderAction enum.
+func (e WorkerModelOrderAction) Valid() bool {
+	switch e {
+	case WorkerModelOrderActionInstall:
+		return true
+	case WorkerModelOrderActionRemove:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelOrderKind.
+const (
+	WorkerModelOrderKindDiarization WorkerModelOrderKind = "diarization"
+	WorkerModelOrderKindFingerprint WorkerModelOrderKind = "fingerprint"
+	WorkerModelOrderKindSeparation  WorkerModelOrderKind = "separation"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelOrderKind enum.
+func (e WorkerModelOrderKind) Valid() bool {
+	switch e {
+	case WorkerModelOrderKindDiarization:
+		return true
+	case WorkerModelOrderKindFingerprint:
+		return true
+	case WorkerModelOrderKindSeparation:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelOrderStatus.
+const (
+	WorkerModelOrderStatusAcknowledged WorkerModelOrderStatus = "acknowledged"
+	WorkerModelOrderStatusCancelled    WorkerModelOrderStatus = "cancelled"
+	WorkerModelOrderStatusDone         WorkerModelOrderStatus = "done"
+	WorkerModelOrderStatusFailed       WorkerModelOrderStatus = "failed"
+	WorkerModelOrderStatusPending      WorkerModelOrderStatus = "pending"
+	WorkerModelOrderStatusRefused      WorkerModelOrderStatus = "refused"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelOrderStatus enum.
+func (e WorkerModelOrderStatus) Valid() bool {
+	switch e {
+	case WorkerModelOrderStatusAcknowledged:
+		return true
+	case WorkerModelOrderStatusCancelled:
+		return true
+	case WorkerModelOrderStatusDone:
+		return true
+	case WorkerModelOrderStatusFailed:
+		return true
+	case WorkerModelOrderStatusPending:
+		return true
+	case WorkerModelOrderStatusRefused:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerModelOrderAckCauseCode.
+const (
+	WorkerModelOrderAckCauseCodeEmpty        WorkerModelOrderAckCauseCode = ""
+	WorkerModelOrderAckCauseCodeInvalidOrder WorkerModelOrderAckCauseCode = "invalid_order"
+)
+
+// Valid indicates whether the value is a known member of the WorkerModelOrderAckCauseCode enum.
+func (e WorkerModelOrderAckCauseCode) Valid() bool {
+	switch e {
+	case WorkerModelOrderAckCauseCodeEmpty:
+		return true
+	case WorkerModelOrderAckCauseCodeInvalidOrder:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerPageTranscriptionMode.
+const (
+	WorkerPageTranscriptionModeDisabled     WorkerPageTranscriptionMode = "disabled"
+	WorkerPageTranscriptionModeEnabled      WorkerPageTranscriptionMode = "enabled"
+	WorkerPageTranscriptionModeUnconfigured WorkerPageTranscriptionMode = "unconfigured"
+)
+
+// Valid indicates whether the value is a known member of the WorkerPageTranscriptionMode enum.
+func (e WorkerPageTranscriptionMode) Valid() bool {
+	switch e {
+	case WorkerPageTranscriptionModeDisabled:
+		return true
+	case WorkerPageTranscriptionModeEnabled:
+		return true
+	case WorkerPageTranscriptionModeUnconfigured:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for WorkerRecentTaskKind.
 const (
 	WorkerRecentTaskKindDiarization   WorkerRecentTaskKind = "diarization"
@@ -1145,6 +2984,339 @@ func (e WorkerRecentTaskOutcome) Valid() bool {
 	}
 }
 
+// Defines values for WorkerRegistrationInstallCommandUnavailable.
+const (
+	InsecureOrigin WorkerRegistrationInstallCommandUnavailable = "insecure_origin"
+	InvalidOrigin  WorkerRegistrationInstallCommandUnavailable = "invalid_origin"
+)
+
+// Valid indicates whether the value is a known member of the WorkerRegistrationInstallCommandUnavailable enum.
+func (e WorkerRegistrationInstallCommandUnavailable) Valid() bool {
+	switch e {
+	case InsecureOrigin:
+		return true
+	case InvalidOrigin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerTranscriptionConfigErrorCode.
+const (
+	WorkerTranscriptionConfigErrorCodeConnectionFailed WorkerTranscriptionConfigErrorCode = "connection_failed"
+	WorkerTranscriptionConfigErrorCodeModelMissing     WorkerTranscriptionConfigErrorCode = "model_missing"
+)
+
+// Valid indicates whether the value is a known member of the WorkerTranscriptionConfigErrorCode enum.
+func (e WorkerTranscriptionConfigErrorCode) Valid() bool {
+	switch e {
+	case WorkerTranscriptionConfigErrorCodeConnectionFailed:
+		return true
+	case WorkerTranscriptionConfigErrorCodeModelMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerTranscriptionFailureInputErrorType.
+const (
+	Connection  WorkerTranscriptionFailureInputErrorType = "connection"
+	HttpStatus  WorkerTranscriptionFailureInputErrorType = "http_status"
+	InvalidBody WorkerTranscriptionFailureInputErrorType = "invalid_body"
+	Timeout     WorkerTranscriptionFailureInputErrorType = "timeout"
+)
+
+// Valid indicates whether the value is a known member of the WorkerTranscriptionFailureInputErrorType enum.
+func (e WorkerTranscriptionFailureInputErrorType) Valid() bool {
+	switch e {
+	case Connection:
+		return true
+	case HttpStatus:
+		return true
+	case InvalidBody:
+		return true
+	case Timeout:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerTranscriptionFailureInputMethod.
+const (
+	GET WorkerTranscriptionFailureInputMethod = "GET"
+)
+
+// Valid indicates whether the value is a known member of the WorkerTranscriptionFailureInputMethod enum.
+func (e WorkerTranscriptionFailureInputMethod) Valid() bool {
+	switch e {
+	case GET:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerVoiceModelRole.
+const (
+	WorkerVoiceModelRoleActive    WorkerVoiceModelRole = "active"
+	WorkerVoiceModelRoleCandidate WorkerVoiceModelRole = "candidate"
+	WorkerVoiceModelRoleRemoval   WorkerVoiceModelRole = "removal"
+)
+
+// Valid indicates whether the value is a known member of the WorkerVoiceModelRole enum.
+func (e WorkerVoiceModelRole) Valid() bool {
+	switch e {
+	case WorkerVoiceModelRoleActive:
+		return true
+	case WorkerVoiceModelRoleCandidate:
+		return true
+	case WorkerVoiceModelRoleRemoval:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerVoiceModelStatusCauseCode.
+const (
+	WorkerVoiceModelStatusCauseCodeDiskFull               WorkerVoiceModelStatusCauseCode = "disk_full"
+	WorkerVoiceModelStatusCauseCodeEmpty                  WorkerVoiceModelStatusCauseCode = ""
+	WorkerVoiceModelStatusCauseCodeHfAccessDenied         WorkerVoiceModelStatusCauseCode = "hf_access_denied"
+	WorkerVoiceModelStatusCauseCodeHfAuthRequired         WorkerVoiceModelStatusCauseCode = "hf_auth_required"
+	WorkerVoiceModelStatusCauseCodeHfCacheError           WorkerVoiceModelStatusCauseCode = "hf_cache_error"
+	WorkerVoiceModelStatusCauseCodeHfGatedDenied          WorkerVoiceModelStatusCauseCode = "hf_gated_denied"
+	WorkerVoiceModelStatusCauseCodeHfNetwork              WorkerVoiceModelStatusCauseCode = "hf_network"
+	WorkerVoiceModelStatusCauseCodeHfNotFound             WorkerVoiceModelStatusCauseCode = "hf_not_found"
+	WorkerVoiceModelStatusCauseCodeHfRepoInvalid          WorkerVoiceModelStatusCauseCode = "hf_repo_invalid"
+	WorkerVoiceModelStatusCauseCodeHfTokenInvalid         WorkerVoiceModelStatusCauseCode = "hf_token_invalid"
+	WorkerVoiceModelStatusCauseCodeHfTokenMissing         WorkerVoiceModelStatusCauseCode = "hf_token_missing"
+	WorkerVoiceModelStatusCauseCodeInferenceFailed        WorkerVoiceModelStatusCauseCode = "inference_failed"
+	WorkerVoiceModelStatusCauseCodeInvalidOrder           WorkerVoiceModelStatusCauseCode = "invalid_order"
+	WorkerVoiceModelStatusCauseCodeModelsVolumeUnwritable WorkerVoiceModelStatusCauseCode = "models_volume_unwritable"
+	WorkerVoiceModelStatusCauseCodeRuntimeIncompatible    WorkerVoiceModelStatusCauseCode = "runtime_incompatible"
+)
+
+// Valid indicates whether the value is a known member of the WorkerVoiceModelStatusCauseCode enum.
+func (e WorkerVoiceModelStatusCauseCode) Valid() bool {
+	switch e {
+	case WorkerVoiceModelStatusCauseCodeDiskFull:
+		return true
+	case WorkerVoiceModelStatusCauseCodeEmpty:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfAccessDenied:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfAuthRequired:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfCacheError:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfGatedDenied:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfNetwork:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfNotFound:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfRepoInvalid:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfTokenInvalid:
+		return true
+	case WorkerVoiceModelStatusCauseCodeHfTokenMissing:
+		return true
+	case WorkerVoiceModelStatusCauseCodeInferenceFailed:
+		return true
+	case WorkerVoiceModelStatusCauseCodeInvalidOrder:
+		return true
+	case WorkerVoiceModelStatusCauseCodeModelsVolumeUnwritable:
+		return true
+	case WorkerVoiceModelStatusCauseCodeRuntimeIncompatible:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for WorkerVoiceModelStatusState.
+const (
+	WorkerVoiceModelStatusStateDownloading WorkerVoiceModelStatusState = "downloading"
+	WorkerVoiceModelStatusStateFailed      WorkerVoiceModelStatusState = "failed"
+	WorkerVoiceModelStatusStateReady       WorkerVoiceModelStatusState = "ready"
+	WorkerVoiceModelStatusStateRemoved     WorkerVoiceModelStatusState = "removed"
+	WorkerVoiceModelStatusStateVerifying   WorkerVoiceModelStatusState = "verifying"
+)
+
+// Valid indicates whether the value is a known member of the WorkerVoiceModelStatusState enum.
+func (e WorkerVoiceModelStatusState) Valid() bool {
+	switch e {
+	case WorkerVoiceModelStatusStateDownloading:
+		return true
+	case WorkerVoiceModelStatusStateFailed:
+		return true
+	case WorkerVoiceModelStatusStateReady:
+		return true
+	case WorkerVoiceModelStatusStateRemoved:
+		return true
+	case WorkerVoiceModelStatusStateVerifying:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StreamAnalysisQueueEventsParamsDelta.
+const (
+	StreamAnalysisQueueEventsParamsDeltaN0 StreamAnalysisQueueEventsParamsDelta = 0
+	StreamAnalysisQueueEventsParamsDeltaN1 StreamAnalysisQueueEventsParamsDelta = 1
+)
+
+// Valid indicates whether the value is a known member of the StreamAnalysisQueueEventsParamsDelta enum.
+func (e StreamAnalysisQueueEventsParamsDelta) Valid() bool {
+	switch e {
+	case StreamAnalysisQueueEventsParamsDeltaN0:
+		return true
+	case StreamAnalysisQueueEventsParamsDeltaN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeleteClipAnalysisJSONBodySteps.
+const (
+	DeleteClipAnalysisJSONBodyStepsDiarization   DeleteClipAnalysisJSONBodySteps = "diarization"
+	DeleteClipAnalysisJSONBodyStepsFingerprints  DeleteClipAnalysisJSONBodySteps = "fingerprints"
+	DeleteClipAnalysisJSONBodyStepsMatching      DeleteClipAnalysisJSONBodySteps = "matching"
+	DeleteClipAnalysisJSONBodyStepsTranscription DeleteClipAnalysisJSONBodySteps = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the DeleteClipAnalysisJSONBodySteps enum.
+func (e DeleteClipAnalysisJSONBodySteps) Valid() bool {
+	switch e {
+	case DeleteClipAnalysisJSONBodyStepsDiarization:
+		return true
+	case DeleteClipAnalysisJSONBodyStepsFingerprints:
+		return true
+	case DeleteClipAnalysisJSONBodyStepsMatching:
+		return true
+	case DeleteClipAnalysisJSONBodyStepsTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartClipAnalysisJSONBodyMode.
+const (
+	StartClipAnalysisJSONBodyModeFull    StartClipAnalysisJSONBodyMode = "full"
+	StartClipAnalysisJSONBodyModeMissing StartClipAnalysisJSONBodyMode = "missing"
+	StartClipAnalysisJSONBodyModeSteps   StartClipAnalysisJSONBodyMode = "steps"
+)
+
+// Valid indicates whether the value is a known member of the StartClipAnalysisJSONBodyMode enum.
+func (e StartClipAnalysisJSONBodyMode) Valid() bool {
+	switch e {
+	case StartClipAnalysisJSONBodyModeFull:
+		return true
+	case StartClipAnalysisJSONBodyModeMissing:
+		return true
+	case StartClipAnalysisJSONBodyModeSteps:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartClipAnalysisJSONBodyScope.
+const (
+	StartClipAnalysisJSONBodyScopeFull          StartClipAnalysisJSONBodyScope = "full"
+	StartClipAnalysisJSONBodyScopeTranscription StartClipAnalysisJSONBodyScope = "transcription"
+	StartClipAnalysisJSONBodyScopeVoice         StartClipAnalysisJSONBodyScope = "voice"
+)
+
+// Valid indicates whether the value is a known member of the StartClipAnalysisJSONBodyScope enum.
+func (e StartClipAnalysisJSONBodyScope) Valid() bool {
+	switch e {
+	case StartClipAnalysisJSONBodyScopeFull:
+		return true
+	case StartClipAnalysisJSONBodyScopeTranscription:
+		return true
+	case StartClipAnalysisJSONBodyScopeVoice:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartClipAnalysisJSONBodySteps.
+const (
+	StartClipAnalysisJSONBodyStepsDiarization   StartClipAnalysisJSONBodySteps = "diarization"
+	StartClipAnalysisJSONBodyStepsIndexing      StartClipAnalysisJSONBodySteps = "indexing"
+	StartClipAnalysisJSONBodyStepsTranscription StartClipAnalysisJSONBodySteps = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the StartClipAnalysisJSONBodySteps enum.
+func (e StartClipAnalysisJSONBodySteps) Valid() bool {
+	switch e {
+	case StartClipAnalysisJSONBodyStepsDiarization:
+		return true
+	case StartClipAnalysisJSONBodyStepsIndexing:
+		return true
+	case StartClipAnalysisJSONBodyStepsTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RetryClipAnalysisStepParamsStep.
+const (
+	RetryClipAnalysisStepParamsStepDiarization   RetryClipAnalysisStepParamsStep = "diarization"
+	RetryClipAnalysisStepParamsStepFingerprints  RetryClipAnalysisStepParamsStep = "fingerprints"
+	RetryClipAnalysisStepParamsStepIndexing      RetryClipAnalysisStepParamsStep = "indexing"
+	RetryClipAnalysisStepParamsStepMatching      RetryClipAnalysisStepParamsStep = "matching"
+	RetryClipAnalysisStepParamsStepPreparation   RetryClipAnalysisStepParamsStep = "preparation"
+	RetryClipAnalysisStepParamsStepTranscription RetryClipAnalysisStepParamsStep = "transcription"
+)
+
+// Valid indicates whether the value is a known member of the RetryClipAnalysisStepParamsStep enum.
+func (e RetryClipAnalysisStepParamsStep) Valid() bool {
+	switch e {
+	case RetryClipAnalysisStepParamsStepDiarization:
+		return true
+	case RetryClipAnalysisStepParamsStepFingerprints:
+		return true
+	case RetryClipAnalysisStepParamsStepIndexing:
+		return true
+	case RetryClipAnalysisStepParamsStepMatching:
+		return true
+	case RetryClipAnalysisStepParamsStepPreparation:
+		return true
+	case RetryClipAnalysisStepParamsStepTranscription:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListJobsParamsWorkflow.
+const (
+	ListJobsParamsWorkflowActive ListJobsParamsWorkflow = "active"
+	ListJobsParamsWorkflowDone   ListJobsParamsWorkflow = "done"
+)
+
+// Valid indicates whether the value is a known member of the ListJobsParamsWorkflow enum.
+func (e ListJobsParamsWorkflow) Valid() bool {
+	switch e {
+	case ListJobsParamsWorkflowActive:
+		return true
+	case ListJobsParamsWorkflowDone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListJobsParamsStatus.
 const (
 	ListJobsParamsStatusCancelled ListJobsParamsStatus = "cancelled"
@@ -1178,6 +3350,24 @@ func (e ListJobsParamsStatus) Valid() bool {
 	}
 }
 
+// Defines values for StartLibraryIndexRunJSONBodyMode.
+const (
+	StartLibraryIndexRunJSONBodyModeCards StartLibraryIndexRunJSONBodyMode = "cards"
+	StartLibraryIndexRunJSONBodyModeFull  StartLibraryIndexRunJSONBodyMode = "full"
+)
+
+// Valid indicates whether the value is a known member of the StartLibraryIndexRunJSONBodyMode enum.
+func (e StartLibraryIndexRunJSONBodyMode) Valid() bool {
+	switch e {
+	case StartLibraryIndexRunJSONBodyModeCards:
+		return true
+	case StartLibraryIndexRunJSONBodyModeFull:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for UpdateMemberRoleJSONBodyRole.
 const (
 	UpdateMemberRoleJSONBodyRoleAdmin UpdateMemberRoleJSONBodyRole = "admin"
@@ -1196,6 +3386,27 @@ func (e UpdateMemberRoleJSONBodyRole) Valid() bool {
 	}
 }
 
+// Defines values for ListPersonLinkRequestsParamsStatus.
+const (
+	ListPersonLinkRequestsParamsStatusApproved ListPersonLinkRequestsParamsStatus = "approved"
+	ListPersonLinkRequestsParamsStatusPending  ListPersonLinkRequestsParamsStatus = "pending"
+	ListPersonLinkRequestsParamsStatusRefused  ListPersonLinkRequestsParamsStatus = "refused"
+)
+
+// Valid indicates whether the value is a known member of the ListPersonLinkRequestsParamsStatus enum.
+func (e ListPersonLinkRequestsParamsStatus) Valid() bool {
+	switch e {
+	case ListPersonLinkRequestsParamsStatusApproved:
+		return true
+	case ListPersonLinkRequestsParamsStatusPending:
+		return true
+	case ListPersonLinkRequestsParamsStatusRefused:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExportSegmentCorrectionsParamsFormat.
 const (
 	Json   ExportSegmentCorrectionsParamsFormat = "json"
@@ -1208,6 +3419,123 @@ func (e ExportSegmentCorrectionsParamsFormat) Valid() bool {
 	case Json:
 		return true
 	case Ndjson:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetWorkerUpdates200JSONResponseBodyMode.
+const (
+	GetWorkerUpdates200JSONResponseBodyModeDisabled GetWorkerUpdates200JSONResponseBodyMode = "disabled"
+	GetWorkerUpdates200JSONResponseBodyModeLatest   GetWorkerUpdates200JSONResponseBodyMode = "latest"
+	GetWorkerUpdates200JSONResponseBodyModePinned   GetWorkerUpdates200JSONResponseBodyMode = "pinned"
+)
+
+// Valid indicates whether the value is a known member of the GetWorkerUpdates200JSONResponseBodyMode enum.
+func (e GetWorkerUpdates200JSONResponseBodyMode) Valid() bool {
+	switch e {
+	case GetWorkerUpdates200JSONResponseBodyModeDisabled:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyModeLatest:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyModePinned:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetWorkerUpdates200JSONResponseBodyWorkersState.
+const (
+	GetWorkerUpdates200JSONResponseBodyWorkersStateEmpty      GetWorkerUpdates200JSONResponseBodyWorkersState = ""
+	GetWorkerUpdates200JSONResponseBodyWorkersStateFailed     GetWorkerUpdates200JSONResponseBodyWorkersState = "failed"
+	GetWorkerUpdates200JSONResponseBodyWorkersStateIdle       GetWorkerUpdates200JSONResponseBodyWorkersState = "idle"
+	GetWorkerUpdates200JSONResponseBodyWorkersStatePulling    GetWorkerUpdates200JSONResponseBodyWorkersState = "pulling"
+	GetWorkerUpdates200JSONResponseBodyWorkersStateRestarting GetWorkerUpdates200JSONResponseBodyWorkersState = "restarting"
+	GetWorkerUpdates200JSONResponseBodyWorkersStateRolledBack GetWorkerUpdates200JSONResponseBodyWorkersState = "rolled_back"
+	GetWorkerUpdates200JSONResponseBodyWorkersStateUpdated    GetWorkerUpdates200JSONResponseBodyWorkersState = "updated"
+)
+
+// Valid indicates whether the value is a known member of the GetWorkerUpdates200JSONResponseBodyWorkersState enum.
+func (e GetWorkerUpdates200JSONResponseBodyWorkersState) Valid() bool {
+	switch e {
+	case GetWorkerUpdates200JSONResponseBodyWorkersStateEmpty:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyWorkersStateFailed:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyWorkersStateIdle:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyWorkersStatePulling:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyWorkersStateRestarting:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyWorkersStateRolledBack:
+		return true
+	case GetWorkerUpdates200JSONResponseBodyWorkersStateUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PutWorkerUpdateTargetJSONBodyMode.
+const (
+	PutWorkerUpdateTargetJSONBodyModeDisabled PutWorkerUpdateTargetJSONBodyMode = "disabled"
+	PutWorkerUpdateTargetJSONBodyModeLatest   PutWorkerUpdateTargetJSONBodyMode = "latest"
+	PutWorkerUpdateTargetJSONBodyModePinned   PutWorkerUpdateTargetJSONBodyMode = "pinned"
+)
+
+// Valid indicates whether the value is a known member of the PutWorkerUpdateTargetJSONBodyMode enum.
+func (e PutWorkerUpdateTargetJSONBodyMode) Valid() bool {
+	switch e {
+	case PutWorkerUpdateTargetJSONBodyModeDisabled:
+		return true
+	case PutWorkerUpdateTargetJSONBodyModeLatest:
+		return true
+	case PutWorkerUpdateTargetJSONBodyModePinned:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PutWorkerUpdateTarget200JSONResponseBodyMode.
+const (
+	PutWorkerUpdateTarget200JSONResponseBodyModeDisabled PutWorkerUpdateTarget200JSONResponseBodyMode = "disabled"
+	PutWorkerUpdateTarget200JSONResponseBodyModeLatest   PutWorkerUpdateTarget200JSONResponseBodyMode = "latest"
+	PutWorkerUpdateTarget200JSONResponseBodyModePinned   PutWorkerUpdateTarget200JSONResponseBodyMode = "pinned"
+)
+
+// Valid indicates whether the value is a known member of the PutWorkerUpdateTarget200JSONResponseBodyMode enum.
+func (e PutWorkerUpdateTarget200JSONResponseBodyMode) Valid() bool {
+	switch e {
+	case PutWorkerUpdateTarget200JSONResponseBodyModeDisabled:
+		return true
+	case PutWorkerUpdateTarget200JSONResponseBodyModeLatest:
+		return true
+	case PutWorkerUpdateTarget200JSONResponseBodyModePinned:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CancelVoiceModelReplacementParamsKind.
+const (
+	CancelVoiceModelReplacementParamsKindDiarization CancelVoiceModelReplacementParamsKind = "diarization"
+	CancelVoiceModelReplacementParamsKindFingerprint CancelVoiceModelReplacementParamsKind = "fingerprint"
+	CancelVoiceModelReplacementParamsKindSeparation  CancelVoiceModelReplacementParamsKind = "separation"
+)
+
+// Valid indicates whether the value is a known member of the CancelVoiceModelReplacementParamsKind enum.
+func (e CancelVoiceModelReplacementParamsKind) Valid() bool {
+	switch e {
+	case CancelVoiceModelReplacementParamsKindDiarization:
+		return true
+	case CancelVoiceModelReplacementParamsKindFingerprint:
+		return true
+	case CancelVoiceModelReplacementParamsKindSeparation:
 		return true
 	default:
 		return false
@@ -1250,6 +3578,198 @@ func (e ListClipsParamsStatus) Valid() bool {
 	case ListClipsParamsStatusUnreadable:
 		return true
 	case ListClipsParamsStatusWaitingStability:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for UpdateClipJSONBodyVisibility.
+const (
+	UpdateClipJSONBodyVisibilityPrivate UpdateClipJSONBodyVisibility = "private"
+	UpdateClipJSONBodyVisibilityShared  UpdateClipJSONBodyVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the UpdateClipJSONBodyVisibility enum.
+func (e UpdateClipJSONBodyVisibility) Valid() bool {
+	switch e {
+	case UpdateClipJSONBodyVisibilityPrivate:
+		return true
+	case UpdateClipJSONBodyVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLibraryExplorerParamsRecursive.
+const (
+	ListLibraryExplorerParamsRecursiveN1   ListLibraryExplorerParamsRecursive = "1"
+	ListLibraryExplorerParamsRecursiveTrue ListLibraryExplorerParamsRecursive = "true"
+)
+
+// Valid indicates whether the value is a known member of the ListLibraryExplorerParamsRecursive enum.
+func (e ListLibraryExplorerParamsRecursive) Valid() bool {
+	switch e {
+	case ListLibraryExplorerParamsRecursiveN1:
+		return true
+	case ListLibraryExplorerParamsRecursiveTrue:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLibraryExplorerParamsState.
+const (
+	ListLibraryExplorerParamsStateAnalyzed    ListLibraryExplorerParamsState = "analyzed"
+	ListLibraryExplorerParamsStateFailed      ListLibraryExplorerParamsState = "failed"
+	ListLibraryExplorerParamsStateInProgress  ListLibraryExplorerParamsState = "in_progress"
+	ListLibraryExplorerParamsStateNotAnalyzed ListLibraryExplorerParamsState = "not_analyzed"
+	ListLibraryExplorerParamsStateNotIndexed  ListLibraryExplorerParamsState = "not_indexed"
+	ListLibraryExplorerParamsStateTranscribed ListLibraryExplorerParamsState = "transcribed"
+)
+
+// Valid indicates whether the value is a known member of the ListLibraryExplorerParamsState enum.
+func (e ListLibraryExplorerParamsState) Valid() bool {
+	switch e {
+	case ListLibraryExplorerParamsStateAnalyzed:
+		return true
+	case ListLibraryExplorerParamsStateFailed:
+		return true
+	case ListLibraryExplorerParamsStateInProgress:
+		return true
+	case ListLibraryExplorerParamsStateNotAnalyzed:
+		return true
+	case ListLibraryExplorerParamsStateNotIndexed:
+		return true
+	case ListLibraryExplorerParamsStateTranscribed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLibraryExplorerParamsStage.
+const (
+	ListLibraryExplorerParamsStageComplete    ListLibraryExplorerParamsStage = "complete"
+	ListLibraryExplorerParamsStageIndexed     ListLibraryExplorerParamsStage = "indexed"
+	ListLibraryExplorerParamsStageTranscribed ListLibraryExplorerParamsStage = "transcribed"
+	ListLibraryExplorerParamsStageVoices      ListLibraryExplorerParamsStage = "voices"
+)
+
+// Valid indicates whether the value is a known member of the ListLibraryExplorerParamsStage enum.
+func (e ListLibraryExplorerParamsStage) Valid() bool {
+	switch e {
+	case ListLibraryExplorerParamsStageComplete:
+		return true
+	case ListLibraryExplorerParamsStageIndexed:
+		return true
+	case ListLibraryExplorerParamsStageTranscribed:
+		return true
+	case ListLibraryExplorerParamsStageVoices:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLibraryExplorerParamsVisibility.
+const (
+	ListLibraryExplorerParamsVisibilityPrivate ListLibraryExplorerParamsVisibility = "private"
+	ListLibraryExplorerParamsVisibilityShared  ListLibraryExplorerParamsVisibility = "shared"
+)
+
+// Valid indicates whether the value is a known member of the ListLibraryExplorerParamsVisibility enum.
+func (e ListLibraryExplorerParamsVisibility) Valid() bool {
+	switch e {
+	case ListLibraryExplorerParamsVisibilityPrivate:
+		return true
+	case ListLibraryExplorerParamsVisibilityShared:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListLibraryExplorerParamsVoices.
+const (
+	ListLibraryExplorerParamsVoicesPending ListLibraryExplorerParamsVoices = "pending"
+)
+
+// Valid indicates whether the value is a known member of the ListLibraryExplorerParamsVoices enum.
+func (e ListLibraryExplorerParamsVoices) Valid() bool {
+	switch e {
+	case ListLibraryExplorerParamsVoicesPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListNotificationsParamsState.
+const (
+	ListNotificationsParamsStateActive   ListNotificationsParamsState = "active"
+	ListNotificationsParamsStateAll      ListNotificationsParamsState = "all"
+	ListNotificationsParamsStateResolved ListNotificationsParamsState = "resolved"
+)
+
+// Valid indicates whether the value is a known member of the ListNotificationsParamsState enum.
+func (e ListNotificationsParamsState) Valid() bool {
+	switch e {
+	case ListNotificationsParamsStateActive:
+		return true
+	case ListNotificationsParamsStateAll:
+		return true
+	case ListNotificationsParamsStateResolved:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListNotificationsParamsFilter.
+const (
+	ListNotificationsParamsFilterActions ListNotificationsParamsFilter = "actions"
+	ListNotificationsParamsFilterAll     ListNotificationsParamsFilter = "all"
+	ListNotificationsParamsFilterErrors  ListNotificationsParamsFilter = "errors"
+	ListNotificationsParamsFilterUnread  ListNotificationsParamsFilter = "unread"
+)
+
+// Valid indicates whether the value is a known member of the ListNotificationsParamsFilter enum.
+func (e ListNotificationsParamsFilter) Valid() bool {
+	switch e {
+	case ListNotificationsParamsFilterActions:
+		return true
+	case ListNotificationsParamsFilterAll:
+		return true
+	case ListNotificationsParamsFilterErrors:
+		return true
+	case ListNotificationsParamsFilterUnread:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ListPeopleToProcessParamsFilter.
+const (
+	ListPeopleToProcessParamsFilterAll              ListPeopleToProcessParamsFilter = "all"
+	ListPeopleToProcessParamsFilterGroup            ListPeopleToProcessParamsFilter = "group"
+	ListPeopleToProcessParamsFilterToConfirm        ListPeopleToProcessParamsFilter = "to_confirm"
+	ListPeopleToProcessParamsFilterUnknownAmbiguous ListPeopleToProcessParamsFilter = "unknown_ambiguous"
+)
+
+// Valid indicates whether the value is a known member of the ListPeopleToProcessParamsFilter enum.
+func (e ListPeopleToProcessParamsFilter) Valid() bool {
+	switch e {
+	case ListPeopleToProcessParamsFilterAll:
+		return true
+	case ListPeopleToProcessParamsFilterGroup:
+		return true
+	case ListPeopleToProcessParamsFilterToConfirm:
+		return true
+	case ListPeopleToProcessParamsFilterUnknownAmbiguous:
 		return true
 	default:
 		return false
@@ -1358,6 +3878,81 @@ func (e ListVoiceVerificationParamsLevel) Valid() bool {
 	}
 }
 
+// Defines values for GetWorkerTranscriptionConfig200JSONResponseBodyMode.
+const (
+	GetWorkerTranscriptionConfig200JSONResponseBodyModeDisabled     GetWorkerTranscriptionConfig200JSONResponseBodyMode = "disabled"
+	GetWorkerTranscriptionConfig200JSONResponseBodyModeEnabled      GetWorkerTranscriptionConfig200JSONResponseBodyMode = "enabled"
+	GetWorkerTranscriptionConfig200JSONResponseBodyModeUnconfigured GetWorkerTranscriptionConfig200JSONResponseBodyMode = "unconfigured"
+)
+
+// Valid indicates whether the value is a known member of the GetWorkerTranscriptionConfig200JSONResponseBodyMode enum.
+func (e GetWorkerTranscriptionConfig200JSONResponseBodyMode) Valid() bool {
+	switch e {
+	case GetWorkerTranscriptionConfig200JSONResponseBodyModeDisabled:
+		return true
+	case GetWorkerTranscriptionConfig200JSONResponseBodyModeEnabled:
+		return true
+	case GetWorkerTranscriptionConfig200JSONResponseBodyModeUnconfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostWorkerTranscriptionConfigStatusJSONBodyErrorCode.
+const (
+	PostWorkerTranscriptionConfigStatusJSONBodyErrorCodeConnectionFailed PostWorkerTranscriptionConfigStatusJSONBodyErrorCode = "connection_failed"
+	PostWorkerTranscriptionConfigStatusJSONBodyErrorCodeModelMissing     PostWorkerTranscriptionConfigStatusJSONBodyErrorCode = "model_missing"
+)
+
+// Valid indicates whether the value is a known member of the PostWorkerTranscriptionConfigStatusJSONBodyErrorCode enum.
+func (e PostWorkerTranscriptionConfigStatusJSONBodyErrorCode) Valid() bool {
+	switch e {
+	case PostWorkerTranscriptionConfigStatusJSONBodyErrorCodeConnectionFailed:
+		return true
+	case PostWorkerTranscriptionConfigStatusJSONBodyErrorCodeModelMissing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PostWorkerUpdateStatusJSONBodyState.
+const (
+	PostWorkerUpdateStatusJSONBodyStateFailed     PostWorkerUpdateStatusJSONBodyState = "failed"
+	PostWorkerUpdateStatusJSONBodyStateIdle       PostWorkerUpdateStatusJSONBodyState = "idle"
+	PostWorkerUpdateStatusJSONBodyStatePulling    PostWorkerUpdateStatusJSONBodyState = "pulling"
+	PostWorkerUpdateStatusJSONBodyStateRestarting PostWorkerUpdateStatusJSONBodyState = "restarting"
+	PostWorkerUpdateStatusJSONBodyStateRolledBack PostWorkerUpdateStatusJSONBodyState = "rolled_back"
+	PostWorkerUpdateStatusJSONBodyStateUpdated    PostWorkerUpdateStatusJSONBodyState = "updated"
+)
+
+// Valid indicates whether the value is a known member of the PostWorkerUpdateStatusJSONBodyState enum.
+func (e PostWorkerUpdateStatusJSONBodyState) Valid() bool {
+	switch e {
+	case PostWorkerUpdateStatusJSONBodyStateFailed:
+		return true
+	case PostWorkerUpdateStatusJSONBodyStateIdle:
+		return true
+	case PostWorkerUpdateStatusJSONBodyStatePulling:
+		return true
+	case PostWorkerUpdateStatusJSONBodyStateRestarting:
+		return true
+	case PostWorkerUpdateStatusJSONBodyStateRolledBack:
+		return true
+	case PostWorkerUpdateStatusJSONBodyStateUpdated:
+		return true
+	default:
+		return false
+	}
+}
+
+// AccountPasswordInput defines model for AccountPasswordInput.
+type AccountPasswordInput struct {
+	CurrentPassword *string `json:"current_password,omitempty"`
+	NewPassword     string  `json:"new_password"`
+}
+
 // AccountPreferences defines model for AccountPreferences.
 type AccountPreferences struct {
 	// Language Langue d'interface du compte ; null tant qu'aucun choix n'a été fait.
@@ -1374,6 +3969,146 @@ type AccountPreferencesInput struct {
 
 // AccountPreferencesInputLanguage defines model for AccountPreferencesInput.Language.
 type AccountPreferencesInputLanguage string
+
+// AccountProfileInput defines model for AccountProfileInput.
+type AccountProfileInput struct {
+	DisplayName string `json:"display_name"`
+	Username    string `json:"username"`
+}
+
+// AnalysisQueue defines model for AnalysisQueue.
+type AnalysisQueue struct {
+	Active    []AnalysisQueueRun `json:"active"`
+	Completed []AnalysisQueueRun `json:"completed"`
+
+	// Summary Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les jobs leased au bail non expiré occupent un emplacement.
+	Summary AnalysisQueueSummary `json:"summary"`
+	Tasks   []AnalysisQueueTask  `json:"tasks"`
+}
+
+// AnalysisQueueRun defines model for AnalysisQueueRun.
+type AnalysisQueueRun struct {
+	ClipId                      int64  `json:"clip_id"`
+	ClipName                    string `json:"clip_name"`
+	ConfirmedReplaceCorrections bool   `json:"confirmed_replace_corrections"`
+	ConfirmedReplaceValidations bool   `json:"confirmed_replace_validations"`
+
+	// ConfirmedStakeAt Instant jusqu'auquel le travail humain en jeu a été montré et confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée).
+	ConfirmedStakeAt *time.Time                    `json:"confirmed_stake_at"`
+	CreatedAt        time.Time                     `json:"created_at"`
+	FinishedAt       *time.Time                    `json:"finished_at"`
+	ForcedSteps      []AnalysisQueueRunForcedSteps `json:"forced_steps"`
+	Id               int64                         `json:"id"`
+
+	// Locations Fichiers vidéo d'origine indexés du clip (hors fichiers introuvables), avec leur source et leur chemin complet persisté ; jamais un fichier de travail du Worker. Vide : chemin indisponible.
+	Locations []ClipLocation       `json:"locations"`
+	Mode      AnalysisQueueRunMode `json:"mode"`
+
+	// PendingVoices Voix du clip encore inconnues ou ambiguës (liste de vérification) : une analyse terminée qui en laisse est seulement partiellement identifiée.
+	PendingVoices int                    `json:"pending_voices"`
+	Scope         AnalysisQueueRunScope  `json:"scope"`
+	StartedBy     *int64                 `json:"started_by"`
+	Status        AnalysisQueueRunStatus `json:"status"`
+	Steps         []ClipAnalysisStep     `json:"steps"`
+	UpdatedAt     time.Time              `json:"updated_at"`
+}
+
+// AnalysisQueueRunForcedSteps defines model for AnalysisQueueRun.ForcedSteps.
+type AnalysisQueueRunForcedSteps string
+
+// AnalysisQueueRunMode defines model for AnalysisQueueRun.Mode.
+type AnalysisQueueRunMode string
+
+// AnalysisQueueRunScope defines model for AnalysisQueueRun.Scope.
+type AnalysisQueueRunScope string
+
+// AnalysisQueueRunStatus defines model for AnalysisQueueRun.Status.
+type AnalysisQueueRunStatus string
+
+// AnalysisQueueSummary Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les jobs leased au bail non expiré occupent un emplacement.
+type AnalysisQueueSummary struct {
+	MaxConcurrency int  `json:"max_concurrency"`
+	Paused         bool `json:"paused"`
+	RunningTasks   int  `json:"running_tasks"`
+
+	// WaitingClips Clips dont l'analyse est active et qui n'occupent aucun emplacement (attente, reprise différée ou suspendus).
+	WaitingClips int `json:"waiting_clips"`
+}
+
+// AnalysisQueueTask defines model for AnalysisQueueTask.
+type AnalysisQueueTask struct {
+	Attempts  int       `json:"attempts"`
+	ClipId    int64     `json:"clip_id"`
+	ClipName  string    `json:"clip_name"`
+	CreatedAt time.Time `json:"created_at"`
+	Cycle     int       `json:"cycle"`
+
+	// FailureCode Cause d'échec persistée du dernier échec ; last_error est ramené à ce code, jamais un texte brut.
+	FailureCode    *FailureCode `json:"failure_code,omitempty"`
+	Id             int64        `json:"id"`
+	InputVersion   string       `json:"input_version"`
+	LastError      string       `json:"last_error"`
+	LeaseExpiresAt *time.Time   `json:"lease_expires_at"`
+	LeaseOwner     *string      `json:"lease_owner"`
+	MaxAttempts    int          `json:"max_attempts"`
+	NextAttemptAt  time.Time    `json:"next_attempt_at"`
+	Priority       int          `json:"priority"`
+
+	// RecommendedAction Action de reprise conseillée pour cette cause.
+	RecommendedAction *string `json:"recommended_action,omitempty"`
+
+	// RequestedModelId Renvoyé à la planification d'un travail à modèle demandé (benchmark).
+	RequestedModelId *string                 `json:"requested_model_id,omitempty"`
+	Result           *map[string]interface{} `json:"result,omitempty"`
+	Status           AnalysisQueueTaskStatus `json:"status"`
+	Step             string                  `json:"step"`
+	UpdatedAt        time.Time               `json:"updated_at"`
+}
+
+// AnalysisQueueTaskStatus defines model for AnalysisQueueTask.Status.
+type AnalysisQueueTaskStatus string
+
+// AnalysisRunHistory defines model for AnalysisRunHistory.
+type AnalysisRunHistory struct {
+	Items    []AnalysisQueueRun `json:"items"`
+	Page     int                `json:"page"`
+	PageSize int                `json:"page_size"`
+	Total    int                `json:"total"`
+}
+
+// AnalysisStepEvent defines model for AnalysisStepEvent.
+type AnalysisStepEvent struct {
+	Actor      AnalysisStepEventActor `json:"actor"`
+	ActorId    string                 `json:"actor_id"`
+	Attempt    *int                   `json:"attempt"`
+	CreatedAt  time.Time              `json:"created_at"`
+	Cycle      int                    `json:"cycle"`
+	DurationMs *int                   `json:"duration_ms,omitempty"`
+
+	// ErrorCode Cause d'échec (voir FailureCode) ; vide pour un événement sans échec.
+	ErrorCode  string                 `json:"error_code"`
+	Event      AnalysisStepEventEvent `json:"event"`
+	HttpStatus *int                   `json:"http_status,omitempty"`
+	Id         int64                  `json:"id"`
+	Model      *string                `json:"model,omitempty"`
+	Provider   *string                `json:"provider,omitempty"`
+
+	// RecommendedAction Code de l'action de reprise conseillée, décidée par le serveur ; absent sans cause connue.
+	RecommendedAction *string `json:"recommended_action,omitempty"`
+	Revision          *string `json:"revision,omitempty"`
+
+	// Step Étape du job, présente avec un diagnostic.
+	Step *string `json:"step,omitempty"`
+
+	// WorkerName Nom du Worker de l'événement, quand il est encore enregistré ; jamais un chemin.
+	WorkerName *string `json:"worker_name,omitempty"`
+}
+
+// AnalysisStepEventActor defines model for AnalysisStepEvent.Actor.
+type AnalysisStepEventActor string
+
+// AnalysisStepEventEvent defines model for AnalysisStepEvent.Event.
+type AnalysisStepEventEvent string
 
 // Attribution defines model for Attribution.
 type Attribution struct {
@@ -1447,6 +4182,9 @@ type AttributionHistory struct {
 
 // AttributionInput Exactement un de person_id ou new_person_name.
 type AttributionInput struct {
+	// AllowHomonym Avec new_person_name : crée la Personne même si une Personne de même nom existe (409 person_exists sinon).
+	AllowHomonym *bool `json:"allow_homonym,omitempty"`
+
 	// ExpectedPersonId Correction uniquement : Personne actuellement validée telle que vue par l'utilisateur.
 	ExpectedPersonId *int64  `json:"expected_person_id,omitempty"`
 	NewPersonName    *string `json:"new_person_name,omitempty"`
@@ -1486,6 +4224,36 @@ type AudioTrackSelection struct {
 // AudioTrackSelectionStatus defines model for AudioTrackSelection.Status.
 type AudioTrackSelectionStatus string
 
+// AutomaticAnalysisSetting defines model for AutomaticAnalysisSetting.
+type AutomaticAnalysisSetting struct {
+	// Enabled Vrai : un clip ajouté démarre une Analyse de clip complète (ADR 0035)
+	Enabled bool `json:"enabled"`
+}
+
+// AvatarSettings defines model for AvatarSettings.
+type AvatarSettings struct {
+	// AutoSync Vrai quand la photo affichée suit Discord et que le bot est configuré.
+	AutoSync      bool                 `json:"auto_sync"`
+	BotConfigured bool                 `json:"bot_configured"`
+	DiscordLinked bool                 `json:"discord_linked"`
+	HasCustom     bool                 `json:"has_custom"`
+	HasDiscord    bool                 `json:"has_discord"`
+	LastError     *string              `json:"last_error"`
+	LastSyncedAt  *time.Time           `json:"last_synced_at"`
+	Source        AvatarSettingsSource `json:"source"`
+}
+
+// AvatarSettingsSource defines model for AvatarSettings.Source.
+type AvatarSettingsSource string
+
+// AvatarSettingsInput defines model for AvatarSettingsInput.
+type AvatarSettingsInput struct {
+	Source AvatarSettingsInputSource `json:"source"`
+}
+
+// AvatarSettingsInputSource defines model for AvatarSettingsInput.Source.
+type AvatarSettingsInputSource string
+
 // Bootstrap defines model for Bootstrap.
 type Bootstrap struct {
 	Code     string `json:"code"`
@@ -1497,12 +4265,32 @@ type Bootstrap struct {
 type Clip struct {
 	AudioCodec          string               `json:"audio_codec"`
 	AudioTrackSelection *AudioTrackSelection `json:"audio_track_selection,omitempty"`
-	DiscoveredAt        time.Time            `json:"discovered_at"`
-	DurationSeconds     *float32             `json:"duration_seconds,omitempty"`
-	FormatName          string               `json:"format_name"`
-	Id                  int64                `json:"id"`
-	OriginalName        string               `json:"original_name"`
-	Owner               string               `json:"owner"`
+	CaptureTimeOrigin   *string              `json:"capture_time_origin,omitempty"`
+
+	// Detected Valeurs détectées automatiquement, conservées à la première modification manuelle pour pouvoir les restaurer ; une valeur n'est restaurable que si son indicateur *_available est vrai.
+	Detected *struct {
+		Game                *string    `json:"game"`
+		GameAvailable       bool       `json:"game_available"`
+		GameOrigin          *string    `json:"game_origin"`
+		RecordedAt          *time.Time `json:"recorded_at"`
+		RecordedAtAvailable bool       `json:"recorded_at_available"`
+		RecordedAtOrigin    *string    `json:"recorded_at_origin"`
+	} `json:"detected"`
+	DiscoveredAt time.Time `json:"discovered_at"`
+
+	// DisplayTitle Titre affiché choisi par un administrateur ; absent, le nom du fichier (original_name) sert de titre. original_name reste le nom physique, jamais modifié.
+	DisplayTitle    *string  `json:"display_title"`
+	DurationSeconds *float32 `json:"duration_seconds,omitempty"`
+	FormatName      string   `json:"format_name"`
+	Game            *string  `json:"game,omitempty"`
+	GameOrigin      *string  `json:"game_origin,omitempty"`
+	Id              int64    `json:"id"`
+	OriginalName    string   `json:"original_name"`
+	Origins         *[]struct {
+		Kind ClipOriginsKind `json:"kind"`
+		Name *string         `json:"name"`
+	} `json:"origins,omitempty"`
+	Owner string `json:"owner"`
 
 	// OwnerDeleted Le compte propriétaire a été supprimé.
 	OwnerDeleted *bool `json:"owner_deleted,omitempty"`
@@ -1513,7 +4301,7 @@ type Clip struct {
 
 	// Progress Avancement du clip pour les étapes que le serveur seul connaît. Les étapes de voix se lisent avec GET /api/clips/{id}/voice. Un clip est toujours importé.
 	Progress            *ClipProgress  `json:"progress,omitempty"`
-	RecordedAt          time.Time      `json:"recorded_at"`
+	RecordedAt          *time.Time     `json:"recorded_at"`
 	RecordedAtEstimated bool           `json:"recorded_at_estimated"`
 	SizeBytes           int64          `json:"size_bytes"`
 	Sources             *[]string      `json:"sources,omitempty"`
@@ -1523,10 +4311,176 @@ type Clip struct {
 	Uploaders           []string       `json:"uploaders"`
 	VideoCodec          string         `json:"video_codec"`
 	Visibility          ClipVisibility `json:"visibility"`
+
+	// Waveforms Pics de forme d’onde par piste audio (ADR 0034), un élément par piste ayant reçu des pics ; liste vide tant qu’aucune analyse n’en a fourni.
+	Waveforms *[]struct {
+		AudioStreamIndex int   `json:"audio_stream_index"`
+		JobId            int64 `json:"job_id"`
+		Peaks            []int `json:"peaks"`
+	} `json:"waveforms,omitempty"`
 }
+
+// ClipOriginsKind defines model for Clip.Origins.Kind.
+type ClipOriginsKind string
 
 // ClipVisibility defines model for Clip.Visibility.
 type ClipVisibility string
+
+// ClipAnalysisConflict defines model for ClipAnalysisConflict.
+type ClipAnalysisConflict struct {
+	Error string           `json:"error"`
+	Run   *ClipAnalysisRun `json:"run,omitempty"`
+
+	// Stake Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés).
+	Stake *ClipReanalysisStake `json:"stake,omitempty"`
+
+	// StakeAt Instant où l'enjeu a été lu ; à renvoyer en confirmed_stake_at.
+	StakeAt *time.Time `json:"stake_at,omitempty"`
+}
+
+// ClipAnalysisDeletionStake Pertes d'une suppression d'analyse ; rien n'est supprimé par ce calcul. Les Personnes et leurs échantillons validés ne sont jamais supprimés, seulement retirés de la référence.
+type ClipAnalysisDeletionStake struct {
+	// Corrections Corrections de segments de la transcription visible (retranscription).
+	Corrections *struct {
+		Authors            []string   `json:"authors"`
+		LastCorrectedAt    *time.Time `json:"last_corrected_at"`
+		SpeakerSegments    int        `json:"speaker_segments"`
+		TextSegments       int        `json:"text_segments"`
+		TranscriptionJobId int64      `json:"transcription_job_id"`
+	} `json:"corrections"`
+
+	// Persons Personnes dont une voix validée ou un échantillon actif est touché.
+	Persons int `json:"persons"`
+
+	// Segments Segments des transcriptions supprimées.
+	Segments int `json:"segments"`
+
+	// ValidatedVoices Locuteurs locaux validés par un humain.
+	ValidatedVoices int `json:"validated_voices"`
+
+	// VoiceSamples Échantillons actifs de la référence retirés.
+	VoiceSamples int `json:"voice_samples"`
+
+	// Voices Locuteurs locaux du clip (diarisation).
+	Voices int `json:"voices"`
+}
+
+// ClipAnalysisHistory defines model for ClipAnalysisHistory.
+type ClipAnalysisHistory struct {
+	Runs []ClipAnalysisRun `json:"runs"`
+}
+
+// ClipAnalysisResponse defines model for ClipAnalysisResponse.
+type ClipAnalysisResponse struct {
+	Run *ClipAnalysisRun `json:"run"`
+}
+
+// ClipAnalysisRun defines model for ClipAnalysisRun.
+type ClipAnalysisRun struct {
+	ClipId                      int64 `json:"clip_id"`
+	ConfirmedReplaceCorrections bool  `json:"confirmed_replace_corrections"`
+	ConfirmedReplaceValidations bool  `json:"confirmed_replace_validations"`
+
+	// ConfirmedStakeAt Instant jusqu'auquel le travail humain en jeu a été montré et confirmé : la réanalyse ne rend obsolète que ce qui existait alors (nul sans étape relancée).
+	ConfirmedStakeAt *time.Time                   `json:"confirmed_stake_at"`
+	CreatedAt        time.Time                    `json:"created_at"`
+	FinishedAt       *time.Time                   `json:"finished_at"`
+	ForcedSteps      []ClipAnalysisRunForcedSteps `json:"forced_steps"`
+	Id               int64                        `json:"id"`
+	Mode             ClipAnalysisRunMode          `json:"mode"`
+
+	// PendingVoices Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée.
+	PendingVoices int                   `json:"pending_voices"`
+	Scope         ClipAnalysisRunScope  `json:"scope"`
+	StartedBy     *int64                `json:"started_by"`
+	Status        ClipAnalysisRunStatus `json:"status"`
+	Steps         []ClipAnalysisStep    `json:"steps"`
+	UpdatedAt     time.Time             `json:"updated_at"`
+}
+
+// ClipAnalysisRunForcedSteps defines model for ClipAnalysisRun.ForcedSteps.
+type ClipAnalysisRunForcedSteps string
+
+// ClipAnalysisRunMode defines model for ClipAnalysisRun.Mode.
+type ClipAnalysisRunMode string
+
+// ClipAnalysisRunScope defines model for ClipAnalysisRun.Scope.
+type ClipAnalysisRunScope string
+
+// ClipAnalysisRunStatus defines model for ClipAnalysisRun.Status.
+type ClipAnalysisRunStatus string
+
+// ClipAnalysisStep defines model for ClipAnalysisStep.
+type ClipAnalysisStep struct {
+	Attempt int `json:"attempt"`
+
+	// Events Historique des analyses seulement : événements persistés du job suivi par l'étape (tentatives, reprises, échecs), du plus ancien au plus récent ; absent ailleurs ou sans job.
+	Events *[]AnalysisStepEvent `json:"events,omitempty"`
+
+	// FailureCode File de tâches seulement, étape en échec : Cause d'échec persistée du dernier échec du job suivi (jamais de texte brut) ; absente sans cause connue.
+	FailureCode *FailureCode `json:"failure_code,omitempty"`
+	FinishedAt  *time.Time   `json:"finished_at"`
+
+	// Forced Étape relancée par une réanalyse, malgré un résultat valide.
+	Forced bool `json:"forced"`
+
+	// InputVersion Version d'entrée du job suivi par l'étape (historique).
+	InputVersion *string `json:"input_version"`
+	JobId        *int64  `json:"job_id"`
+
+	// Profile Profil (pipeline) du job suivi par l'étape.
+	Profile *string `json:"profile"`
+
+	// Reason Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, worker_not_claiming, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed.
+	Reason string `json:"reason"`
+
+	// RecommendedAction File de tâches seulement : code de l'action conseillée, décidé par le serveur. Étape en échec : action de la Cause d'échec (catalogue des jobs). Attente de Worker (awaiting_worker, awaiting_compatible_worker) d'un job prêt : start_worker ; jamais pour une reprise différée.
+	RecommendedAction *string                `json:"recommended_action,omitempty"`
+	StartedAt         *time.Time             `json:"started_at"`
+	Status            ClipAnalysisStepStatus `json:"status"`
+	Step              ClipAnalysisStepStep   `json:"step"`
+	UpdatedAt         time.Time              `json:"updated_at"`
+}
+
+// ClipAnalysisStepStatus defines model for ClipAnalysisStep.Status.
+type ClipAnalysisStepStatus string
+
+// ClipAnalysisStepStep defines model for ClipAnalysisStep.Step.
+type ClipAnalysisStepStep string
+
+// ClipAnalysisView Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur.
+type ClipAnalysisView struct {
+	ClipId        int64                  `json:"clip_id"`
+	CreatedAt     time.Time              `json:"created_at"`
+	FinishedAt    *time.Time             `json:"finished_at"`
+	PendingVoices int                    `json:"pending_voices"`
+	Scope         ClipAnalysisViewScope  `json:"scope"`
+	Status        ClipAnalysisViewStatus `json:"status"`
+	Steps         []struct {
+		Reason    string                      `json:"reason"`
+		Status    ClipAnalysisViewStepsStatus `json:"status"`
+		Step      ClipAnalysisViewStepsStep   `json:"step"`
+		UpdatedAt time.Time                   `json:"updated_at"`
+	} `json:"steps"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ClipAnalysisViewScope defines model for ClipAnalysisView.Scope.
+type ClipAnalysisViewScope string
+
+// ClipAnalysisViewStatus defines model for ClipAnalysisView.Status.
+type ClipAnalysisViewStatus string
+
+// ClipAnalysisViewStepsStatus defines model for ClipAnalysisView.Steps.Status.
+type ClipAnalysisViewStepsStatus string
+
+// ClipAnalysisViewStepsStep defines model for ClipAnalysisView.Steps.Step.
+type ClipAnalysisViewStepsStep string
+
+// ClipAnalysisViewResponse defines model for ClipAnalysisViewResponse.
+type ClipAnalysisViewResponse struct {
+	Run *ClipAnalysisView `json:"run"`
+}
 
 // ClipFilterOptions defines model for ClipFilterOptions.
 type ClipFilterOptions struct {
@@ -1538,6 +4492,18 @@ type ClipFilterOptions struct {
 		Id   int64  `json:"id"`
 		Name string `json:"name"`
 	} `json:"sources"`
+}
+
+// ClipLocation defines model for ClipLocation.
+type ClipLocation struct {
+	// Path Chemin complet (racine de la source + chemin relatif). Absent pour un dossier privé.
+	Path *string `json:"path,omitempty"`
+
+	// Private Le fichier est dans un dossier privé : son chemin n'est pas envoyé.
+	Private *bool `json:"private,omitempty"`
+
+	// Source Nom de la source indexée.
+	Source string `json:"source"`
 }
 
 // ClipMicrophoneTrack defines model for ClipMicrophoneTrack.
@@ -1590,16 +4556,38 @@ type ClipProgress struct {
 	Transcription ClipStepState `json:"transcription"`
 }
 
+// ClipReanalysisStake Ce que la réanalyse rendrait obsolète ; rien n'est supprimé (historiques, échantillons validés et anciens résultats conservés).
+type ClipReanalysisStake struct {
+	// Corrections Corrections de segments de la transcription visible (retranscription).
+	Corrections *struct {
+		Authors            []string   `json:"authors"`
+		LastCorrectedAt    *time.Time `json:"last_corrected_at"`
+		SpeakerSegments    int        `json:"speaker_segments"`
+		TextSegments       int        `json:"text_segments"`
+		TranscriptionJobId int64      `json:"transcription_job_id"`
+	} `json:"corrections"`
+
+	// Voice Validations de voix, échantillons et corrections de locuteur (nouvelle diarisation).
+	Voice *struct {
+		SpeakerCorrections int `json:"speaker_corrections"`
+		ValidatedSpeakers  int `json:"validated_speakers"`
+		VoiceSamples       int `json:"voice_samples"`
+	} `json:"voice"`
+}
+
 // ClipStepState État d’une étape du clip : none (rien de planifié), queued (en file), running (en cours), done (terminée), failed (échouée), unavailable (étape non configurée sur cette installation).
 type ClipStepState string
 
 // ClipVoice defines model for ClipVoice.
 type ClipVoice struct {
-	AudioStreamIndex *int            `json:"audio_stream_index,omitempty"`
-	ClipId           int64           `json:"clip_id"`
-	Speakers         []LocalSpeaker  `json:"speakers"`
-	Status           ClipVoiceStatus `json:"status"`
-	Steps            []VoiceStep     `json:"steps"`
+	AudioStreamIndex *int  `json:"audio_stream_index,omitempty"`
+	ClipId           int64 `json:"clip_id"`
+
+	// History Résultats de diarisation remplacés par une relance, du plus récent au plus ancien ; le résultat visible n'est remplacé qu'après une relance réussie.
+	History  []VoiceHistoryEntry `json:"history"`
+	Speakers []LocalSpeaker      `json:"speakers"`
+	Status   ClipVoiceStatus     `json:"status"`
+	Steps    []VoiceStep         `json:"steps"`
 }
 
 // ClipVoiceStatus defines model for ClipVoice.Status.
@@ -1630,6 +4618,25 @@ type Credentials struct {
 // DecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
 type DecisionLevel string
 
+// DiscordBotInput defines model for DiscordBotInput.
+type DiscordBotInput struct {
+	Token *string `json:"token,omitempty"`
+}
+
+// DiscordBotStatus defines model for DiscordBotStatus.
+type DiscordBotStatus struct {
+	BotName       *string                `json:"bot_name"`
+	LastError     *string                `json:"last_error"`
+	LastFailed    int                    `json:"last_failed"`
+	LastRefreshed int                    `json:"last_refreshed"`
+	LastSyncAt    *time.Time             `json:"last_sync_at"`
+	Running       bool                   `json:"running"`
+	Status        DiscordBotStatusStatus `json:"status"`
+}
+
+// DiscordBotStatusStatus defines model for DiscordBotStatus.Status.
+type DiscordBotStatusStatus string
+
 // EmbeddingSettings defines model for EmbeddingSettings.
 type EmbeddingSettings struct {
 	Model                string `json:"model"`
@@ -1638,29 +4645,233 @@ type EmbeddingSettings struct {
 	UrlFromEnvironment   bool   `json:"url_from_environment"`
 }
 
+// EmbeddingValidation defines model for EmbeddingValidation.
+type EmbeddingValidation struct {
+	Dimensions      int       `json:"dimensions"`
+	ExpiresAt       time.Time `json:"expires_at"`
+	Model           string    `json:"model"`
+	ValidationToken string    `json:"validation_token"`
+}
+
 // Error defines model for Error.
 type Error struct {
 	Error string `json:"error"`
 }
 
+// ExplorerEntry defines model for ExplorerEntry.
+type ExplorerEntry struct {
+	AddedAt         *time.Time `json:"added_at"`
+	ClipId          *int64     `json:"clip_id"`
+	Directory       bool       `json:"directory"`
+	DurationSeconds *float32   `json:"duration_seconds"`
+	Folder          string     `json:"folder"`
+	Game            string     `json:"game"`
+	Locked          bool       `json:"locked"`
+
+	// MatchCount Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant
+	MatchCount *int   `json:"match_count,omitempty"`
+	Name       string `json:"name"`
+	Owner      string `json:"owner"`
+	OwnerId    *int64 `json:"owner_id"`
+
+	// Path Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine
+	Path          string              `json:"path"`
+	Private       bool                `json:"private"`
+	RecordedAt    *time.Time          `json:"recorded_at"`
+	SizeBytes     int64               `json:"size_bytes"`
+	State         *ExplorerEntryState `json:"state,omitempty"`
+	Visibility    *string             `json:"visibility,omitempty"`
+	VoicesPending int                 `json:"voices_pending"`
+}
+
+// ExplorerEntryState defines model for ExplorerEntry.State.
+type ExplorerEntryState string
+
+// ExplorerIndexResult defines model for ExplorerIndexResult.
+type ExplorerIndexResult struct {
+	ClipId *int64                   `json:"clip_id,omitempty"`
+	Path   string                   `json:"path"`
+	State  ExplorerIndexResultState `json:"state"`
+}
+
+// ExplorerIndexResultState defines model for ExplorerIndexResult.State.
+type ExplorerIndexResultState string
+
+// ExplorerListing defines model for ExplorerListing.
+type ExplorerListing struct {
+	Items          []ExplorerEntry `json:"items"`
+	RootConfigured bool            `json:"root_configured"`
+	SourceId       int64           `json:"source_id"`
+	States         []string        `json:"states"`
+
+	// Total Taille de la sélection entière, hors pagination
+	Total int `json:"total"`
+}
+
+// FailureCode Catalogue fermé des Causes d'échec d'un job. Un code hors catalogue envoyé par un ancien Worker est enregistré comme worker_failed.
+type FailureCode string
+
+// FingerprintTransition defines model for FingerprintTransition.
+type FingerprintTransition struct {
+	AnnouncedReferences int                        `json:"announced_references"`
+	AuthorName          string                     `json:"author_name"`
+	CatchUpRemaining    int                        `json:"catch_up_remaining"`
+	CreatedAt           time.Time                  `json:"created_at"`
+	FromModelId         string                     `json:"from_model_id"`
+	Id                  int64                      `json:"id"`
+	JobsActive          int                        `json:"jobs_active"`
+	JobsFailed          int                        `json:"jobs_failed"`
+	Phase               FingerprintTransitionPhase `json:"phase"`
+	ReferencesDone      int                        `json:"references_done"`
+	ReferencesRemaining int                        `json:"references_remaining"`
+	ReferencesTotal     int                        `json:"references_total"`
+	SwitchedAt          *time.Time                 `json:"switched_at,omitempty"`
+	ToModelId           string                     `json:"to_model_id"`
+	WorkersReady        int                        `json:"workers_ready"`
+}
+
+// FingerprintTransitionPhase defines model for FingerprintTransition.Phase.
+type FingerprintTransitionPhase string
+
+// FingerprintTransitionInput defines model for FingerprintTransitionInput.
+type FingerprintTransitionInput struct {
+	ConfirmReferences int    `json:"confirm_references"`
+	ToModelId         string `json:"to_model_id"`
+}
+
+// FingerprintTransitionPreview defines model for FingerprintTransitionPreview.
+type FingerprintTransitionPreview struct {
+	Clips                 int    `json:"clips"`
+	FromModelId           string `json:"from_model_id"`
+	OtherFingerprints     int    `json:"other_fingerprints"`
+	Persons               int    `json:"persons"`
+	References            int    `json:"references"`
+	ToModelId             string `json:"to_model_id"`
+	ValidatedAttributions int    `json:"validated_attributions"`
+	WorkersReady          int    `json:"workers_ready"`
+}
+
+// FingerprintTransitionState defines model for FingerprintTransitionState.
+type FingerprintTransitionState struct {
+	Open       bool                   `json:"open"`
+	Transition *FingerprintTransition `json:"transition,omitempty"`
+}
+
+// FolderPrivacy defines model for FolderPrivacy.
+type FolderPrivacy struct {
+	// Folder Nom d'un dossier de premier niveau de la source
+	Folder   string `json:"folder"`
+	Private  bool   `json:"private"`
+	SourceId int64  `json:"source_id"`
+}
+
+// HFTokenInput defines model for HFTokenInput.
+type HFTokenInput struct {
+	// Token Token Hugging Face : écrit une fois, jamais renvoyé
+	Token *string `json:"token,omitempty"`
+}
+
+// HFTokenStatus defines model for HFTokenStatus.
+type HFTokenStatus struct {
+	Configured bool `json:"configured"`
+
+	// Unreadable Valeur présente mais illisible avec la clé maître courante : à ressaisir
+	Unreadable bool `json:"unreadable"`
+	Workers    []struct {
+		ErrorCode HFTokenStatusWorkersErrorCode `json:"error_code"`
+		Id        string                        `json:"id"`
+		Name      string                        `json:"name"`
+		Source    HFTokenStatusWorkersSource    `json:"source"`
+
+		// State pending = non synchronisé
+		State HFTokenStatusWorkersState `json:"state"`
+	} `json:"workers"`
+}
+
+// HFTokenStatusWorkersErrorCode defines model for HFTokenStatus.Workers.ErrorCode.
+type HFTokenStatusWorkersErrorCode string
+
+// HFTokenStatusWorkersSource defines model for HFTokenStatus.Workers.Source.
+type HFTokenStatusWorkersSource string
+
+// HFTokenStatusWorkersState pending = non synchronisé
+type HFTokenStatusWorkersState string
+
+// IndexRun defines model for IndexRun.
+type IndexRun struct {
+	// AnalysisStarted Clips de l'indexation dont une analyse a été mise en file (mode full).
+	AnalysisStarted int       `json:"analysis_started"`
+	CreatedAt       time.Time `json:"created_at"`
+
+	// Failed Vidéos illisibles ou disparues.
+	Failed int `json:"failed"`
+
+	// Failures Les premières vidéos en échec, avec leur code.
+	Failures   []IndexRunFailure `json:"failures"`
+	FinishedAt *time.Time        `json:"finished_at"`
+	Id         int64             `json:"id"`
+
+	// Indexed Vidéos dont la fiche clip existe.
+	Indexed int            `json:"indexed"`
+	Mode    IndexRunMode   `json:"mode"`
+	Pending int            `json:"pending"`
+	Status  IndexRunStatus `json:"status"`
+	Total   int            `json:"total"`
+
+	// WaitingForWorker Mode full : des vidéos attendent et aucun Worker n'est en ligne.
+	WaitingForWorker bool `json:"waiting_for_worker"`
+}
+
+// IndexRunMode defines model for IndexRun.Mode.
+type IndexRunMode string
+
+// IndexRunStatus defines model for IndexRun.Status.
+type IndexRunStatus string
+
+// IndexRunAnswer defines model for IndexRunAnswer.
+type IndexRunAnswer struct {
+	Run *IndexRun `json:"run"`
+}
+
+// IndexRunFailure defines model for IndexRunFailure.
+type IndexRunFailure struct {
+	Code string `json:"code"`
+	Path string `json:"path"`
+}
+
+// IndexRunPreview defines model for IndexRunPreview.
+type IndexRunPreview struct {
+	// AlreadyIndexed Déjà dotées d'une fiche clip : jamais retraitées.
+	AlreadyIndexed int `json:"already_indexed"`
+
+	// Detected Vidéos que l'utilisateur peut voir dans la Racine.
+	Detected int `json:"detected"`
+
+	// New Sans fiche clip : celles qu'une indexation traiterait.
+	New int `json:"new"`
+}
+
 // Job defines model for Job.
 type Job struct {
-	Attempts       int                     `json:"attempts"`
-	ClipId         int64                   `json:"clip_id"`
-	CreatedAt      time.Time               `json:"created_at"`
-	Cycle          int                     `json:"cycle"`
-	Id             int64                   `json:"id"`
-	InputVersion   string                  `json:"input_version"`
-	LastError      string                  `json:"last_error"`
-	LeaseExpiresAt *time.Time              `json:"lease_expires_at"`
-	LeaseOwner     *string                 `json:"lease_owner"`
-	MaxAttempts    int                     `json:"max_attempts"`
-	NextAttemptAt  time.Time               `json:"next_attempt_at"`
-	Priority       int                     `json:"priority"`
-	Result         *map[string]interface{} `json:"result,omitempty"`
-	Status         JobStatus               `json:"status"`
-	Step           string                  `json:"step"`
-	UpdatedAt      time.Time               `json:"updated_at"`
+	Attempts       int        `json:"attempts"`
+	ClipId         int64      `json:"clip_id"`
+	CreatedAt      time.Time  `json:"created_at"`
+	Cycle          int        `json:"cycle"`
+	Id             int64      `json:"id"`
+	InputVersion   string     `json:"input_version"`
+	LastError      string     `json:"last_error"`
+	LeaseExpiresAt *time.Time `json:"lease_expires_at"`
+	LeaseOwner     *string    `json:"lease_owner"`
+	MaxAttempts    int        `json:"max_attempts"`
+	NextAttemptAt  time.Time  `json:"next_attempt_at"`
+	Priority       int        `json:"priority"`
+
+	// RequestedModelId Renvoyé à la planification d'un travail à modèle demandé (benchmark).
+	RequestedModelId *string                 `json:"requested_model_id,omitempty"`
+	Result           *map[string]interface{} `json:"result,omitempty"`
+	Status           JobStatus               `json:"status"`
+	Step             string                  `json:"step"`
+	UpdatedAt        time.Time               `json:"updated_at"`
 }
 
 // JobStatus defines model for Job.Status.
@@ -1681,14 +4892,27 @@ type JobControlsInput struct {
 
 // JobEvent defines model for JobEvent.
 type JobEvent struct {
-	Actor     JobEventActor `json:"actor"`
-	ActorId   string        `json:"actor_id"`
-	Attempt   *int          `json:"attempt"`
-	CreatedAt time.Time     `json:"created_at"`
-	Cycle     int           `json:"cycle"`
-	ErrorCode string        `json:"error_code"`
-	Event     JobEventEvent `json:"event"`
-	Id        int64         `json:"id"`
+	Actor      JobEventActor `json:"actor"`
+	ActorId    string        `json:"actor_id"`
+	Attempt    *int          `json:"attempt"`
+	CreatedAt  time.Time     `json:"created_at"`
+	Cycle      int           `json:"cycle"`
+	DurationMs *int          `json:"duration_ms,omitempty"`
+
+	// ErrorCode Cause d'échec (voir FailureCode) ; vide pour un événement sans échec.
+	ErrorCode  string        `json:"error_code"`
+	Event      JobEventEvent `json:"event"`
+	HttpStatus *int          `json:"http_status,omitempty"`
+	Id         int64         `json:"id"`
+	Model      *string       `json:"model,omitempty"`
+	Provider   *string       `json:"provider,omitempty"`
+
+	// RecommendedAction Code de l'action de reprise conseillée, décidée par le serveur ; absent sans cause connue.
+	RecommendedAction *string `json:"recommended_action,omitempty"`
+	Revision          *string `json:"revision,omitempty"`
+
+	// Step Étape du job, présente avec un diagnostic.
+	Step *string `json:"step,omitempty"`
 }
 
 // JobEventActor defines model for JobEvent.Actor.
@@ -1708,7 +4932,10 @@ type JobInput struct {
 	InputVersion string `json:"input_version"`
 	MaxAttempts  *int   `json:"max_attempts,omitempty"`
 	Priority     *int   `json:"priority,omitempty"`
-	Step         string `json:"step"`
+
+	// RequestedModelId Modèle d'empreinte du catalogue demandé explicitement (benchmark), uniquement pour une étape voice.fingerprint.*. Sans lui, le modèle actif s'applique. Le travail n'est attribué qu'à un Worker qui a CE modèle prêt ; ses empreintes restent dans un groupe de benchmark, jamais comparé à la production.
+	RequestedModelId *string `json:"requested_model_id,omitempty"`
+	Step             string  `json:"step"`
 }
 
 // JobPage defines model for JobPage.
@@ -1719,14 +4946,30 @@ type JobPage struct {
 	Total    int64 `json:"total"`
 }
 
+// LibraryFolder defines model for LibraryFolder.
+type LibraryFolder struct {
+	// Locked Privé et non ouvrable par l'utilisateur courant : seul son nom est exposé
+	Locked bool   `json:"locked"`
+	Name   string `json:"name"`
+	Path   string `json:"path"`
+
+	// Private Dossier rendu privé par le Super-administrateur
+	Private  bool   `json:"private"`
+	Source   string `json:"source"`
+	SourceId int64  `json:"source_id"`
+}
+
 // LocalSpeaker defines model for LocalSpeaker.
 type LocalSpeaker struct {
 	Attribution *Attribution `json:"attribution"`
 
 	// DecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
-	DecisionLevel DecisionLevel      `json:"decision_level"`
-	Fingerprints  []VoiceFingerprint `json:"fingerprints"`
-	Id            int64              `json:"id"`
+	DecisionLevel DecisionLevel `json:"decision_level"`
+
+	// Disposition ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031).
+	Disposition  *LocalSpeakerDisposition `json:"disposition,omitempty"`
+	Fingerprints []VoiceFingerprint       `json:"fingerprints"`
+	Id           int64                    `json:"id"`
 
 	// Kind microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
 	Kind    LocalSpeakerKind `json:"kind"`
@@ -1734,19 +4977,48 @@ type LocalSpeaker struct {
 	Ordinal int              `json:"ordinal"`
 
 	// Person Personne de l'attribution effective (validation humaine prioritaire).
-	Person          *PersonRef `json:"person"`
-	SpeakingSeconds float32    `json:"speaking_seconds"`
+	Person *PersonRef `json:"person"`
+
+	// RefusedPersons Personnes refusées pour cette voix (« Ce n'est pas X »), que le rapprochement ne propose plus ; chacune peut être rétablie par Annuler le refus (ADR 0031).
+	RefusedPersons  *[]PersonRef `json:"refused_persons,omitempty"`
+	SpeakingSeconds float32      `json:"speaking_seconds"`
 
 	// State identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
 	State     LocalSpeakerState `json:"state"`
 	TurnCount int               `json:"turn_count"`
 }
 
+// LocalSpeakerDisposition ignored : voix mise de côté, sans locuteur sur ses segments ; random : segments libellés « Random ». Absente pour une voix traitée normalement (ADR 0031).
+type LocalSpeakerDisposition string
+
 // LocalSpeakerKind microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
 type LocalSpeakerKind string
 
 // LocalSpeakerState identified : attribution humaine ou automatique à une Personne. Une suggestion ou une voix ambiguë reste unidentified ; une voix inconnue ne bloque rien.
 type LocalSpeakerState string
+
+// LocalSpeakerRead defines model for LocalSpeakerRead.
+type LocalSpeakerRead struct {
+	// Attribution Attribution effective (validation humaine d'abord, sinon rapprochement) ; null sans attribution. Author et decided_at disent qui l'a décidée et quand.
+	Attribution *Attribution `json:"attribution"`
+	ClipId      int64        `json:"clip_id"`
+	ClipName    string       `json:"clip_name"`
+
+	// DecisionLevel human : validation humaine ; automatic, suggestion, ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé l'automatisation) ; unknown : aucune attribution ou aucune Personne assez proche.
+	DecisionLevel DecisionLevel `json:"decision_level"`
+
+	// GroupClipCount Présent avec group_id.
+	GroupClipCount *int `json:"group_clip_count,omitempty"`
+
+	// GroupId Présent seulement pour une voix à trancher (inconnue ou ambiguë) : groupe proposé de la voix.
+	GroupId *int64 `json:"group_id,omitempty"`
+
+	// GroupVoiceCount Présent avec group_id.
+	GroupVoiceCount *int    `json:"group_voice_count,omitempty"`
+	Label           string  `json:"label"`
+	LocalSpeakerId  int64   `json:"local_speaker_id"`
+	SpeakingSeconds float32 `json:"speaking_seconds"`
+}
 
 // MasterKeyExport defines model for MasterKeyExport.
 type MasterKeyExport struct {
@@ -1779,15 +5051,64 @@ type MediaTrack struct {
 
 // Member defines model for Member.
 type Member struct {
-	ClipCount int64      `json:"clip_count"`
-	CreatedAt time.Time  `json:"created_at"`
-	Id        int64      `json:"id"`
-	Role      MemberRole `json:"role"`
-	Username  string     `json:"username"`
+	ClipCount     int64     `json:"clip_count"`
+	CreatedAt     time.Time `json:"created_at"`
+	DiscordLinked bool      `json:"discord_linked"`
+
+	// DisplayName Nom affiché effectif : choisi, pseudo Discord ou identifiant.
+	DisplayName string     `json:"display_name"`
+	Id          int64      `json:"id"`
+	Role        MemberRole `json:"role"`
+	Username    string     `json:"username"`
 }
 
 // MemberRole defines model for Member.Role.
 type MemberRole string
+
+// MemberDetail defines model for MemberDetail.
+type MemberDetail struct {
+	Approved        bool                  `json:"approved"`
+	ClipCount       int64                 `json:"clip_count"`
+	CreatedAt       time.Time             `json:"created_at"`
+	DiscordLinked   bool                  `json:"discord_linked"`
+	DiscordUsername *string               `json:"discord_username"`
+	DisplayName     *string               `json:"display_name"`
+	HasPassword     bool                  `json:"has_password"`
+	Id              int64                 `json:"id"`
+	Language        *MemberDetailLanguage `json:"language"`
+	Permissions     MemberPermissions     `json:"permissions"`
+	Role            MemberDetailRole      `json:"role"`
+	SessionCount    int64                 `json:"session_count"`
+	Username        string                `json:"username"`
+}
+
+// MemberDetailLanguage defines model for MemberDetail.Language.
+type MemberDetailLanguage string
+
+// MemberDetailRole defines model for MemberDetail.Role.
+type MemberDetailRole string
+
+// MemberPatch defines model for MemberPatch.
+type MemberPatch struct {
+	Approved    *bool                `json:"approved,omitempty"`
+	DisplayName *string              `json:"display_name,omitempty"`
+	Language    *MemberPatchLanguage `json:"language,omitempty"`
+	Role        *MemberPatchRole     `json:"role,omitempty"`
+	Username    *string              `json:"username,omitempty"`
+}
+
+// MemberPatchLanguage defines model for MemberPatch.Language.
+type MemberPatchLanguage string
+
+// MemberPatchRole defines model for MemberPatch.Role.
+type MemberPatchRole string
+
+// MemberPermissions defines model for MemberPermissions.
+type MemberPermissions struct {
+	Edit    bool `json:"edit"`
+	Manage  bool `json:"manage"`
+	SetRole bool `json:"set_role"`
+}
 
 // MicrophoneDetectedTrack defines model for MicrophoneDetectedTrack.
 type MicrophoneDetectedTrack struct {
@@ -1885,6 +5206,71 @@ type MicrophoneTrackRuleInput struct {
 // MicrophoneTrackStatus none : aucune règle ; designated : piste micro résolue ; disabled : le clip n'a pas de piste micro ; track_not_found, ambiguous_track, conflicting_sources : la désignation ne correspond pas à une piste unique et n'est pas appliquée ; blocked_by_validation : la piste désignée porte des voix déjà validées par un humain ; owner_profile_deleted : le propriétaire désigné a supprimé son profil vocal, rien ne lui est attribué.
 type MicrophoneTrackStatus string
 
+// Notification defines model for Notification.
+type Notification struct {
+	ClipId    *int64    `json:"clip_id"`
+	ClipName  string    `json:"clip_name"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// ErrorCode Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated, worker_not_claiming), jamais l'erreur brute.
+	ErrorCode string `json:"error_code"`
+
+	// FolderOutcome Décision sur une demande de dossier : approved ou refused, vide sinon.
+	FolderOutcome *NotificationFolderOutcome `json:"folder_outcome,omitempty"`
+
+	// FolderPath Décision sur une demande de dossier : chemin relatif de la Racine vidéo, vide sinon.
+	FolderPath *string `json:"folder_path,omitempty"`
+
+	// Generic Vrai pour le message générique sûr vu par un non-administrateur.
+	Generic bool  `json:"generic"`
+	Id      int64 `json:"id"`
+
+	// JobId Incident : dernier job concerné (administrateurs uniquement).
+	JobId *int64 `json:"job_id"`
+
+	// Kind Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip.
+	Kind NotificationKind `json:"kind"`
+
+	// PendingCount Voix restant à décider, ou jobs concernés par l'incident.
+	PendingCount int `json:"pending_count"`
+
+	// Read État de lecture du demandeur, indépendant de la résolution.
+	Read       bool       `json:"read"`
+	ResolvedAt *time.Time `json:"resolved_at"`
+
+	// State Partagé : une action résolue l'est pour tous.
+	State NotificationState `json:"state"`
+
+	// Step Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret.
+	Step      string    `json:"step"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// NotificationFolderOutcome Décision sur une demande de dossier : approved ou refused, vide sinon.
+type NotificationFolderOutcome string
+
+// NotificationKind Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip.
+type NotificationKind string
+
+// NotificationState Partagé : une action résolue l'est pour tous.
+type NotificationState string
+
+// NotificationList defines model for NotificationList.
+type NotificationList struct {
+	Items   []Notification `json:"items"`
+	Pending int            `json:"pending"`
+
+	// Total Nombre de notifications que sélectionnent l'état et le filtre, quelle que soit la page ; sert à proposer « Afficher plus ».
+	Total  int `json:"total"`
+	Unread int `json:"unread"`
+}
+
+// NotificationRead defines model for NotificationRead.
+type NotificationRead struct {
+	Id   int64 `json:"id"`
+	Read bool  `json:"read"`
+}
+
 // ObsoleteCorrection defines model for ObsoleteCorrection.
 type ObsoleteCorrection struct {
 	// History Entrées immuables, de la plus récente à la plus ancienne.
@@ -1907,14 +5293,56 @@ type ObsoleteCorrections struct {
 	Items []ObsoleteCorrection `json:"items"`
 }
 
+// PeopleToProcess defines model for PeopleToProcess.
+type PeopleToProcess struct {
+	Items  []PeopleToProcessClip `json:"items"`
+	Total  int                   `json:"total"`
+	Totals PeopleToProcessTotals `json:"totals"`
+}
+
+// PeopleToProcessClip defines model for PeopleToProcessClip.
+type PeopleToProcessClip struct {
+	Ambiguous int `json:"ambiguous"`
+
+	// AnalysedRecently Une analyse du clip s'est terminée dans les 24 dernières heures.
+	AnalysedRecently bool     `json:"analysed_recently"`
+	ClipId           int64    `json:"clip_id"`
+	ClipName         string   `json:"clip_name"`
+	DurationSeconds  *float32 `json:"duration_seconds"`
+
+	// Folder Dossier du clip dans sa source (chemin relatif sans le nom du fichier), vide s'il n'en a pas.
+	Folder     string    `json:"folder"`
+	Groups     int       `json:"groups"`
+	RecordedAt time.Time `json:"recorded_at"`
+	ToConfirm  int       `json:"to_confirm"`
+	Unknown    int       `json:"unknown"`
+}
+
+// PeopleToProcessTotals defines model for PeopleToProcessTotals.
+type PeopleToProcessTotals struct {
+	Ambiguous int `json:"ambiguous"`
+	Clips     int `json:"clips"`
+	Groups    int `json:"groups"`
+	ToConfirm int `json:"to_confirm"`
+	Unknown   int `json:"unknown"`
+}
+
 // Person defines model for Person.
 type Person struct {
+	// AccountUsername Nom d'utilisateur du compte lié, rempli en lecture (liste et fiche) ; null sans compte lié ou dans le résultat d'une correction.
+	AccountUsername *string `json:"account_username"`
+
+	// ClipCount Vidéos où une voix validée de la Personne est entendue, parmi celles que l'appelant peut voir. Rempli en lecture (liste et fiche), 0 dans le résultat d'une correction.
+	ClipCount   int       `json:"clip_count"`
 	CreatedAt   time.Time `json:"created_at"`
 	DisplayName string    `json:"display_name"`
 	Id          int64     `json:"id"`
 
 	// LocalSpeakerCount Locuteurs locaux validés pour cette Personne.
 	LocalSpeakerCount int `json:"local_speaker_count"`
+
+	// SpeakingSeconds Temps de parole cumulé de ces voix validées, sur les vidéos visibles par l'appelant.
+	SpeakingSeconds float32 `json:"speaking_seconds"`
 
 	// UserId Compte lié, le cas échéant : une Personne n'est jamais un compte.
 	UserId *int64 `json:"user_id"`
@@ -1967,14 +5395,86 @@ type PersonEventList struct {
 	Items []PersonEvent `json:"items"`
 }
 
+// PersonExists defines model for PersonExists.
+type PersonExists struct {
+	Candidates []struct {
+		DisplayName string `json:"display_name"`
+		Id          int64  `json:"id"`
+	} `json:"candidates"`
+	Error PersonExistsError `json:"error"`
+}
+
+// PersonExistsError defines model for PersonExists.Error.
+type PersonExistsError string
+
+// PersonImpact defines model for PersonImpact.
+type PersonImpact struct {
+	// Attributions Attributions qu'effacerait la suppression du profil vocal ; les voix correspondantes redeviendraient inconnues.
+	Attributions int `json:"attributions"`
+
+	// Fingerprints Empreintes qu'effacerait la suppression du profil vocal.
+	Fingerprints int `json:"fingerprints"`
+
+	// HasHiddenVoices Vrai lorsque la Personne est attribuée sur un clip que l'appelant ne peut pas voir (toujours faux pour un administrateur) : une fusion ou une suppression serait refusée (person_has_hidden_voices).
+	HasHiddenVoices bool `json:"has_hidden_voices"`
+
+	// MicrophoneRules Désignations de piste micro (règles de source et surcharges de clip) qui nomment la Personne : déplacées par une fusion, supprimées par une suppression.
+	MicrophoneRules int `json:"microphone_rules"`
+
+	// VoiceSamples Échantillons vocaux validés (actifs et retirés) qu'effacerait la suppression du profil vocal.
+	VoiceSamples int `json:"voice_samples"`
+}
+
 // PersonInput defines model for PersonInput.
 type PersonInput struct {
-	DisplayName string `json:"display_name"`
+	// AllowHomonym Vrai pour créer une Personne de même nom qu'une existante, après que l'utilisateur a refusé de la réutiliser.
+	AllowHomonym *bool  `json:"allow_homonym,omitempty"`
+	DisplayName  string `json:"display_name"`
+}
+
+// PersonLinkAccount defines model for PersonLinkAccount.
+type PersonLinkAccount struct {
+	Id int64 `json:"id"`
+
+	// Username Nom du compte au moment de la décision.
+	Username string `json:"username"`
+}
+
+// PersonLinkRequest defines model for PersonLinkRequest.
+type PersonLinkRequest struct {
+	Account   PersonLinkAccount `json:"account"`
+	CreatedAt time.Time         `json:"created_at"`
+	DecidedAt *time.Time        `json:"decided_at"`
+
+	// DecidedBy Administrateur qui a décidé, le cas échéant.
+	DecidedBy *PersonLinkAccount      `json:"decided_by"`
+	Id        int64                   `json:"id"`
+	Message   string                  `json:"message"`
+	Person    PersonRef               `json:"person"`
+	Status    PersonLinkRequestStatus `json:"status"`
+}
+
+// PersonLinkRequestStatus defines model for PersonLinkRequest.Status.
+type PersonLinkRequestStatus string
+
+// PersonLinkRequestInput defines model for PersonLinkRequestInput.
+type PersonLinkRequestInput struct {
+	// Message Message facultatif à l'attention de l'Administrateur.
+	Message  *string `json:"message,omitempty"`
+	PersonId int64   `json:"person_id"`
+}
+
+// PersonLinkRequestList defines model for PersonLinkRequestList.
+type PersonLinkRequestList struct {
+	Items []PersonLinkRequest `json:"items"`
 }
 
 // PersonList defines model for PersonList.
 type PersonList struct {
 	Items []Person `json:"items"`
+
+	// Total Présent seulement lorsque la liste est paginée : nombre de Personnes correspondant à q.
+	Total *int `json:"total,omitempty"`
 }
 
 // PersonMergeInput defines model for PersonMergeInput.
@@ -1996,10 +5496,16 @@ type PersonSeparationInput struct {
 
 // PersonVoice defines model for PersonVoice.
 type PersonVoice struct {
-	ClipId          int64   `json:"clip_id"`
-	ClipName        string  `json:"clip_name"`
-	Label           string  `json:"label"`
-	LocalSpeakerId  int64   `json:"local_speaker_id"`
+	ClipId         int64  `json:"clip_id"`
+	ClipName       string `json:"clip_name"`
+	Label          string `json:"label"`
+	LocalSpeakerId int64  `json:"local_speaker_id"`
+
+	// RecordedAt Date d'enregistrement du clip.
+	RecordedAt time.Time `json:"recorded_at"`
+
+	// SampleCount Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait.
+	SampleCount     int     `json:"sample_count"`
 	SpeakingSeconds float32 `json:"speaking_seconds"`
 }
 
@@ -2049,7 +5555,7 @@ type SearchResult struct {
 
 	// Person Personne identifiée de la voix qui parle le segment ; null si inconnue, suggestion ou ambiguïté.
 	Person     *PersonRef             `json:"person"`
-	RecordedAt time.Time              `json:"recorded_at"`
+	RecordedAt *time.Time             `json:"recorded_at"`
 	Sources    []string               `json:"sources"`
 	Status     SearchResultStatus     `json:"status"`
 	Timestamp  float64                `json:"timestamp"`
@@ -2218,13 +5724,25 @@ type SegmentTextInput struct {
 
 // Session defines model for Session.
 type Session struct {
-	CsrfToken string `json:"csrf_token"`
-	User      User   `json:"user"`
+	// CanUnlinkDiscord True only when Discord is linked and a local password is configured.
+	CanUnlinkDiscord bool   `json:"can_unlink_discord"`
+	CsrfToken        string `json:"csrf_token"`
+
+	// DiscordLinked Whether this account has a Discord identity linked.
+	DiscordLinked bool `json:"discord_linked"`
+
+	// DiscordName Display name of the linked Discord identity (global name, else username); null when unlinked or linked before it was kept. Read-only.
+	DiscordName *string `json:"discord_name,omitempty"`
+
+	// DiscordUsername Vrai username Discord, distinct du global_name ; actualisé à la connexion et par le bot.
+	DiscordUsername *string `json:"discord_username,omitempty"`
+	HasPassword     bool    `json:"has_password"`
+	User            User    `json:"user"`
 }
 
 // Settings defines model for Settings.
 type Settings struct {
-	// CallbackUrl Discord return address to register, built from the public address of the request (or the configured PUBLIC_URL).
+	// CallbackUrl Discord return address to register, built from the public address of the request.
 	CallbackUrl string `json:"callback_url"`
 	ClientId    string `json:"client_id"`
 
@@ -2366,6 +5884,27 @@ type SourceList struct {
 	Items        []Source `json:"items"`
 }
 
+// SpeakerCoverage defines model for SpeakerCoverage.
+type SpeakerCoverage struct {
+	AttributedSegments int `json:"attributed_segments"`
+
+	// CoverageStatus words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+	CoverageStatus SpeakerCoverageCoverageStatus `json:"coverage_status"`
+	LocalSpeakerId int64                         `json:"local_speaker_id"`
+
+	// OverlappedSeconds Parole sous des segments attribués à un autre locuteur.
+	OverlappedSeconds float32 `json:"overlapped_seconds"`
+
+	// SpeakingSeconds Parole détectée, tours qui se chevauchent comptés une fois.
+	SpeakingSeconds float32 `json:"speaking_seconds"`
+
+	// UncoveredSeconds Parole sous aucun segment.
+	UncoveredSeconds float32 `json:"uncovered_seconds"`
+}
+
+// SpeakerCoverageCoverageStatus words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+type SpeakerCoverageCoverageStatus string
+
 // Status defines model for Status.
 type Status struct {
 	Status string `json:"status"`
@@ -2431,6 +5970,9 @@ type Transcription struct {
 	Provider string              `json:"provider"`
 	Segments []TranscriptSegment `json:"segments"`
 
+	// SpeakerCoverage Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation.
+	SpeakerCoverage *[]SpeakerCoverage `json:"speaker_coverage,omitempty"`
+
 	// TranscriptionJobId Tâche de transcription visible : avec l'index, l'identité d'un segment.
 	TranscriptionJobId *int64  `json:"transcription_job_id,omitempty"`
 	Version            *string `json:"version,omitempty"`
@@ -2443,6 +5985,7 @@ type TranscriptionInput struct {
 
 // TranscriptionPipeline defines model for TranscriptionPipeline.
 type TranscriptionPipeline struct {
+	// Language Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue).
 	Language    string                           `json:"language"`
 	Model       string                           `json:"model"`
 	Preparation TranscriptionPipelinePreparation `json:"preparation"`
@@ -2471,6 +6014,36 @@ type TranscriptionPipelineState struct {
 	Config  TranscriptionPipeline `json:"config"`
 	Version string                `json:"version"`
 }
+
+// TranscriptionSettingsInput defines model for TranscriptionSettingsInput.
+type TranscriptionSettingsInput struct {
+	Endpoint string `json:"endpoint"`
+
+	// Language Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue). Ignoré si mode vaut disabled.
+	Language string                         `json:"language"`
+	Mode     TranscriptionSettingsInputMode `json:"mode"`
+	Model    string                         `json:"model"`
+	Profile  *TranscriptionPipeline         `json:"profile,omitempty"`
+}
+
+// TranscriptionSettingsInputMode defines model for TranscriptionSettingsInput.Mode.
+type TranscriptionSettingsInputMode string
+
+// TranscriptionSettingsState defines model for TranscriptionSettingsState.
+type TranscriptionSettingsState struct {
+	Endpoint string                           `json:"endpoint"`
+	Language string                           `json:"language"`
+	Mode     TranscriptionSettingsStateMode   `json:"mode"`
+	Model    string                           `json:"model"`
+	Status   TranscriptionSettingsStateStatus `json:"status"`
+	Version  string                           `json:"version"`
+}
+
+// TranscriptionSettingsStateMode defines model for TranscriptionSettingsState.Mode.
+type TranscriptionSettingsStateMode string
+
+// TranscriptionSettingsStateStatus defines model for TranscriptionSettingsState.Status.
+type TranscriptionSettingsStateStatus string
 
 // Upload defines model for Upload.
 type Upload struct {
@@ -2531,8 +6104,11 @@ type UploadOffset struct {
 
 // User defines model for User.
 type User struct {
-	Approved bool  `json:"approved"`
-	Id       int64 `json:"id"`
+	Approved bool `json:"approved"`
+
+	// DisplayName Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon identifiant local.
+	DisplayName *string `json:"display_name,omitempty"`
+	Id          int64   `json:"id"`
 
 	// Language Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas choisi.
 	Language *UserLanguage `json:"language,omitempty"`
@@ -2690,6 +6266,23 @@ type VoiceAutomationResult struct {
 	Summary  VoiceMatchingSummary  `json:"summary"`
 }
 
+// VoiceDispositionInput defines model for VoiceDispositionInput.
+type VoiceDispositionInput struct {
+	Disposition VoiceDispositionInputDisposition `json:"disposition"`
+}
+
+// VoiceDispositionInputDisposition defines model for VoiceDispositionInput.Disposition.
+type VoiceDispositionInputDisposition string
+
+// VoiceDispositionView defines model for VoiceDispositionView.
+type VoiceDispositionView struct {
+	Disposition    *VoiceDispositionViewDisposition `json:"disposition"`
+	LocalSpeakerId int64                            `json:"local_speaker_id"`
+}
+
+// VoiceDispositionViewDisposition defines model for VoiceDispositionView.Disposition.
+type VoiceDispositionViewDisposition string
+
 // VoiceFingerprint defines model for VoiceFingerprint.
 type VoiceFingerprint struct {
 	Dimensions      int                            `json:"dimensions"`
@@ -2728,6 +6321,27 @@ type VoiceGroup struct {
 	// Proposed Vrai si le groupe réunit au moins deux voix proches ; jamais une confirmation.
 	Proposed bool `json:"proposed"`
 }
+
+// VoiceGroupDisposition defines model for VoiceGroupDisposition.
+type VoiceGroupDisposition struct {
+	Disposition *VoiceGroupDispositionDisposition `json:"disposition"`
+	GroupId     int64                             `json:"group_id"`
+	Voices      int                               `json:"voices"`
+}
+
+// VoiceGroupDispositionDisposition defines model for VoiceGroupDisposition.Disposition.
+type VoiceGroupDispositionDisposition string
+
+// VoiceGroupDispositionInput defines model for VoiceGroupDispositionInput.
+type VoiceGroupDispositionInput struct {
+	Disposition VoiceGroupDispositionInputDisposition `json:"disposition"`
+
+	// LocalSpeakerIds Les voix du groupe affichées (non exclues) ; group_changed si le groupe n'est plus exactement cet ensemble.
+	LocalSpeakerIds []int64 `json:"local_speaker_ids"`
+}
+
+// VoiceGroupDispositionInputDisposition defines model for VoiceGroupDispositionInput.Disposition.
+type VoiceGroupDispositionInputDisposition string
 
 // VoiceGroupExclusion defines model for VoiceGroupExclusion.
 type VoiceGroupExclusion struct {
@@ -2768,10 +6382,25 @@ type VoiceGroupNaming struct {
 
 // VoiceGroupNamingInput defines model for VoiceGroupNamingInput.
 type VoiceGroupNamingInput struct {
+	// AllowHomonym Avec new_person_name : crée la Personne même si une Personne de même nom existe (409 person_exists sinon).
+	AllowHomonym *bool `json:"allow_homonym,omitempty"`
+
 	// LocalSpeakerIds Exactement les voix visibles du groupe que l'utilisateur a écoutées.
 	LocalSpeakerIds []int64 `json:"local_speaker_ids"`
 	NewPersonName   *string `json:"new_person_name,omitempty"`
 	PersonId        *int64  `json:"person_id,omitempty"`
+}
+
+// VoiceHistoryEntry Résultat de diarisation remplacé par une relance, avec sa provenance.
+type VoiceHistoryEntry struct {
+	CompletedAt  time.Time `json:"completed_at"`
+	JobId        int64     `json:"job_id"`
+	Model        string    `json:"model"`
+	ModelVersion string    `json:"model_version"`
+	SpeakerCount int       `json:"speaker_count"`
+
+	// ValidatedSpeakers Locuteurs validés de ce résultat, conservés avec leurs échantillons vocaux.
+	ValidatedSpeakers int `json:"validated_speakers"`
 }
 
 // VoiceMatchingInput defines model for VoiceMatchingInput.
@@ -2822,11 +6451,212 @@ type VoiceMatchingSummary struct {
 	Unknown    int `json:"unknown"`
 }
 
+// VoiceModel defines model for VoiceModel.
+type VoiceModel struct {
+	Active    bool `json:"active"`
+	Candidate bool `json:"candidate"`
+
+	// Enabled Une référence désactivée ne peut plus être choisie ; son historique reste lisible.
+	Enabled bool   `json:"enabled"`
+	Engine  string `json:"engine"`
+	Gated   bool   `json:"gated"`
+	Id      string `json:"id"`
+
+	// Installed Au moins un Worker a le modèle prêt.
+	Installed   bool           `json:"installed"`
+	Kind        VoiceModelKind `json:"kind"`
+	Label       string         `json:"label"`
+	License     string         `json:"license"`
+	MaxSpeakers *int           `json:"max_speakers"`
+	Repo        string         `json:"repo"`
+	Revision    string         `json:"revision"`
+	SizeBytes   int64          `json:"size_bytes"`
+
+	// Supported Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation).
+	Supported           bool   `json:"supported"`
+	SupportsNumSpeakers bool   `json:"supports_num_speakers"`
+	UnsupportedReason   string `json:"unsupported_reason"`
+
+	// VramBytes Mémoire GPU nécessaire, 0 si inconnue.
+	VramBytes int64                   `json:"vram_bytes"`
+	Workers   []VoiceModelWorkerState `json:"workers"`
+}
+
+// VoiceModelKind defines model for VoiceModel.Kind.
+type VoiceModelKind string
+
+// VoiceModelAdd defines model for VoiceModelAdd.
+type VoiceModelAdd struct {
+	Kind VoiceModelAddKind `json:"kind"`
+
+	// Revision Commit montré par l'inspection.
+	Revision string `json:"revision"`
+	Source   string `json:"source"`
+}
+
+// VoiceModelAddKind defines model for VoiceModelAdd.Kind.
+type VoiceModelAddKind string
+
+// VoiceModelCandidate defines model for VoiceModelCandidate.
+type VoiceModelCandidate struct {
+	Candidate string `json:"candidate"`
+}
+
+// VoiceModelChoice defines model for VoiceModelChoice.
+type VoiceModelChoice struct {
+	ModelId string `json:"model_id"`
+}
+
+// VoiceModelInspection defines model for VoiceModelInspection.
+type VoiceModelInspection struct {
+	CompatibleKinds []VoiceModelInspectionCompatibleKinds `json:"compatible_kinds"`
+
+	// Engine Moteur déduit de la matrice ; vide si aucun adaptateur approuvé.
+	Engine string `json:"engine"`
+
+	// ExistingIds Références du catalogue déjà créées pour ce dépôt.
+	ExistingIds []string `json:"existing_ids"`
+	Gated       bool     `json:"gated"`
+	License     string   `json:"license"`
+
+	// ProposedKind Null quand les métadonnées ne tranchent pas : la personne choisit parmi les trois types.
+	ProposedKind *string `json:"proposed_kind"`
+	Repo         string  `json:"repo"`
+
+	// Revision Commit lu, épinglé à l'ajout.
+	Revision          string `json:"revision"`
+	Supported         bool   `json:"supported"`
+	UnsupportedReason string `json:"unsupported_reason"`
+}
+
+// VoiceModelInspectionCompatibleKinds defines model for VoiceModelInspection.CompatibleKinds.
+type VoiceModelInspectionCompatibleKinds string
+
+// VoiceModelInspectionRequest defines model for VoiceModelInspectionRequest.
+type VoiceModelInspectionRequest struct {
+	// Source Dépôt Hugging Face : owner/nom ou adresse huggingface.co.
+	Source string `json:"source"`
+}
+
+// VoiceModelOrderHistory defines model for VoiceModelOrderHistory.
+type VoiceModelOrderHistory struct {
+	Orders []VoiceModelOrderHistoryItem `json:"orders"`
+}
+
+// VoiceModelOrderHistoryItem defines model for VoiceModelOrderHistoryItem.
+type VoiceModelOrderHistoryItem struct {
+	Action     VoiceModelOrderHistoryItemAction `json:"action"`
+	AuthorName string                           `json:"author_name"`
+	CauseCode  string                           `json:"cause_code"`
+	CreatedAt  time.Time                        `json:"created_at"`
+	FinishedAt *time.Time                       `json:"finished_at"`
+	Kind       VoiceModelOrderHistoryItemKind   `json:"kind"`
+	Label      string                           `json:"label"`
+	ModelId    string                           `json:"model_id"`
+	OrderId    string                           `json:"order_id"`
+	Repo       string                           `json:"repo"`
+	Revision   string                           `json:"revision"`
+	Status     VoiceModelOrderHistoryItemStatus `json:"status"`
+}
+
+// VoiceModelOrderHistoryItemAction defines model for VoiceModelOrderHistoryItem.Action.
+type VoiceModelOrderHistoryItemAction string
+
+// VoiceModelOrderHistoryItemKind defines model for VoiceModelOrderHistoryItem.Kind.
+type VoiceModelOrderHistoryItemKind string
+
+// VoiceModelOrderHistoryItemStatus defines model for VoiceModelOrderHistoryItem.Status.
+type VoiceModelOrderHistoryItemStatus string
+
+// VoiceModelOrderInput defines model for VoiceModelOrderInput.
+type VoiceModelOrderInput struct {
+	IdempotencyKey string `json:"idempotency_key"`
+	ModelId        string `json:"model_id"`
+
+	// ReplacesModelId Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte).
+	ReplacesModelId *string `json:"replaces_model_id,omitempty"`
+}
+
+// VoiceModelPatch defines model for VoiceModelPatch.
+type VoiceModelPatch struct {
+	Enabled   *bool   `json:"enabled,omitempty"`
+	Label     *string `json:"label,omitempty"`
+	License   *string `json:"license,omitempty"`
+	SizeBytes *int64  `json:"size_bytes,omitempty"`
+	VramBytes *int64  `json:"vram_bytes,omitempty"`
+}
+
+// VoiceModelRemovalInput defines model for VoiceModelRemovalInput.
+type VoiceModelRemovalInput struct {
+	IdempotencyKey string `json:"idempotency_key"`
+	ModelId        string `json:"model_id"`
+}
+
+// VoiceModelRetry defines model for VoiceModelRetry.
+type VoiceModelRetry struct {
+	RetryRequested bool `json:"retry_requested"`
+}
+
+// VoiceModelWorkerState defines model for VoiceModelWorkerState.
+type VoiceModelWorkerState struct {
+	BytesReceived int64                          `json:"bytes_received"`
+	BytesTotal    int64                          `json:"bytes_total"`
+	CauseCode     VoiceModelWorkerStateCauseCode `json:"cause_code"`
+	Connected     bool                           `json:"connected"`
+	Name          string                         `json:"name"`
+	State         VoiceModelWorkerStateState     `json:"state"`
+	WorkerId      string                         `json:"worker_id"`
+}
+
+// VoiceModelWorkerStateCauseCode defines model for VoiceModelWorkerState.CauseCode.
+type VoiceModelWorkerStateCauseCode string
+
+// VoiceModelWorkerStateState defines model for VoiceModelWorkerState.State.
+type VoiceModelWorkerStateState string
+
+// VoiceModels defines model for VoiceModels.
+type VoiceModels struct {
+	Models []VoiceModel `json:"models"`
+}
+
+// VoiceOverview defines model for VoiceOverview.
+type VoiceOverview struct {
+	ActiveModels struct {
+		Diarization string `json:"diarization"`
+		Fingerprint string `json:"fingerprint"`
+	} `json:"active_models"`
+
+	// PendingVoiceJobs Travaux vocaux en attente tant qu'aucun Worker n'est prêt ; 0 sinon.
+	PendingVoiceJobs  int                   `json:"pending_voice_jobs"`
+	Provider          VoiceOverviewProvider `json:"provider"`
+	Workers           []VoiceOverviewWorker `json:"workers"`
+	WorkersTotal      int                   `json:"workers_total"`
+	WorkersVoiceReady int                   `json:"workers_voice_ready"`
+}
+
+// VoiceOverviewProvider defines model for VoiceOverview.Provider.
+type VoiceOverviewProvider string
+
+// VoiceOverviewWorker defines model for VoiceOverviewWorker.
+type VoiceOverviewWorker struct {
+	CauseCode              string       `json:"cause_code"`
+	Connected              bool         `json:"connected"`
+	Diarization            *WorkerModel `json:"diarization"`
+	Fingerprint            *WorkerModel `json:"fingerprint"`
+	HoldsActiveDiarization bool         `json:"holds_active_diarization"`
+	HoldsActiveFingerprint bool         `json:"holds_active_fingerprint"`
+	Id                     string       `json:"id"`
+	Name                   string       `json:"name"`
+
+	// VoiceState ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs.
+	VoiceState VoiceOverviewWorkerVoiceState `json:"voice_state"`
+}
+
+// VoiceOverviewWorkerVoiceState ready : détient les modèles actifs et l'inférence de test a réussi ; untested : détient les modèles sans preuve d'inférence ; unavailable : un téléchargement ou un test a échoué (voir cause_code) ; models_missing : ne déclare pas les modèles actifs.
+type VoiceOverviewWorkerVoiceState string
+
 // VoicePipeline defines model for VoicePipeline.
 type VoicePipeline struct {
-	// AccessConfirmed Confirmation explicite par l'administrateur du jeton et des conditions d'accès du modèle.
-	AccessConfirmed bool `json:"access_confirmed"`
-
 	// Fake Réglages du fournisseur factice déterministe, réservés aux tests.
 	Fake *struct {
 		Dimensions int `json:"dimensions"`
@@ -2861,9 +6691,41 @@ type VoiceProfileDeletion struct {
 	Samples int `json:"samples"`
 }
 
+// VoiceRediarizationConfirmation Erreur 409 de la planification : stake n'accompagne que voice_rediarization_confirmation_required.
+type VoiceRediarizationConfirmation struct {
+	Error string `json:"error"`
+
+	// Stake Ce qu'une relance de la diarisation rendrait obsolète : les locuteurs validés (archivés avec leurs échantillons vocaux, conservés et liés à l'audio) et les corrections de locuteur de la transcription (obsolètes).
+	Stake *VoiceRediarizationStake `json:"stake,omitempty"`
+}
+
+// VoiceRediarizationStake Ce qu'une relance de la diarisation rendrait obsolète : les locuteurs validés (archivés avec leurs échantillons vocaux, conservés et liés à l'audio) et les corrections de locuteur de la transcription (obsolètes).
+type VoiceRediarizationStake struct {
+	SpeakerCorrections int `json:"speaker_corrections"`
+	ValidatedSpeakers  int `json:"validated_speakers"`
+	VoiceSamples       int `json:"voice_samples"`
+}
+
+// VoiceRefusal defines model for VoiceRefusal.
+type VoiceRefusal struct {
+	LocalSpeakerId int64 `json:"local_speaker_id"`
+	PersonId       int64 `json:"person_id"`
+
+	// Refused Vrai après un refus, faux après son annulation.
+	Refused bool `json:"refused"`
+}
+
+// VoiceRefusalInput defines model for VoiceRefusalInput.
+type VoiceRefusalInput struct {
+	PersonId int64 `json:"person_id"`
+}
+
 // VoiceScheduleInput defines model for VoiceScheduleInput.
 type VoiceScheduleInput struct {
 	AudioStreamIndex *int `json:"audio_stream_index,omitempty"`
+
+	// ConfirmReplaceValidations Vrai pour confirmer explicitement la relance sur un clip qui contient des validations humaines (locuteurs validés, échantillons vocaux) ou des corrections de locuteur. Sans lui, la relance est refusée (409 voice_rediarization_confirmation_required) avec ce qui est en jeu.
+	ConfirmReplaceValidations *bool `json:"confirm_replace_validations,omitempty"`
 }
 
 // VoiceStep defines model for VoiceStep.
@@ -2881,6 +6743,51 @@ type VoiceStep struct {
 
 // VoiceStepStatus defines model for VoiceStep.Status.
 type VoiceStepStatus string
+
+// VoiceTrace Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit.
+type VoiceTrace struct {
+	AudioStreamIndex int               `json:"audio_stream_index"`
+	ClipId           int64             `json:"clip_id"`
+	Coverage         []SpeakerCoverage `json:"coverage"`
+
+	// Diarization Null sans diarisation réussie pour cette piste.
+	Diarization *struct {
+		JobId        int64  `json:"job_id"`
+		Model        string `json:"model"`
+		ModelVersion string `json:"model_version"`
+		Provider     string `json:"provider"`
+	} `json:"diarization"`
+
+	// Segments Segments bruts de la transcription avec les voix qui les recouvrent (avant alignement) et la voix retenue (après).
+	Segments []struct {
+		Candidates []struct {
+			LocalSpeakerId int64   `json:"local_speaker_id"`
+			OverlapSeconds float32 `json:"overlap_seconds"`
+		} `json:"candidates"`
+		Corrected             bool    `json:"corrected"`
+		DeducedLocalSpeakerId *int64  `json:"deduced_local_speaker_id"`
+		End                   float32 `json:"end"`
+		Index                 int     `json:"index"`
+		LocalSpeakerId        *int64  `json:"local_speaker_id"`
+		Start                 float32 `json:"start"`
+	} `json:"segments"`
+	Transcription struct {
+		JobId        int64  `json:"job_id"`
+		Language     string `json:"language"`
+		Model        string `json:"model"`
+		Provider     string `json:"provider"`
+		SegmentCount int    `json:"segment_count"`
+		Version      string `json:"version"`
+	} `json:"transcription"`
+
+	// Turns Tours bruts de la diarisation, voix ignorées exclues.
+	Turns []struct {
+		End            float32 `json:"end"`
+		Label          string  `json:"label"`
+		LocalSpeakerId int64   `json:"local_speaker_id"`
+		Start          float32 `json:"start"`
+	} `json:"turns"`
+}
 
 // VoiceVerification defines model for VoiceVerification.
 type VoiceVerification struct {
@@ -2929,10 +6836,15 @@ type VoiceVerificationCounts struct {
 
 // Worker defines model for Worker.
 type Worker struct {
-	Connected  bool       `json:"connected"`
-	CreatedAt  time.Time  `json:"created_at"`
-	Id         string     `json:"id"`
-	LastSeenAt *time.Time `json:"last_seen_at"`
+	// ClaimStalled Vues administrateur (liste et détail) seulement : vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321). La présence seule ne dit pas qu'il peut réclamer des tâches. Absent ou faux sinon.
+	ClaimStalled *bool     `json:"claim_stalled,omitempty"`
+	Connected    bool      `json:"connected"`
+	CreatedAt    time.Time `json:"created_at"`
+	Id           string    `json:"id"`
+
+	// Install Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice).
+	Install    *WorkerInstall `json:"install,omitempty"`
+	LastSeenAt *time.Time     `json:"last_seen_at"`
 
 	// Machine Informations non secrètes déclarées par le Worker ; le système est celui du conteneur.
 	Machine        *WorkerMachine `json:"machine,omitempty"`
@@ -2943,12 +6855,30 @@ type Worker struct {
 	Name   string        `json:"name"`
 
 	// RemoteAddress Adresse IP de connexion observée par Snitch, sans port.
-	RemoteAddress       *string    `json:"remote_address,omitempty"`
-	ReportedConcurrency int        `json:"reported_concurrency"`
-	RevokedAt           *time.Time `json:"revoked_at"`
+	RemoteAddress       *string `json:"remote_address,omitempty"`
+	ReportedConcurrency int     `json:"reported_concurrency"`
+
+	// RevocationAcknowledgedAt Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
+	RevocationAcknowledgedAt *time.Time `json:"revocation_acknowledged_at"`
+
+	// RevokeReason Motif facultatif de suppression, conservé dans l'audit minimal.
+	RevokeReason string     `json:"revoke_reason"`
+	RevokedAt    *time.Time `json:"revoked_at"`
+
+	// SupportedSteps Last reported task capabilities; a worker that never reported has none; revoked workers must not be selected.
+	SupportedSteps *[]string `json:"supported_steps,omitempty"`
+
+	// TranscriptionConfig Statut de synchronisation de la configuration de transcription pour un Worker.
+	TranscriptionConfig *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
+
+	// TranscriptionConfigReady Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1).
+	TranscriptionConfigReady *bool `json:"transcription_config_ready,omitempty"`
 
 	// TranscriptionModel Nom facultatif du modèle propre au Worker.
 	TranscriptionModel *string `json:"transcription_model,omitempty"`
+
+	// TranscriptionReachability Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs.
+	TranscriptionReachability *WorkerTranscriptionReachability `json:"transcription_reachability,omitempty"`
 }
 
 // WorkerBundle Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton.
@@ -2969,11 +6899,17 @@ type WorkerClaim struct {
 // WorkerDetail defines model for WorkerDetail.
 type WorkerDetail struct {
 	// Bundle Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton.
-	Bundle     WorkerBundle `json:"bundle"`
-	Connected  bool         `json:"connected"`
-	CreatedAt  time.Time    `json:"created_at"`
-	Id         string       `json:"id"`
-	LastSeenAt *time.Time   `json:"last_seen_at"`
+	Bundle WorkerBundle `json:"bundle"`
+
+	// ClaimStalled Vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321) : la présence seule ne dit pas qu'il peut réclamer des tâches.
+	ClaimStalled *bool     `json:"claim_stalled,omitempty"`
+	Connected    bool      `json:"connected"`
+	CreatedAt    time.Time `json:"created_at"`
+	Id           string    `json:"id"`
+
+	// Install Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice).
+	Install    *WorkerInstall `json:"install,omitempty"`
+	LastSeenAt *time.Time     `json:"last_seen_at"`
 
 	// Machine Informations non secrètes déclarées par le Worker ; le système est celui du conteneur.
 	Machine        *WorkerMachine `json:"machine,omitempty"`
@@ -2987,18 +6923,143 @@ type WorkerDetail struct {
 	RecentTasks []WorkerRecentTask `json:"recent_tasks"`
 
 	// RemoteAddress Adresse IP de connexion observée par Snitch, sans port.
-	RemoteAddress       *string    `json:"remote_address,omitempty"`
-	ReportedConcurrency int        `json:"reported_concurrency"`
-	RevokedAt           *time.Time `json:"revoked_at"`
+	RemoteAddress       *string `json:"remote_address,omitempty"`
+	ReportedConcurrency int     `json:"reported_concurrency"`
+
+	// RevocationAcknowledgedAt Date de la première confirmation de la révocation par la machine du Worker (le Worker lui-même, qui efface alors le contenu de son volume de modèles et devient inactif, ou le lanceur, qui supprime le conteneur sans rien effacer). Absente : le nettoyage local reste en attente. Ne dit jamais que le volume Docker, le conteneur ou le dossier du lanceur sont supprimés.
+	RevocationAcknowledgedAt *time.Time `json:"revocation_acknowledged_at"`
+
+	// RevokeReason Motif facultatif de suppression, conservé dans l'audit minimal.
+	RevokeReason string     `json:"revoke_reason"`
+	RevokedAt    *time.Time `json:"revoked_at"`
+
+	// TranscriptionConfig Statut de synchronisation de la configuration de transcription pour un Worker.
+	TranscriptionConfig *WorkerTranscriptionConfig `json:"transcription_config,omitempty"`
+
+	// TranscriptionConfigReady Indique si le Worker supporte la configuration de transcription centralisée (capability transcription.config.v1).
+	TranscriptionConfigReady *bool `json:"transcription_config_ready,omitempty"`
 
 	// TranscriptionModel Nom facultatif du modèle propre au Worker.
 	TranscriptionModel *string `json:"transcription_model,omitempty"`
+
+	// TranscriptionReachability Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs.
+	TranscriptionReachability *WorkerTranscriptionReachability `json:"transcription_reachability,omitempty"`
 }
 
 // WorkerFailureInput defines model for WorkerFailureInput.
 type WorkerFailureInput struct {
+	// DurationMs Optionnel. Durée de l'appel en échec.
+	DurationMs *int `json:"duration_ms,omitempty"`
+
+	// Error Code de Cause d'échec (voir FailureCode). Un code inconnu est enregistré comme worker_failed.
 	Error string `json:"error"`
+
+	// HttpStatus Optionnel. Statut HTTP renvoyé par le fournisseur.
+	HttpStatus *int `json:"http_status,omitempty"`
+
+	// Model Optionnel. Modèle de l'appel en échec.
+	Model *string `json:"model,omitempty"`
+
+	// Provider Optionnel. Fournisseur de l'appel en échec.
+	Provider *string `json:"provider,omitempty"`
+
+	// Revision Optionnel. Révision du modèle.
+	Revision *string `json:"revision,omitempty"`
 }
+
+// WorkerHFToken defines model for WorkerHFToken.
+type WorkerHFToken struct {
+	// Token null : copie centrale à purger
+	Token   *string `json:"token"`
+	Version string  `json:"version"`
+}
+
+// WorkerHFTokenAck defines model for WorkerHFTokenAck.
+type WorkerHFTokenAck struct {
+	ErrorCode *WorkerHFTokenAckErrorCode `json:"error_code,omitempty"`
+	Outcome   WorkerHFTokenAckOutcome    `json:"outcome"`
+	Source    WorkerHFTokenAckSource     `json:"source"`
+	Version   string                     `json:"version"`
+}
+
+// WorkerHFTokenAckErrorCode defines model for WorkerHFTokenAck.ErrorCode.
+type WorkerHFTokenAckErrorCode string
+
+// WorkerHFTokenAckOutcome defines model for WorkerHFTokenAck.Outcome.
+type WorkerHFTokenAckOutcome string
+
+// WorkerHFTokenAckSource defines model for WorkerHFTokenAck.Source.
+type WorkerHFTokenAckSource string
+
+// WorkerHFTokenVersion defines model for WorkerHFTokenVersion.
+type WorkerHFTokenVersion struct {
+	// Version 0 = aucun token central
+	Version string `json:"version"`
+}
+
+// WorkerInstall Progression d'installation, indépendante de la transcription (transcription_config) et de la voix (voice).
+type WorkerInstall struct {
+	CauseCode string `json:"cause_code"`
+
+	// Events Historique récent (fiche détaillée seulement).
+	Events         *[]WorkerInstallEvent `json:"events,omitempty"`
+	FailedPhase    string                `json:"failed_phase"`
+	LastActivityAt *time.Time            `json:"last_activity_at"`
+	LastEvent      *WorkerInstallEvent   `json:"last_event"`
+
+	// NoNews Absence de nouvelles, distincte du dernier événement reçu.
+	NoNews bool `json:"no_news"`
+
+	// State connected = premier pouls ; voice_ready = connecté et inférence synthétique réussie ; never_connected = aucun pouls après 24 h.
+	State WorkerInstallState `json:"state"`
+	Voice WorkerInstallVoice `json:"voice"`
+}
+
+// WorkerInstallState connected = premier pouls ; voice_ready = connecté et inférence synthétique réussie ; never_connected = aucun pouls après 24 h.
+type WorkerInstallState string
+
+// WorkerInstallEvent defines model for WorkerInstallEvent.
+type WorkerInstallEvent struct {
+	CauseCode  string             `json:"cause_code"`
+	OccurredAt time.Time          `json:"occurred_at"`
+	Phase      WorkerInstallPhase `json:"phase"`
+	ReceivedAt time.Time          `json:"received_at"`
+
+	// ReceivedLater Vrai si l'événement a été mis en file hors ligne et reçu longtemps après son horodatage d'origine.
+	ReceivedLater bool                     `json:"received_later"`
+	Status        WorkerInstallEventStatus `json:"status"`
+}
+
+// WorkerInstallEventStatus defines model for WorkerInstallEvent.Status.
+type WorkerInstallEventStatus string
+
+// WorkerInstallEventInput defines model for WorkerInstallEventInput.
+type WorkerInstallEventInput struct {
+	// CauseCode Obligatoire (un code de WorkerInstallCause) si le statut est failed, vide sinon.
+	CauseCode *string `json:"cause_code,omitempty"`
+
+	// OccurredAt Horodatage d'origine, conservé même si l'événement a été mis en file hors ligne.
+	OccurredAt time.Time                     `json:"occurred_at"`
+	Phase      WorkerInstallPhase            `json:"phase"`
+	Status     WorkerInstallEventInputStatus `json:"status"`
+}
+
+// WorkerInstallEventInputStatus defines model for WorkerInstallEventInput.Status.
+type WorkerInstallEventInputStatus string
+
+// WorkerInstallPhase defines model for WorkerInstallPhase.
+type WorkerInstallPhase string
+
+// WorkerInstallVoice defines model for WorkerInstallVoice.
+type WorkerInstallVoice struct {
+	CauseCode string `json:"cause_code"`
+
+	// State ready seulement après une inférence synthétique réussie.
+	State WorkerInstallVoiceState `json:"state"`
+}
+
+// WorkerInstallVoiceState ready seulement après une inférence synthétique réussie.
+type WorkerInstallVoiceState string
 
 // WorkerJobInput defines model for WorkerJobInput.
 type WorkerJobInput struct {
@@ -3017,6 +7078,11 @@ type WorkerJobInput struct {
 	VideoCodec         string                 `json:"video_codec"`
 	Vocabulary         []WorkerVocabularyTerm `json:"vocabulary"`
 	Voice              *WorkerVoiceInput      `json:"voice,omitempty"`
+}
+
+// WorkerJobLogsInput defines model for WorkerJobLogsInput.
+type WorkerJobLogsInput struct {
+	Lines []string `json:"lines"`
 }
 
 // WorkerMachine Informations non secrètes déclarées par le Worker ; le système est celui du conteneur.
@@ -3040,6 +7106,78 @@ type WorkerModel struct {
 	Version  *string `json:"version,omitempty"`
 }
 
+// WorkerModelCell defines model for WorkerModelCell.
+type WorkerModelCell struct {
+	BytesReceived int64                    `json:"bytes_received"`
+	BytesTotal    int64                    `json:"bytes_total"`
+	CauseCode     WorkerModelCellCauseCode `json:"cause_code"`
+	Kind          WorkerModelCellKind      `json:"kind"`
+	Label         string                   `json:"label"`
+	ModelId       string                   `json:"model_id"`
+	OccupiedBytes int64                    `json:"occupied_bytes"`
+	OrderId       string                   `json:"order_id"`
+
+	// ReplacesModelId Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste actif et installé jusqu'à son retrait.
+	ReplacesModelId string `json:"replaces_model_id"`
+	Repo            string `json:"repo"`
+	Revision        string `json:"revision"`
+
+	// State Pendant un remplacement la cellule montre le nouveau modèle : switching (prêt, bascule décidée, retrait de l'ancien en attente), removing (ordre remove de l'ancien envoyé).
+	State     WorkerModelCellState `json:"state"`
+	Supported bool                 `json:"supported"`
+
+	// WaitingForJobs Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise.
+	WaitingForJobs bool `json:"waiting_for_jobs"`
+}
+
+// WorkerModelCellCauseCode defines model for WorkerModelCell.CauseCode.
+type WorkerModelCellCauseCode string
+
+// WorkerModelCellKind defines model for WorkerModelCell.Kind.
+type WorkerModelCellKind string
+
+// WorkerModelCellState Pendant un remplacement la cellule montre le nouveau modèle : switching (prêt, bascule décidée, retrait de l'ancien en attente), removing (ordre remove de l'ancien envoyé).
+type WorkerModelCellState string
+
+// WorkerModelOrder defines model for WorkerModelOrder.
+type WorkerModelOrder struct {
+	Action    WorkerModelOrderAction `json:"action"`
+	CreatedAt time.Time              `json:"created_at"`
+	Engine    string                 `json:"engine"`
+
+	// HfToken Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge un modèle sous accès restreint.
+	HfToken        *string              `json:"hf_token,omitempty"`
+	IdempotencyKey string               `json:"idempotency_key"`
+	Kind           WorkerModelOrderKind `json:"kind"`
+	ModelId        string               `json:"model_id"`
+	OrderId        string               `json:"order_id"`
+	Repo           string               `json:"repo"`
+	Revision       string               `json:"revision"`
+
+	// SizeBytes Taille annoncée par le catalogue : le Worker vérifie son espace libre avant de télécharger (disk_full sinon).
+	SizeBytes int64                  `json:"size_bytes"`
+	Status    WorkerModelOrderStatus `json:"status"`
+	WorkerId  string                 `json:"worker_id"`
+}
+
+// WorkerModelOrderAction defines model for WorkerModelOrder.Action.
+type WorkerModelOrderAction string
+
+// WorkerModelOrderKind defines model for WorkerModelOrder.Kind.
+type WorkerModelOrderKind string
+
+// WorkerModelOrderStatus defines model for WorkerModelOrder.Status.
+type WorkerModelOrderStatus string
+
+// WorkerModelOrderAck defines model for WorkerModelOrderAck.
+type WorkerModelOrderAck struct {
+	Accepted  bool                          `json:"accepted"`
+	CauseCode *WorkerModelOrderAckCauseCode `json:"cause_code,omitempty"`
+}
+
+// WorkerModelOrderAckCauseCode defines model for WorkerModelOrderAck.CauseCode.
+type WorkerModelOrderAckCauseCode string
+
 // WorkerModels Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées.
 type WorkerModels struct {
 	Diarization   *WorkerModel `json:"diarization,omitempty"`
@@ -3047,9 +7185,22 @@ type WorkerModels struct {
 	Transcription *WorkerModel `json:"transcription,omitempty"`
 }
 
+// WorkerModelsRow defines model for WorkerModelsRow.
+type WorkerModelsRow struct {
+	Connected bool              `json:"connected"`
+	Models    []WorkerModelCell `json:"models"`
+	Name      string            `json:"name"`
+	WorkerId  string            `json:"worker_id"`
+}
+
+// WorkerModelsView defines model for WorkerModelsView.
+type WorkerModelsView struct {
+	Workers []WorkerModelsRow `json:"workers"`
+}
+
 // WorkerPage defines model for WorkerPage.
 type WorkerPage struct {
-	// FirstWorker Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de la bibliothèque.
+	// FirstWorker Vrai tant qu'aucun Worker n'a jamais été créé. La configuration de transcription est indépendante.
 	FirstWorker bool     `json:"first_worker"`
 	Items       []Worker `json:"items"`
 
@@ -3058,11 +7209,17 @@ type WorkerPage struct {
 
 	// Transcription Profil de transcription actif de la bibliothèque.
 	Transcription struct {
-		Language string `json:"language"`
-		Model    string `json:"model"`
-		Version  string `json:"version"`
+		Endpoint        string                      `json:"endpoint"`
+		Language        string                      `json:"language"`
+		Mode            WorkerPageTranscriptionMode `json:"mode"`
+		Model           string                      `json:"model"`
+		SettingsVersion string                      `json:"settings_version"`
+		Version         string                      `json:"version"`
 	} `json:"transcription"`
 }
+
+// WorkerPageTranscriptionMode defines model for WorkerPage.Transcription.Mode.
+type WorkerPageTranscriptionMode string
 
 // WorkerPulseInput defines model for WorkerPulseInput.
 type WorkerPulseInput struct {
@@ -3074,6 +7231,9 @@ type WorkerPulseInput struct {
 	// Models Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs ressemblant à un secret sont refusées.
 	Models         *WorkerModels `json:"models,omitempty"`
 	SupportedSteps []string      `json:"supported_steps"`
+
+	// TranscriptionReachability Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête.
+	TranscriptionReachability *WorkerTranscriptionReachabilityInput `json:"transcription_reachability,omitempty"`
 }
 
 // WorkerRecentTask defines model for WorkerRecentTask.
@@ -3095,16 +7255,25 @@ type WorkerRecentTaskOutcome string
 // WorkerRegistration defines model for WorkerRegistration.
 type WorkerRegistration struct {
 	// Bundle Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus ensuite. Le .env contient le jeton.
-	Bundle              WorkerBundle `json:"bundle"`
-	CreatedAt           time.Time    `json:"created_at"`
-	Id                  string       `json:"id"`
-	LastSeenAt          *time.Time   `json:"last_seen_at"`
-	MaxConcurrency      int          `json:"max_concurrency"`
-	Name                string       `json:"name"`
-	ReportedConcurrency int          `json:"reported_concurrency"`
-	RevokedAt           *time.Time   `json:"revoked_at"`
-	Token               string       `json:"token"`
+	Bundle    WorkerBundle `json:"bundle"`
+	CreatedAt time.Time    `json:"created_at"`
+	Id        string       `json:"id"`
+
+	// InstallCommand Commande d'installation Linux à copier une fois ; le code d'invitation éphémère (usage unique, 15 minutes) n'est pas le jeton du Worker. Absente si install_command_unavailable est présent.
+	InstallCommand *string `json:"install_command,omitempty"`
+
+	// InstallCommandUnavailable Raison pour laquelle aucune commande n'a été générée : insecure_origin (adresse http:// sans choix explicite) ou invalid_origin (adresse publique inutilisable).
+	InstallCommandUnavailable *WorkerRegistrationInstallCommandUnavailable `json:"install_command_unavailable,omitempty"`
+	LastSeenAt                *time.Time                                   `json:"last_seen_at"`
+	MaxConcurrency            int                                          `json:"max_concurrency"`
+	Name                      string                                       `json:"name"`
+	ReportedConcurrency       int                                          `json:"reported_concurrency"`
+	RevokedAt                 *time.Time                                   `json:"revoked_at"`
+	Token                     string                                       `json:"token"`
 }
+
+// WorkerRegistrationInstallCommandUnavailable Raison pour laquelle aucune commande n'a été générée : insecure_origin (adresse http:// sans choix explicite) ou invalid_origin (adresse publique inutilisable).
+type WorkerRegistrationInstallCommandUnavailable string
 
 // WorkerRegistrationInput defines model for WorkerRegistrationInput.
 type WorkerRegistrationInput struct {
@@ -3112,7 +7281,7 @@ type WorkerRegistrationInput struct {
 	Name           string                      `json:"name"`
 	Transcription  *WorkerTranscriptionProfile `json:"transcription,omitempty"`
 
-	// TranscriptionUrl Adresse du serveur Whisper de ce worker (http ou https, sans identifiants). Écrite dans le fichier d'environnement généré ; non conservée.
+	// TranscriptionUrl Obsolète : l'adresse est gérée dans Admin → Transcription. Refusée lors de la création.
 	TranscriptionUrl *string `json:"transcription_url,omitempty"`
 }
 
@@ -3122,10 +7291,66 @@ type WorkerResultInput struct {
 	Result       map[string]interface{} `json:"result"`
 }
 
+// WorkerTranscriptionConfig Statut de synchronisation de la configuration de transcription pour un Worker.
+type WorkerTranscriptionConfig struct {
+	// ActiveVersion Version de configuration active (validée) pour ce Worker.
+	ActiveVersion *string `json:"active_version,omitempty"`
+
+	// EndpointOverride Adresse Whisper propre à ce Worker, si définie.
+	EndpointOverride *string `json:"endpoint_override,omitempty"`
+
+	// ErrorCode Code d'erreur du dernier test.
+	ErrorCode *WorkerTranscriptionConfigErrorCode `json:"error_code,omitempty"`
+
+	// ReceivedVersion Version de configuration reçue par le Worker.
+	ReceivedVersion *string `json:"received_version,omitempty"`
+
+	// TestedVersion Version de configuration testée par le Worker.
+	TestedVersion *string `json:"tested_version,omitempty"`
+}
+
+// WorkerTranscriptionConfigErrorCode Code d'erreur du dernier test.
+type WorkerTranscriptionConfigErrorCode string
+
+// WorkerTranscriptionFailureInput defines model for WorkerTranscriptionFailureInput.
+type WorkerTranscriptionFailureInput struct {
+	// BodyExcerpt Extrait borné de la réponse, vide hors statut HTTP ou corps invalide.
+	BodyExcerpt string                                   `json:"body_excerpt"`
+	ErrorType   WorkerTranscriptionFailureInputErrorType `json:"error_type"`
+	FailedAt    time.Time                                `json:"failed_at"`
+	LatencyMs   int                                      `json:"latency_ms"`
+	Method      WorkerTranscriptionFailureInputMethod    `json:"method"`
+	StatusCode  *int                                     `json:"status_code,omitempty"`
+	Url         string                                   `json:"url"`
+}
+
+// WorkerTranscriptionFailureInputErrorType defines model for WorkerTranscriptionFailureInput.ErrorType.
+type WorkerTranscriptionFailureInputErrorType string
+
+// WorkerTranscriptionFailureInputMethod defines model for WorkerTranscriptionFailureInput.Method.
+type WorkerTranscriptionFailureInputMethod string
+
 // WorkerTranscriptionProfile defines model for WorkerTranscriptionProfile.
 type WorkerTranscriptionProfile struct {
+	// Language Code de langue Whisper : l’un des 100 codes que Whisper accepte (liste fermée, codes de Whisper tels quels, par exemple jw pour le javanais, haw, yue).
 	Language string `json:"language"`
 	Model    string `json:"model"`
+}
+
+// WorkerTranscriptionReachability Dernier test GET /v1/models par le Worker. Détail du dernier échec réservé aux administrateurs.
+type WorkerTranscriptionReachability struct {
+	CheckedAt   time.Time                        `json:"checked_at"`
+	LastFailure *WorkerTranscriptionFailureInput `json:"last_failure"`
+	LatencyMs   int                              `json:"latency_ms"`
+	Reachable   bool                             `json:"reachable"`
+}
+
+// WorkerTranscriptionReachabilityInput Résultat de GET /v1/models sur le serveur de transcription. Jamais d'identifiants : l'URL est déjà sans utilisateur ni requête.
+type WorkerTranscriptionReachabilityInput struct {
+	CheckedAt   time.Time                        `json:"checked_at"`
+	LastFailure *WorkerTranscriptionFailureInput `json:"last_failure,omitempty"`
+	LatencyMs   int                              `json:"latency_ms"`
+	Reachable   bool                             `json:"reachable"`
 }
 
 // WorkerVocabularyTerm defines model for WorkerVocabularyTerm.
@@ -3154,6 +7379,45 @@ type WorkerVoiceInput struct {
 	PipelineVersion string `json:"pipeline_version"`
 }
 
+// WorkerVoiceModel defines model for WorkerVoiceModel.
+type WorkerVoiceModel struct {
+	Engine   string               `json:"engine"`
+	ModelId  string               `json:"model_id"`
+	Repo     string               `json:"repo"`
+	Retry    bool                 `json:"retry"`
+	Revision string               `json:"revision"`
+	Role     WorkerVoiceModelRole `json:"role"`
+}
+
+// WorkerVoiceModelRole defines model for WorkerVoiceModel.Role.
+type WorkerVoiceModelRole string
+
+// WorkerVoiceModelStatus defines model for WorkerVoiceModelStatus.
+type WorkerVoiceModelStatus struct {
+	BytesReceived *int64                           `json:"bytes_received,omitempty"`
+	BytesTotal    *int64                           `json:"bytes_total,omitempty"`
+	CauseCode     *WorkerVoiceModelStatusCauseCode `json:"cause_code,omitempty"`
+	ModelId       string                           `json:"model_id"`
+	OccupiedBytes *int64                           `json:"occupied_bytes,omitempty"`
+	OrderId       *string                          `json:"order_id,omitempty"`
+	Revision      *string                          `json:"revision,omitempty"`
+	State         WorkerVoiceModelStatusState      `json:"state"`
+}
+
+// WorkerVoiceModelStatusCauseCode defines model for WorkerVoiceModelStatus.CauseCode.
+type WorkerVoiceModelStatusCauseCode string
+
+// WorkerVoiceModelStatusState defines model for WorkerVoiceModelStatus.State.
+type WorkerVoiceModelStatusState string
+
+// WorkerVoiceModels defines model for WorkerVoiceModels.
+type WorkerVoiceModels struct {
+	Models   []WorkerVoiceModel `json:"models"`
+	Orders   []WorkerModelOrder `json:"orders"`
+	Remove   []WorkerVoiceModel `json:"remove"`
+	WorkerId string             `json:"worker_id"`
+}
+
 // CloseAccountParams defines parameters for CloseAccount.
 type CloseAccountParams struct {
 	Origin     string `json:"Origin"`
@@ -3162,24 +7426,164 @@ type CloseAccountParams struct {
 
 // DeleteAccountAvatarParams defines parameters for DeleteAccountAvatar.
 type DeleteAccountAvatarParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // PutAccountAvatarParams defines parameters for PutAccountAvatar.
 type PutAccountAvatarParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutAvatarSettingsParams defines parameters for PutAvatarSettings.
+type PutAvatarSettingsParams struct {
+	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RefreshDiscordAvatarParams defines parameters for RefreshDiscordAvatar.
+type RefreshDiscordAvatarParams struct {
+	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UnlinkDiscordParams defines parameters for UnlinkDiscord.
+type UnlinkDiscordParams struct {
+	// Origin Must equal the address of the request itself (scheme and host)
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UpdateAccountPasswordParams defines parameters for UpdateAccountPassword.
+type UpdateAccountPasswordParams struct {
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // UpdateAccountPreferencesParams defines parameters for UpdateAccountPreferences.
 type UpdateAccountPreferencesParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+
+// UpdateAccountProfileParams defines parameters for UpdateAccountProfile.
+type UpdateAccountProfileParams struct {
+	// Origin Must equal the address of the request itself (scheme and host)
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// GetAnalysisHistoryParams defines parameters for GetAnalysisHistory.
+type GetAnalysisHistoryParams struct {
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// Q Filtre sur le nom du clip
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+}
+
+// StreamAnalysisQueueEventsParams defines parameters for StreamAnalysisQueueEvents.
+type StreamAnalysisQueueEventsParams struct {
+	// Delta Vaut 1 pour recevoir, après le premier snapshot, des évènements `delta` plutôt que l'état complet à chaque changement.
+	Delta *StreamAnalysisQueueEventsParamsDelta `form:"delta,omitempty" json:"delta,omitempty"`
+}
+
+// StreamAnalysisQueueEventsParamsDelta defines parameters for StreamAnalysisQueueEvents.
+type StreamAnalysisQueueEventsParamsDelta int
+
+// ReprocessClipMetadataParams defines parameters for ReprocessClipMetadata.
+type ReprocessClipMetadataParams struct {
+	After      *int64 `form:"after,omitempty" json:"after,omitempty"`
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteClipAnalysisJSONBody defines parameters for DeleteClipAnalysis.
+type DeleteClipAnalysisJSONBody struct {
+	// All Vrai pour supprimer toute l'analyse : les étapes ci-dessus, l'historique des analyses, les essais de diarisation et les notifications du clip. Remplace steps.
+	All *bool `json:"all,omitempty"`
+
+	// ConfirmLoss Vrai pour confirmer les pertes indiquées par le calcul préalable (stake). Sans lui, 409 analysis_deletion_confirmation_required quand la suppression perd quelque chose.
+	ConfirmLoss *bool `json:"confirm_loss,omitempty"`
+
+	// Steps Étapes à supprimer, avec ce qui dépend d'elles (ADR 0030) : transcription supprime l'indexation et les corrections ; diarisation supprime les voix, leurs empreintes, le rapprochement et les identifications, y compris les voix validées (leurs échantillons quittent la référence ; les Personnes restent) ; empreintes supprime le rapprochement.
+	Steps *[]DeleteClipAnalysisJSONBodySteps `json:"steps,omitempty"`
+}
+
+// DeleteClipAnalysisParams defines parameters for DeleteClipAnalysis.
+type DeleteClipAnalysisParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteClipAnalysisJSONBodySteps defines parameters for DeleteClipAnalysis.
+type DeleteClipAnalysisJSONBodySteps string
+
+// StartClipAnalysisJSONBody defines parameters for StartClipAnalysis.
+type StartClipAnalysisJSONBody struct {
+	// ConfirmReplaceCorrections Vrai pour confirmer qu'une retranscription rend obsolètes les corrections de segments du clip après succès (ADR 0012) ; leur historique est conservé. Sans lui, 409 reanalysis_confirmation_required (stake.corrections).
+	ConfirmReplaceCorrections *bool `json:"confirm_replace_corrections,omitempty"`
+
+	// ConfirmReplaceValidations Vrai pour confirmer qu'une nouvelle diarisation rend obsolètes les corrections de locuteur et détache les validations des voix après succès (#114) ; les échantillons validés et l'ancien résultat sont conservés. Sans lui, 409 reanalysis_confirmation_required (stake.voice).
+	ConfirmReplaceValidations *bool `json:"confirm_replace_validations,omitempty"`
+
+	// ConfirmedStakeAt Le stake_at du refus reanalysis_confirmation_required que l'administrateur a confirmé (le plus ancien s'il y en a eu plusieurs) : le travail humain créé après n'est jamais rendu obsolète. Par défaut, l'instant de la requête.
+	ConfirmedStakeAt *time.Time `json:"confirmed_stake_at,omitempty"`
+
+	// Mode Réanalyse d'un clip déjà traité. missing : seules les étapes sans résultat valide sont exécutées (les résultats valides sont réutilisés). full : retranscription (périmètres transcription et full) et nouvelle diarisation (périmètres voice et full), l'indexation, les empreintes et la comparaison suivent. steps : relance les seules étapes de steps, quel que soit le résultat valide existant. Sans effet si une analyse est déjà active.
+	Mode *StartClipAnalysisJSONBodyMode `json:"mode,omitempty"`
+
+	// Scope transcription : préparation et transcription seulement. voice : détection des voix sur une transcription valide existante (refusée sinon, 409 transcription_required ; jamais de transcription implicite). full : transcription, indexation et voix. L'indexation et les voix avancent indépendamment après la transcription ; une branche en échec n'arrête pas l'autre et l'exécution se termine failed (échec partiel).
+	Scope *StartClipAnalysisJSONBodyScope `json:"scope,omitempty"`
+
+	// Steps Avec mode steps : étapes à relancer (au moins une, sans doublon ; sinon 400 invalid_reanalysis). Le serveur ferme le choix sur le graphe des étapes : une transcription absente s'ajoute comme prérequis de l'indexation ou de la détection des voix, l'indexation suit une transcription, les empreintes et le rapprochement suivent la détection des voix ; le périmètre de l'exécution s'élargit pour les contenir. Seules les étapes choisies sont forcées (forced_steps).
+	Steps *[]StartClipAnalysisJSONBodySteps `json:"steps,omitempty"`
+}
+
+// StartClipAnalysisParams defines parameters for StartClipAnalysis.
+type StartClipAnalysisParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// StartClipAnalysisJSONBodyMode defines parameters for StartClipAnalysis.
+type StartClipAnalysisJSONBodyMode string
+
+// StartClipAnalysisJSONBodyScope defines parameters for StartClipAnalysis.
+type StartClipAnalysisJSONBodyScope string
+
+// StartClipAnalysisJSONBodySteps defines parameters for StartClipAnalysis.
+type StartClipAnalysisJSONBodySteps string
+
+// CancelClipAnalysisParams defines parameters for CancelClipAnalysis.
+type CancelClipAnalysisParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// GetClipAnalysisDeletionPreviewParams defines parameters for GetClipAnalysisDeletionPreview.
+type GetClipAnalysisDeletionPreviewParams struct {
+	// Steps Étapes séparées par des virgules : transcription, diarization, fingerprints, matching.
+	Steps *string `form:"steps,omitempty" json:"steps,omitempty"`
+
+	// All Vrai pour le calcul de toute l'analyse.
+	All *bool `form:"all,omitempty" json:"all,omitempty"`
+}
+
+// RetryClipAnalysisStepParams defines parameters for RetryClipAnalysisStep.
+type RetryClipAnalysisStepParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RetryClipAnalysisStepParamsStep defines parameters for RetryClipAnalysisStep.
+type RetryClipAnalysisStepParamsStep string
 
 // DeleteClipAudioTrackOverrideParams defines parameters for DeleteClipAudioTrackOverride.
 type DeleteClipAudioTrackOverrideParams struct {
@@ -3195,6 +7599,29 @@ type PutClipAudioTrackOverrideParams struct {
 	ConfirmReplaceCorrections *bool  `form:"confirm_replace_corrections,omitempty" json:"confirm_replace_corrections,omitempty"`
 	Origin                    string `json:"Origin"`
 	XCSRFToken                string `json:"X-CSRF-Token"`
+}
+
+// PutClipMetadataJSONBody defines parameters for PutClipMetadata.
+type PutClipMetadataJSONBody struct {
+	// DisplayTitle Titre affiché (200 caractères au plus, sans caractère de contrôle) ; vide ou absent pour le retirer. N'agit que si display_title_changed est vrai ; ne renomme jamais le fichier.
+	DisplayTitle        *string `json:"display_title,omitempty"`
+	DisplayTitleChanged *bool   `json:"display_title_changed,omitempty"`
+	Game                *string `json:"game,omitempty"`
+	GameChanged         *bool   `json:"game_changed,omitempty"`
+
+	// GameReset Restaure le jeu détecté automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec game_changed.
+	GameReset         *bool      `json:"game_reset,omitempty"`
+	RecordedAt        *time.Time `json:"recorded_at,omitempty"`
+	RecordedAtChanged *bool      `json:"recorded_at_changed,omitempty"`
+
+	// RecordedAtReset Restaure la date détectée automatiquement ; 409 metadata_reset_unavailable s'il n'est pas disponible. Exclusif avec recorded_at_changed.
+	RecordedAtReset *bool `json:"recorded_at_reset,omitempty"`
+}
+
+// PutClipMetadataParams defines parameters for PutClipMetadata.
+type PutClipMetadataParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // DeleteClipMicrophoneTrackParams defines parameters for DeleteClipMicrophoneTrack.
@@ -3223,6 +7650,34 @@ type ScheduleVoiceParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// DeleteDiscordBotParams defines parameters for DeleteDiscordBot.
+type DeleteDiscordBotParams struct {
+	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutDiscordBotParams defines parameters for PutDiscordBot.
+type PutDiscordBotParams struct {
+	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// SyncDiscordBotParams defines parameters for SyncDiscordBot.
+type SyncDiscordBotParams struct {
+	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// TestDiscordBotParams defines parameters for TestDiscordBot.
+type TestDiscordBotParams struct {
+	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // BackfillEmbeddingIndexParams defines parameters for BackfillEmbeddingIndex.
 type BackfillEmbeddingIndexParams struct {
 	Origin     string `json:"Origin"`
@@ -3242,12 +7697,39 @@ type RebuildEmbeddingIndexParams struct {
 
 // PutEmbeddingSettingsJSONBody defines parameters for PutEmbeddingSettings.
 type PutEmbeddingSettingsJSONBody struct {
-	Model string `json:"model"`
-	Url   string `json:"url"`
+	Model           string `json:"model"`
+	Url             string `json:"url"`
+	ValidationToken string `json:"validation_token"`
 }
 
 // PutEmbeddingSettingsParams defines parameters for PutEmbeddingSettings.
 type PutEmbeddingSettingsParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// TestEmbeddingSettingsJSONBody defines parameters for TestEmbeddingSettings.
+type TestEmbeddingSettingsJSONBody struct {
+	Model string `json:"model"`
+	Url   string `json:"url"`
+}
+
+// TestEmbeddingSettingsParams defines parameters for TestEmbeddingSettings.
+type TestEmbeddingSettingsParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteHFTokenParams defines parameters for DeleteHFToken.
+type DeleteHFTokenParams struct {
+	// Origin Must equal the address of the request itself (scheme and host)
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutHFTokenParams defines parameters for PutHFToken.
+type PutHFTokenParams struct {
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3260,12 +7742,17 @@ type UpdateJobControlsParams struct {
 
 // ListJobsParams defines parameters for ListJobs.
 type ListJobsParams struct {
-	Status   *ListJobsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
-	ClipId   *int64                `form:"clip_id,omitempty" json:"clip_id,omitempty"`
-	Step     *string               `form:"step,omitempty" json:"step,omitempty"`
-	Page     *int                  `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int                  `form:"page_size,omitempty" json:"page_size,omitempty"`
+	// Workflow Paginate clips with their latest job per step. Total counts clips. active includes unfinished or cancelled clips; done requires every latest step to have succeeded.
+	Workflow *ListJobsParamsWorkflow `form:"workflow,omitempty" json:"workflow,omitempty"`
+	Status   *ListJobsParamsStatus   `form:"status,omitempty" json:"status,omitempty"`
+	ClipId   *int64                  `form:"clip_id,omitempty" json:"clip_id,omitempty"`
+	Step     *string                 `form:"step,omitempty" json:"step,omitempty"`
+	Page     *int                    `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int                    `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
+
+// ListJobsParamsWorkflow defines parameters for ListJobs.
+type ListJobsParamsWorkflow string
 
 // ListJobsParamsStatus defines parameters for ListJobs.
 type ListJobsParamsStatus string
@@ -3292,6 +7779,38 @@ type RelaunchJobParams struct {
 	XCSRFToken                string `json:"X-CSRF-Token"`
 }
 
+// StartLibraryIndexRunJSONBody defines parameters for StartLibraryIndexRun.
+type StartLibraryIndexRunJSONBody struct {
+	Mode StartLibraryIndexRunJSONBodyMode `json:"mode"`
+}
+
+// StartLibraryIndexRunParams defines parameters for StartLibraryIndexRun.
+type StartLibraryIndexRunParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// StartLibraryIndexRunJSONBodyMode defines parameters for StartLibraryIndexRun.
+type StartLibraryIndexRunJSONBodyMode string
+
+// CancelLibraryIndexRunParams defines parameters for CancelLibraryIndexRun.
+type CancelLibraryIndexRunParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PauseLibraryIndexRunParams defines parameters for PauseLibraryIndexRun.
+type PauseLibraryIndexRunParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ResumeLibraryIndexRunParams defines parameters for ResumeLibraryIndexRun.
+type ResumeLibraryIndexRunParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // ExportMasterKeyParams defines parameters for ExportMasterKey.
 type ExportMasterKeyParams struct {
 	Origin     string `json:"Origin"`
@@ -3309,6 +7828,24 @@ type DeleteMemberParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// UpdateMemberParams defines parameters for UpdateMember.
+type UpdateMemberParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// UnlinkMemberDiscordParams defines parameters for UnlinkMemberDiscord.
+type UnlinkMemberDiscordParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ResetMemberPasswordParams defines parameters for ResetMemberPassword.
+type ResetMemberPasswordParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // UpdateMemberRoleJSONBody defines parameters for UpdateMemberRole.
 type UpdateMemberRoleJSONBody struct {
 	Role UpdateMemberRoleJSONBodyRole `json:"role"`
@@ -3322,6 +7859,44 @@ type UpdateMemberRoleParams struct {
 
 // UpdateMemberRoleJSONBodyRole defines parameters for UpdateMemberRole.
 type UpdateMemberRoleJSONBodyRole string
+
+// RevokeMemberSessionsParams defines parameters for RevokeMemberSessions.
+type RevokeMemberSessionsParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutMetadataLocationJSONBody defines parameters for PutMetadataLocation.
+type PutMetadataLocationJSONBody struct {
+	Country  string `json:"country"`
+	Timezone string `json:"timezone"`
+}
+
+// PutMetadataLocationParams defines parameters for PutMetadataLocation.
+type PutMetadataLocationParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ListPersonLinkRequestsParams defines parameters for ListPersonLinkRequests.
+type ListPersonLinkRequestsParams struct {
+	Status *ListPersonLinkRequestsParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListPersonLinkRequestsParamsStatus defines parameters for ListPersonLinkRequests.
+type ListPersonLinkRequestsParamsStatus string
+
+// ApprovePersonLinkRequestParams defines parameters for ApprovePersonLinkRequest.
+type ApprovePersonLinkRequestParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RefusePersonLinkRequestParams defines parameters for RefusePersonLinkRequest.
+type RefusePersonLinkRequestParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 
 // UnlinkPersonAccountParams defines parameters for UnlinkPersonAccount.
 type UnlinkPersonAccountParams struct {
@@ -3348,21 +7923,27 @@ type ExportSegmentCorrectionsParamsFormat string
 
 // UpdateSettingsParams defines parameters for UpdateSettings.
 type UpdateSettingsParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutAutomaticAnalysisSettingParams defines parameters for PutAutomaticAnalysisSetting.
+type PutAutomaticAnalysisSettingParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // RecordSetupStepParams defines parameters for RecordSetupStep.
 type RecordSetupStepParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // DismissSetupBannerParams defines parameters for DismissSetupBanner.
 type DismissSetupBannerParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3412,6 +7993,12 @@ type UpdateTranscriptionPipelineParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// UpdateTranscriptionSettingsParams defines parameters for UpdateTranscriptionSettings.
+type UpdateTranscriptionSettingsParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // PreviewTranscriptionBatchParams defines parameters for PreviewTranscriptionBatch.
 type PreviewTranscriptionBatchParams struct {
 	// IncludeCorrected Vrai pour inclure dans le lot les clips qui portent des corrections humaines (exclus par défaut).
@@ -3444,7 +8031,7 @@ type ScheduleTranscriptionBatchParams struct {
 
 // ApproveUserParams defines parameters for ApproveUser.
 type ApproveUserParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3456,7 +8043,7 @@ type SetVideoRootJSONBody struct {
 
 // SetVideoRootParams defines parameters for SetVideoRoot.
 type SetVideoRootParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3474,7 +8061,7 @@ type CreateVideoFolderJSONBody struct {
 
 // CreateVideoFolderParams defines parameters for CreateVideoFolder.
 type CreateVideoFolderParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3487,7 +8074,7 @@ type ScanVideoSelectionJSONBody struct {
 
 // ScanVideoSelectionParams defines parameters for ScanVideoSelection.
 type ScanVideoSelectionParams struct {
-	// Origin Must equal PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3534,16 +8121,113 @@ type RematchVoicesParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// AddVoiceModelParams defines parameters for AddVoiceModel.
+type AddVoiceModelParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CancelVoiceModelCandidateParams defines parameters for CancelVoiceModelCandidate.
+type CancelVoiceModelCandidateParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ChooseVoiceModelCandidateParams defines parameters for ChooseVoiceModelCandidate.
+type ChooseVoiceModelCandidateParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CancelFingerprintTransitionParams defines parameters for CancelFingerprintTransition.
+type CancelFingerprintTransitionParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// StartFingerprintTransitionParams defines parameters for StartFingerprintTransition.
+type StartFingerprintTransitionParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PreviewFingerprintTransitionParams defines parameters for PreviewFingerprintTransition.
+type PreviewFingerprintTransitionParams struct {
+	To string `form:"to" json:"to"`
+}
+
+// ResumeFingerprintTransitionParams defines parameters for ResumeFingerprintTransition.
+type ResumeFingerprintTransitionParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// InspectVoiceModelParams defines parameters for InspectVoiceModel.
+type InspectVoiceModelParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PatchVoiceModelParams defines parameters for PatchVoiceModel.
+type PatchVoiceModelParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ActivateVoiceModelParams defines parameters for ActivateVoiceModel.
+type ActivateVoiceModelParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RemoveVoiceModelParams defines parameters for RemoveVoiceModel.
+type RemoveVoiceModelParams struct {
+	WorkerId   string `form:"worker_id" json:"worker_id"`
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // UpdateVoicePipelineParams defines parameters for UpdateVoicePipeline.
 type UpdateVoicePipelineParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
-// RegisterWorkerParams defines parameters for RegisterWorker.
-type RegisterWorkerParams struct {
+// GetWorkerUpdates200JSONResponseBodyMode defines parameters for GetWorkerUpdates.
+type GetWorkerUpdates200JSONResponseBodyMode string
+
+// GetWorkerUpdates200JSONResponseBodyWorkersState defines parameters for GetWorkerUpdates.
+type GetWorkerUpdates200JSONResponseBodyWorkersState string
+
+// PutWorkerUpdateTargetJSONBody defines parameters for PutWorkerUpdateTarget.
+type PutWorkerUpdateTargetJSONBody struct {
+	Mode    *PutWorkerUpdateTargetJSONBodyMode `json:"mode,omitempty"`
+	Version *string                            `json:"version"`
+}
+
+// PutWorkerUpdateTargetParams defines parameters for PutWorkerUpdateTarget.
+type PutWorkerUpdateTargetParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutWorkerUpdateTargetJSONBodyMode defines parameters for PutWorkerUpdateTarget.
+type PutWorkerUpdateTargetJSONBodyMode string
+
+// PutWorkerUpdateTarget200JSONResponseBodyMode defines parameters for PutWorkerUpdateTarget.
+type PutWorkerUpdateTarget200JSONResponseBodyMode string
+
+// RegisterWorkerParams defines parameters for RegisterWorker.
+type RegisterWorkerParams struct {
+	// AllowInsecureInstall Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin.
+	AllowInsecureInstall *bool  `form:"allow_insecure_install,omitempty" json:"allow_insecure_install,omitempty"`
+	Origin               string `json:"Origin"`
+	XCSRFToken           string `json:"X-CSRF-Token"`
+}
+
+// RevokeWorkerJSONBody defines parameters for RevokeWorker.
+type RevokeWorkerJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
 }
 
 // RevokeWorkerParams defines parameters for RevokeWorker.
@@ -3552,10 +8236,20 @@ type RevokeWorkerParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
-// RenewWorkerTokenParams defines parameters for RenewWorkerToken.
-type RenewWorkerTokenParams struct {
+// ForgetWorkerParams defines parameters for ForgetWorker.
+type ForgetWorkerParams struct {
+	// Force Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation.
+	Force      *bool  `form:"force,omitempty" json:"force,omitempty"`
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RenewWorkerTokenParams defines parameters for RenewWorkerToken.
+type RenewWorkerTokenParams struct {
+	// AllowInsecureInstall Choix explicite de l'administrateur : autorise une commande d'installation sur une adresse http:// (réseau local de confiance). Sans lui, l'adresse http:// est refusée et install_command_unavailable vaut insecure_origin.
+	AllowInsecureInstall *bool  `form:"allow_insecure_install,omitempty" json:"allow_insecure_install,omitempty"`
+	Origin               string `json:"Origin"`
+	XCSRFToken           string `json:"X-CSRF-Token"`
 }
 
 // UpdateWorkerTranscriptionModelJSONBody defines parameters for UpdateWorkerTranscriptionModel.
@@ -3565,6 +8259,56 @@ type UpdateWorkerTranscriptionModelJSONBody struct {
 
 // UpdateWorkerTranscriptionModelParams defines parameters for UpdateWorkerTranscriptionModel.
 type UpdateWorkerTranscriptionModelParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteWorkerTranscriptionOverrideParams defines parameters for DeleteWorkerTranscriptionOverride.
+type DeleteWorkerTranscriptionOverrideParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// PutWorkerTranscriptionOverrideJSONBody defines parameters for PutWorkerTranscriptionOverride.
+type PutWorkerTranscriptionOverrideJSONBody struct {
+	EndpointOverride string `json:"endpoint_override"`
+}
+
+// PutWorkerTranscriptionOverrideParams defines parameters for PutWorkerTranscriptionOverride.
+type PutWorkerTranscriptionOverrideParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RequestWorkerTranscriptionTestParams defines parameters for RequestWorkerTranscriptionTest.
+type RequestWorkerTranscriptionTestParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CreateVoiceModelOrderParams defines parameters for CreateVoiceModelOrder.
+type CreateVoiceModelOrderParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CreateVoiceModelRemovalParams defines parameters for CreateVoiceModelRemoval.
+type CreateVoiceModelRemovalParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CancelVoiceModelReplacementParams defines parameters for CancelVoiceModelReplacement.
+type CancelVoiceModelReplacementParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CancelVoiceModelReplacementParamsKind defines parameters for CancelVoiceModelReplacement.
+type CancelVoiceModelReplacementParamsKind string
+
+// RetryWorkerVoiceModelParams defines parameters for RetryWorkerVoiceModel.
+type RetryWorkerVoiceModelParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3583,38 +8327,39 @@ type DiscordCallbackParams struct {
 
 // LinkDiscordParams defines parameters for LinkDiscord.
 type LinkDiscordParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // StartDiscordParams defines parameters for StartDiscord.
 type StartDiscordParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // LoginParams defines parameters for Login.
 type LoginParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // LogoutParams defines parameters for Logout.
 type LogoutParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
 // RegisterParams defines parameters for Register.
 type RegisterParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // ListClipsParams defines parameters for ListClips.
 type ListClipsParams struct {
+	Game       *string                    `form:"game,omitempty" json:"game,omitempty"`
 	Page       *int                       `form:"page,omitempty" json:"page,omitempty"`
 	PageSize   *int                       `form:"page_size,omitempty" json:"page_size,omitempty"`
 	Visibility *ListClipsParamsVisibility `form:"visibility,omitempty" json:"visibility,omitempty"`
@@ -3636,6 +8381,15 @@ type ListClipsParamsVisibility string
 
 // ListClipsParamsStatus defines parameters for ListClips.
 type ListClipsParamsStatus string
+
+// UpdateClipJSONBody defines parameters for UpdateClip.
+type UpdateClipJSONBody struct {
+	// Visibility Visibilité du clip : shared = visible par tous les membres du workspace, private = visible seulement par le propriétaire
+	Visibility UpdateClipJSONBodyVisibility `json:"visibility"`
+}
+
+// UpdateClipJSONBodyVisibility defines parameters for UpdateClip.
+type UpdateClipJSONBodyVisibility string
 
 // GetClipMediaParams defines parameters for GetClipMedia.
 type GetClipMediaParams struct {
@@ -3660,8 +8414,75 @@ type PutSegmentTextParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// ScheduleClipTranscriptionParams defines parameters for ScheduleClipTranscription.
+type ScheduleClipTranscriptionParams struct {
+	// ConfirmReplaceCorrections True to explicitly confirm replacing the clip’s human corrections with a new transcription. Without it, a retranscription of a corrected clip is rejected (409 corrections_would_be_replaced).
+	ConfirmReplaceCorrections *bool  `form:"confirm_replace_corrections,omitempty" json:"confirm_replace_corrections,omitempty"`
+	Origin                    string `json:"Origin"`
+	XCSRFToken                string `json:"X-CSRF-Token"`
+}
+
+// ListLibraryExplorerParams defines parameters for ListLibraryExplorer.
+type ListLibraryExplorerParams struct {
+	// Path Dossier relatif à la Racine vidéo (vide : la racine)
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Recursive Liste à plat tous les descendants
+	Recursive *ListLibraryExplorerParamsRecursive `form:"recursive,omitempty" json:"recursive,omitempty"`
+	Q         *string                             `form:"q,omitempty" json:"q,omitempty"`
+	State     *ListLibraryExplorerParamsState     `form:"state,omitempty" json:"state,omitempty"`
+
+	// Stage Étape de traitement atteinte : indexed (le clip existe), transcribed (transcription exploitable), voices (diarisation, empreintes et rapprochement terminés), complete (toutes les étapes de l'analyse terminées). Sans recursive, la réponse est l'arbre élagué : les vidéos du dossier qui correspondent et les seuls sous-dossiers menant à une correspondance, avec match_count.
+	Stage      *ListLibraryExplorerParamsStage      `form:"stage,omitempty" json:"stage,omitempty"`
+	Game       *string                              `form:"game,omitempty" json:"game,omitempty"`
+	Visibility *ListLibraryExplorerParamsVisibility `form:"visibility,omitempty" json:"visibility,omitempty"`
+	From       *openapi_types.Date                  `form:"from,omitempty" json:"from,omitempty"`
+	To         *openapi_types.Date                  `form:"to,omitempty" json:"to,omitempty"`
+	OwnerId    *int                                 `form:"owner_id,omitempty" json:"owner_id,omitempty"`
+
+	// PersonId Vidéos dont une voix est attribuée à cette Personne (attribution validée ou automatique)
+	PersonId *int `form:"person_id,omitempty" json:"person_id,omitempty"`
+
+	// Voices Vidéos qui ont encore des voix à traiter
+	Voices *ListLibraryExplorerParamsVoices `form:"voices,omitempty" json:"voices,omitempty"`
+	Limit  *int                             `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int                             `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListLibraryExplorerParamsRecursive defines parameters for ListLibraryExplorer.
+type ListLibraryExplorerParamsRecursive string
+
+// ListLibraryExplorerParamsState defines parameters for ListLibraryExplorer.
+type ListLibraryExplorerParamsState string
+
+// ListLibraryExplorerParamsStage defines parameters for ListLibraryExplorer.
+type ListLibraryExplorerParamsStage string
+
+// ListLibraryExplorerParamsVisibility defines parameters for ListLibraryExplorer.
+type ListLibraryExplorerParamsVisibility string
+
+// ListLibraryExplorerParamsVoices defines parameters for ListLibraryExplorer.
+type ListLibraryExplorerParamsVoices string
+
+// IndexExplorerVideoJSONBody defines parameters for IndexExplorerVideo.
+type IndexExplorerVideoJSONBody struct {
+	Path string `json:"path"`
+}
+
 // CorrectLocalSpeakerParams defines parameters for CorrectLocalSpeaker.
 type CorrectLocalSpeakerParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RestoreLocalSpeakerDispositionParams defines parameters for RestoreLocalSpeakerDisposition.
+type RestoreLocalSpeakerDispositionParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// SetLocalSpeakerDispositionParams defines parameters for SetLocalSpeakerDisposition.
+type SetLocalSpeakerDispositionParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -3684,11 +8505,92 @@ type ExcludeVoiceGroupMemberParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 
+// RefuseLocalSpeakerParams defines parameters for RefuseLocalSpeaker.
+type RefuseLocalSpeakerParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CancelLocalSpeakerRefusalParams defines parameters for CancelLocalSpeakerRefusal.
+type CancelLocalSpeakerRefusalParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
 // ValidateLocalSpeakerParams defines parameters for ValidateLocalSpeaker.
 type ValidateLocalSpeakerParams struct {
 	Origin     string `json:"Origin"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+
+// UnlinkMyPersonParams defines parameters for UnlinkMyPerson.
+type UnlinkMyPersonParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// CancelMyPersonLinkRequestParams defines parameters for CancelMyPersonLinkRequest.
+type CancelMyPersonLinkRequestParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// RequestPersonLinkParams defines parameters for RequestPersonLink.
+type RequestPersonLinkParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ListNotificationsParams defines parameters for ListNotifications.
+type ListNotificationsParams struct {
+	State *ListNotificationsParamsState `form:"state,omitempty" json:"state,omitempty"`
+
+	// Filter Filtre appliqué côté serveur : unread (non lues), actions (en attente), errors (incidents techniques). Indépendant de la taille de page.
+	Filter *ListNotificationsParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
+	Limit  *int                           `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int                           `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListNotificationsParamsState defines parameters for ListNotifications.
+type ListNotificationsParamsState string
+
+// ListNotificationsParamsFilter defines parameters for ListNotifications.
+type ListNotificationsParamsFilter string
+
+// ReadAllNotificationsParams defines parameters for ReadAllNotifications.
+type ReadAllNotificationsParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// DeleteNotificationParams defines parameters for DeleteNotification.
+type DeleteNotificationParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// MarkNotificationUnreadParams defines parameters for MarkNotificationUnread.
+type MarkNotificationUnreadParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// MarkNotificationReadParams defines parameters for MarkNotificationRead.
+type MarkNotificationReadParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+
+// ListPeopleToProcessParams defines parameters for ListPeopleToProcess.
+type ListPeopleToProcessParams struct {
+	// Filter Ne garder que les clips avec une voix à confirmer (suggestion), une voix inconnue ou ambiguë, ou un groupe proposé.
+	Filter   *ListPeopleToProcessParamsFilter `form:"filter,omitempty" json:"filter,omitempty"`
+	Page     *int                             `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int                             `form:"page_size,omitempty" json:"page_size,omitempty"`
+}
+
+// ListPeopleToProcessParamsFilter defines parameters for ListPeopleToProcess.
+type ListPeopleToProcessParamsFilter string
 
 // ListPersonEventsParams defines parameters for ListPersonEvents.
 type ListPersonEventsParams struct {
@@ -3698,6 +8600,12 @@ type ListPersonEventsParams struct {
 // ListPersonsParams defines parameters for ListPersons.
 type ListPersonsParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Page Active la pagination (défaut 1).
+	Page *int `form:"page,omitempty" json:"page,omitempty"`
+
+	// PageSize Active la pagination (défaut 20).
+	PageSize *int `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
 // CreatePersonParams defines parameters for CreatePerson.
@@ -3760,13 +8668,13 @@ type SearchTranscriptsParamsStatus string
 
 // CompleteSetupParams defines parameters for CompleteSetup.
 type CompleteSetupParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
 // CheckSetupCodeParams defines parameters for CheckSetupCode.
 type CheckSetupCodeParams struct {
-	// Origin Must equal the address of the request itself (scheme and host), or the configured PUBLIC_URL
+	// Origin Must equal the address of the request itself (scheme and host)
 	Origin string `json:"Origin"`
 }
 
@@ -3810,10 +8718,19 @@ type ListVoiceGroupsParams struct {
 	Proposed *bool `form:"proposed,omitempty" json:"proposed,omitempty"`
 	Page     *int  `form:"page,omitempty" json:"page,omitempty"`
 	PageSize *int  `form:"page_size,omitempty" json:"page_size,omitempty"`
+
+	// Voice Identifiant d'un Locuteur local : ne retourne que le groupe qui contient cette voix visible, ou une liste vide.
+	Voice *int64 `form:"voice,omitempty" json:"voice,omitempty"`
 }
 
 // ListVoiceGroupsParamsSort defines parameters for ListVoiceGroups.
 type ListVoiceGroupsParamsSort string
+
+// SetVoiceGroupDispositionParams defines parameters for SetVoiceGroupDisposition.
+type SetVoiceGroupDispositionParams struct {
+	Origin     string `json:"Origin"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 
 // NameVoiceGroupParams defines parameters for NameVoiceGroup.
 type NameVoiceGroupParams struct {
@@ -3824,13 +8741,21 @@ type NameVoiceGroupParams struct {
 // ListVoiceVerificationParams defines parameters for ListVoiceVerification.
 type ListVoiceVerificationParams struct {
 	// Level Ne garder que les voix inconnues ou que les voix ambiguës.
-	Level    *ListVoiceVerificationParamsLevel `form:"level,omitempty" json:"level,omitempty"`
-	Page     *int                              `form:"page,omitempty" json:"page,omitempty"`
-	PageSize *int                              `form:"page_size,omitempty" json:"page_size,omitempty"`
+	Level *ListVoiceVerificationParamsLevel `form:"level,omitempty" json:"level,omitempty"`
+
+	// Clip Ne garder que les voix de ce clip (lien d'une notification).
+	Clip     *int64 `form:"clip,omitempty" json:"clip,omitempty"`
+	Page     *int   `form:"page,omitempty" json:"page,omitempty"`
+	PageSize *int   `form:"page_size,omitempty" json:"page_size,omitempty"`
 }
 
 // ListVoiceVerificationParamsLevel defines parameters for ListVoiceVerification.
 type ListVoiceVerificationParamsLevel string
+
+// PostWorkerInstallEventsJSONBody defines parameters for PostWorkerInstallEvents.
+type PostWorkerInstallEventsJSONBody struct {
+	Events []WorkerInstallEventInput `json:"events"`
+}
 
 // CompleteWorkerJobParams defines parameters for CompleteWorkerJob.
 type CompleteWorkerJobParams struct {
@@ -3852,16 +8777,63 @@ type GetWorkerJobInputParams struct {
 	XWorkerLeaseToken string `json:"X-Worker-Lease-Token"`
 }
 
+// AppendWorkerJobLogsParams defines parameters for AppendWorkerJobLogs.
+type AppendWorkerJobLogsParams struct {
+	XWorkerLeaseToken string `json:"X-Worker-Lease-Token"`
+}
+
 // GetWorkerJobMediaParams defines parameters for GetWorkerJobMedia.
 type GetWorkerJobMediaParams struct {
 	XWorkerLeaseToken string `json:"X-Worker-Lease-Token"`
 }
 
+// GetWorkerTranscriptionConfig200JSONResponseBodyMode defines parameters for GetWorkerTranscriptionConfig.
+type GetWorkerTranscriptionConfig200JSONResponseBodyMode string
+
+// PostWorkerTranscriptionConfigStatusJSONBody defines parameters for PostWorkerTranscriptionConfigStatus.
+type PostWorkerTranscriptionConfigStatusJSONBody struct {
+	Active    bool                                                  `json:"active"`
+	ErrorCode *PostWorkerTranscriptionConfigStatusJSONBodyErrorCode `json:"error_code,omitempty"`
+	Version   string                                                `json:"version"`
+}
+
+// PostWorkerTranscriptionConfigStatusJSONBodyErrorCode defines parameters for PostWorkerTranscriptionConfigStatus.
+type PostWorkerTranscriptionConfigStatusJSONBodyErrorCode string
+
+// PostWorkerUpdateStatusJSONBody defines parameters for PostWorkerUpdateStatus.
+type PostWorkerUpdateStatusJSONBody struct {
+	CauseCode *string                             `json:"cause_code,omitempty"`
+	Digest    *string                             `json:"digest,omitempty"`
+	State     PostWorkerUpdateStatusJSONBodyState `json:"state"`
+	Version   string                              `json:"version"`
+}
+
+// PostWorkerUpdateStatusJSONBodyState defines parameters for PostWorkerUpdateStatus.
+type PostWorkerUpdateStatusJSONBodyState string
+
+// PutAvatarSettingsJSONRequestBody defines body for PutAvatarSettings for application/json ContentType.
+type PutAvatarSettingsJSONRequestBody = AvatarSettingsInput
+
+// UpdateAccountPasswordJSONRequestBody defines body for UpdateAccountPassword for application/json ContentType.
+type UpdateAccountPasswordJSONRequestBody = AccountPasswordInput
+
 // UpdateAccountPreferencesJSONRequestBody defines body for UpdateAccountPreferences for application/json ContentType.
 type UpdateAccountPreferencesJSONRequestBody = AccountPreferencesInput
 
+// UpdateAccountProfileJSONRequestBody defines body for UpdateAccountProfile for application/json ContentType.
+type UpdateAccountProfileJSONRequestBody = AccountProfileInput
+
+// DeleteClipAnalysisJSONRequestBody defines body for DeleteClipAnalysis for application/json ContentType.
+type DeleteClipAnalysisJSONRequestBody DeleteClipAnalysisJSONBody
+
+// StartClipAnalysisJSONRequestBody defines body for StartClipAnalysis for application/json ContentType.
+type StartClipAnalysisJSONRequestBody StartClipAnalysisJSONBody
+
 // PutClipAudioTrackOverrideJSONRequestBody defines body for PutClipAudioTrackOverride for application/json ContentType.
 type PutClipAudioTrackOverrideJSONRequestBody = AudioTrackOverride
+
+// PutClipMetadataJSONRequestBody defines body for PutClipMetadata for application/json ContentType.
+type PutClipMetadataJSONRequestBody PutClipMetadataJSONBody
 
 // PutClipMicrophoneTrackJSONRequestBody defines body for PutClipMicrophoneTrack for application/json ContentType.
 type PutClipMicrophoneTrackJSONRequestBody = MicrophoneTrackClipInput
@@ -3872,11 +8844,20 @@ type ScheduleTranscriptionJSONRequestBody = TranscriptionInput
 // ScheduleVoiceJSONRequestBody defines body for ScheduleVoice for application/json ContentType.
 type ScheduleVoiceJSONRequestBody = VoiceScheduleInput
 
+// PutDiscordBotJSONRequestBody defines body for PutDiscordBot for application/json ContentType.
+type PutDiscordBotJSONRequestBody = DiscordBotInput
+
 // RebuildEmbeddingIndexJSONRequestBody defines body for RebuildEmbeddingIndex for application/json ContentType.
 type RebuildEmbeddingIndexJSONRequestBody RebuildEmbeddingIndexJSONBody
 
 // PutEmbeddingSettingsJSONRequestBody defines body for PutEmbeddingSettings for application/json ContentType.
 type PutEmbeddingSettingsJSONRequestBody PutEmbeddingSettingsJSONBody
+
+// TestEmbeddingSettingsJSONRequestBody defines body for TestEmbeddingSettings for application/json ContentType.
+type TestEmbeddingSettingsJSONRequestBody TestEmbeddingSettingsJSONBody
+
+// PutHFTokenJSONRequestBody defines body for PutHFToken for application/json ContentType.
+type PutHFTokenJSONRequestBody = HFTokenInput
 
 // UpdateJobControlsJSONRequestBody defines body for UpdateJobControls for application/json ContentType.
 type UpdateJobControlsJSONRequestBody = JobControlsInput
@@ -3884,17 +8865,32 @@ type UpdateJobControlsJSONRequestBody = JobControlsInput
 // ScheduleJobJSONRequestBody defines body for ScheduleJob for application/json ContentType.
 type ScheduleJobJSONRequestBody = JobInput
 
+// PutFolderPrivacyJSONRequestBody defines body for PutFolderPrivacy for application/json ContentType.
+type PutFolderPrivacyJSONRequestBody = FolderPrivacy
+
+// StartLibraryIndexRunJSONRequestBody defines body for StartLibraryIndexRun for application/json ContentType.
+type StartLibraryIndexRunJSONRequestBody StartLibraryIndexRunJSONBody
+
 // DeleteMemberJSONRequestBody defines body for DeleteMember for application/json ContentType.
 type DeleteMemberJSONRequestBody DeleteMemberJSONBody
 
+// UpdateMemberJSONRequestBody defines body for UpdateMember for application/json ContentType.
+type UpdateMemberJSONRequestBody = MemberPatch
+
 // UpdateMemberRoleJSONRequestBody defines body for UpdateMemberRole for application/json ContentType.
 type UpdateMemberRoleJSONRequestBody UpdateMemberRoleJSONBody
+
+// PutMetadataLocationJSONRequestBody defines body for PutMetadataLocation for application/json ContentType.
+type PutMetadataLocationJSONRequestBody PutMetadataLocationJSONBody
 
 // LinkPersonAccountJSONRequestBody defines body for LinkPersonAccount for application/json ContentType.
 type LinkPersonAccountJSONRequestBody = PersonAccountInput
 
 // UpdateSettingsJSONRequestBody defines body for UpdateSettings for application/json ContentType.
 type UpdateSettingsJSONRequestBody = SettingsInput
+
+// PutAutomaticAnalysisSettingJSONRequestBody defines body for PutAutomaticAnalysisSetting for application/json ContentType.
+type PutAutomaticAnalysisSettingJSONRequestBody = AutomaticAnalysisSetting
 
 // RecordSetupStepJSONRequestBody defines body for RecordSetupStep for application/json ContentType.
 type RecordSetupStepJSONRequestBody = SetupStepInput
@@ -3913,6 +8909,9 @@ type ScanSourceJSONRequestBody = ScanSourceJSONBody
 
 // UpdateTranscriptionPipelineJSONRequestBody defines body for UpdateTranscriptionPipeline for application/json ContentType.
 type UpdateTranscriptionPipelineJSONRequestBody = TranscriptionPipeline
+
+// UpdateTranscriptionSettingsJSONRequestBody defines body for UpdateTranscriptionSettings for application/json ContentType.
+type UpdateTranscriptionSettingsJSONRequestBody = TranscriptionSettingsInput
 
 // ScheduleTranscriptionBatchJSONRequestBody defines body for ScheduleTranscriptionBatch for application/json ContentType.
 type ScheduleTranscriptionBatchJSONRequestBody ScheduleTranscriptionBatchJSONBody
@@ -3941,20 +8940,56 @@ type UpdateVoiceAutomationCriteriaJSONRequestBody = VoiceAutomationCriteriaInput
 // UpdateVoiceMatchingJSONRequestBody defines body for UpdateVoiceMatching for application/json ContentType.
 type UpdateVoiceMatchingJSONRequestBody = VoiceMatchingInput
 
+// AddVoiceModelJSONRequestBody defines body for AddVoiceModel for application/json ContentType.
+type AddVoiceModelJSONRequestBody = VoiceModelAdd
+
+// ChooseVoiceModelCandidateJSONRequestBody defines body for ChooseVoiceModelCandidate for application/json ContentType.
+type ChooseVoiceModelCandidateJSONRequestBody = VoiceModelChoice
+
+// StartFingerprintTransitionJSONRequestBody defines body for StartFingerprintTransition for application/json ContentType.
+type StartFingerprintTransitionJSONRequestBody = FingerprintTransitionInput
+
+// InspectVoiceModelJSONRequestBody defines body for InspectVoiceModel for application/json ContentType.
+type InspectVoiceModelJSONRequestBody = VoiceModelInspectionRequest
+
+// PatchVoiceModelJSONRequestBody defines body for PatchVoiceModel for application/json ContentType.
+type PatchVoiceModelJSONRequestBody = VoiceModelPatch
+
 // UpdateVoicePipelineJSONRequestBody defines body for UpdateVoicePipeline for application/json ContentType.
 type UpdateVoicePipelineJSONRequestBody = VoicePipeline
+
+// PutWorkerUpdateTargetJSONRequestBody defines body for PutWorkerUpdateTarget for application/json ContentType.
+type PutWorkerUpdateTargetJSONRequestBody PutWorkerUpdateTargetJSONBody
 
 // RegisterWorkerJSONRequestBody defines body for RegisterWorker for application/json ContentType.
 type RegisterWorkerJSONRequestBody = WorkerRegistrationInput
 
+// RevokeWorkerJSONRequestBody defines body for RevokeWorker for application/json ContentType.
+type RevokeWorkerJSONRequestBody RevokeWorkerJSONBody
+
 // UpdateWorkerTranscriptionModelJSONRequestBody defines body for UpdateWorkerTranscriptionModel for application/json ContentType.
 type UpdateWorkerTranscriptionModelJSONRequestBody UpdateWorkerTranscriptionModelJSONBody
+
+// PutWorkerTranscriptionOverrideJSONRequestBody defines body for PutWorkerTranscriptionOverride for application/json ContentType.
+type PutWorkerTranscriptionOverrideJSONRequestBody PutWorkerTranscriptionOverrideJSONBody
+
+// CreateVoiceModelOrderJSONRequestBody defines body for CreateVoiceModelOrder for application/json ContentType.
+type CreateVoiceModelOrderJSONRequestBody = VoiceModelOrderInput
+
+// CreateVoiceModelRemovalJSONRequestBody defines body for CreateVoiceModelRemoval for application/json ContentType.
+type CreateVoiceModelRemovalJSONRequestBody = VoiceModelRemovalInput
+
+// RetryWorkerVoiceModelJSONRequestBody defines body for RetryWorkerVoiceModel for application/json ContentType.
+type RetryWorkerVoiceModelJSONRequestBody = VoiceModelOrderInput
 
 // LoginJSONRequestBody defines body for Login for application/json ContentType.
 type LoginJSONRequestBody = Credentials
 
 // RegisterJSONRequestBody defines body for Register for application/json ContentType.
 type RegisterJSONRequestBody = Credentials
+
+// UpdateClipJSONRequestBody defines body for UpdateClip for application/json ContentType.
+type UpdateClipJSONRequestBody UpdateClipJSONBody
 
 // RestoreSegmentTextJSONRequestBody defines body for RestoreSegmentText for application/json ContentType.
 type RestoreSegmentTextJSONRequestBody = SegmentRestoreInput
@@ -3965,11 +9000,26 @@ type PutSegmentSpeakerJSONRequestBody = SegmentSpeakerInput
 // PutSegmentTextJSONRequestBody defines body for PutSegmentText for application/json ContentType.
 type PutSegmentTextJSONRequestBody = SegmentTextInput
 
+// ScheduleClipTranscriptionJSONRequestBody defines body for ScheduleClipTranscription for application/json ContentType.
+type ScheduleClipTranscriptionJSONRequestBody = TranscriptionInput
+
+// IndexExplorerVideoJSONRequestBody defines body for IndexExplorerVideo for application/json ContentType.
+type IndexExplorerVideoJSONRequestBody IndexExplorerVideoJSONBody
+
 // CorrectLocalSpeakerJSONRequestBody defines body for CorrectLocalSpeaker for application/json ContentType.
 type CorrectLocalSpeakerJSONRequestBody = AttributionInput
 
+// SetLocalSpeakerDispositionJSONRequestBody defines body for SetLocalSpeakerDisposition for application/json ContentType.
+type SetLocalSpeakerDispositionJSONRequestBody = VoiceDispositionInput
+
+// RefuseLocalSpeakerJSONRequestBody defines body for RefuseLocalSpeaker for application/json ContentType.
+type RefuseLocalSpeakerJSONRequestBody = VoiceRefusalInput
+
 // ValidateLocalSpeakerJSONRequestBody defines body for ValidateLocalSpeaker for application/json ContentType.
 type ValidateLocalSpeakerJSONRequestBody = AttributionInput
+
+// RequestPersonLinkJSONRequestBody defines body for RequestPersonLink for application/json ContentType.
+type RequestPersonLinkJSONRequestBody = PersonLinkRequestInput
 
 // CreatePersonJSONRequestBody defines body for CreatePerson for application/json ContentType.
 type CreatePersonJSONRequestBody = PersonInput
@@ -3989,8 +9039,17 @@ type CheckSetupCodeJSONRequestBody = SetupCodeInput
 // CreateUploadJSONRequestBody defines body for CreateUpload for application/json ContentType.
 type CreateUploadJSONRequestBody = UploadInput
 
+// SetVoiceGroupDispositionJSONRequestBody defines body for SetVoiceGroupDisposition for application/json ContentType.
+type SetVoiceGroupDispositionJSONRequestBody = VoiceGroupDispositionInput
+
 // NameVoiceGroupJSONRequestBody defines body for NameVoiceGroup for application/json ContentType.
 type NameVoiceGroupJSONRequestBody = VoiceGroupNamingInput
+
+// AckWorkerHFTokenJSONRequestBody defines body for AckWorkerHFToken for application/json ContentType.
+type AckWorkerHFTokenJSONRequestBody = WorkerHFTokenAck
+
+// PostWorkerInstallEventsJSONRequestBody defines body for PostWorkerInstallEvents for application/json ContentType.
+type PostWorkerInstallEventsJSONRequestBody PostWorkerInstallEventsJSONBody
 
 // CompleteWorkerJobJSONRequestBody defines body for CompleteWorkerJob for application/json ContentType.
 type CompleteWorkerJobJSONRequestBody = WorkerResultInput
@@ -3998,504 +9057,1072 @@ type CompleteWorkerJobJSONRequestBody = WorkerResultInput
 // FailWorkerJobJSONRequestBody defines body for FailWorkerJob for application/json ContentType.
 type FailWorkerJobJSONRequestBody = WorkerFailureInput
 
+// AppendWorkerJobLogsJSONRequestBody defines body for AppendWorkerJobLogs for application/json ContentType.
+type AppendWorkerJobLogsJSONRequestBody = WorkerJobLogsInput
+
 // WorkerPulseJSONRequestBody defines body for WorkerPulse for application/json ContentType.
 type WorkerPulseJSONRequestBody = WorkerPulseInput
+
+// PostWorkerTranscriptionConfigStatusJSONRequestBody defines body for PostWorkerTranscriptionConfigStatus for application/json ContentType.
+type PostWorkerTranscriptionConfigStatusJSONRequestBody PostWorkerTranscriptionConfigStatusJSONBody
+
+// PostWorkerUpdateStatusJSONRequestBody defines body for PostWorkerUpdateStatus for application/json ContentType.
+type PostWorkerUpdateStatusJSONRequestBody PostWorkerUpdateStatusJSONBody
+
+// AckWorkerModelOrderJSONRequestBody defines body for AckWorkerModelOrder for application/json ContentType.
+type AckWorkerModelOrderJSONRequestBody = WorkerModelOrderAck
+
+// PostWorkerVoiceModelStatusJSONRequestBody defines body for PostWorkerVoiceModelStatus for application/json ContentType.
+type PostWorkerVoiceModelStatusJSONRequestBody = WorkerVoiceModelStatus
 
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"//8DAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

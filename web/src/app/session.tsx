@@ -61,6 +61,8 @@ type SessionContextValue = {
   startDiscord: () => Promise<Outcome>;
   /** Starts linking the Discord identity to the signed-in account (leaves for Discord). */
   linkDiscord: () => Promise<Outcome>;
+  /** Removes Discord after the API confirms a local password keeps the account usable. */
+  unlinkDiscord: () => Promise<Outcome>;
 };
 
 const SessionContext = createContext<SessionContextValue | undefined>(
@@ -254,6 +256,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [csrfToken]);
 
+  const unlinkDiscord = useCallback(async (): Promise<Outcome> => {
+    try {
+      const result = await api.DELETE("/api/account/discord", {
+        params: { header: mutation(csrfToken) },
+      });
+      if (!result.data)
+        return { ok: false, code: errorCode(result.error) ?? "unavailable" };
+      await reload();
+      window.dispatchEvent(new Event("snitch-avatar"));
+      return { ok: true };
+    } catch {
+      return { ok: false, code: "unavailable" };
+    }
+  }, [csrfToken, reload]);
+
   const value = useMemo<SessionContextValue>(
     () => ({
       phase: boot.phase,
@@ -268,6 +285,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       chooseLanguage,
       startDiscord,
       linkDiscord,
+      unlinkDiscord,
     }),
     [
       boot.phase,
@@ -282,6 +300,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       chooseLanguage,
       startDiscord,
       linkDiscord,
+      unlinkDiscord,
     ],
   );
 

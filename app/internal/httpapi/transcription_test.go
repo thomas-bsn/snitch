@@ -78,7 +78,6 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer api.Close()
 	ts := httptest.NewUnstartedServer(api.Handler())
-	api.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)
@@ -151,6 +150,52 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if pipelineState.Version != "pipeline-v1" || pipelineState.Config.VAD.Mode != "off" {
 		t.Fatalf("unexpected default pipeline: %+v", pipelineState)
 	}
+	var initialSettings struct {
+		Mode   string `json:"mode"`
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/admin/transcription-settings", nil, "", http.StatusOK), &initialSettings); err != nil {
+		t.Fatal(err)
+	}
+	if initialSettings.Mode != "unconfigured" || initialSettings.Status != "unconfigured" {
+		t.Fatalf("implicit profile must not count as configured: %+v", initialSettings)
+	}
+	var savedSettings struct {
+		Mode     string `json:"mode"`
+		Status   string `json:"status"`
+		Endpoint string `json:"endpoint"`
+		Version  string `json:"version"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusOK), &savedSettings); err != nil {
+		t.Fatal(err)
+	}
+	if savedSettings.Mode != "enabled" || savedSettings.Status != "untested" || savedSettings.Endpoint != "http://fixture-whisper:8000" || savedSettings.Version == "" {
+		t.Fatalf("unexpected saved settings: %+v", savedSettings)
+	}
+	call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://bad:8000/path?token=secret", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusBadRequest)
+	// The library language is one of the languages Whisper supports, by its Whisper code.
+	for _, language := range []string{"en", "haw", "yue", "jw", "nn"} {
+		call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": language}, session.CSRF, http.StatusOK)
+	}
+	for _, language := range []string{"zz", "fra", "FR", "auto", "jv", ""} {
+		out := call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": language}, session.CSRF, http.StatusBadRequest)
+		if !bytes.Contains(out, []byte(`"invalid_transcription_settings"`)) {
+			t.Fatalf("language %q: %s", language, out)
+		}
+		call(admin, http.MethodPut, "/api/admin/transcription-pipeline", map[string]any{"provider": "openai-compatible", "model": "fixture-model", "language": language, "preparation": "wav-16khz-mono-v1", "vad": map[string]any{"mode": "off"}}, session.CSRF, http.StatusBadRequest)
+	}
+	var disabledSettings struct {
+		Mode     string `json:"mode"`
+		Status   string `json:"status"`
+		Endpoint string `json:"endpoint"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "disabled", "endpoint": "", "model": "", "language": ""}, session.CSRF, http.StatusOK), &disabledSettings); err != nil {
+		t.Fatal(err)
+	}
+	if disabledSettings.Mode != "disabled" || disabledSettings.Status != "disabled" || disabledSettings.Endpoint != "" {
+		t.Fatalf("disabled mode not explicit: %+v", disabledSettings)
+	}
+	call(admin, http.MethodPut, "/api/admin/transcription-settings", map[string]any{"mode": "enabled", "endpoint": "http://fixture-whisper:8000", "model": "fixture-model", "language": "fr"}, session.CSRF, http.StatusOK)
 	updatedPipeline := map[string]any{"provider": "openai-compatible", "model": "test-profile", "language": "fr", "preparation": "wav-16khz-mono-v1", "vad": map[string]any{"mode": "energy", "version": "energy-v1", "threshold": 0.02, "min_speech_ms": 100, "min_silence_ms": 300, "padding_ms": 100}}
 	var newPipeline struct {
 		Version string `json:"version"`
@@ -463,13 +508,37 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if leasedInput.TranscriptionModel != "server-model" || leasedInput.PipelineVersion != newPipeline.Version || leasedInput.Pipeline.Model != "test-profile" || leasedInput.Pipeline.VAD.Mode != "energy" {
 		t.Fatalf("worker did not receive its immutable pipeline snapshot: %+v", leasedInput)
 	}
-	const result = `{"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","audio_stream_index":2,"segments":[{"start":1.25,"end":2.1,"text":"Bien joué !","words":[{"word":"Bien","start":1.25,"end":1.52},{"word":"joué","start":1.55,"end":1.9}]}]}`
+	const result = `{"provider":"fixture","model":"deterministic-v1","version":"deterministic-v1","language":"fr","audio_stream_index":2,"peaks":[0,128,255],"segments":[{"start":1.25,"end":2.1,"text":"Bien joué !","words":[{"word":"Bien","start":1.25,"end":1.52},{"word":"joué","start":1.55,"end":1.9}]}]}`
 	var parsedResult any
 	if err := json.Unmarshal([]byte(result), &parsedResult); err != nil {
 		t.Fatal(err)
 	}
 	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": map[string]any{}}, assignment.LeaseToken, http.StatusBadRequest)
 	workerCall(http.MethodPost, "/api/worker/jobs/"+strconv64(assignment.Job.ID)+"/complete", map[string]any{"input_version": assignment.Job.InputVersion, "result": parsedResult}, assignment.LeaseToken, http.StatusOK)
+	var resultHasPeaks bool
+	if err := pool.QueryRow(context.Background(), `SELECT result ? 'peaks' FROM jobs WHERE id=$1`, assignment.Job.ID).Scan(&resultHasPeaks); err != nil || resultHasPeaks {
+		t.Fatalf("transcription result kept peaks in jobs.result: %v err=%v", resultHasPeaks, err)
+	}
+	var waveforms []struct {
+		AudioStreamIndex int   `json:"audio_stream_index"`
+		Peaks            []int `json:"peaks"`
+	}
+	var waveformsJSON string
+	if err := pool.QueryRow(context.Background(), `SELECT COALESCE(jsonb_agg(jsonb_build_object('audio_stream_index',audio_stream_index,'peaks',peaks)), '[]'::jsonb)::text FROM clip_waveforms WHERE clip_id=$1`, completed.ClipID).Scan(&waveformsJSON); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(waveformsJSON), &waveforms); err != nil || len(waveforms) != 1 || waveforms[0].AudioStreamIndex != 2 || len(waveforms[0].Peaks) != 3 || waveforms[0].Peaks[2] != 255 {
+		t.Fatalf("worker peaks were not stored per track: %s err=%v", waveformsJSON, err)
+	}
+	var withWaveform struct {
+		Waveforms []struct {
+			AudioStreamIndex int   `json:"audio_stream_index"`
+			Peaks            []int `json:"peaks"`
+		} `json:"waveforms"`
+	}
+	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &withWaveform); err != nil || len(withWaveform.Waveforms) != 1 || withWaveform.Waveforms[0].AudioStreamIndex != 2 || len(withWaveform.Waveforms[0].Peaks) != 3 {
+		t.Fatalf("clip page did not receive the stored peaks: %+v err=%v", withWaveform.Waveforms, err)
+	}
 	deadline := time.Now().Add(15 * time.Second)
 	for time.Now().Before(deadline) {
 		var count int
@@ -510,6 +579,7 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	close(candidateRelease)
 	rebuildDeadline := time.Now().Add(10 * time.Second)
+	promoted := false
 	for time.Now().Before(rebuildDeadline) {
 		var status struct {
 			Model          string `json:"model"`
@@ -519,9 +589,13 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(err)
 		}
 		if status.Model == "fixture-embedding-v2" && status.CandidateModel == "" {
+			promoted = true
 			break
 		}
 		time.Sleep(25 * time.Millisecond)
+	}
+	if !promoted {
+		t.Fatal("the candidate index was not promoted within 10s")
 	}
 	var activeModel string
 	if err := pool.QueryRow(context.Background(), `SELECT p.model FROM embedding_index_state s JOIN embedding_profiles p ON p.id=s.active_profile_id WHERE s.id=1`).Scan(&activeModel); err != nil || activeModel != "fixture-embedding-v2" {

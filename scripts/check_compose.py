@@ -27,9 +27,10 @@ def check(d):
     assert all(re.fullmatch('[a-z0-9-]{1,32}', n) for n in services)
     assert all(v is None or v == {} for v in volumes.values())
     exposed = []
-    allowed = {'image','command','entrypoint','user','environment','volumes','depends_on','healthcheck','restart','x-forgeyard'}
+    allowed = {'image','command','entrypoint','user','environment','volumes','depends_on','healthcheck','restart','x-forgeyard','logging'}
     for name, s in services.items():
         assert set(s) <= allowed
+        assert s.get('logging')=={'driver':'json-file','options':{'max-size':'10m','max-file':'5'}}, name
         check_image(name,s.get('image'))
         assert isinstance(s.get('environment',{}),dict)
         for key in ('command','entrypoint'):
@@ -116,7 +117,11 @@ def check_master_key(services):
 if __name__=='__main__':
     raw = YAML(typ='safe').load((root/'compose.yaml').read_text())
     check(raw)
-    fixtures = []
+    # Log rotation is required on every service of the three compose files (the other two are not Forgeyard contracts).
+    for extra in ('compose.override.yaml','deploy/worker/compose.yaml'):
+        other = YAML(typ='safe').load((root/extra).read_text())
+        assert other['services'] and all(s.get('logging')=={'driver':'json-file','options':{'max-size':'10m','max-file':'5'}} for s in other['services'].values()), extra
+    fixtures = [('no log rotation',lambda d:d['services']['app'].pop('logging'))]
     for key in ('ports','networks','network_mode','env_file','container_name','privileged','cap_add','devices','extends','build','tmpfs','mem_limit'):
         fixtures.append(('forbidden '+key, lambda d,k=key:d['services']['app'].update({k:True})))
     fixtures += [

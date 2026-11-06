@@ -1,3 +1,4 @@
+import { adminApi } from "./library-fixture";
 import AxeBuilder from "@axe-core/playwright";
 import { test, expect, request, type Page } from "@playwright/test";
 import {
@@ -76,7 +77,11 @@ test.describe.serial("paramètres du compte", () => {
     await tabs.getByRole("tab", { name: "My voice" }).click();
     await expect(page).toHaveURL(/\/account\/voice$/);
     await expect(
-      page.getByRole("heading", { level: 2, name: "My voice", exact: true }),
+      page.getByRole("heading", {
+        level: 3,
+        name: "Link my account to a person",
+        exact: true,
+      }),
     ).toBeVisible();
     await page.goBack();
     await expect(page).toHaveURL(/\/account$/);
@@ -193,6 +198,7 @@ test.describe.serial("paramètres du compte", () => {
     });
     const page = await context.newPage();
     await page.goto("/account");
+    await expect(page.getByText("Not linked", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Link Discord" }).click();
     await expect(
       page.getByRole("heading", { name: "Discord simulé" }),
@@ -205,6 +211,13 @@ test.describe.serial("paramètres du compte", () => {
     await expect(page).toHaveURL(/\/account(\?|$)/);
     await expect(
       page.getByRole("status").filter({ hasText: "Your Discord identity is" }),
+    ).toBeVisible();
+    await expect(page.getByText("Linked", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Discord account: Camille Synthetique"),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Unlink Discord" }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Dismiss this message" }).click();
     await expect(page.getByRole("status")).toHaveCount(0);
@@ -243,6 +256,184 @@ test.describe.serial("paramètres du compte", () => {
       admin.getByRole("status").filter({ hasText: "already linked" }),
     ).toBeVisible();
     await adminContext.close();
+
+    await page.getByRole("button", { name: "Unlink Discord" }).click();
+    const confirmation = page.getByRole("alertdialog", {
+      name: "Unlink Discord?",
+    });
+    await expect(confirmation).toBeVisible();
+    await confirmation
+      .getByRole("button", { name: "Unlink Discord", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText(
+      "Discord was unlinked.",
+    );
+    await expect(
+      page.getByRole("group", { name: "Photo source", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Link Discord", exact: true }),
+    ).toBeVisible();
+    await context.close();
+  });
+
+  test("modifier son pseudo et son mot de passe depuis le profil", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      storageState: await sessionFor(MEMBER),
+    });
+    const page = await context.newPage();
+    await page.goto("/account");
+    await page
+      .getByLabel("Display name", { exact: true })
+      .fill("Camille Fixture");
+    await page
+      .getByRole("button", { name: "Save profile", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText("Profile saved.");
+    await page.getByRole("button", { name: /Account menu/ }).click();
+    await expect(page.getByRole("menu")).toContainText("Camille Fixture");
+    await page.keyboard.press("Escape");
+    await page
+      .getByLabel("Current password", { exact: true })
+      .fill(MEMBER.password);
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill("synthetic-replacement-password");
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("different-password");
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(page.getByText("The passwords do not match.")).toBeVisible();
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("synthetic-replacement-password");
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Password saved" }),
+    ).toBeVisible();
+    // Restore the shared fixture through the same form; the current session remains valid.
+    await page
+      .getByLabel("Current password", { exact: true })
+      .fill("synthetic-replacement-password");
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill(MEMBER.password);
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill(MEMBER.password);
+    await page
+      .getByRole("button", { name: "Change password", exact: true })
+      .click();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Password saved" }),
+    ).toBeVisible();
+    await context.close();
+  });
+
+  test("un compte créé par Discord affiche le bon pseudo et peut créer un mot de passe", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    await page.goto("/login");
+    await page.getByRole("button", { name: "Continue with Discord" }).click();
+    await page
+      .getByRole("link", { name: "Autoriser 123456", exact: true })
+      .click();
+    await page.goto("/account");
+    await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(
+      "administrator",
+    );
+    await expect(
+      page.getByText("@administrator", { exact: true }),
+    ).toBeVisible();
+    await expect(
+      page.getByLabel("Current password", { exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("button", { name: "Unlink Discord", exact: true }),
+    ).toBeDisabled();
+    await page.getByLabel("Display name", { exact: true }).fill("Alex Fixture");
+    await page.getByLabel("Username", { exact: true }).fill("alex-fixture");
+    await page
+      .getByRole("button", { name: "Save profile", exact: true })
+      .click();
+    await expect(page.getByRole("status")).toContainText("Profile saved.");
+    await page
+      .getByLabel("New password", { exact: true })
+      .fill("synthetic-discord-password");
+    await page
+      .getByLabel("Confirm new password", { exact: true })
+      .fill("synthetic-discord-password");
+    await page
+      .getByRole("button", { name: "Set a password", exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: "Unlink Discord", exact: true }),
+    ).toBeEnabled();
+    await context.close();
+  });
+
+  test("la photo suit la liaison approuvée dans l’annuaire et la fiche", async ({
+    browser,
+  }) => {
+    const admin = await adminApi();
+    const person = (await admin.post("/api/persons", {
+      display_name: "Photo Fixture",
+    })) as { id: number };
+    const context = await browser.newContext({
+      storageState: await sessionFor(MEMBER),
+    });
+    const page = await context.newPage();
+    await page.goto("/account");
+    const png = Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+      "base64",
+    );
+    await page.getByLabel("Choose a photo (JPEG or PNG)").setInputFiles({
+      name: "fixture.png",
+      mimeType: "image/png",
+      buffer: png,
+    });
+    await expect(page.getByText("Profile photo updated.")).toBeVisible();
+    const me = await (await page.request.get("/api/auth/me")).json();
+    const pending = await page.request.post("/api/me/person/request", {
+      data: { person_id: person.id },
+      headers: {
+        Origin: process.env.SNITCH_TEST_URL!,
+        "X-CSRF-Token": me.csrf_token,
+      },
+    });
+    expect(pending.status()).toBe(201);
+    expect(
+      (await page.request.get(`/api/persons/${person.id}/avatar`)).status(),
+    ).toBe(404);
+    await admin.post(
+      `/api/admin/person-link-requests/${(await pending.json()).id}/approve`,
+    );
+    await page.goto("/people");
+    const photo = page.locator(`img[src="/api/persons/${person.id}/avatar"]`);
+    await expect(photo).toBeVisible();
+    await expect
+      .poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth))
+      .toBe(256);
+    await page.goto(`/people/${person.id}`);
+    await expect(photo).toBeVisible();
+    await page.request.delete("/api/me/person", {
+      headers: {
+        Origin: process.env.SNITCH_TEST_URL!,
+        "X-CSRF-Token": me.csrf_token,
+      },
+    });
+    await page.reload();
+    await expect(photo).toHaveCount(0);
+    await admin.api.dispose();
     await context.close();
   });
 
@@ -263,6 +454,11 @@ test.describe.serial("paramètres du compte", () => {
           page.getByRole("heading", { level: 1, name: "Account settings" }),
         ).toBeVisible();
         await expectNoViolations(page);
+        if (path === "/account")
+          await page.screenshot({
+            path: `test-results/account-profile-${theme}.png`,
+            fullPage: true,
+          });
       }
       await context.close();
     });
@@ -285,6 +481,11 @@ test.describe.serial("paramètres du compte", () => {
         () => document.documentElement.scrollWidth <= window.innerWidth,
       ),
     ).toBe(true);
+    // The sensitive zone is its own region and its action stays reachable at 44 px.
+    const zone = page.getByRole("region", { name: "Sensitive zone" });
+    await expect(zone).toBeVisible();
+    const close = zone.getByRole("button", { name: "Delete my account" });
+    expect((await close.boundingBox())!.height).toBeGreaterThanOrEqual(44);
     await expectNoViolations(page);
     await context.close();
   });

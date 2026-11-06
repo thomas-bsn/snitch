@@ -19,6 +19,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
+	"snitch/internal/jobs"
+	"snitch/internal/logging"
 	"snitch/internal/setup"
 )
 
@@ -33,7 +35,6 @@ func testJobQueue(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: mediaRoot}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	newTestServer := func() *httptest.Server {
 		ts := httptest.NewUnstartedServer(server.Handler())
-		server.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		return ts
 	}
@@ -173,6 +174,27 @@ func testJobQueue(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(body, &page); err != nil || page.Total != 1 {
 		t.Fatalf("job disappeared after application restart: %s %v", body, err)
 	}
+	for _, workflow := range []string{"active", "done"} {
+		page, err := server.Jobs.List(ctx, jobs.Filter{Workflow: workflow, Page: 1, PageSize: 1})
+		if err != nil {
+			t.Fatalf("workflow %s: %v", workflow, err)
+		}
+		ids := map[int64]bool{}
+		for _, job := range page.Items {
+			ids[job.ClipID] = true
+		}
+		if len(ids) > 1 {
+			t.Fatal("workflow pagination split clips")
+		}
+		if workflow == "done" {
+			for _, job := range page.Items {
+				if job.Status != jobs.Done {
+					t.Fatal("unfinished clip in completed history")
+				}
+			}
+		}
+	}
+
 }
 
 func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
@@ -182,10 +204,10 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+	logs := &lockedBuffer{}
+	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), UploadRoot: t.TempDir()}, logging.New(logs, "snitch", "INFO"))
 	ts := httptest.NewTLSServer(server.Handler())
 	defer ts.Close()
-	server.Config.PublicURL = ts.URL
 	jar, _ := cookiejar.New(nil)
 	admin := ts.Client()
 	admin.Jar = jar
@@ -358,7 +380,11 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("relaunched task could not be claimed: %+v", thirdClaim)
 	}
 	call(admin, http.MethodDelete, jobPathAdmin, nil, me.CSRF, http.StatusNoContent)
+	// ADR 0029: the cancelled job's lease is refused, and the Worker that stops on that refusal
+	// can record neither a result nor a failure; the job stays cancelled.
+	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(job.ID)+"/heartbeat", []byte(`{}`), "", worker.Token, thirdClaim.LeaseToken, http.StatusConflict)
 	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(job.ID)+"/complete", []byte(`{"input_version":"v1","result":{"fixture":true}}`), "", worker.Token, thirdClaim.LeaseToken, http.StatusConflict)
+	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(job.ID)+"/fail", []byte(`{"error":"provider_unavailable"}`), "", worker.Token, thirdClaim.LeaseToken, http.StatusConflict)
 	var cancelledPage struct {
 		Items []struct {
 			ID     int64  `json:"id"`
@@ -400,5 +426,138 @@ func testJobRetryOperations(t *testing.T, pool *pgxpool.Pool) {
 	redacted := callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(redactionJob.ID)+"/fail", mustJSON(t, map[string]string{"error": rawError}), "", worker.Token, redactionClaim.LeaseToken, http.StatusOK)
 	if !bytes.Contains(redacted, []byte(`"last_error":"worker_failed"`)) || bytes.Contains(redacted, []byte(rawError)) || bytes.Contains(redacted, []byte("synthetic-private")) || bytes.Contains(redacted, []byte("secret")) {
 		t.Fatalf("worker error was not safely redacted: %s", redacted)
+	}
+	var memberID int64
+	if err = pool.QueryRow(ctx, `INSERT INTO users(username,role,approved) VALUES('diagnostic-member','user',true) RETURNING id`).Scan(&memberID); err != nil {
+		t.Fatal(err)
+	}
+	memberSession := httptest.NewRecorder()
+	if err = server.issueSession(memberSession, httptest.NewRequest(http.MethodGet, ts.URL, nil), memberID); err != nil {
+		t.Fatal(err)
+	}
+	memberJar, _ := cookiejar.New(nil)
+	memberURL, _ := url.Parse(ts.URL)
+	memberJar.SetCookies(memberURL, memberSession.Result().Cookies())
+	memberClient := &http.Client{Transport: ts.Client().Transport, Jar: memberJar}
+	// Failure causes: every Whisper family keeps its own code and diagnostic, and only Administrators read them.
+	for i, want := range []struct {
+		code, action string
+		status       int
+	}{
+		{"whisper_network", "check_transcription_service", 0},
+		{"whisper_timeout", "check_transcription_service", 0},
+		{"whisper_http_error", "check_transcription_service", 503},
+		{"whisper_model_missing", "install_transcription_model", 404},
+		{"whisper_invalid_response", "check_transcription_service", 200},
+		{"gpu_unavailable", "check_gpu", 0},
+	} {
+		scheduled := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": fmt.Sprintf("fixture.cause%d", i), "input_version": "v1", "max_attempts": 1}), me.CSRF, http.StatusCreated)
+		var causeJob struct {
+			ID int64 `json:"id"`
+		}
+		if err = json.Unmarshal(scheduled, &causeJob); err != nil || causeJob.ID < 1 {
+			t.Fatalf("schedule cause fixture: %s %v", scheduled, err)
+		}
+		causeClaim := claim()
+		if causeClaim.Job.ID != causeJob.ID {
+			t.Fatalf("cause fixture not claimed: %+v", causeClaim)
+		}
+		payload := map[string]any{"error": want.code, "provider": "openai-compatible", "model": "whisper-synthetic", "revision": "rev-synthetic", "duration_ms": 1234}
+		if want.status != 0 {
+			payload["http_status"] = want.status
+		}
+		stored := callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(causeJob.ID)+"/fail", mustJSON(t, payload), "", worker.Token, causeClaim.LeaseToken, http.StatusOK)
+		if !bytes.Contains(stored, []byte(`"last_error":"`+want.code+`"`)) {
+			t.Fatalf("known cause %s was overwritten: %s", want.code, stored)
+		}
+		causeHistory := call(admin, http.MethodGet, "/api/admin/jobs/"+strconv64(causeJob.ID)+"/history", nil, "", http.StatusOK)
+		var events struct {
+			Items []map[string]any `json:"items"`
+		}
+		if err = json.Unmarshal(causeHistory, &events); err != nil {
+			t.Fatal(err)
+		}
+		var dead map[string]any
+		for _, e := range events.Items {
+			if e["event"] == "marked_dead" {
+				dead = e
+			}
+		}
+		if dead == nil || dead["error_code"] != want.code || dead["provider"] != "openai-compatible" || dead["model"] != "whisper-synthetic" || dead["revision"] != "rev-synthetic" || dead["duration_ms"] != float64(1234) || dead["step"] != fmt.Sprintf("fixture.cause%d", i) || dead["recommended_action"] != want.action {
+			t.Fatalf("diagnostic for %s not persisted for the Administrator: %s", want.code, causeHistory)
+		}
+		if want.status != 0 && dead["http_status"] != float64(want.status) {
+			t.Fatalf("http status of %s not persisted: %s", want.code, causeHistory)
+		}
+		if want.status == 0 && dead["http_status"] != nil {
+			t.Fatalf("unexpected http status for %s: %s", want.code, causeHistory)
+		}
+		call(memberClient, http.MethodGet, "/api/admin/jobs/"+strconv64(causeJob.ID)+"/history", nil, "", http.StatusForbidden)
+		call(memberClient, http.MethodGet, "/api/admin/jobs?clip_id="+strconv64(clipID), nil, "", http.StatusForbidden)
+	}
+	// An old Worker sends an unknown code without any diagnostic field: it is stored as worker_failed.
+	legacy := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.legacy", "input_version": "v1", "max_attempts": 1}), me.CSRF, http.StatusCreated)
+	var legacyJob struct {
+		ID int64 `json:"id"`
+	}
+	if err = json.Unmarshal(legacy, &legacyJob); err != nil {
+		t.Fatal(err)
+	}
+	legacyClaim := claim()
+	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(legacyJob.ID)+"/fail", []byte(`{"error":"some_future_code"}`), "", worker.Token, legacyClaim.LeaseToken, http.StatusOK)
+	legacyHistory := call(admin, http.MethodGet, "/api/admin/jobs/"+strconv64(legacyJob.ID)+"/history", nil, "", http.StatusOK)
+	if !bytes.Contains(legacyHistory, []byte(`"error_code":"worker_failed"`)) || bytes.Contains(legacyHistory, []byte(`"provider"`)) || bytes.Contains(legacyHistory, []byte(`"http_status"`)) {
+		t.Fatalf("old Worker failure not stored as worker_failed without detail: %s", legacyHistory)
+	}
+	// Diagnostic fields are bounded and typed.
+	rejected := call(admin, http.MethodPost, "/api/admin/jobs", mustJSON(t, map[string]any{"clip_id": clipID, "step": "fixture.bounds", "input_version": "v1", "max_attempts": 1}), me.CSRF, http.StatusCreated)
+	var boundsJob struct {
+		ID int64 `json:"id"`
+	}
+	if err = json.Unmarshal(rejected, &boundsJob); err != nil {
+		t.Fatal(err)
+	}
+	boundsClaim := claim()
+	for _, bad := range []map[string]any{{"error": "whisper_http_error", "http_status": 99}, {"error": "whisper_http_error", "http_status": 600}, {"error": "whisper_timeout", "duration_ms": -1}, {"error": "whisper_timeout", "model": strings.Repeat("m", 200)}, {"error": "whisper_timeout", "provider": "has spaces and /tmp/path"}} {
+		callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(boundsJob.ID)+"/fail", mustJSON(t, bad), "", worker.Token, boundsClaim.LeaseToken, http.StatusBadRequest)
+	}
+	callWorker(http.MethodPost, "/api/worker/jobs/"+strconv64(boundsJob.ID)+"/fail", []byte(`{"error":"invalid_input"}`), "", worker.Token, boundsClaim.LeaseToken, http.StatusOK)
+	// Observability: a failed then relaunched job is traceable by clip, job, cycle, attempt and worker.
+	out := logs.String()
+	c, j := float64(clipID), float64(firstClaim.Job.ID)
+	for _, want := range []struct {
+		event string
+		match map[string]any
+	}{
+		{"job_claimed", map[string]any{"clip_id": c, "job_id": j, "cycle": float64(0), "attempt": float64(1)}},
+		{"job_claimed", map[string]any{"job_id": j, "cycle": float64(0), "attempt": float64(2)}},
+		{"job_claimed", map[string]any{"job_id": j, "cycle": float64(1), "attempt": float64(1)}},
+		{"job_failed", map[string]any{"clip_id": c, "job_id": j, "cycle": float64(0), "attempt": float64(1), "error_code": "provider_unavailable"}},
+		{"job_retry_scheduled", map[string]any{"job_id": j, "attempt": float64(1)}},
+		{"job_dead", map[string]any{"job_id": j, "attempt": float64(2), "error_code": "provider_unavailable"}},
+		{"job_cancelled", map[string]any{"job_id": j, "cycle": float64(1)}},
+		{"job_failed", map[string]any{"job_id": float64(permanent.ID), "error_code": "invalid_input"}},
+		{"job_failed", map[string]any{"job_id": float64(redactionJob.ID), "error_code": "worker_failed"}},
+	} {
+		entries := logEvents(t, out, want.event)
+		if !hasLog(entries, want.match) {
+			t.Fatalf("log event %s %v missing in:\n%s", want.event, want.match, out)
+		}
+		for _, e := range entries {
+			if e["service"] != "snitch" || (e["worker_id"] == nil && want.event != "job_cancelled") {
+				t.Fatalf("event %s lacks service or worker context: %v", want.event, e)
+			}
+		}
+	}
+	for _, secret := range []string{firstClaim.LeaseToken, secondClaim.LeaseToken, thirdClaim.LeaseToken, worker.Token, "synthetic-private", "token=secret"} {
+		if strings.Contains(out, secret) {
+			t.Fatalf("log leaked a secret: %s", out)
+		}
+	}
+	// Polls are silent at INFO: the empty claim and heartbeats write nothing.
+	for _, noisy := range []string{"claim_empty", "job_heartbeat"} {
+		if len(logEvents(t, out, noisy)) != 0 {
+			t.Fatalf("%s must not be logged at INFO", noisy)
+		}
 	}
 }

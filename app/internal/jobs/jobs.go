@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"regexp"
 	"strconv"
 	"strings"
@@ -56,6 +58,8 @@ type Job struct {
 	CreatedAt      time.Time       `json:"created_at"`
 	UpdatedAt      time.Time       `json:"updated_at"`
 	Result         json.RawMessage `json:"result,omitempty"`
+	// RequestedModelID is set on the job returned by Schedule when it asks for a precise catalogue model.
+	RequestedModelID *string `json:"requested_model_id,omitempty"`
 }
 
 type Assignment struct {
@@ -69,6 +73,8 @@ type ScheduleInput struct {
 	InputVersion string
 	Priority     int
 	MaxAttempts  int
+	// RequestedModelID asks for one catalogue model (benchmark); empty means the active model.
+	RequestedModelID string
 }
 
 type Event struct {
@@ -80,9 +86,18 @@ type Event struct {
 	ActorID   string    `json:"actor_id"`
 	ErrorCode string    `json:"error_code"`
 	CreatedAt time.Time `json:"created_at"`
+	// Diagnostic of a worker failure; absent on older rows and on events without a failure.
+	Step              *string `json:"step,omitempty"`
+	Provider          *string `json:"provider,omitempty"`
+	Model             *string `json:"model,omitempty"`
+	Revision          *string `json:"revision,omitempty"`
+	HTTPStatus        *int    `json:"http_status,omitempty"`
+	DurationMS        *int    `json:"duration_ms,omitempty"`
+	RecommendedAction string  `json:"recommended_action,omitempty"`
 }
 
 type Filter struct {
+	Workflow string
 	Status   Status
 	ClipID   int64
 	Step     string
@@ -119,9 +134,32 @@ type VocabularyTerm struct {
 	PreferredSpelling string   `json:"preferred_spelling"`
 }
 
-type Service struct{ pool *pgxpool.Pool }
+type Service struct {
+	pool *pgxpool.Pool
+	// Log receives the job transitions; nil discards them.
+	Log *slog.Logger
+}
 
 func New(pool *pgxpool.Pool) *Service { return &Service{pool: pool} }
+
+// NewWithLog returns a Service that reports job transitions to log.
+func NewWithLog(pool *pgxpool.Pool, log *slog.Logger) *Service { return &Service{pool: pool, Log: log} }
+
+func (s *Service) logger() *slog.Logger {
+	if s.Log == nil {
+		return slog.New(slog.NewTextHandler(io.Discard, nil))
+	}
+	return s.Log
+}
+
+// jobFields is the correlation context shared with the Worker's logs. It never includes the lease token.
+func jobFields(job Job, workerID string) []any {
+	fields := []any{"clip_id", job.ClipID, "job_id", job.ID, "step", job.Step, "cycle", job.Cycle, "attempt", job.Attempts}
+	if workerID != "" {
+		fields = append(fields, "worker_id", workerID)
+	}
+	return fields
+}
 
 // Schedule creates one active job per clip, step, and input version. Concurrent
 // callers receive the same persisted job rather than creating duplicate work.
@@ -131,6 +169,9 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 	}
 	if input.ClipID < 1 || !stepPattern.MatchString(input.Step) || input.InputVersion == "" || len(input.InputVersion) > 128 || strings.TrimSpace(input.InputVersion) != input.InputVersion || input.Priority < -100 || input.Priority > 100 || input.MaxAttempts < 1 || input.MaxAttempts > 20 {
 		return Job{}, false, ErrInvalidInput
+	}
+	if err := s.checkRequestedModel(ctx, input.Step, input.RequestedModelID); err != nil {
+		return Job{}, false, err
 	}
 	for attempt := 0; attempt < 5; attempt++ {
 		tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -147,22 +188,22 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("lock clip before scheduling step: %w", err)
 		}
-		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND COALESCE(requested_model_id,'')=$4 AND status IN ('pending','leased','retry_wait')`, input.ClipID, input.Step, input.InputVersion, input.RequestedModelID); err != nil {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("invalidate superseded step version: %w", err)
 		}
-		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion))
+		job, err := scanJob(tx.QueryRow(ctx, `SELECT id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND COALESCE(requested_model_id,'')=$4 AND status IN ('pending','leased','retry_wait') FOR UPDATE`, input.ClipID, input.Step, input.InputVersion, input.RequestedModelID))
 		if err == nil {
 			if err = tx.Commit(ctx); err != nil {
 				return Job{}, false, fmt.Errorf("commit existing job schedule: %w", err)
 			}
-			return job, false, nil
+			return withRequestedModel(job, input.RequestedModelID), false, nil
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			return Job{}, false, fmt.Errorf("find active job: %w", err)
 		}
-		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,$4,$5) ON CONFLICT (clip_id,step,input_version) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts))
+		job, err = scanJob(tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts,requested_model_id) VALUES($1,$2,$3,$4,$5,NULLIF($6,'')) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, input.ClipID, input.Step, input.InputVersion, input.Priority, input.MaxAttempts, input.RequestedModelID))
 		if errors.Is(err, pgx.ErrNoRows) {
 			_ = tx.Rollback(ctx)
 			continue
@@ -178,12 +219,15 @@ func (s *Service) Schedule(ctx context.Context, input ScheduleInput) (Job, bool,
 		if err = tx.Commit(ctx); err != nil {
 			return Job{}, false, fmt.Errorf("commit new job: %w", err)
 		}
-		return job, true, nil
+		return withRequestedModel(job, input.RequestedModelID), true, nil
 	}
 	return Job{}, false, errors.New("could not resolve concurrent job schedule")
 }
 
 func (s *Service) List(ctx context.Context, filter Filter) (Page, error) {
+	if filter.Workflow != "" {
+		return s.listWorkflow(ctx, filter)
+	}
 	if filter.Page < 1 || filter.Page > 100000 || filter.PageSize < 1 || filter.PageSize > 100 || (filter.Status != "" && filter.Status != Pending && filter.Status != Leased && filter.Status != Done && filter.Status != Failed && filter.Status != RetryWait && filter.Status != Cancelled && filter.Status != Dead) || filter.ClipID < 0 || (filter.Step != "" && !stepPattern.MatchString(filter.Step)) {
 		return Page{}, ErrInvalidInput
 	}
@@ -223,7 +267,7 @@ func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
 	if !exists {
 		return nil, ErrJobNotFound
 	}
-	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
+	rows, err := s.pool.Query(ctx, `SELECT id,event,cycle,attempt,actor,actor_id,error_code,created_at,step,provider,model,revision,http_status,duration_ms FROM job_events WHERE job_id=$1 ORDER BY id`, jobID)
 	if err != nil {
 		return nil, fmt.Errorf("read job history: %w", err)
 	}
@@ -231,9 +275,10 @@ func (s *Service) History(ctx context.Context, jobID int64) ([]Event, error) {
 	events := []Event{}
 	for rows.Next() {
 		var event Event
-		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt); err != nil {
+		if err = rows.Scan(&event.ID, &event.Event, &event.Cycle, &event.Attempt, &event.Actor, &event.ActorID, &event.ErrorCode, &event.CreatedAt, &event.Step, &event.Provider, &event.Model, &event.Revision, &event.HTTPStatus, &event.DurationMS); err != nil {
 			return nil, fmt.Errorf("scan job history: %w", err)
 		}
+		event.RecommendedAction = RecommendedAction(event.ErrorCode)
 		events = append(events, event)
 	}
 	if err = rows.Err(); err != nil {
@@ -283,8 +328,10 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	}
 	defer tx.Rollback(ctx)
 	var cycle, attempt int
+	var clipID int64
+	var step string
 	var status Status
-	err = tx.QueryRow(ctx, `SELECT cycle,attempts,status FROM jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&cycle, &attempt, &status)
+	err = tx.QueryRow(ctx, `SELECT cycle,attempts,status,clip_id,step FROM jobs WHERE id=$1 FOR UPDATE`, jobID).Scan(&cycle, &attempt, &status, &clipID, &step)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrJobNotFound
 	}
@@ -307,12 +354,45 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 	if err = tx.Commit(ctx); err != nil {
 		return fmt.Errorf("commit job cancellation: %w", err)
 	}
+	s.logger().Info("job_cancelled", "clip_id", clipID, "job_id", jobID, "step", step, "cycle", cycle, "attempt", attempt, "actor", "admin", "actor_id", adminID, "error_code", "cancelled_by_admin")
 	return nil
 }
 
+// localVoiceModelReadyGuard is the dispatch rule of a local voice job, a clause of the claim query (parameters:
+// $3 the active provider, $4 the claiming Worker, $5 the diarization model the job is pinned to or, failing a pin,
+// the active one). Only the local steps are guarded (diarization, fingerprint, separation): never transcription,
+// which goes to Speaches, nor the fake provider. A local step goes only to a Worker whose model of the type is
+// ready in worker_voice_models, the state the Worker reported after a synthetic inference (ADR 0022, ADR 0038); a job with a requested model
+// (benchmark) is governed by requestedModelClaimGuard instead of the active model;
+// what the pulse declares and what lies on the volume never open it. A model being removed is not ready.
+const localVoiceModelReadyGuard = `(
+		      j.step NOT LIKE 'voice.%'
+		      OR j.requested_model_id IS NOT NULL
+		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%' AND j.step NOT LIKE 'voice.separation.%')
+		      OR COALESCE(pin.config->>'provider',$3::text) NOT IN ('pyannote','nemo')
+		      OR (j.step LIKE 'voice.diarization.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_model_catalog m ON m.id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false
+		            AND m.kind='diarization' AND m.repo=COALESCE(pin.config->>'model',$5::text)))
+		      OR (j.step LIKE 'voice.fingerprint.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='fingerprint'))
+		      OR (j.step LIKE 'voice.separation.%' AND EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='separation'))
+		  )`
+
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
-func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, error) {
+// For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
+// With a real voice provider (pyannote, nemo) active, a voice job only goes to a worker that declares the
+// active model of its kind.
+func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assignment, err error) {
+	// The Worker's claiming loop works (issue #321), whatever this claim then finds or fails on: presence alone
+	// cannot tell it. Recorded on its own, outside the claim transaction and the global job_control lock.
+	if _, err = s.pool.Exec(ctx, `UPDATE workers SET last_claim_at=now() WHERE id=$1 AND revoked_at IS NULL`, workerID); err != nil {
+		return nil, fmt.Errorf("record worker claim: %w", err)
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin job claim: %w", err)
@@ -328,21 +408,59 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if paused {
 		return nil, tx.Commit(ctx)
 	}
-	if _, err = tx.Exec(ctx, `WITH expired AS (
+	type expiredLease struct {
+		job      Job
+		event    string
+		code     string
+		workerID string
+	}
+	var expiredLeases []expiredLease
+	expiredRows, err := tx.Query(ctx, `WITH expired AS (
 		UPDATE jobs SET status=CASE WHEN attempts>=max_attempts THEN 'dead' ELSE 'pending' END,
 		 lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='lease_expired',updated_at=now()
-		 WHERE status='leased' AND lease_expires_at<=now()
-		 RETURNING id,attempts,cycle,status
-	) INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
-	  SELECT id,CASE WHEN status='dead' THEN 'marked_dead' ELSE 'lease_expired' END,cycle,attempts,'system',CASE WHEN status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired`); err != nil {
+		 FROM (SELECT id AS prior_id,lease_owner AS prior_owner FROM jobs WHERE status='leased' AND lease_expires_at<=now() FOR UPDATE) prior
+		 WHERE jobs.id=prior.prior_id
+		 RETURNING jobs.id,jobs.clip_id,jobs.step,jobs.attempts,jobs.cycle,jobs.status,prior.prior_owner
+	), recorded AS (
+	  INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
+	  SELECT id,CASE WHEN status='dead' THEN 'marked_dead' ELSE 'lease_expired' END,cycle,attempts,'system',CASE WHEN status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END FROM expired
+	  RETURNING job_id
+	) SELECT e.id,e.clip_id,e.step,e.cycle,e.attempts,CASE WHEN e.status='dead' THEN 'job_dead' ELSE 'job_lease_expired' END,CASE WHEN e.status='dead' THEN 'max_attempts_exhausted' ELSE 'lease_expired' END,COALESCE(e.prior_owner,'') FROM expired e JOIN recorded r ON r.job_id=e.id`)
+	if err != nil {
 		return nil, fmt.Errorf("recover expired job leases: %w", err)
 	}
+	for expiredRows.Next() {
+		var item expiredLease
+		if err = expiredRows.Scan(&item.job.ID, &item.job.ClipID, &item.job.Step, &item.job.Cycle, &item.job.Attempts, &item.event, &item.code, &item.workerID); err != nil {
+			expiredRows.Close()
+			return nil, fmt.Errorf("read expired job lease: %w", err)
+		}
+		expiredLeases = append(expiredLeases, item)
+	}
+	expiredRows.Close()
+	if err = expiredRows.Err(); err != nil {
+		return nil, fmt.Errorf("recover expired job leases: %w", err)
+	}
+	// The recovery is committed with the claim attempt; it is reported once the transaction is over.
+	defer func() {
+		if err != nil {
+			return
+		}
+		for _, item := range expiredLeases {
+			level := slog.LevelInfo
+			if item.event == "job_dead" {
+				level = slog.LevelWarn
+			}
+			s.logger().Log(ctx, level, item.event, append(jobFields(item.job, item.workerID), "error_code", item.code)...)
+		}
+	}()
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',updated_at=now() WHERE status='retry_wait' AND next_attempt_at<=now()`); err != nil {
 		return nil, fmt.Errorf("activate due job retries: %w", err)
 	}
 	var maximum, reported int
 	var supportedSteps []string
-	err = tx.QueryRow(ctx, `SELECT max_concurrency,reported_concurrency,supported_steps FROM workers WHERE id=$1 AND revoked_at IS NULL FOR UPDATE`, workerID).Scan(&maximum, &reported, &supportedSteps)
+	var activeVersion string
+	err = tx.QueryRow(ctx, `SELECT w.max_concurrency,w.reported_concurrency,w.supported_steps,COALESCE(wtc.active_version,'') FROM workers w LEFT JOIN worker_transcription_config wtc ON wtc.worker_id=w.id WHERE w.id=$1 AND w.revoked_at IS NULL FOR UPDATE OF w`, workerID).Scan(&maximum, &reported, &supportedSteps, &activeVersion)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -361,7 +479,38 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if capacity < 1 || active >= capacity || globalActive >= globalCapacity {
 		return nil, tx.Commit(ctx)
 	}
-	job, err := scanJob(tx.QueryRow(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle FROM jobs j WHERE j.status='pending' AND j.next_attempt_at<=now() AND EXISTS (SELECT 1 FROM unnest($1::text[]) AS capability WHERE CASE WHEN right(capability,2)='.*' THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1) ELSE j.step=capability END) ORDER BY j.priority DESC,j.created_at,j.id FOR UPDATE OF j SKIP LOCKED LIMIT 1`, supportedSteps))
+	// The real voice provider only runs on a Worker whose active model of the type is ready (see
+	// localVoiceModelReadyGuard). The fake provider has no model.
+	var voiceProvider, diarizationModel string
+	// A missing pipeline row must never stop transcription claims: no provider means no voice rule.
+	if err = tx.QueryRow(ctx, `SELECT COALESCE(v.config->>'provider',''),COALESCE(v.config->>'model','') FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&voiceProvider, &diarizationModel); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("read active voice pipeline for claim: %w", err)
+	}
+	// Build the job selection query. A transcription job goes only to a Worker whose validated (active) configuration
+	// is the desired one (transcription_settings.version). The job's own input_version carries the pipeline snapshot
+	// (…-pipeline-<hash>), a different namespace from the Worker's configuration version: they are never compared.
+	// Workers that have not reported an active_version (legacy) stay eligible; only a diverging version is excluded.
+	job, err := scanJob(tx.QueryRow(ctx, `
+		SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,
+		       j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.result,j.cycle
+		FROM jobs j
+		LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
+		WHERE j.status='pending' AND j.next_attempt_at<=now()
+		  AND EXISTS (
+		      SELECT 1 FROM unnest($1::text[]) AS capability
+		      WHERE CASE WHEN right(capability,2)='.*'
+		            THEN left(j.step,length(capability)-1)=left(capability,length(capability)-1)
+		            ELSE j.step=capability END
+		  )
+		  AND (
+		      j.step NOT LIKE 'transcription.%'
+		      OR $2::text = '' OR $2::text = (SELECT ts.version FROM transcription_settings ts WHERE ts.id=true)
+		  )
+		  AND `+localVoiceModelReadyGuard+`
+		  AND `+requestedModelClaimGuard+`
+		ORDER BY j.priority DESC,j.created_at,j.id
+		FOR UPDATE OF j SKIP LOCKED LIMIT 1
+	`, supportedSteps, activeVersion, voiceProvider, workerID, diarizationModel))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, tx.Commit(ctx)
 	}
@@ -379,6 +528,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (*Assignment, erro
 	if err = tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit job claim: %w", err)
 	}
+	s.logger().Info("job_claimed", jobFields(job, workerID)...)
 	return &Assignment{Job: job, LeaseToken: leaseToken}, nil
 }
 
@@ -516,8 +666,10 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 				return Job{}, fmt.Errorf("queue transcript embeddings: %w", err)
 			}
 			// The new transcription replaces the visible text: the corrections of the
-			// previous transcription jobs of the clip become obsolete (kept, never reapplied).
-			if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET stale_at=now() WHERE clip_id=$1 AND transcription_job_id<>$2 AND stale_at IS NULL`, job.ClipID, id); err != nil {
+			// previous transcription jobs of the clip become obsolete (kept, never reapplied). A forced
+			// reanalysis only replaces what existed when its stake was confirmed: later work stays.
+			if _, err = tx.Exec(ctx, `UPDATE segment_corrections SET stale_at=now() WHERE clip_id=$1 AND transcription_job_id<>$2 AND stale_at IS NULL
+ AND COALESCE(GREATEST(text_corrected_at,speaker_corrected_at),updated_at) <= COALESCE((SELECT r.confirmed_stake_at FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=$2 AND 'transcription'=ANY(r.forced_steps) AND r.confirmed_stake_at IS NOT NULL ORDER BY r.id DESC LIMIT 1),'infinity'::timestamptz)`, job.ClipID, id); err != nil {
 				return Job{}, fmt.Errorf("mark replaced corrections obsolete: %w", err)
 			}
 		}
@@ -533,19 +685,22 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 	if err = tx.Commit(ctx); err != nil {
 		return Job{}, fmt.Errorf("commit job completion: %w", err)
 	}
+	if newlyCompleted {
+		s.logger().Info("job_completed", jobFields(job, workerID)...)
+	}
 	return job, nil
 }
 
-func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string) (Job, error) {
+func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, message string, detail Diagnostic) (Job, error) {
 	if !validLeaseToken(leaseToken) {
 		return Job{}, ErrLeaseNotOwned
 	}
-	if len(message) > 256 || strings.TrimSpace(message) != message {
+	if len(message) > 256 || strings.TrimSpace(message) != message || !detail.valid() {
 		return Job{}, ErrInvalidInput
 	}
-	// Never persist worker-provided stack traces, paths, or arbitrary details.
+	// Never persist worker-provided stack traces, paths, or arbitrary details: only a code of the closed catalogue.
 	code := "worker_failed"
-	if message == "provider_unavailable" || message == "invalid_input" {
+	if knownFailureCode(message) {
 		code = message
 	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
@@ -573,11 +728,18 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, mess
 	if status == Dead {
 		event = "marked_dead"
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code) VALUES($1,$2,$3,$4,'worker',$5,$6)`, id, event, job.Cycle, job.Attempts, workerID, code); err != nil {
+	if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,actor_id,error_code,step,provider,model,revision,http_status,duration_ms) VALUES($1,$2,$3,$4,'worker',$5,$6,$7,$8,$9,$10,$11,$12)`, id, event, job.Cycle, job.Attempts, workerID, code, job.Step, detail.Provider, detail.Model, detail.Revision, detail.HTTPStatus, detail.DurationMS); err != nil {
 		return Job{}, fmt.Errorf("record worker job failure: %w", err)
 	}
 	if err = tx.Commit(ctx); err != nil {
 		return Job{}, fmt.Errorf("commit worker job failure: %w", err)
+	}
+	fields := append(jobFields(job, workerID), "error_code", code)
+	s.logger().Warn("job_failed", fields...)
+	if status == Dead {
+		s.logger().Warn("job_dead", fields...)
+	} else {
+		s.logger().Info("job_retry_scheduled", append(jobFields(job, workerID), "error_code", code, "delay_ms", delay.Milliseconds())...)
 	}
 	return job, nil
 }
@@ -605,4 +767,32 @@ func scanJob(row scanner) (Job, error) {
 	var job Job
 	err := row.Scan(&job.ID, &job.ClipID, &job.Step, &job.InputVersion, &job.Status, &job.Priority, &job.Attempts, &job.MaxAttempts, &job.LeaseOwner, &job.LeaseExpiresAt, &job.NextAttemptAt, &job.LastError, &job.CreatedAt, &job.UpdatedAt, &job.Result, &job.Cycle)
 	return job, err
+}
+
+// listWorkflow paginates clips before loading their latest task per step.
+func (s *Service) listWorkflow(ctx context.Context, f Filter) (Page, error) {
+	if (f.Workflow != "active" && f.Workflow != "done") || f.Page < 1 || f.Page > 100000 || f.PageSize < 1 || f.PageSize > 100 {
+		return Page{}, ErrInvalidInput
+	}
+	const base = `WITH latest AS (SELECT DISTINCT ON (clip_id,step) * FROM jobs ORDER BY clip_id,step,id DESC), grouped AS (SELECT clip_id,max(updated_at) AS updated,bool_and(status='done') AS done FROM latest GROUP BY clip_id), eligible AS (SELECT * FROM grouped WHERE done=$1 AND ($2::bigint=0 OR clip_id=$2) AND EXISTS (SELECT 1 FROM latest l WHERE l.clip_id=grouped.clip_id AND ($3='' OR l.status=$3) AND ($4='' OR l.step=$4))) `
+	args := []any{f.Workflow == "done", f.ClipID, f.Status, f.Step}
+	var total int64
+	if err := s.pool.QueryRow(ctx, base+`SELECT count(*) FROM eligible`, args...).Scan(&total); err != nil {
+		return Page{}, err
+	}
+	args = append(args, f.PageSize, (f.Page-1)*f.PageSize)
+	rows, err := s.pool.Query(ctx, base+`SELECT l.id,l.clip_id,l.step,l.input_version,l.status,l.priority,l.attempts,l.max_attempts,l.lease_owner,l.lease_expires_at,l.next_attempt_at,l.last_error,l.created_at,l.updated_at,NULL::jsonb,l.cycle FROM latest l JOIN (SELECT clip_id,updated FROM eligible ORDER BY updated DESC,clip_id DESC LIMIT $5 OFFSET $6) e USING(clip_id) ORDER BY e.updated DESC,l.clip_id DESC,l.id DESC`, args...)
+	if err != nil {
+		return Page{}, err
+	}
+	defer rows.Close()
+	items := []Job{}
+	for rows.Next() {
+		j, e := scanJob(rows)
+		if e != nil {
+			return Page{}, e
+		}
+		items = append(items, j)
+	}
+	return Page{Items: items, Page: f.Page, PageSize: f.PageSize, Total: total}, rows.Err()
 }

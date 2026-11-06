@@ -3,7 +3,9 @@ package httpapi
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -18,8 +20,10 @@ func (s *Server) registerPersonRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/persons", s.protected(false, http.HandlerFunc(s.listPersons)))
 	mux.Handle("POST /api/persons", s.protected(false, http.HandlerFunc(s.createPerson)))
 	mux.Handle("GET /api/persons/{id}", s.protected(false, http.HandlerFunc(s.getPerson)))
+	mux.Handle("GET /api/persons/{id}/impact", s.protected(false, http.HandlerFunc(s.getPersonImpact)))
 	mux.Handle("POST /api/local-speakers/{id}/validation", s.protected(false, http.HandlerFunc(s.validateLocalSpeaker)))
 	mux.Handle("POST /api/local-speakers/{id}/correction", s.protected(false, http.HandlerFunc(s.correctLocalSpeaker)))
+	mux.Handle("GET /api/local-speakers/{id}", s.protected(false, http.HandlerFunc(s.getLocalSpeaker)))
 	mux.Handle("GET /api/local-speakers/{id}/history", s.protected(false, http.HandlerFunc(s.localSpeakerHistory)))
 	mux.Handle("GET /api/local-speakers/{id}/excerpt", s.protected(false, http.HandlerFunc(s.localSpeakerExcerpt)))
 }
@@ -153,12 +157,18 @@ func (s *Server) validatedAttribution(ctx context.Context, speakerID int64) (*at
 }
 
 type personView struct {
-	ID                   int64     `json:"id"`
-	DisplayName          string    `json:"display_name"`
-	UserID               *int64    `json:"user_id"`
-	ValidatedSampleCount int       `json:"validated_sample_count"`
-	LocalSpeakerCount    int       `json:"local_speaker_count"`
-	CreatedAt            time.Time `json:"created_at"`
+	ID                   int64  `json:"id"`
+	DisplayName          string `json:"display_name"`
+	UserID               *int64 `json:"user_id"`
+	ValidatedSampleCount int    `json:"validated_sample_count"`
+	LocalSpeakerCount    int    `json:"local_speaker_count"`
+	// ClipCount and SpeakingSeconds cover the validated voices on the clips the caller
+	// can see; they are filled by loadPersonFigures.
+	ClipCount       int       `json:"clip_count"`
+	SpeakingSeconds float64   `json:"speaking_seconds"`
+	CreatedAt       time.Time `json:"created_at"`
+	// AccountUsername is the linked account's name, filled with the figures (null otherwise).
+	AccountUsername *string `json:"account_username"`
 	// VoiceProfileDeletedAt is set once the Person deleted their voice profile; it
 	// holds no voice data and keeps matching from rebuilding the profile.
 	VoiceProfileDeletedAt *time.Time `json:"voice_profile_deleted_at"`
@@ -174,18 +184,156 @@ func scanPerson(row pgx.Row) (personView, error) {
 	return v, err
 }
 
+// loadPersonFigures fills the clip count and speaking time of the given Persons in one
+// query, counting only the clips the signed-in caller can see.
+func (s *Server) loadPersonFigures(ctx context.Context, caller session, persons []personView) error {
+	if len(persons) == 0 {
+		return nil
+	}
+	ids := make([]int64, len(persons))
+	byID := map[int64]*personView{}
+	for i := range persons {
+		ids[i] = persons[i].ID
+		byID[persons[i].ID] = &persons[i]
+	}
+	rows, err := s.Pool.Query(ctx, `SELECT a.person_id,count(DISTINCT ls.clip_id),COALESCE(sum(ls.speaking_seconds),0)
+		FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id
+		WHERE a.person_id=ANY($1) AND a.validation_state='validated' AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3)
+		GROUP BY a.person_id`, ids, caller.User.ID, isAdministrator(caller.User.Role))
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var personID int64
+		var clips int
+		var seconds float64
+		if err = rows.Scan(&personID, &clips, &seconds); err != nil {
+			return err
+		}
+		if v := byID[personID]; v != nil {
+			v.ClipCount = clips
+			v.SpeakingSeconds = seconds
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	names, err := s.Pool.Query(ctx, `SELECT p.id,u.username FROM persons p JOIN users u ON u.id=p.user_id WHERE p.id=ANY($1) AND u.deleted_at IS NULL`, ids)
+	if err != nil {
+		return err
+	}
+	defer names.Close()
+	for names.Next() {
+		var personID int64
+		var username string
+		if err = names.Scan(&personID, &username); err != nil {
+			return err
+		}
+		if v := byID[personID]; v != nil {
+			v.AccountUsername = &username
+		}
+	}
+	return names.Err()
+}
+
+// personCandidate is an existing Person offered instead of a new one.
+type personCandidate struct {
+	ID          int64  `json:"id"`
+	DisplayName string `json:"display_name"`
+}
+
+// normalizedName is the SQL expression two names are compared with: case and runs of
+// spaces do not make a different identity.
+const normalizedName = `lower(regexp_replace(btrim(%s),'\s+',' ','g'))`
+
+// insertPerson creates a Person inside tx, unless one already bears the same normalized
+// name and the caller did not explicitly accept a homonym: it then returns the existing
+// Persons and creates nothing. A transaction-scoped advisory lock on the name serialises
+// concurrent creations, so two simultaneous requests cannot both pass the check.
+func insertPerson(ctx context.Context, tx pgx.Tx, name string, userID int64, allowHomonym bool) (int64, []personCandidate, error) {
+	if !allowHomonym {
+		if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtextextended('person-name:'||`+fmt.Sprintf(normalizedName, "$1")+`,0))`, name); err != nil {
+			return 0, nil, err
+		}
+		rows, err := tx.Query(ctx, `SELECT id,display_name FROM persons WHERE `+fmt.Sprintf(normalizedName, "display_name")+`=`+fmt.Sprintf(normalizedName, "$1")+` ORDER BY id LIMIT 5`, name)
+		if err != nil {
+			return 0, nil, err
+		}
+		var found []personCandidate
+		for rows.Next() {
+			var c personCandidate
+			if err := rows.Scan(&c.ID, &c.DisplayName); err != nil {
+				rows.Close()
+				return 0, nil, err
+			}
+			found = append(found, c)
+		}
+		rows.Close()
+		if err := rows.Err(); err != nil {
+			return 0, nil, err
+		}
+		if len(found) > 0 {
+			return 0, found, nil
+		}
+	}
+	var id int64
+	err := tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, userID).Scan(&id)
+	return id, nil, err
+}
+
+// personExists answers 409: the Persons that already bear this name; nothing was written.
+func personExists(w http.ResponseWriter, candidates []personCandidate) {
+	reply(w, http.StatusConflict, map[string]any{"error": "person_exists", "candidates": candidates})
+}
+
 func cleanPersonName(name string) (string, bool) {
 	name = strings.TrimSpace(name)
 	return name, name != "" && len([]rune(name)) <= 100
 }
 
+const personSearchClause = `($1='' OR p.display_name ILIKE '%'||replace(replace(replace($1,'\','\\'),'%','\%'),'_','\_')||'%')`
+
+// listPersons reads Persons by name. Without `page` and `page_size` it keeps the
+// historical response (500 first Persons, no total); with either it pages and adds
+// the total of the matches.
 func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	params := r.URL.Query()
+	query := strings.TrimSpace(params.Get("q"))
 	if len([]rune(query)) > 100 {
 		fail(w, http.StatusBadRequest, "invalid_query")
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE $1='' OR p.display_name ILIKE '%'||replace(replace(replace($1,'\','\\'),'%','\%'),'_','\_')||'%' ORDER BY lower(p.display_name),p.id LIMIT 500`, query)
+	paged := params.Has("page") || params.Has("page_size")
+	page, size := 1, 500
+	if paged {
+		size = 20
+	}
+	if v := params.Get("page"); params.Has("page") {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 100000 {
+			fail(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		page = n
+	}
+	if v := params.Get("page_size"); params.Has("page_size") {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 || n > 100 {
+			fail(w, http.StatusBadRequest, "invalid_page")
+			return
+		}
+		size = n
+	}
+	// Items and total are read in one snapshot: a Person created in between cannot make
+	// them disagree.
+	tx, err := s.Pool.BeginTx(r.Context(), pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	rows, err := tx.Query(r.Context(), `SELECT `+personColumns+` FROM persons p WHERE `+personSearchClause+` ORDER BY lower(p.display_name),p.id LIMIT $2 OFFSET $3`, query, size, (page-1)*size)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -204,12 +352,26 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"items": items})
+	if err = s.loadPersonFigures(r.Context(), r.Context().Value(sessionKey{}).(session), items); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !paged {
+		reply(w, http.StatusOK, map[string]any{"items": items})
+		return
+	}
+	var total int
+	if err = tx.QueryRow(r.Context(), `SELECT count(*) FROM persons p WHERE `+personSearchClause, query).Scan(&total); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, map[string]any{"items": items, "total": total})
 }
 
 func (s *Server) createPerson(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		DisplayName string `json:"display_name"`
+		DisplayName  string `json:"display_name"`
+		AllowHomonym bool   `json:"allow_homonym"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -220,8 +382,22 @@ func (s *Server) createPerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	var id int64
-	if err := s.Pool.QueryRow(r.Context(), `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&id); err != nil {
+	tx, err := s.Pool.Begin(r.Context())
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(r.Context())
+	id, existing, err := insertPerson(r.Context(), tx, name, ss.User.ID, input.AllowHomonym)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if len(existing) > 0 {
+		personExists(w, existing)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -247,7 +423,12 @@ func (s *Server) getPerson(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, v)
+	persons := []personView{v}
+	if err = s.loadPersonFigures(r.Context(), r.Context().Value(sessionKey{}).(session), persons); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, persons[0])
 }
 
 type speakerRef struct {
@@ -265,7 +446,7 @@ func (s *Server) authorizedSpeaker(w http.ResponseWriter, r *http.Request) (spea
 		return speakerRef{}, false
 	}
 	ref := speakerRef{ID: id}
-	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND (c.visibility='shared' OR c.owner_id=$2 OR $3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ref.ClipID, &ref.Index, &ref.Label)
+	err := s.Pool.QueryRow(r.Context(), `SELECT ls.clip_id,ls.audio_stream_index,ls.label FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE ls.id=$1 AND clip_readable(c.id,c.owner_id,c.visibility,$2,$3)`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&ref.ClipID, &ref.Index, &ref.Label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "local_speaker_not_found")
 		return speakerRef{}, false
@@ -281,6 +462,7 @@ type attributionInput struct {
 	PersonID         *int64  `json:"person_id"`
 	NewPersonName    *string `json:"new_person_name"`
 	ExpectedPersonID *int64  `json:"expected_person_id"`
+	AllowHomonym     bool    `json:"allow_homonym"`
 }
 
 func (s *Server) validateLocalSpeaker(w http.ResponseWriter, r *http.Request) {
@@ -381,8 +563,13 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 	var personID int64
 	var optedOut bool
 	if input.NewPersonName != nil {
-		if err = tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&personID); err != nil {
+		var existing []personCandidate
+		if personID, existing, err = insertPerson(ctx, tx, name, ss.User.ID, input.AllowHomonym); err != nil {
 			s.internal(w, err)
+			return
+		}
+		if len(existing) > 0 {
+			personExists(w, existing)
 			return
 		}
 	} else {
@@ -524,4 +711,41 @@ func (s *Server) effectiveAttributionPointers(ctx context.Context, clipID int64)
 		out[id] = &v
 	}
 	return out, err
+}
+
+type personImpactView struct {
+	MicrophoneRules int  `json:"microphone_rules"`
+	HasHiddenVoices bool `json:"has_hidden_voices"`
+	// What deleting the voice profile erases: same predicates as the deletion itself.
+	VoiceSamples int `json:"voice_samples"`
+	Fingerprints int `json:"fingerprints"`
+	Attributions int `json:"attributions"`
+}
+
+// getPersonImpact counts what a merge or a deletion of the Person would touch beyond the
+// counts of the Person itself, so the confirmation can name it and a refusal can be
+// explained. A clip the caller cannot see is only reported as a boolean.
+func (s *Server) getPersonImpact(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r, "invalid_person_id")
+	if !ok {
+		return
+	}
+	ss := r.Context().Value(sessionKey{}).(session)
+	var v personImpactView
+	err := s.Pool.QueryRow(r.Context(), `SELECT
+		(SELECT count(*) FROM source_microphone_tracks WHERE person_id=p.id)+(SELECT count(*) FROM clip_microphone_overrides WHERE person_id=p.id),
+		NOT $3 AND EXISTS (SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id JOIN clips c ON c.id=ls.clip_id WHERE a.person_id=p.id AND NOT clip_readable(c.id,c.owner_id,c.visibility,$2,false)),
+		(SELECT count(*) FROM voice_samples WHERE person_id=p.id),
+		(SELECT count(*) FROM voice_fingerprints f WHERE NOT f.benchmark AND f.local_speaker_id IN (SELECT a.local_speaker_id FROM speaker_attributions a WHERE a.person_id=p.id AND (a.validation_state='validated' OR NOT EXISTS (SELECT 1 FROM speaker_attributions x WHERE x.local_speaker_id=a.local_speaker_id AND x.validation_state='validated')))),
+		(SELECT count(*) FROM speaker_attributions WHERE person_id=p.id)
+		FROM persons p WHERE p.id=$1`, id, ss.User.ID, isAdministrator(ss.User.Role)).Scan(&v.MicrophoneRules, &v.HasHiddenVoices, &v.VoiceSamples, &v.Fingerprints, &v.Attributions)
+	if errors.Is(err, pgx.ErrNoRows) {
+		fail(w, http.StatusNotFound, "person_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, http.StatusOK, v)
 }

@@ -1,8 +1,8 @@
-# Worker avec fournisseurs vocaux réels (pyannote) et GPU NVIDIA. Client HTTPS autonome ;
+# Worker avec fournisseurs vocaux réels (pyannote, NeMo Sortformer) et GPU NVIDIA. Client HTTPS autonome ;
 # aucun port entrant ni accès PostgreSQL. Aucun modèle n'est inclus : ils viennent d'un volume
-# monté (SNITCH_VOICE_*). Le démarrage passe par snitch_worker.bootstrap, qui ne télécharge
-# que sur opt-in explicite (SNITCH_VOICE_DOWNLOAD_ON_START=1, SNITCH_VOICE_CONFIRM_TERMS=1,
-# HF_TOKEN), puis lance le worker sans HF_TOKEN et hors ligne. Voir docs/real-voice-worker.md.
+# monté (SNITCH_VOICE_*). Le démarrage passe par snitch_worker.bootstrap, qui ne télécharge rien :
+# Snitch ordonne chaque modèle (ADR 0038). Il lance le worker sans HF_TOKEN et hors ligne.
+# Voir docs/real-voice-worker.md.
 # CUDA 12.8 et cuDNN 9 viennent des roues PyPI `nvidia-*` dépendantes de torch 2.8.0 : pas
 # d'image de base nvidia/cuda. Le pilote NVIDIA (>= 570 pour CUDA 12.8) et le NVIDIA
 # Container Toolkit restent ceux de l'hôte.
@@ -34,9 +34,18 @@ RUN ffmpeg -hide_banner -loglevel error -f lavfi -i sine=frequency=440:duration=
 COPY deploy/licenses/voice/extra /licenses-extra
 COPY scripts/collect_python_notices.py /collect_python_notices.py
 RUN python /collect_python_notices.py
+# Utilisateur d'exécution et contrôle NeMo AVANT la copie du code du Worker : ils ne dépendent pas de
+# snitch_worker, et ainsi une modification du code ne réexécute pas l'import de NeMo (long) en CI.
+# NeMo importe torch._inductor, qui appelle getpass.getuser() : l'utilisateur 10001 a besoin d'une
+# entrée passwd. HOME reste « / », comme avant.
+RUN groupadd --gid 10001 snitch \
+ && useradd --uid 10001 --gid 10001 --no-create-home --home-dir / --shell /usr/sbin/nologin snitch
+USER 10001:10001
+# NeMo (moteur Sortformer du catalogue vocal) : import sans GPU ni modèle, avec l'utilisateur
+# d'exécution (en root, ce contrôle ne voyait pas l'erreur getpwuid).
+RUN python -c "import nemo.collections.asr.models"
+# Code du Worker en dernier : c'est ce qui change le plus souvent, les couches lourdes ci-dessus restent en cache.
 COPY worker/pyproject.toml /worker/pyproject.toml
 COPY worker/snitch_worker /worker/snitch_worker
-COPY worker/scripts/download_models.py /worker/scripts/download_models.py
 COPY LICENSE /usr/share/licenses/snitch/LICENSE
-USER 10001:10001
 CMD ["python", "-m", "snitch_worker.bootstrap"]

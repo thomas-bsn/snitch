@@ -14,10 +14,7 @@ func TestBundleEnvCarriesTheTokenAndPublicURL(t *testing.T) {
 		"SNITCH_API_URL=https://snitch.example.org",
 		"SNITCH_WORKER_TOKEN=rw_abc-DEF_123",
 		"SNITCH_WORKER_IMAGE=ghcr.io/thomas-bsn/snitch-worker:latest",
-		"TRANSCRIPTION_API_URL=A_RENSEIGNER",
-		"HF_TOKEN=A_RENSEIGNER",
-		"SNITCH_VOICE_DOWNLOAD_ON_START=1",
-		"SNITCH_VOICE_CONFIRM_TERMS=1",
+		"TRANSCRIPTION_API_URL=\"\"",
 	} {
 		if !strings.Contains("\n"+bundle.Env, "\n"+line+"\n") {
 			t.Errorf("env lacks line %q:\n%s", line, bundle.Env)
@@ -25,6 +22,12 @@ func TestBundleEnvCarriesTheTokenAndPublicURL(t *testing.T) {
 	}
 	if bundle.InsecureAPIURL {
 		t.Error("an https URL must not be flagged insecure")
+	}
+	// A new Worker holds no voice model and downloads none: nothing in the files asks for a download or a token (ADR 0038).
+	for _, banned := range []string{"HF_TOKEN", "DOWNLOAD_ON_START", "CONFIRM_TERMS"} {
+		if strings.Contains(bundle.Env, banned) || strings.Contains(bundle.Compose, banned) {
+			t.Errorf("the deployment files still mention %s", banned)
+		}
 	}
 	// The model name is the library's: the deployment files never require one.
 	if strings.Contains("\n"+bundle.Env, "\nTRANSCRIPTION_MODEL=") || strings.Contains(bundle.Compose, "TRANSCRIPTION_MODEL: ${TRANSCRIPTION_MODEL:?") {
@@ -47,6 +50,16 @@ func TestBundleCarriesTheWhisperAddressGivenAtCreation(t *testing.T) {
 	}
 	if !strings.Contains("\n"+bundle.Env, "\nTRANSCRIPTION_API_URL=http://host.docker.internal:8000\n") {
 		t.Errorf("env lacks the Whisper address:\n%s", bundle.Env)
+	}
+}
+
+func TestBundleAllowsInstallationBeforeTranscriptionIsConfigured(t *testing.T) {
+	bundle, err := NewBundle(BundleInput{APIURL: "https://snitch.example.org", Token: "rw_fixture", Image: "img:latest"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(bundle.Env, "TRANSCRIPTION_API_URL=A_RENSEIGNER") || strings.Contains(bundle.Compose, "${TRANSCRIPTION_API_URL:?") {
+		t.Fatal("a worker without transcription must not need a placeholder endpoint")
 	}
 }
 

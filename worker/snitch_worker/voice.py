@@ -14,6 +14,8 @@ import math
 import re
 from typing import Any, Callable, Mapping, Sequence
 
+from snitch_worker import cancellation
+
 logger = logging.getLogger(__name__)
 
 DIARIZATION_STEP = re.compile(r"voice\.diarization\.(\d+)")
@@ -31,7 +33,7 @@ MIN_EMBEDDABLE_SECONDS = 0.5
 FULL_QUALITY_TURN_SECONDS = 3.0
 FULL_QUALITY_SPEAKER_SECONDS = 10.0
 
-REAL_PROVIDERS = frozenset({"pyannote"})
+REAL_PROVIDERS = frozenset({"pyannote", "nemo"})
 
 
 class VoiceProviderUnavailable(RuntimeError):
@@ -167,7 +169,7 @@ def _unit(vector: Sequence[float]) -> list[float]:
 def fingerprints_from_embedder(
     config: dict[str, Any],
     diarization: dict[str, Any],
-    embed: Callable[[float, float], Sequence[float]],
+    embed: Callable[[float, float], Sequence[float] | None],
     stream_index: int,
     model: str,
     model_version: str,
@@ -181,7 +183,11 @@ def fingerprints_from_embedder(
             length = turn["end"] - turn["start"]
             if length < MIN_EMBEDDABLE_SECONDS:
                 continue
-            vector = _unit(embed(float(turn["start"]), float(turn["end"])))
+            cancellation.check()  # between two embeddings, whatever the provider
+            raw = embed(float(turn["start"]), float(turn["end"]))
+            if raw is None:  # no audio left under this turn: kept in the diarization, not fingerprinted
+                continue
+            vector = _unit(raw)
             if dimensions and len(vector) != dimensions:
                 raise VoiceProviderUnavailable("invalid_embedding")
             dimensions = len(vector)
@@ -249,9 +255,10 @@ def default_providers() -> dict[str, Any]:
     """Process-wide providers; the pyannote one caches its models between tasks."""
     global _default_providers
     if _default_providers is None:
-        from snitch_worker.voice_pyannote import PyannoteProvider  # light: no ML import
+        from snitch_worker.voice_nemo import NemoProvider  # light: no ML import
+        from snitch_worker.voice_pyannote import PyannoteProvider
 
-        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider()}
+        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider(), "nemo": NemoProvider()}
     return _default_providers
 
 
@@ -277,10 +284,12 @@ def process_voice_step(
     fingerprint_match = FINGERPRINT_STEP.fullmatch(step)
     if not diarization_match and not (fingerprint_match and voice.get("diarization")):
         raise ValueError("unsupported voice step")
+    cancellation.check()
     ensure_provider_ready(voice, providers)
     provider = (providers or default_providers())[config["provider"]]
     if requires_audio(config) and not audio_path:
         raise VoiceProviderUnavailable("audio_missing")
+    cancellation.check()  # last point before the provider's opaque call
     try:
         if diarization_match:
             stream = int(diarization_match.group(1))

@@ -42,8 +42,11 @@ export function CloseAccount() {
     confirmation.trim().toLowerCase(),
   );
   return (
-    <Section title={t("closeAccount.title")}>
-      <p>{t("closeAccount.explanation")}</p>
+    <Section title={t("closeAccount.zone")} danger>
+      <h3 className="font-semibold">{t("closeAccount.title")}</h3>
+      <p className="text-sm leading-relaxed text-mute">
+        {t("closeAccount.explanation")}
+      </p>
       {isSuperAdministrator(user) ? (
         <p>{t("closeAccount.protected")}</p>
       ) : (

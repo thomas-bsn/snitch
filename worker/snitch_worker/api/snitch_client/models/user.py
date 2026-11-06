@@ -32,6 +32,8 @@ class User:
             approved (bool):
             language (UserLanguage | Unset): Langue d'interface choisie par la personne ; null tant qu'elle n'en a pas
                 choisi.
+            display_name (str | Unset): Pseudo choisi dans Snitch, sinon nom Discord pour les comptes générés, sinon
+                identifiant local.
      """
 
     id: int
@@ -39,6 +41,7 @@ class User:
     role: UserRole
     approved: bool
     language: UserLanguage | Unset = UNSET
+    display_name: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -59,6 +62,8 @@ class User:
             language = self.language.value
 
 
+        display_name = self.display_name
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -70,6 +75,8 @@ class User:
         })
         if language is not UNSET:
             field_dict["language"] = language
+        if display_name is not UNSET:
+            field_dict["display_name"] = display_name
 
         return field_dict
 
@@ -99,12 +106,15 @@ class User:
 
 
 
+        display_name = d.pop("display_name", UNSET)
+
         user = cls(
             id=id,
             username=username,
             role=role,
             approved=approved,
             language=language,
+            display_name=display_name,
         )
 
 

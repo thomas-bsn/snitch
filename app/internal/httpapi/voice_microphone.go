@@ -234,7 +234,7 @@ func (s *Server) applyMicrophone(ctx context.Context, clipID int64, author autho
 	if d.Status == microphoneDesigned {
 		// The designated stream is not diarized: a previous, unvalidated diarization
 		// of it is replaced by the designation.
-		if err = dropSpeakerOverrides(ctx, tx, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, clipID, *d.Index); err != nil {
+		if err = dropSpeakerOverrides(ctx, tx, droppedByMicrophone, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, clipID, *d.Index); err != nil {
 			return d, err
 		}
 		if _, err = tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, clipID, *d.Index); err != nil {
@@ -287,7 +287,7 @@ func (s *Server) applyMicrophone(ctx context.Context, clipID int64, author autho
 				}
 			}
 		} else {
-			if err = dropSpeakerOverrides(ctx, tx, `ls.id=$1`, speakerID); err != nil {
+			if err = dropSpeakerOverrides(ctx, tx, droppedByMicrophoneWithdrawal, `ls.id=$1`, speakerID); err != nil {
 				return d, err
 			}
 			if _, err = tx.Exec(ctx, `DELETE FROM local_speakers WHERE id=$1`, speakerID); err != nil {

@@ -4,7 +4,23 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  invalid_profile:
+    "Choisissez un pseudo affiché de 1 à 100 caractères et un identifiant de 3 à 64 caractères, sans espaces au début ni à la fin.",
+  invalid_password_format: "Choisissez un mot de passe de 12 à 256 caractères.",
+  current_password_incorrect: "Le mot de passe actuel est incorrect.",
+
   avatar_too_large: "La photo doit faire moins de 5 Mo.",
+  invalid_discord_bot_token: "Discord a refusé ce token de bot.",
+  discord_bot_not_configured: "Le bot Discord n’est pas connecté.",
+  discord_sync_running: "Une synchronisation est déjà en cours.",
+  discord_rate_limited:
+    "Discord limite les requêtes. Réessayez dans un instant.",
+  avatar_sync_too_soon:
+    "La photo vient d’être actualisée. Réessayez dans un instant.",
+  invalid_avatar_source: "Cette source de photo n’existe pas.",
+  no_custom_avatar: "Importez d’abord votre propre photo.",
+  discord_bot_rejected: "Discord a refusé le token du bot. Reconnectez le bot.",
+  discord_account_not_found: "Discord ne connaît plus ce compte.",
   invalid_avatar: "Choisissez une image JPEG ou PNG de 16 mégapixels maximum.",
   video_root_unavailable:
     "Cette racine ne peut pas être utilisée. Vérifiez qu’elle est montée et accessible en écriture.",
@@ -21,6 +37,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   video_selection_too_large: "Sélectionnez moins de fichiers (10 000 maximum).",
   invalid_folder_name:
     "Choisissez un nom de dossier sans barre oblique ni point initial.",
+  folder_request_not_found: "Cette demande de dossier n’existe pas.",
+  folder_exists: "Un dossier porte déjà ce nom.",
+  folder_request_pending:
+    "Ce dossier attend la décision d’un administrateur. Rien ne peut y être téléversé pour l’instant.",
   folder_not_created: "Le dossier existe déjà ou ne peut pas être créé.",
   invalid_video_selection: "Sélectionnez les fichiers ou dossiers à scanner.",
   video_scan_incomplete:
@@ -32,6 +52,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_role: "Ce rôle est invalide.",
 
   invalid_worker_machine: "La déclaration de machine du Worker est invalide.",
+  invalid_log_batch: "Le lot de lignes de log est invalide.",
+  invalid_log_line: "Une ligne de log du job est invalide.",
+  invalid_transcription_reachability:
+    "Le rapport de joignabilité du serveur de transcription est invalide.",
   account_already_linked: "Ce compte est déjà lié à une personne.",
   audio_selection_required: "Choisissez d’abord la piste audio à utiliser.",
   audio_stream_not_found: "Cette piste audio n’existe pas dans le clip.",
@@ -57,6 +81,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   discord_denied:
     "Connexion Discord annulée. Vous pouvez vous connecter avec votre compte local.",
   discord_not_configured: "La connexion Discord n’est pas configurée.",
+  discord_not_linked: "Aucune identité Discord n’est liée à ce compte.",
+  discord_local_login_required:
+    "Définissez un mot de passe local avant de délier Discord pour garder un moyen de connexion.",
+  discord_unlink_unavailable: "Discord n’a pas pu être délié. Réessayez.",
   discord_secret_required:
     "Saisissez le secret de votre application Discord pour activer la connexion.",
   discord_unavailable:
@@ -66,6 +94,18 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Une reconstruction de l’index est déjà en cours.",
   invalid_embedding_settings:
     "Indiquez une adresse de service et un modèle valides.",
+  embedding_validation_required:
+    "Testez d’abord cette configuration : seule une configuration testée peut être enregistrée.",
+  embedding_validation_expired:
+    "La validation a expiré. Testez à nouveau avant d’enregistrer.",
+  embedding_validation_mismatch:
+    "Les valeurs ont changé depuis le test. Testez à nouveau avant d’enregistrer.",
+  embedding_provider_timeout:
+    "Le service d’embeddings n’a pas répondu à temps. Vérifiez son adresse et sa charge, puis testez à nouveau.",
+  embedding_model_not_found:
+    "Le service d’embeddings ne connaît pas ce modèle. Vérifiez le nom du modèle.",
+  embedding_response_invalid:
+    "Le service d’embeddings a répondu, mais pas avec des vecteurs utilisables par Snitch.",
   embedding_provider_unavailable:
     "Le service d’embeddings est inaccessible ou sa réponse est invalide.",
   embeddings_unconfigured: "La recherche sémantique n’est pas configurée.",
@@ -75,17 +115,43 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   forbidden: "Vous n’avez pas accès à cette fonction.",
   group_changed: "Ce groupe a changé entre-temps. Rechargez puis réessayez.",
   internal_error: "Une erreur inattendue est survenue sur le serveur.",
+  notification_active:
+    "Cette action est encore en attente. Elle disparaît une fois traitée.",
+  notification_not_found: "Cette notification n’existe plus.",
   invalid_account: "Ce compte ne convient pas pour cette action.",
   invalid_audio_stream: "Cette piste audio n’est pas valide.",
   invalid_audio_track_rule: "Cette règle de piste audio n’est pas valide.",
+  invalid_analysis_scope: "Ce périmètre d’analyse n’est pas valide.",
+  analysis_not_active: "Aucune analyse n’est active sur ce clip.",
+  analysis_active:
+    "Une analyse est en cours sur ce clip : attendez sa fin ou annulez-la avant de planifier une étape isolée.",
+  analysis_not_found: "Ce clip n’a pas été analysé.",
+  analysis_not_retryable:
+    "Cette analyse est terminée : lancez-en une nouvelle.",
+  analysis_step_not_failed: "Cette étape n’a pas échoué.",
+  invalid_analysis_step: "Cette étape d’analyse n’est pas valide.",
+  analysis_deletion_confirmation_required:
+    "La suppression fait perdre du travail humain ou une transcription : confirmez les pertes affichées.",
+  invalid_reanalysis: "Ce choix de réanalyse n’est pas valide.",
+  reanalysis_confirmation_required:
+    "Confirmez les conséquences de cette réanalyse avant son démarrage.",
+  analysis_scope_conflict:
+    "Une analyse d’un autre périmètre est déjà active sur ce clip.",
   invalid_clip_id: "Cet identifiant de clip n’est pas valide.",
   invalid_content_range: "Cette partie du fichier n’est pas valide.",
   invalid_credentials_format:
     "Un nom de 3 à 64 caractères et un mot de passe de 12 à 256 caractères sont requis.",
   invalid_credentials_or_pending:
     "Identifiants incorrects ou inscription en attente d’approbation.",
+  invalid_clip_title:
+    "Le titre doit faire de 1 à 200 caractères, sans caractère de contrôle.",
+  metadata_reset_unavailable:
+    "Snitch n’a pas conservé de valeur détectée à restaurer pour ce champ.",
+  invalid_metadata_request:
+    "Cette modification de métadonnées n’est pas valide.",
   invalid_embedding_model: "Ce modèle d’embeddings n’est pas valide.",
   invalid_filter: "Un des filtres n’est pas valide.",
+  invalid_folder: "Ce nom de dossier n’est pas valide.",
   invalid_format: "Ce format n’est pas valide.",
   invalid_id: "Cet identifiant n’est pas valide.",
   invalid_job: "Cette tâche n’est pas valide.",
@@ -98,6 +164,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_microphone_override: "Ce choix de micro n’est pas valide.",
   invalid_microphone_rule: "Cette règle de micro n’est pas valide.",
   invalid_mode: "Ce mode de recherche n’est pas valide.",
+  public_address_unknown:
+    "Snitch ne peut pas déterminer son adresse publique. Ouvrez-le par son adresse habituelle ou vérifiez le mandataire.",
   invalid_oauth_state:
     "Le retour Discord est invalide ou expiré. Recommencez la connexion.",
   invalid_page: "Ce numéro de page n’est pas valide.",
@@ -110,6 +178,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_source_id: "Cet identifiant de dossier n’est pas valide.",
   invalid_transcription_pipeline:
     "Ces réglages de transcription ne sont pas valides.",
+  invalid_transcription_settings:
+    "Saisissez une URL Whisper/Speaches et un modèle valides, et choisissez une langue dans la liste.",
+  invalid_transcription_config_status:
+    "L'état de configuration du Worker est invalide.",
+  stale_transcription_config:
+    "La configuration de transcription a changé. Réessayez.",
   invalid_transcription_result:
     "Ce résultat de transcription n’est pas valide.",
   invalid_turn: "Ce tour de parole n’est pas valide.",
@@ -117,6 +191,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_video: "Ce fichier n’est pas une vidéo lisible.",
   invalid_vocabulary_id: "Cet identifiant de vocabulaire n’est pas valide.",
   invalid_vocabulary_term: "Ce terme de vocabulaire n’est pas valide.",
+  invalid_visibility: 'La visibilité doit être "shared" ou "private".',
+  invalid_disposition: "Cette mise de côté n’est pas valide.",
   invalid_voice_automation:
     "Ces réglages d’automatisation ne sont pas valides.",
   invalid_voice_criteria: "Ces critères ne sont pas valides.",
@@ -127,12 +203,30 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_worker: "Ce Worker n’est pas valide.",
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
   invalid_worker_capacity: "Cette capacité de Worker n’est pas valide.",
+  invalid_worker_update_status:
+    "Ce compte rendu de mise à jour n’est pas valide.",
+  invalid_worker_update_mode:
+    "Cette stratégie de mise à jour n’est pas valide.",
+  invalid_worker_version:
+    "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
+  invalid_revoke_reason:
+    "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
+  clip_delete_failed:
+    "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",
   super_administrator_required: "Seul le Super-administrateur peut faire cela.",
+  invalid_hf_token:
+    "Le token doit commencer par hf_ et ne contenir que des lettres et des chiffres.",
+  invalid_hf_token_ack: "L’accusé de réception du Worker est invalide.",
+  stale_hf_token_version: "Le token a changé entre-temps. Le Worker le relira.",
+  hf_token_store_failed:
+    "Le Worker n’a pas pu ranger le token dans son volume de modèles. Vérifiez que le volume est accessible en écriture.",
   invalid_transcription_language:
-    "Ce code de langue n’est pas valide (deux ou trois lettres minuscules, par exemple fr).",
+    "Choisissez une des langues prises en charge par Whisper, par son code (par exemple fr).",
   invalid_transcription_model: "Ce nom de modèle n’est pas valide.",
   invalid_transcription_url:
+    "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
+  invalid_transcription_endpoint:
     "Cette adresse Whisper n’est pas valide. Utilisez une adresse http ou https sans identifiants.",
   transcription_language_required: "Choisissez la langue de la bibliothèque.",
   transcription_model_required: "Indiquez le modèle de la bibliothèque.",
@@ -147,20 +241,29 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "La session à l’origine de la liaison a expiré ou changé. Recommencez depuis votre compte.",
   local_speaker_not_found: "Cette voix n’existe pas.",
   media_not_found: "Ce fichier média n’est pas disponible.",
+  thumbnail_not_found: "Cette miniature n’est pas disponible.",
   method_not_allowed: "Cette action n’est pas autorisée ici.",
   microphone_track_not_diarized: "La piste du micro n’a pas encore de voix.",
   no_linked_person: "Aucune personne n’est liée à votre compte.",
+  no_link_request: "Vous n’avez fait aucune demande de liaison.",
+  no_pending_request: "Vous n’avez aucune demande en attente.",
   not_attributed_to_person: "Cette voix n’est attribuée à aucune personne.",
   network_failure: "La connexion a été interrompue.",
   not_found: "Cet élément n’existe pas.",
   not_pending: "Cette inscription n’attend pas d’approbation.",
   not_unknown: "Cette voix n’est plus inconnue.",
+  validated_voice:
+    "Cette voix est validée : son identification doit être retirée avant d’être mise de côté.",
   not_validated: "Cette voix n’a pas été validée.",
   origin_rejected: "Cette requête vient d’une adresse inattendue.",
   person_has_hidden_voices: "Cette personne a encore des voix masquées.",
   person_linked_account: "Cette personne est liée à un compte.",
   person_not_found: "Cette personne n’existe pas.",
+  person_request_pending: "Cette personne a déjà une demande en attente.",
   rate_limited: "Trop de tentatives. Patientez quelques secondes.",
+  request_not_found: "Cette demande de liaison n’existe pas.",
+  request_not_pending: "Cette demande a déjà été décidée.",
+  request_pending: "Votre compte a déjà une demande en attente.",
   same_person: "Il s’agit déjà de la même personne.",
   segment_not_found: "Ce segment n’existe pas.",
   session_required: "Connectez-vous pour continuer.",
@@ -185,11 +288,90 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   username_unavailable: "Ce nom est déjà utilisé.",
   vocabulary_term_not_found: "Ce terme de vocabulaire n’existe pas.",
   voice_group_not_found: "Ce groupe de voix n’existe pas.",
+  voice_rediarization_confirmation_required:
+    "La relance de la diarisation doit être confirmée.",
   voice_locked_by_validation: "Cette voix est verrouillée par une validation.",
-  voice_model_access_unconfirmed:
-    "L’accès aux modèles de voix n’a pas été confirmé.",
+  voice_model_already_active: "Ce modèle est déjà le modèle actif.",
+  voice_model_in_use:
+    "Ce modèle est actif ou candidat : il ne peut pas être supprimé.",
+  voice_model_not_found: "Ce modèle n’existe pas dans le catalogue.",
+  invalid_hf_source:
+    "Collez un dépôt Hugging Face sous la forme propriétaire/nom ou une adresse huggingface.co.",
+  voice_model_hf_not_found:
+    "Hugging Face ne connaît pas ce dépôt. Vérifiez son nom.",
+  voice_model_hf_denied:
+    "Hugging Face refuse l’accès à ce dépôt : il est privé ou ses conditions d’accès ne sont pas remplies.",
+  voice_model_hf_unavailable:
+    "Hugging Face n’a pas répondu correctement. Réessayez dans un instant.",
+  voice_model_kind_mismatch: "Le dépôt déclare un autre type que celui choisi.",
+  voice_model_exists: "Ce dépôt est déjà dans le catalogue pour ce type.",
+  idempotency_key_reused:
+    "Cette clé d’ordre a déjà servi pour un autre Worker ou un autre modèle.",
+  invalid_idempotency_key: "La clé d’ordre n’est pas valide.",
+  voice_model_already_installed: "Ce modèle est déjà installé sur ce Worker.",
+  voice_model_order_in_progress:
+    "Une installation de ce modèle est déjà en cours sur ce Worker.",
+  voice_model_type_occupied:
+    "Ce Worker porte déjà un autre modèle de ce type : le remplacer est une opération distincte.",
+  voice_replacement_kind_unsupported:
+    "Seul le modèle de diarisation peut être remplacé ici : changer le modèle d’empreinte demande une transition versionnée des empreintes enregistrées.",
+  voice_replaced_model_not_ready:
+    "Le modèle à remplacer doit être installé et prêt sur ce Worker.",
+  voice_replacement_in_progress:
+    "Un remplacement est déjà en cours pour ce type sur ce Worker, ou un téléchargement ou un test tourne encore.",
+  voice_replacement_switched:
+    "La bascule est déjà décidée : le remplacement ne peut plus être annulé.",
+  voice_transition_preview_stale:
+    "Le nombre de références a changé depuis l’aperçu : vérifiez de nouveau l’impact avant de confirmer.",
+  voice_transition_in_progress:
+    "Un changement du modèle d’empreinte est déjà en cours : terminez-le ou annulez-le d’abord.",
+  voice_transition_not_found:
+    "Aucun changement du modèle d’empreinte n’existe.",
+  voice_transition_switched:
+    "Le modèle d’empreinte est déjà basculé : le changement ne peut plus être annulé.",
+  voice_transition_required:
+    "Le remplacement du modèle d’empreinte commence par un changement confirmé qui montre son impact.",
+  invalid_voice_transition:
+    "La demande de changement du modèle d’empreinte est incomplète.",
+  voice_replacement_not_found: "Aucun remplacement en cours pour ce type.",
+  voice_model_not_failed: "La dernière tentative de ce modèle n’a pas échoué.",
+  voice_model_not_removable:
+    "Ce Worker ne détient pas ce modèle dans un état où il peut être retiré.",
+  worker_required: "Choisissez le Worker sur lequel retirer ce modèle.",
+  voice_order_not_found: "Cet ordre n’existe pas pour ce Worker.",
+  invalid_voice_order_ack: "Cet accusé de réception d’ordre n’est pas valide.",
+  stale_voice_order: "Cet ordre est déjà terminé.",
+  voice_model_not_ready:
+    "Aucun Worker n’a ce modèle prêt : attendez la fin de sa préparation.",
+  invalid_voice_model: "Ce modèle ne peut pas être choisi.",
+  invalid_voice_model_status: "Cet état de modèle vocal n’est pas valide.",
+  voice_trial_option_unsupported:
+    "Ce moteur ne permet pas d’imposer le nombre de locuteurs.",
+  invalid_voice_trial_options:
+    "Le nombre de locuteurs doit être positif, dans la limite du modèle, et num_speakers ne se combine pas avec min/max.",
+  voice_trial_running: "Cet essai est déjà en cours.",
+  voice_trial_not_found: "Cet essai n’existe plus.",
+  invalid_voice_trial_id: "Identifiant d’essai invalide.",
+  no_voice_candidate: "Aucun échec à relancer pour le candidat.",
   voice_profile_deleted: "Ce profil vocal a été supprimé.",
+  index_run_active:
+    "Une indexation de la bibliothèque est déjà en cours ou en pause.",
+  index_run_state: "Cette indexation ne peut plus faire cette action.",
+  index_run_not_found: "Cette indexation n’existe plus.",
+  nothing_to_index:
+    "Toutes les vidéos ont déjà une fiche clip : il n’y a rien à indexer.",
+  invalid_index_mode:
+    "Choisissez les fiches seules, ou les fiches avec l’analyse complète.",
+  person_exists:
+    "Une personne porte déjà ce nom. Choisissez-la, ou confirmez qu’il s’agit de quelqu’un d’autre.",
   worker_not_found: "Ce Worker n’existe pas.",
+  worker_not_revoked:
+    "Seul un Worker supprimé (révoqué) peut être retiré de la liste.",
+  worker_cleanup_pending:
+    "La machine du Worker n’a pas encore confirmé la révocation : elle a encore besoin de cette entrée pour se nettoyer.",
+  install_invite_used:
+    "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
+  invalid_install_event: "Cet événement d’installation n’est pas valide.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
 };

@@ -40,7 +40,6 @@ func testRoles(t *testing.T, pool *pgxpool.Pool, provider *goose.Provider) {
 	}
 	s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 

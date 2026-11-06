@@ -28,8 +28,8 @@ class WorkerRegistrationInput:
         Attributes:
             name (str):
             max_concurrency (int):
-            transcription_url (str | Unset): Adresse du serveur Whisper de ce worker (http ou https, sans identifiants).
-                Écrite dans le fichier d'environnement généré ; non conservée.
+            transcription_url (str | Unset): Obsolète : l'adresse est gérée dans Admin → Transcription. Refusée lors de la
+                création.
             transcription (WorkerTranscriptionProfile | Unset):
      """
 

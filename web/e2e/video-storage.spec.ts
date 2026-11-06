@@ -68,10 +68,7 @@ test.describe.serial("racine vidéo et photo de profil", () => {
   test("une sélection est prévisualisée puis attend un Worker", async ({
     page,
   }) => {
-    await page.goto("/library");
-    await page
-      .getByRole("button", { name: "Scan videos and manage folders" })
-      .click();
+    await page.goto("/admin/folders");
     await page
       .getByRole("checkbox", { name: "Select browser-fixture.mp4" })
       .check();
@@ -90,14 +87,51 @@ test.describe.serial("racine vidéo et photo de profil", () => {
     await expectNoViolations(page);
   });
 
+  test("une longue liste se filtre sans perdre la sélection", async ({
+    page,
+  }) => {
+    await page.route("**/api/admin/video-root/browse?*", async (route) => {
+      await route.fulfill({
+        json: {
+          items: Array.from({ length: 30 }, (_, i) => ({
+            path: `synthetic-${i}`,
+            directory: true,
+            size_bytes: 0,
+          })),
+        },
+      });
+    });
+    await page.goto("/admin/folders");
+    const list = page.getByRole("region", { name: "Folders and videos" });
+    await expect(list.getByRole("checkbox")).toHaveCount(30);
+    expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+      true,
+    );
+    await list
+      .getByRole("checkbox", { name: "Select synthetic-1", exact: true })
+      .check();
+    await page.getByLabel("Filter folders and videos").fill("synthetic-29");
+    await expect(list.getByRole("checkbox")).toHaveCount(1);
+    await expect(
+      page.getByRole("button", { name: "Prepare selection scan (1)" }),
+    ).toBeEnabled();
+    await page.getByLabel("Filter folders and videos").clear();
+    await expect(
+      list.getByRole("checkbox", { name: "Select synthetic-1", exact: true }),
+    ).toBeChecked();
+  });
+
   test("un envoi choisit un sous-dossier et écrase après confirmation", async ({
     page,
   }) => {
     await page.goto("/import");
-    await page.getByRole("button", { name: "Choose a folder" }).click();
-    await page.getByRole("button", { name: "matches", exact: true }).click();
-    await page.getByRole("button", { name: "Use this folder" }).click();
-    await expect(page.getByText("/matches")).toBeVisible();
+    await page.getByRole("button", { name: "From my computer" }).click();
+    const picker = page.getByRole("dialog", { name: "Destination folder" });
+    await page.getByRole("button", { name: "Choose a folder…" }).click();
+    await expect(picker).toBeVisible();
+    await picker.getByRole("button", { name: "matches", exact: true }).click();
+    await picker.getByRole("button", { name: "Choose this folder" }).click();
+    await expect(page.getByText("/matches", { exact: true })).toBeVisible();
 
     await page.getByLabel("choose files").setInputFiles(video("game.mp4", 9));
     await expect(row(page, "game.mp4")).toContainText("Added to the library", {
@@ -134,6 +168,105 @@ test.describe.serial("racine vidéo et photo de profil", () => {
       )
       .toBe(48 * 1024);
     await expectNoViolations(page);
+  });
+
+  test("aucun envoi sans dossier choisi explicitement, racine explicite, dossier disparu", async ({
+    page,
+  }) => {
+    let created = 0;
+    await page.route("**/api/uploads", async (route) => {
+      if (route.request().method() !== "POST") return route.continue();
+      created += 1;
+      await route.fulfill({
+        status: 422,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "video_path_unavailable" }),
+      });
+    });
+    await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
+    const trigger = page.getByRole("button", { name: "Choose a folder…" });
+    await expect(trigger).toBeVisible();
+    await expect(page.getByText("Nothing is sent until")).toBeVisible();
+
+    // Neither the picker nor a drop reaches the server, and nothing is queued.
+    await page.getByLabel("choose files").setInputFiles(video("early.mp4", 1));
+    await expect(page.getByRole("alert")).toContainText(
+      "Choose a destination folder first",
+    );
+    await expect(page.getByRole("list", { name: "Transfers" })).toHaveCount(0);
+    // aria-disabled: announced as unavailable, yet pressing it explains why (hence force).
+    await page
+      .locator("button", { hasText: "Browse my computer" })
+      .click({ force: true });
+    await expect(page.getByRole("alert")).toContainText(
+      "Choose a destination folder first",
+    );
+    expect(created).toBe(0);
+
+    // The root is an explicit choice, never the default.
+    await trigger.click();
+    await page.getByRole("button", { name: "Choose this folder" }).click();
+    await expect(page.getByText("/", { exact: true })).toBeVisible();
+    await expect(page.getByRole("alert")).toHaveCount(0);
+
+    // The folder vanished: sending stops and a new choice is required.
+    await page.getByLabel("choose files").setInputFiles(video("late.mp4", 2));
+    await expect(page.getByText("is no longer available")).toBeVisible();
+    await expect(trigger).toBeVisible();
+    expect(created).toBe(1);
+    await page.unroute("**/api/uploads");
+  });
+
+  test("le sélecteur reste compact avec 120 dossiers, au clavier et sur mobile", async ({
+    page,
+  }) => {
+    await page.route("**/api/admin/video-root/browse*", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          path: "",
+          items: Array.from({ length: 120 }, (_, i) => ({
+            name: `folder-${i}`,
+            path: `folder-${i}`,
+            directory: true,
+            size_bytes: 0,
+          })),
+        }),
+      });
+    });
+    await page.setViewportSize({ width: 390, height: 800 });
+    await page.goto("/import");
+    await page.getByRole("button", { name: "From my computer" }).click();
+    const trigger = page.getByRole("button", { name: "Choose a folder…" });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+    const menu = page.getByRole("dialog", { name: "Destination folder" });
+    await expect(menu).toBeVisible();
+    // The long list scrolls inside the menu, never in the page.
+    const list = menu.getByRole("list");
+    await expect(list.getByRole("button")).toHaveCount(120);
+    expect(await list.evaluate((el) => el.scrollHeight > el.clientHeight)).toBe(
+      true,
+    );
+    // The menu fits the screen once positioned (the position settles right after opening).
+    await expect
+      .poll(async () => {
+        const box = await menu.boundingBox();
+        return box !== null && box.y >= 0 && box.y + box.height <= 800;
+      })
+      .toBe(true);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+    ).toBe(true);
+    await menu.getByLabel("Filter folders").fill("folder-119");
+    await expect(list.getByRole("button")).toHaveCount(1);
+    await expectNoViolations(page);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(trigger).toBeFocused();
   });
 
   test("changer la racine détache les fichiers sans perdre leurs résultats", async ({

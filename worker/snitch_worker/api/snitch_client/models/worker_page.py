@@ -26,8 +26,8 @@ T = TypeVar("T", bound="WorkerPage")
 class WorkerPage:
     """
         Attributes:
-            first_worker (bool): Vrai tant qu'aucun worker n'a jamais été créé : le premier fixe le modèle et la langue de
-                la bibliothèque.
+            first_worker (bool): Vrai tant qu'aucun Worker n'a jamais été créé. La configuration de transcription est
+                indépendante.
             snitch_url (str): Adresse de Snitch telle que vue par cette requête, écrite dans les fichiers générés.
             transcription (WorkerPageTranscription): Profil de transcription actif de la bibliothèque.
             items (list[Worker]):

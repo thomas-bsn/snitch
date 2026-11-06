@@ -10,6 +10,7 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.worker_registration import WorkerRegistration
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -17,6 +18,7 @@ from typing import cast
 def _get_kwargs(
     id: str,
     *,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -30,11 +32,18 @@ def _get_kwargs(
 
 
 
+    params: dict[str, Any] = {}
+
+    params["allow_insecure_install"] = allow_insecure_install
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "post",
         "url": "/api/admin/workers/{id}/token".format(id=quote(str(id), safe=""),),
+        "params": params,
     }
 
 
@@ -72,6 +81,7 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -80,6 +90,7 @@ def sync_detailed(
 
     Args:
         id (str):
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -94,6 +105,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -109,6 +121,7 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -117,6 +130,7 @@ def sync(
 
     Args:
         id (str):
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -132,6 +146,7 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -141,6 +156,7 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -149,6 +165,7 @@ async def asyncio_detailed(
 
     Args:
         id (str):
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -163,6 +180,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -178,6 +196,7 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
+    allow_insecure_install: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -186,6 +205,7 @@ async def asyncio(
 
     Args:
         id (str):
+        allow_insecure_install (bool | Unset):  Default: False.
         origin (str):
         x_csrf_token (str):
 
@@ -201,6 +221,7 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
+allow_insecure_install=allow_insecure_install,
 origin=origin,
 x_csrf_token=x_csrf_token,
 

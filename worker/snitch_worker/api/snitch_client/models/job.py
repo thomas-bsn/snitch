@@ -44,6 +44,7 @@ class Job:
             updated_at (datetime.datetime):
             cycle (int):
             result (JobResultType0 | None | Unset):
+            requested_model_id (str | Unset): Renvoyé à la planification d'un travail à modèle demandé (benchmark).
      """
 
     id: int
@@ -62,6 +63,7 @@ class Job:
     updated_at: datetime.datetime
     cycle: int
     result: JobResultType0 | None | Unset = UNSET
+    requested_model_id: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -113,6 +115,8 @@ class Job:
         else:
             result = self.result
 
+        requested_model_id = self.requested_model_id
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -135,6 +139,8 @@ class Job:
         })
         if result is not UNSET:
             field_dict["result"] = result
+        if requested_model_id is not UNSET:
+            field_dict["requested_model_id"] = requested_model_id
 
         return field_dict
 
@@ -228,6 +234,8 @@ class Job:
         result = _parse_result(d.pop("result", UNSET))
 
 
+        requested_model_id = d.pop("requested_model_id", UNSET)
+
         job = cls(
             id=id,
             clip_id=clip_id,
@@ -245,6 +253,7 @@ class Job:
             updated_at=updated_at,
             cycle=cycle,
             result=result,
+            requested_model_id=requested_model_id,
         )
 
 

@@ -28,9 +28,7 @@ export async function fetchWorker(id: string): Promise<Result<WorkerDetail>> {
 
 export type NewWorker = {
   name: string;
-  whisperUrl: string;
-  /** Only the first Worker sets the library's model and language. */
-  transcription?: { model: string; language: string };
+  allowInsecureInstall?: boolean;
 };
 
 /** The actions of the Workers screens; each one carries the session's CSRF token. */
@@ -40,27 +38,48 @@ export function useWorkerActions() {
     async create(input: NewWorker): Promise<Result<WorkerRegistration>> {
       // Never put the Hugging Face token here: it stays in the browser.
       const { data, error } = await api.POST("/api/admin/workers", {
-        params: { header: mutation(csrf) },
+        params: {
+          header: mutation(csrf),
+          query: input.allowInsecureInstall
+            ? { allow_insecure_install: true }
+            : undefined,
+        },
         body: {
           name: input.name,
           max_concurrency: 1,
-          ...(input.whisperUrl ? { transcription_url: input.whisperUrl } : {}),
-          ...(input.transcription
-            ? { transcription: input.transcription }
-            : {}),
         },
       });
       return data ? { ok: true, value: data } : failure(error);
     },
-    async renewToken(id: string): Promise<Result<WorkerRegistration>> {
+    async renewToken(
+      id: string,
+      allowInsecureInstall = false,
+    ): Promise<Result<WorkerRegistration>> {
       const { data, error } = await api.POST("/api/admin/workers/{id}/token", {
-        params: { path: { id }, header: mutation(csrf) },
+        params: {
+          path: { id },
+          header: mutation(csrf),
+          query: allowInsecureInstall
+            ? { allow_insecure_install: true }
+            : undefined,
+        },
       });
       return data ? { ok: true, value: data } : failure(error);
     },
-    async revoke(id: string): Promise<Result<null>> {
+    async forget(id: string, force = false): Promise<Result<null>> {
+      const { error } = await api.DELETE("/api/admin/workers/{id}/record", {
+        params: {
+          path: { id },
+          header: mutation(csrf),
+          query: force ? { force: true } : undefined,
+        },
+      });
+      return error ? failure(error) : { ok: true, value: null };
+    },
+    async revoke(id: string, reason: string): Promise<Result<null>> {
       const { error } = await api.DELETE("/api/admin/workers/{id}", {
         params: { path: { id }, header: mutation(csrf) },
+        body: reason.trim() ? { reason: reason.trim() } : undefined,
       });
       return error ? failure(error) : { ok: true, value: null };
     },

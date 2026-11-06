@@ -63,7 +63,13 @@ func TestFoundation(t *testing.T) {
 	if err != nil || len(replay) != 0 {
 		t.Fatal("migration replay", err)
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	// Fixed small pool: CI runners have 4 CPUs (pgx default), laptops more. Pool-exhaustion deadlocks must reproduce everywhere.
+	poolConfig, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	poolConfig.MaxConns = 4
+	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,11 +91,14 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; DELETE FROM transcription_settings; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE clip_metadata_settings SET country='',timezone=''; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
 		if e != nil {
 			t.Fatal(e)
 		}
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
+			t.Fatal(e)
+		}
+		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
 			t.Fatal(e)
 		}
 		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
@@ -135,11 +144,13 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPublicAddress(t, pool)
 	})
+	t.Run("Discord redirect address is stable", func(t *testing.T) { reset(t); testDiscordRedirectStability(t, pool) })
 	t.Run("registration and approval", func(t *testing.T) {
 		reset(t)
 		testRegistration(t, pool)
 	})
 	t.Run("Discord OAuth", func(t *testing.T) { reset(t); testDiscordOAuth(t, pool) })
+	t.Run("Discord avatars", func(t *testing.T) { reset(t); testDiscordAvatars(t, pool) })
 	t.Run("Discord settings", func(t *testing.T) {
 		reset(t)
 		testDiscordSettings(t, pool)
@@ -164,9 +175,153 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testResumableUploads(t, pool)
 	})
+	t.Run("private folders", func(t *testing.T) {
+		reset(t)
+		testPrivateFolders(t, pool)
+	})
+	t.Run("system directories", func(t *testing.T) {
+		reset(t)
+		testSystemDirectories(t, pool)
+	})
+	t.Run("video root browse", func(t *testing.T) {
+		reset(t)
+		testVideoRootBrowse(t, pool)
+	})
+	t.Run("explorer", func(t *testing.T) {
+		reset(t)
+		testExplorer(t, pool)
+	})
+	t.Run("explorer filtered tree", func(t *testing.T) {
+		reset(t)
+		testExplorerFilteredTree(t, pool)
+	})
+	t.Run("video root private folders", func(t *testing.T) {
+		reset(t)
+		testVideoRootPrivacy(t, pool)
+	})
+	t.Run("import selection", func(t *testing.T) {
+		reset(t)
+		testImportSelection(t, pool)
+	})
+	t.Run("folder requests", func(t *testing.T) {
+		reset(t)
+		testFolderRequests(t, pool)
+	})
 	t.Run("clip library", func(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
+	})
+	t.Run("clip analysis", func(t *testing.T) {
+		reset(t)
+		testClipAnalysis(t, pool)
+	})
+	t.Run("automatic full analysis", func(t *testing.T) {
+		reset(t)
+		testAutomaticFullAnalysis(t, pool)
+	})
+	t.Run("automatic analysis setting", func(t *testing.T) {
+		reset(t)
+		testAutomaticAnalysisSetting(t, pool)
+	})
+	t.Run("clip analysis control", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisControl(t, pool)
+	})
+	t.Run("clip analysis events", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisEvents(t, pool)
+	})
+	t.Run("embedding validation gate", func(t *testing.T) {
+		reset(t)
+		testEmbeddingValidationGate(t, pool)
+	})
+	t.Run("clip display title", func(t *testing.T) {
+		reset(t)
+		testClipDisplayTitle(t, pool)
+	})
+	t.Run("admin queue", func(t *testing.T) {
+		reset(t)
+		testAdminQueue(t, pool)
+	})
+	t.Run("admin queue delta stream", func(t *testing.T) {
+		reset(t)
+		testAdminQueueDelta(t, pool)
+	})
+	t.Run("task queue performance", func(t *testing.T) {
+		reset(t)
+		testQueuePerformance(t, pool)
+	})
+	t.Run("admin queue history and isolated steps", func(t *testing.T) {
+		reset(t)
+		testAdminQueueHistory(t, pool)
+	})
+	t.Run("admin queue history events", func(t *testing.T) {
+		reset(t)
+		testAdminQueueHistoryEvents(t, pool)
+	})
+	t.Run("admin queue pending voices", func(t *testing.T) {
+		reset(t)
+		testAdminQueuePendingVoices(t, pool)
+	})
+	t.Run("admin queue failure causes", func(t *testing.T) {
+		reset(t)
+		testAdminQueueFailureCauses(t, pool)
+	})
+	t.Run("admin queue cancelled and location", func(t *testing.T) {
+		reset(t)
+		testAdminQueueCancelledAndLocation(t, pool)
+	})
+	t.Run("admin queue failed tasks", func(t *testing.T) {
+		reset(t)
+		testAdminQueueFailedTasks(t, pool)
+	})
+	t.Run("admin queue summary", func(t *testing.T) {
+		reset(t)
+		testAdminQueueSummary(t, pool)
+	})
+	t.Run("admin queue causes access", func(t *testing.T) {
+		reset(t)
+		testAdminQueueCausesAccess(t, pool)
+	})
+	t.Run("clip analysis voice branches", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisVoice(t, pool)
+	})
+	t.Run("clip reanalysis", func(t *testing.T) {
+		reset(t)
+		testClipReanalysis(t, pool)
+	})
+	t.Run("clip reanalysis closure", func(t *testing.T) {
+		reset(t)
+		testClipReanalysisClosure(t, pool)
+	})
+	t.Run("clip analysis step deletion", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletion(t, pool)
+	})
+	t.Run("clip analysis deletion stake at confirm", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionStakeAtConfirm(t, pool)
+	})
+	t.Run("clip analysis deletion keeps other voices", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionKeepsOtherVoices(t, pool)
+	})
+	t.Run("clip analysis deletion cascades", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionCascades(t, pool)
+	})
+	t.Run("clip analysis deletion reports refusals", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisDeletionReportsRefusals(t, pool)
+	})
+	t.Run("clip analysis read-only view", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisReadOnlyView(t, pool)
+	})
+	t.Run("clip reanalysis stake race", func(t *testing.T) {
+		reset(t)
+		testClipReanalysisStakeRace(t, pool)
 	})
 	t.Run("clip progress and filter options", func(t *testing.T) {
 		reset(t)
@@ -180,13 +335,136 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceDiarization(t, pool)
 	})
+	t.Run("voice coverage", func(t *testing.T) {
+		reset(t)
+		testVoiceCoverage(t, pool)
+	})
+	t.Run("voice rediarization", func(t *testing.T) {
+		reset(t)
+		testVoiceRediarization(t, pool)
+	})
+	t.Run("voice model dispatch", func(t *testing.T) {
+		reset(t)
+		testVoiceModelDispatch(t, pool)
+	})
+	t.Run("voice fingerprint transition preview", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionPreview(t, pool)
+	})
+	t.Run("voice fingerprint transition flow", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionFlow(t, pool)
+	})
+	t.Run("voice fingerprint transition resume", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionResume(t, pool)
+	})
+	t.Run("voice fingerprint transition cancel", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionCancel(t, pool)
+	})
+	t.Run("voice fingerprint transition workers", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintTransitionWorkers(t, pool)
+	})
+	t.Run("voice fingerprint stale model", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintStaleModel(t, pool)
+	})
+	t.Run("voice requested model dispatch", func(t *testing.T) {
+		reset(t)
+		testVoiceRequestedModelDispatch(t, pool)
+	})
+	t.Run("voice benchmark isolation", func(t *testing.T) {
+		reset(t)
+		testVoiceBenchmarkIsolation(t, pool)
+	})
+	t.Run("voice catalog in database", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogInDatabase(t, pool)
+	})
+	t.Run("voice catalog edition", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogEdition(t, pool)
+	})
+	t.Run("voice model addition from Hugging Face", func(t *testing.T) {
+		reset(t)
+		testVoiceModelAddFromHF(t, pool)
+	})
+	t.Run("voice model candidate", func(t *testing.T) {
+		reset(t)
+		testVoiceModelCandidate(t, pool)
+	})
+	t.Run("voice model order creation", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderCreation(t, pool)
+	})
+	t.Run("voice model order execution", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOrderExecution(t, pool)
+	})
+	t.Run("voice model replacement", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacement(t, pool)
+	})
+	t.Run("voice model replacement failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementFailure(t, pool)
+	})
+	t.Run("voice model replacement removal failure", func(t *testing.T) {
+		reset(t)
+		testVoiceModelReplacementRemovalFailure(t, pool)
+	})
+	t.Run("voice model explicit removal", func(t *testing.T) {
+		reset(t)
+		testVoiceModelExplicitRemoval(t, pool)
+	})
+	t.Run("voice model in use per worker", func(t *testing.T) {
+		reset(t)
+		testVoiceModelInUsePerWorker(t, pool)
+	})
+	t.Run("voice model uninstall one worker", func(t *testing.T) {
+		reset(t)
+		testVoiceModelUninstallOneWorker(t, pool)
+	})
+	t.Run("voice model removal for space", func(t *testing.T) {
+		reset(t)
+		testVoiceModelRemovalForSpace(t, pool)
+	})
+	t.Run("voice model sortformer", func(t *testing.T) {
+		reset(t)
+		testVoiceModelSortformer(t, pool)
+	})
+	for name, run := range map[string]func(*testing.T, *pgxpool.Pool){
+		"voice pipeline activation rule": testVoicePipelineActivationRule,
+		"voice claim pinned version":     testVoiceClaimPinnedVersion,
+		"voice model concurrency":        testVoiceModelConcurrency,
+		"voice archived speakers filter": testVoiceArchivedSpeakersFilter,
+	} {
+		t.Run(name, func(t *testing.T) {
+			reset(t)
+			run(t, pool)
+		})
+	}
+	t.Run("voice overview", func(t *testing.T) {
+		reset(t)
+		testVoiceOverview(t, pool)
+	})
 	t.Run("persons and attributions", func(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
 	})
+	t.Run("person figures", func(t *testing.T) {
+		reset(t)
+		testPersonFigures(t, pool)
+	})
 	t.Run("voice matching", func(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
+	})
+	t.Run("voice matching diagnostics", func(t *testing.T) {
+		reset(t)
+		testVoiceMatchingDiagnostics(t, pool)
 	})
 	t.Run("voice automation", func(t *testing.T) {
 		reset(t)
@@ -200,6 +478,38 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceVerification(t, pool)
 	})
+	t.Run("people to process", func(t *testing.T) {
+		reset(t)
+		testVoiceToProcess(t, pool)
+	})
+	t.Run("local speaker read", func(t *testing.T) {
+		reset(t)
+		testLocalSpeakerRead(t, pool)
+	})
+	t.Run("voice group by voice", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupByVoice(t, pool)
+	})
+	t.Run("notifications", func(t *testing.T) {
+		reset(t)
+		testNotifications(t, pool)
+	})
+	t.Run("notification filters", func(t *testing.T) {
+		reset(t)
+		testNotificationFilters(t, pool)
+	})
+	t.Run("notification events", func(t *testing.T) {
+		reset(t)
+		testNotificationEvents(t, pool)
+	})
+	t.Run("incident notifications", func(t *testing.T) {
+		reset(t)
+		testIncidentNotifications(t, pool)
+	})
+	t.Run("incident error code whitelist", func(t *testing.T) {
+		reset(t)
+		testIncidentErrorCodeWhitelist(t, pool)
+	})
 	t.Run("microphone track", func(t *testing.T) {
 		reset(t)
 		testMicrophoneTrack(t, pool)
@@ -212,6 +522,18 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonVoices(t, pool)
 	})
+	t.Run("person list pagination", func(t *testing.T) {
+		reset(t)
+		testPersonListPagination(t, pool)
+	})
+	t.Run("person duplicates", func(t *testing.T) {
+		reset(t)
+		testPersonDuplicates(t, pool)
+	})
+	t.Run("library index", func(t *testing.T) {
+		reset(t)
+		testLibraryIndex(t, pool)
+	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
@@ -219,6 +541,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice profile deletion", func(t *testing.T) {
 		reset(t)
 		testVoiceProfileDeletion(t, pool)
+	})
+	t.Run("person link requests", func(t *testing.T) {
+		reset(t)
+		testPersonLinkRequests(t, pool)
 	})
 	t.Run("segment corrections", func(t *testing.T) {
 		reset(t)
@@ -252,6 +578,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testSegmentExport(t, pool)
 	})
+	t.Run("delete clip", func(t *testing.T) {
+		reset(t)
+		testDeleteClip(t, pool)
+	})
 	t.Run("segment speaker", func(t *testing.T) {
 		reset(t)
 		testSegmentSpeaker(t, pool)
@@ -275,6 +605,62 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceGroupLinksIgnoreKnownNeighbors(t, pool)
 	})
+	t.Run("voice disposition", func(t *testing.T) {
+		reset(t)
+		testVoiceDisposition(t, pool)
+	})
+	t.Run("voice disposition transcript", func(t *testing.T) {
+		reset(t)
+		testVoiceDispositionTranscript(t, pool)
+	})
+	t.Run("rediarization carries dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationCarriesDispositions(t, pool)
+	})
+	t.Run("rediarization drops uncovered dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationDropsUncoveredDispositions(t, pool)
+	})
+	t.Run("rediarization conflict drops dispositions", func(t *testing.T) {
+		reset(t)
+		testRediarizationConflictDropsDispositions(t, pool)
+	})
+	t.Run("random voice counts in verification", func(t *testing.T) {
+		reset(t)
+		testRandomCountsInVerificationCounters(t, pool)
+	})
+	t.Run("ignored voice never deduced", func(t *testing.T) {
+		reset(t)
+		testIgnoredVoiceNeverDeduced(t, pool)
+	})
+	t.Run("voice refusal", func(t *testing.T) {
+		reset(t)
+		testVoiceRefusal(t, pool)
+	})
+	t.Run("refusal during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalDuringActiveAnalysis(t, pool)
+	})
+	t.Run("voice refusal cancel", func(t *testing.T) {
+		reset(t)
+		testVoiceRefusalCancel(t, pool)
+	})
+	t.Run("refusal cancel during active analysis", func(t *testing.T) {
+		reset(t)
+		testRefusalCancelDuringActiveAnalysis(t, pool)
+	})
+	t.Run("disposition during active analysis", func(t *testing.T) {
+		reset(t)
+		testDispositionDuringActiveAnalysis(t, pool)
+	})
+	t.Run("disposition waits for diarization", func(t *testing.T) {
+		reset(t)
+		testDispositionWaitsForDiarization(t, pool)
+	})
+	t.Run("dropped speaker reason names cause", func(t *testing.T) {
+		reset(t)
+		testDroppedSpeakerReasonNamesCause(t, pool)
+	})
 	t.Run("library unknown filter matches search", func(t *testing.T) {
 		reset(t)
 		testLibraryUnknownFilterMatchesSearch(t, pool)
@@ -283,9 +669,17 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPersonCorrectionsRespectVisibility(t, pool)
 	})
+	t.Run("person impact", func(t *testing.T) {
+		reset(t)
+		testPersonImpact(t, pool)
+	})
 	t.Run("voice result with expired lease", func(t *testing.T) {
 		reset(t)
 		testVoiceResultWithExpiredLease(t, pool)
+	})
+	t.Run("simulated failure trace stays clean", func(t *testing.T) {
+		reset(t)
+		testSimulatedFailureTraceIsClean(t, pool)
 	})
 	t.Run("job queue", func(t *testing.T) {
 		reset(t)
@@ -299,16 +693,63 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testJobControls(t, pool)
 	})
+	t.Run("job log lines", func(t *testing.T) {
+		reset(t)
+		testJobLogs(t, pool)
+	})
 	t.Run("worker authentication and registration", func(t *testing.T) {
 		reset(t)
 		testWorkerRegistration(t, pool)
+	})
+	t.Run("worker install invitation", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallInvitation(t, pool)
+	})
+	t.Run("worker live events", func(t *testing.T) {
+		reset(t)
+		testWorkerLiveEvents(t, pool)
+	})
+	t.Run("worker revocation", func(t *testing.T) {
+		reset(t)
+		testWorkerRevocation(t, pool)
+	})
+	t.Run("central hugging face token", func(t *testing.T) {
+		reset(t)
+		testHFToken(t, pool)
+	})
+
+	t.Run("worker update", func(t *testing.T) {
+		reset(t)
+		testWorkerUpdates(t, pool)
+	})
+	t.Run("worker latest update", func(t *testing.T) {
+		reset(t)
+		testWorkerLatestUpdates(t, pool)
+	})
+	t.Run("worker install progress", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallProgress(t, pool)
+	})
+	t.Run("hugging face fine causes", func(t *testing.T) {
+		reset(t)
+		testHFFineCauseSchema(t, pool)
+	})
+	t.Run("worker install never connected and silence", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallNeverConnectedAndSilence(t, pool)
+	})
+	t.Run("worker install refuses insecure origin", func(t *testing.T) {
+		reset(t)
+		testWorkerInstallRefusesInsecureOrigin(t, pool)
 	})
 	t.Run("worker declared models", func(t *testing.T) {
 		reset(t)
 		testWorkerModels(t, pool)
 	})
 	t.Run("account close", func(t *testing.T) { reset(t); testAccountClose(t, pool) })
+	t.Run("clip thumbnail", func(t *testing.T) { reset(t); testClipThumbnail(t, pool) })
 	t.Run("members", func(t *testing.T) { reset(t); testMembers(t, pool) })
+	t.Run("member edit", func(t *testing.T) { reset(t); testMemberEdit(t, pool) })
 	t.Run("worker administration", func(t *testing.T) {
 		reset(t)
 		testWorkerAdministration(t, pool)
@@ -324,7 +765,6 @@ func TestFoundation(t *testing.T) {
 		s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ClipRoots: []string{clipRoot}, ProbePath: "ffprobe", StabilityWindow: time.Hour}, logger)
 		// High test allowance isolates security tests from test-suite request volume.
 		ts := httptest.NewUnstartedServer(s.Handler())
-		s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 		ts.Start()
 		defer ts.Close()
 		jar, _ := cookiejar.New(nil)
@@ -424,6 +864,11 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(client, "GET", "/api/auth/me", nil, "", 200), &me)
+		// Account profile/password changes preserve this session; the behavioral suite covers revocation.
+		call(client, "PUT", "/api/account/profile", map[string]string{"username": "administrator", "display_name": "Administrator"}, me.CSRF, 200)
+		call(client, "PUT", "/api/account/password", map[string]string{"current_password": "synthetic-password", "new_password": "synthetic-password"}, me.CSRF, 200)
+		call(anon, "GET", "/api/persons/999999/avatar", nil, "", 401)
+		call(client, "GET", "/api/persons/999999/avatar", nil, "", 404)
 		// Account language (behavior in the account preferences suite).
 		call(client, "GET", "/api/account/preferences", nil, "", 200)
 		call(client, "PUT", "/api/account/preferences", map[string]any{"language": "fr"}, me.CSRF, 200)
@@ -434,6 +879,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/admin/embeddings/rebuild", map[string]string{"model": "fixture-only"}, me.CSRF, 503)
 		call(client, "GET", "/api/clips", nil, "", 200)
 		call(client, "GET", "/api/clips/999999", nil, "", 404)
+		call(client, "DELETE", "/api/admin/clips/999999", nil, me.CSRF, 404)
 		var adminID, contractClipID int64
 		if e = pool.QueryRow(ctx, `SELECT id FROM users WHERE username='administrator'`).Scan(&adminID); e != nil {
 			t.Fatal(e)
@@ -445,11 +891,39 @@ func TestFoundation(t *testing.T) {
 		if e != nil {
 			t.Fatal(e)
 		}
+		call(client, "GET", "/api/admin/metadata-location", nil, "", 200)
+		call(client, "PUT", "/api/admin/metadata-location", map[string]string{"country": "FR", "timezone": "Europe/Paris"}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/metadata", map[string]any{"game": "Synthetic game", "recorded_at": nil, "game_changed": true}, me.CSRF, 200)
+		call(client, "POST", "/api/admin/clip-metadata/reprocess", nil, me.CSRF, 200)
+		clipMetadata := call(client, "GET", "/api/clips/"+strconv64(contractClipID), nil, "", 200)
+		if !bytes.Contains(clipMetadata, []byte(`"game":"Synthetic game"`)) || !bytes.Contains(clipMetadata, []byte(`"recorded_at":null`)) {
+			t.Fatalf("manual metadata lost or unknown date guessed: %s", clipMetadata)
+		}
+		filtered := call(client, "GET", "/api/clips?game=Synthetic", nil, "", 200)
+		if !bytes.Contains(filtered, []byte(`"game":"Synthetic game"`)) {
+			t.Fatalf("game filter: %s", filtered)
+		}
+		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/metadata", map[string]any{"game": "Synthetic game", "recorded_at": "2025-01-01T23:30:00Z", "recorded_at_changed": true}, me.CSRF, 200)
+		localDay := call(client, "GET", "/api/clips?from=2025-01-02&to=2025-01-02", nil, "", 200)
+		if !bytes.Contains(localDay, []byte(`"game":"Synthetic game"`)) {
+			t.Fatalf("local date filter: %s", localDay)
+		}
+
 		call(client, "PUT", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/clips/"+strconv64(contractClipID)+"/audio-track", nil, me.CSRF, 200)
 		// Voice endpoints: contract conformity here, full behavior in the voice suite.
 		call(client, "GET", "/api/admin/voice-pipeline", nil, "", 200)
-		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "access_confirmed": false, "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
+		call(client, "GET", "/api/admin/voice-overview", nil, "", 200)
+		// Voice model manager: behavior in the voice model candidate suite.
+		call(client, "GET", "/api/admin/voice-models", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-models/candidate", map[string]any{"model_id": "pyannote-community-1"}, me.CSRF, 409)
+		call(client, "DELETE", "/api/admin/voice-models/candidate", nil, me.CSRF, 204)
+		call(client, "PATCH", "/api/admin/voice-models/pyannote-wespeaker-resnet34", map[string]any{"label": ""}, me.CSRF, 200)        // edition rules in the voice catalog edition suite
+		call(client, "POST", "/api/admin/voice-models/inspection", map[string]any{"source": "https://evil.example/a/b"}, me.CSRF, 400) // behavior in the voice model addition suite
+		call(client, "POST", "/api/admin/voice-models", map[string]any{"source": "https://evil.example/a/b", "revision": "0123456789abcdef0123456789abcdef01234567", "kind": "diarization"}, me.CSRF, 400)
+		call(client, "POST", "/api/admin/voice-models/pyannote-community-1/activate", nil, me.CSRF, 409)
+		call(client, "DELETE", "/api/admin/voice-models/pyannote-community-1/installation?worker_id=wk_any", nil, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/voice-pipeline", map[string]any{"provider": "fake", "model": "fixture-diarization", "model_version": "fixture-v1", "min_fingerprint_seconds": 1.0, "min_quality": 0.5, "fake": map[string]any{"speakers": 2, "dimensions": 4}}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/clips/"+strconv64(contractClipID)+"/voice", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/voice", nil, "", 200)
 		// Person and attribution endpoints, on a synthetic local speaker.
@@ -465,11 +939,13 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/persons?q=contract", nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID), nil, "", 200)
 		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/voices", nil, "", 200)
+		call(client, "GET", "/api/persons/"+strconv64(contractPerson.ID)+"/impact", nil, "", 200) // counters: person impact suite
 		call(client, "GET", "/api/clip-filters", nil, "", 200)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
 		call(client, "POST", speakerPath+"/validation", map[string]any{"new_person_name": "Late"}, me.CSRF, 409)
 		call(client, "POST", speakerPath+"/correction", map[string]any{"new_person_name": "Corrected", "expected_person_id": contractPerson.ID}, me.CSRF, 200)
 		call(client, "GET", speakerPath+"/history", nil, "", 200)
+		call(client, "GET", speakerPath, nil, "", 200)
 		call(client, "GET", speakerPath+"/excerpt", nil, "", 404)
 		// Person corrections (behavior in the person corrections suite).
 		var absorbed, kept struct {
@@ -482,6 +958,12 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/person-events?person_id="+strconv64(absorbed.ID), nil, "", 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(kept.ID), nil, me.CSRF, 404)
+		// Disposition and refusal (behavior in the voice disposition suite).
+		call(client, "PUT", "/api/local-speakers/999999/disposition", map[string]any{"disposition": "ignored"}, me.CSRF, 404)
+		call(client, "DELETE", "/api/local-speakers/999999/disposition", nil, me.CSRF, 404)
+		call(client, "POST", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusal", map[string]any{"person_id": 999999}, me.CSRF, 404)
+		call(client, "DELETE", "/api/local-speakers/"+strconv64(contractSpeakerID)+"/refusals/999999", nil, me.CSRF, 200)
+		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random", "local_speaker_ids": []int64{1}}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
@@ -494,6 +976,26 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", personPath, map[string]any{"username": "nobody"}, me.CSRF, 404)
 		call(client, "GET", "/api/me/person", nil, "", 200)
 		call(client, "DELETE", personPath, nil, me.CSRF, 200)
+		// Exercise each link request operation through the OpenAPI validator.
+		var linkRequest struct {
+			ID int64 `json:"id"`
+		}
+		requestLink := func() {
+			t.Helper()
+			body := call(client, "POST", "/api/me/person/request", map[string]any{"person_id": contractPerson.ID}, me.CSRF, 201)
+			if err := json.Unmarshal(body, &linkRequest); err != nil || linkRequest.ID == 0 {
+				t.Fatalf("link request response: %s %v", body, err)
+			}
+		}
+		requestLink()
+		call(client, "GET", "/api/me/person/request", nil, "", 200)
+		call(client, "GET", "/api/admin/person-link-requests", nil, "", 200)
+		call(client, "POST", "/api/admin/person-link-requests/"+strconv64(linkRequest.ID)+"/refuse", nil, me.CSRF, 200)
+		requestLink()
+		call(client, "POST", "/api/admin/person-link-requests/"+strconv64(linkRequest.ID)+"/approve", nil, me.CSRF, 200)
+		call(client, "DELETE", "/api/me/person", nil, me.CSRF, 200)
+		requestLink()
+		call(client, "DELETE", "/api/me/person/request", nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/"+strconv64(contractPerson.ID)+"/voice-profile", nil, me.CSRF, 200)
 		call(client, "DELETE", "/api/persons/999999/voice-profile", nil, me.CSRF, 404)
 		// Accuracy measure and automation switch (behavior in the voice automation suite).
@@ -511,6 +1013,9 @@ func TestFoundation(t *testing.T) {
 		// Review of unknown and ambiguous voices (behavior in the voice verification suite).
 		call(client, "GET", "/api/voice-verification", nil, "", 200)
 		call(client, "GET", "/api/voice-verification?level=ambiguous&page=1&page_size=5", nil, "", 200)
+		// Clips with voices to settle (behavior in the people to-process suite).
+		call(client, "GET", "/api/people/to-process", nil, "", 200)
+		call(client, "GET", "/api/people/to-process?filter=group&page=1&page_size=5", nil, "", 200)
 		// Microphone track of a clip: view, replacement, disabling and removal.
 		micPath := "/api/clips/" + strconv64(contractClipID) + "/microphone-track"
 		call(client, "GET", micPath, nil, "", 200)
@@ -537,12 +1042,32 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "GET", "/api/admin/workers", nil, "", 200)
 		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 200)
+		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", map[string]any{"endpoint_override": "ftp://not-http"}, me.CSRF, 400)
+		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", map[string]any{"endpoint_override": "http://127.0.0.1:9001"}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", nil, me.CSRF, 200)
+		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/transcription/test", nil, me.CSRF, 200)
+		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-models/retry", nil, me.CSRF, 409)
 		renewedBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/token", nil, me.CSRF, 201)
 		if e = json.Unmarshal(renewedBody, &contractWorker); e != nil || contractWorker.Token == "" {
 			t.Fatalf("contract worker token renewal: %s %v", renewedBody, e)
 		}
 		workerToken = contractWorker.Token
 		call(client, "POST", "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"contract.synthetic"}}, "", 200)
+		call(client, "GET", "/api/worker/voice-models", nil, "", 200)
+		call(client, "POST", "/api/worker/voice-models/status", map[string]any{"model_id": "pyannote-community-1", "state": "removed"}, "", 204)
+		call(client, "GET", "/api/admin/voice-models/workers", nil, "", 200)
+		orderBody := call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", map[string]any{"model_id": "pyannote-wespeaker-resnet34", "idempotency_key": "contract-order-0001"}, me.CSRF, 201)
+		var contractOrder struct {
+			OrderID string `json:"order_id"`
+		}
+		if e = json.Unmarshal(orderBody, &contractOrder); e != nil || contractOrder.OrderID == "" {
+			t.Fatalf("contract order: %s %v", orderBody, e)
+		}
+		call(client, "POST", "/api/worker/voice-model-orders/"+contractOrder.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/voice-model-replacements/diarization", nil, me.CSRF, 404)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", nil, "", 200)
+		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-removals", map[string]any{"model_id": "unknown-model", "idempotency_key": "contract-remove-0001"}, me.CSRF, 400)
+		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
 		var claimedContractJob struct {
 			LeaseToken string `json:"lease_token"`
@@ -585,6 +1110,15 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", failedPath+"/retry", nil, me.CSRF, 200)
 		call(client, "DELETE", failedPath, nil, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
+		// A revoked Worker leaves the list only once its machine confirmed the revocation.
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
+		// An explicit force=false keeps the protection; only force=true skips the confirmation.
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record?force=false", nil, me.CSRF, 409)
+		if _, e = pool.Exec(ctx, `UPDATE workers SET revocation_acknowledged_at=now() WHERE id=$1`, contractWorker.ID); e != nil {
+			t.Fatal(e)
+		}
+		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 204)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 404)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "GET", "/api/admin/vocabulary", nil, "", 200)
 		vocabularyBody := call(client, "POST", "/api/admin/vocabulary", map[string]any{"term": "Synthetic term", "variants": []string{"synthetic variant"}, "preferred_spelling": "Synthetic term", "active": true}, me.CSRF, 201)
@@ -607,6 +1141,22 @@ func TestFoundation(t *testing.T) {
 			t.Fatalf("source response: %v %s", e, sourceResponse)
 		}
 		call(client, "PUT", "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Voice"}, me.CSRF, 200)
+		// Private folders: shape only here; access rules in the private folders suite.
+		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": true}, me.CSRF, 200)
+		call(client, "GET", "/api/library/folders", nil, "", 200)
+		// The explorer and the automatic analysis setting: contract conformity here, behavior in their own suites.
+		call(client, "GET", "/api/library/explorer?path=&limit=10&offset=0", nil, "", 200)
+		call(client, "POST", "/api/library/explorer/index", map[string]string{"path": "contract.mp4"}, me.CSRF, 409)
+		call(client, "GET", "/api/admin/settings/automatic-analysis", nil, "", 200)
+		call(client, "PUT", "/api/admin/settings/automatic-analysis", map[string]bool{"enabled": true}, me.CSRF, 200)
+		// Indexation of the whole video root (#275): conformity here, behavior in the library index suite.
+		call(client, "GET", "/api/admin/library/index-runs/preview", nil, "", 409)
+		call(client, "GET", "/api/admin/library/index-runs/current", nil, "", 200)
+		call(client, "POST", "/api/admin/library/index-runs", map[string]string{"mode": "cards"}, me.CSRF, 409)
+		call(client, "POST", "/api/admin/library/index-runs/999999/pause", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/library/index-runs/999999/resume", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/library/index-runs/999999/cancel", nil, me.CSRF, 404)
+		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
 		call(client, "PUT", sourcePath+"/microphone-track", map[string]any{"title": "Voice", "person_id": contractPerson.ID}, me.CSRF, 200)
@@ -638,6 +1188,31 @@ func TestFoundation(t *testing.T) {
 		call(user, "GET", "/api/admin/settings", nil, "", 403)
 		call(user, "GET", "/api/admin/vocabulary", nil, "", 403)
 		call(user, "GET", "/api/admin/users", nil, "", 403)
+		// Member editing: validate the new responses and permissions against OpenAPI too.
+		memberPath := fmt.Sprintf("/api/admin/members/%d", users[0].ID)
+		var playerSession struct {
+			CSRF string `json:"csrf_token"`
+		}
+		json.Unmarshal(call(user, "GET", "/api/auth/me", nil, "", 200), &playerSession)
+		for _, action := range []struct{ method, suffix string }{
+			{"POST", "/password"}, {"DELETE", "/sessions"}, {"DELETE", "/discord"},
+		} {
+			call(anon, action.method, memberPath+action.suffix, nil, "", 401)
+			call(user, action.method, memberPath+action.suffix, nil, playerSession.CSRF, 403)
+			call(client, action.method, "/api/admin/members/999999"+action.suffix, nil, me.CSRF, 404)
+		}
+		call(client, "GET", memberPath, nil, "", 200)
+		call(anon, "GET", memberPath+"/avatar", nil, "", 401)
+		call(user, "GET", memberPath+"/avatar", nil, "", 403)
+		call(client, "GET", memberPath+"/avatar", nil, "", 404)
+		call(client, "PATCH", memberPath, map[string]any{"display_name": "Contract member", "language": "fr"}, me.CSRF, 200)
+		call(client, "DELETE", memberPath+"/discord", nil, me.CSRF, 409)
+		if _, e = pool.Exec(ctx, `UPDATE users SET discord_id='contract-member' WHERE id=$1`, users[0].ID); e != nil {
+			t.Fatal(e)
+		}
+		call(client, "DELETE", memberPath+"/discord", nil, me.CSRF, 200)
+		call(client, "DELETE", memberPath+"/sessions", nil, me.CSRF, 200)
+		call(client, "POST", memberPath+"/password", nil, me.CSRF, 200)
 		call(client, "POST", "/api/admin/users/99999/approve", nil, me.CSRF, 404)
 		call(client, "POST", "/api/auth/logout", nil, me.CSRF, 200)
 		call(client, "GET", "/api/auth/me", nil, "", 401)
@@ -700,25 +1275,31 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/setup-progress", nil, "", 200)
 		call(client, "PUT", "/api/admin/setup-progress", map[string]string{"step": "discord", "state": "skipped"}, me.CSRF, 200)
 		call(client, "POST", "/api/admin/setup-progress/dismiss", nil, me.CSRF, 200)
+		call(client, "PATCH", "/api/clips/"+strconv64(contractClipID), map[string]string{"visibility": "private"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "corrigé", "expected_version": 0}, me.CSRF, 404)
 		if _, e = pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.2','contract-transcription','done',$2::jsonb)`, contractClipID, `{"provider":"fixture","model":"m","audio_stream_index":2,"segments":[{"start":0,"end":1,"text":"original","words":[]}]}`); e != nil {
 			t.Fatal(e)
 		}
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "corrigé", "expected_version": 0, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/text", map[string]any{"text": "encore", "expected_version": 0}, me.CSRF, 409)
+		// Scheduling a transcription from the clip page: the clip has a correction, so replacing it needs an explicit confirmation.
+		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/transcription", map[string]any{}, me.CSRF, 409)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/segments/0/history", nil, "", 200)
 		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/obsolete-corrections", nil, "", 200)
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 0}, me.CSRF, 409)
 		call(client, "POST", "/api/clips/"+strconv64(contractClipID)+"/segments/0/restore", map[string]any{"original": true, "expected_version": 1, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "GET", "/api/admin/segment-corrections/export", nil, "", 200)
-		call(client, "POST", "/api/admin/master-key/export", nil, me.CSRF, 200) // behavior in the master key suite
+		call(client, "GET", "/api/clips/"+strconv64(contractClipID)+"/analysis", nil, "", 200) // the read-only view; its behavior and stream in the analysis view suite
+		call(client, "POST", "/api/admin/master-key/export", nil, me.CSRF, 200)                // behavior in the master key suite
+		call(client, "DELETE", "/api/account/discord", nil, me.CSRF, 200)                      // the Discord identity linked earlier is removed
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/9/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 0}, me.CSRF, 404)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": contractSpeakerID, "expected_version": 2, "reason": "contrat"}, me.CSRF, 200)
 		call(client, "PUT", "/api/clips/"+strconv64(contractClipID)+"/segments/0/speaker", map[string]any{"local_speaker_id": nil, "expected_version": 2}, me.CSRF, 409)
+		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || path == "/api/account/avatar" || strings.HasPrefix(path, "/api/uploads") || path == "/api/clips/{id}/media" || path == "/api/admin/clips/{id}/transcription" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" {
-					continue // These contract operations are covered by their upload, search, worker, member, account, embedding and transcription suites.
+				if strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" {
+					continue // These contract operations are covered by their upload, search, worker, member, account, embedding, transcription, job log, worker update and Hugging Face token suites.
 				}
 				if !seen[method+" "+path] {
 					t.Errorf("untested contract operation %s %s", method, path)
@@ -787,25 +1368,46 @@ func TestFoundation(t *testing.T) {
 			}
 		}
 	})
+	t.Run("transcription claim version gate", func(t *testing.T) {
+		reset(t)
+		testTranscriptionClaimVersionGate(t, pool)
+	})
+	t.Run("pending transcription diagnosis", func(t *testing.T) {
+		reset(t)
+		testPendingTranscriptionDiagnosis(t, pool)
+	})
+	t.Run("worker not claiming diagnosis", func(t *testing.T) {
+		reset(t)
+		testWorkerNotClaimingDiagnosis(t, pool)
+	})
+	t.Run("worker transcription reachability", func(t *testing.T) {
+		reset(t)
+		testWorkerReachabilityReporting(t, pool)
+	})
 	if os.Getenv("SNITCH_E2E") == "1" {
 		suites := []string{
-			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts",
+			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
 			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
-			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts",
+			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
 			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
-			"admin-workers.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
+			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
-			"people-groups.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts", "video-storage.spec.ts",
+			"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
+			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
+			"library-explorer.spec.ts",
+			"import-server.spec.ts",
+		}
+		if os.Getenv("SNITCH_E2E_UI_COMPARE") == "1" {
+			suites = []string{"ui-compare.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_FOUNDATION") == "1" {
 			suites = []string{"setup-wizard.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SHELL") == "1" {
-			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts"}
+			suites = []string{"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
-			suites = []string{"account-settings.spec.ts"}
+			suites = []string{"account-settings.spec.ts", "account-close.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEMANTIC") == "1" {
 			suites = []string{"admin-semantic.spec.ts"}
@@ -825,6 +1427,12 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_IMPORT") == "1" {
 			suites = []string{"import.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_IMPORT_SERVER") == "1" {
+			suites = []string{"import-server.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_EXPLORER") == "1" {
+			suites = []string{"library-explorer.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_LIBRARY") == "1" {
 			suites = []string{"library.spec.ts"}
 		}
@@ -834,8 +1442,14 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_JOBS") == "1" {
 			suites = []string{"admin-queue-folders.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_CLIP_ANALYSIS") == "1" {
+			suites = []string{"clip-analysis.spec.ts", "clip-stepper-live.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
 			suites = []string{"admin-workers.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_WORKERS_LIVE") == "1" {
+			suites = []string{"admin-workers-live.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_CONTROLS") == "1" {
 			suites = []string{"admin-queue-folders.spec.ts"}
@@ -855,14 +1469,32 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_VOICE") == "1" {
 			suites = []string{"people.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_VOICE_REPLACEMENT") == "1" {
+			suites = []string{"admin-voice-replacement.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_ADD") == "1" {
+			suites = []string{"admin-voice-add.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_PERSONS") == "1" {
 			suites = []string{"people.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_QUEUE") == "1" {
+			suites = []string{"admin-queue-analysis.spec.ts", "admin-queue-folders.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_CLIP_ANALYSIS") == "1" {
+			suites = []string{"clip-analysis.spec.ts", "clip-stepper-live.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_CLIP_VOICES") == "1" {
+			suites = []string{"clip-voices.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_NOTIFICATIONS") == "1" {
+			suites = []string{"notifications.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_MATCHING") == "1" {
 			suites = []string{"admin-voice.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_VOICE_PROFILE") == "1" {
-			suites = []string{"account-settings.spec.ts"}
+			suites = []string{"voice-profile.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_AUTOMATION") == "1" {
 			suites = []string{"admin-voice.spec.ts"}
@@ -880,10 +1512,13 @@ func TestFoundation(t *testing.T) {
 			suites = []string{"people.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE") == "1" {
-			suites = []string{"people.spec.ts"}
+			suites = []string{"people.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_PEOPLE_PROCESS") == "1" {
+			suites = []string{"people-process.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PEOPLE_GROUPS") == "1" {
-			suites = []string{"people-groups.spec.ts"}
+			suites = []string{"people-groups.spec.ts", "people-groups-disposition.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_PERSON_CORRECTIONS") == "1" {
 			suites = []string{"people.spec.ts", "clip-corrections.spec.ts"}
@@ -893,6 +1528,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_SEGMENT_REINDEX") == "1" {
 			suites = []string{"segment-reindex.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_VOICE_REDIARIZATION") == "1" {
+			suites = []string{"voice-rediarization.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_SEARCH_CORRECTIONS") == "1" {
 			suites = []string{"search-corrections.spec.ts"}
@@ -912,6 +1550,13 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_SEGMENT_RETRANSCRIPTION") == "1" {
 			suites = []string{"clip-corrections.spec.ts", "segment-replace-corrections.spec.ts"}
 		}
+		// CI splits the browser suites over parallel jobs, each with its own PostgreSQL: "i/n" runs shard i of n.
+		if spec := os.Getenv("SNITCH_E2E_SHARD"); spec != "" {
+			var e error
+			if suites, e = shardSuites(suites, spec); e != nil {
+				t.Fatal(e)
+			}
+		}
 		for _, suite := range suites {
 			t.Run("browser/"+suite, func(t *testing.T) {
 				reset(t)
@@ -923,11 +1568,13 @@ func TestFoundation(t *testing.T) {
 				sourceRoot := ""
 				videoRoot := ""
 				videoRoot2 := ""
+				explorerRoot := ""
+				seedDir := ""
 				providerURL := ""
 				if suite == "admin-semantic.spec.ts" || suite == "segment-reindex.spec.ts" {
 					providerURL = newReindexProvider(t).srv.URL
 				}
-				if suite == "admin-folders.spec.ts" || suite == "people.spec.ts" {
+				if suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "voice-profile.spec.ts" {
 					sourceRoot = t.TempDir()
 					if e = os.WriteFile(filepath.Join(sourceRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o400); e != nil {
 						t.Fatal(e)
@@ -938,7 +1585,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
@@ -946,7 +1593,65 @@ func TestFoundation(t *testing.T) {
 					config.UploadSessionTTL = time.Hour
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
 				}
-				if suite == "video-storage.spec.ts" {
+				if suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" {
+					// The explorer's synthetic tree (ADR 0032): an imported clip, unindexed videos and a private folder.
+					explorerRoot = t.TempDir()
+					config.UploadRoot = t.TempDir()
+					config.ProbePath = syntheticProbeFixture(t)
+					config.StabilityWindow = 10 * time.Millisecond
+					config.ReconcileInterval = 100 * time.Millisecond
+					for dir, files := range map[string][]string{
+						"":                {"top.mp4"},
+						"league/2026":     {"match.mp4", "other.mp4"},
+						"league/2026/sub": {"inner.mp4"},
+						"secret":          {"plan.mp4"},
+						"media":           {"clip.mp4", "plain.mp4"},
+					} {
+						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
+							t.Fatal(e)
+						}
+						for _, name := range files {
+							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-explorer "+name), 0o600); e != nil {
+								t.Fatal(e)
+							}
+						}
+					}
+					// More folders than one page of the explorer (100): the tree must list them all (#271).
+					for i := 1; i <= 120; i++ {
+						if e = os.MkdirAll(filepath.Join(explorerRoot, "bulk", fmt.Sprintf("dossier-%03d", i)), 0o700); e != nil {
+							t.Fatal(e)
+						}
+					}
+				}
+				if suite == "ui-compare.spec.ts" {
+					// Arborescence synthétique de la comparaison visuelle (#251), comme celle du prototype.
+					explorerRoot = t.TempDir()
+					seedDir = t.TempDir()
+					stopSeed := make(chan struct{})
+					defer close(stopSeed)
+					watchUICompareSeed(ctx, pool, seedDir, stopSeed)
+					config.StabilityWindow = 10 * time.Millisecond
+					config.ReconcileInterval = 100 * time.Millisecond
+					for dir, files := range map[string][]string{
+						"2026/novembre":        {"reunion-prepa-s12.mp4", "essai-micro-hf.mov", "rush-nuit-01.mp4", "rush-nuit-02.mp4"},
+						"2026/octobre":         {"interview-claire.mp4", "brief-lumiere.mp4", "broll-ville.mp4"},
+						"2026/octobre/parking": {"rushes-prise-3.mp4", "prise-1.mp4", "prise-2.mp4", "prise-4.mp4"},
+						"2026/septembre":       {"visio-budget.mp4", "reperages-studio-b.mp4"},
+						"archives-2025":        {"bout-a-bout-v3.mov"},
+						"perso-thomas":         {"vlog-01.mp4"},
+						".":                    {"import-sans-dossier.mp4"},
+					} {
+						if e = os.MkdirAll(filepath.Join(explorerRoot, dir), 0o700); e != nil {
+							t.Fatal(e)
+						}
+						for _, name := range files {
+							if e = os.WriteFile(filepath.Join(explorerRoot, dir, name), []byte("synthetic-ui-compare "+name), 0o600); e != nil {
+								t.Fatal(e)
+							}
+						}
+					}
+				}
+				if suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" {
 					videoRoot = t.TempDir()
 					videoRoot2 = t.TempDir()
 					if e = os.WriteFile(filepath.Join(videoRoot, "browser-fixture.mp4"), []byte("synthetic-browser-video"), 0o600); e != nil {
@@ -954,7 +1659,10 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
-				if suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" {
+				if suite == "admin-voice-add.spec.ts" {
+					s.hf = syntheticHuggingFace(t)
+				}
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}
@@ -964,13 +1672,12 @@ func TestFoundation(t *testing.T) {
 					browserDiscord(t, s)
 				}
 				ts := httptest.NewUnstartedServer(s.Handler())
-				s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 				ts.Start()
 				defer ts.Close()
 				args := []string{"run", "test:e2e", "--", suite}
 				cmd := exec.Command("npm", args...)
 				cmd.Dir = "../../../web"
-				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2)
+				cmd.Env = append(os.Environ(), "SNITCH_TEST_URL="+ts.URL, "SNITCH_TEST_CODE="+code, "SNITCH_TEST_SOURCE_ROOT="+sourceRoot, "SNITCH_TEST_EMBEDDINGS_URL="+providerURL, "SNITCH_TEST_UPLOAD_CHUNK=16384", "SNITCH_TEST_VIDEO_ROOT="+videoRoot, "SNITCH_TEST_VIDEO_ROOT_2="+videoRoot2, "SNITCH_TEST_EXPLORER_ROOT="+explorerRoot, "SNITCH_UI_SEED_DIR="+seedDir)
 				out, e := cmd.CombinedOutput()
 				t.Log(string(out))
 				if e != nil {

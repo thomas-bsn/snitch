@@ -37,7 +37,7 @@ func (s *Server) listJobs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	pageResult, err := s.Jobs.List(r.Context(), jobs.Filter{Status: jobs.Status(query.Get("status")), ClipID: clipID, Step: query.Get("step"), Page: page, PageSize: pageSize})
+	pageResult, err := s.Jobs.List(r.Context(), jobs.Filter{Workflow: query.Get("workflow"), Status: jobs.Status(query.Get("status")), ClipID: clipID, Step: query.Get("step"), Page: page, PageSize: pageSize})
 	if errors.Is(err, jobs.ErrInvalidInput) {
 		fail(w, http.StatusBadRequest, "invalid_job_filter")
 		return
@@ -56,14 +56,19 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 		InputVersion string `json:"input_version"`
 		Priority     int    `json:"priority"`
 		MaxAttempts  int    `json:"max_attempts"`
+		// RequestedModelID asks for one catalogue fingerprint model (benchmark); the active model otherwise.
+		RequestedModelID string `json:"requested_model_id"`
 	}
 	if !decode(w, r, &input) {
+		return
+	}
+	if s.refuseWhileAnalyzing(w, r, input.ClipID) {
 		return
 	}
 	if isTranscriptionStep(input.Step) && input.ClipID > 0 && !s.correctionsGuard(w, r, input.ClipID) {
 		return
 	}
-	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: input.ClipID, Step: input.Step, InputVersion: input.InputVersion, Priority: input.Priority, MaxAttempts: input.MaxAttempts})
+	job, created, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: input.ClipID, Step: input.Step, InputVersion: input.InputVersion, Priority: input.Priority, MaxAttempts: input.MaxAttempts, RequestedModelID: input.RequestedModelID})
 	switch {
 	case errors.Is(err, jobs.ErrInvalidInput):
 		fail(w, http.StatusBadRequest, "invalid_job")
@@ -97,7 +102,7 @@ func (s *Server) scheduleTranscription(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "invalid_audio_stream")
 		return
 	}
-	if !s.correctionsGuard(w, r, clipID) {
+	if s.refuseWhileAnalyzing(w, r, clipID) || !s.correctionsGuard(w, r, clipID) {
 		return
 	}
 	job, created, err := s.scheduleResolvedTranscription(r.Context(), clipID, input.AudioStreamIndex, true)

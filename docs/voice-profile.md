@@ -4,7 +4,11 @@ Périmètre du ticket 41 (phase 5). Le glossaire, l'ADR et la feuille de route s
 
 ## Lien Personne et compte
 
-Un administrateur lie une Personne à un compte par son nom (`PUT /api/admin/persons/{id}/account`) ou supprime le lien (`DELETE`). Une Personne a au plus un compte, un compte au plus une Personne (`409 account_already_linked`). Le lien ne supprime jamais rien. `GET /api/me/person` renvoie la Personne du compte connecté (`404 no_linked_person` sinon).
+Une Personne a au plus un compte, un compte au plus une Personne (`persons.user_id` unique, `409 account_already_linked`). Le lien ne supprime jamais rien.
+
+Un utilisateur demande à lier son compte à une Personne existante (`POST /api/me/person/request`, message facultatif) ; un Administrateur approuve (`POST /api/admin/person-link-requests/{id}/approve`) ou refuse (`…/refuse`). Approuver lie le compte demandeur et **remplace** un éventuel lien existant sur cette Personne : l'ancien compte perd la liaison. La demande la plus récente se consulte (`GET /api/me/person/request`) et s'annule tant qu'elle est en attente (`DELETE /api/me/person/request`). Un compte a au plus une demande en attente, une Personne aussi (`409 request_pending`, `409 person_request_pending`) ; un compte déjà lié doit se délier d'abord. Le déliement se fait par l'Administrateur (`DELETE /api/admin/persons/{id}/account`) ou par le compte lié lui-même (`DELETE /api/me/person`). `GET /api/me/person` renvoie la Personne du compte connecté (`404 no_linked_person` sinon).
+
+Chaque demande, approbation, refus, annulation, liaison et déliaison est consignée dans `person_link_events` (immuable, sans donnée vocale) : action, Personne (id et nom au moment), compte concerné, compte remplacé le cas échéant, auteur et date. Voir l'[ADR 0018](adr/0018-liaison-compte-personne-et-validation.md).
 
 ## Voir ses clips
 

@@ -6,10 +6,17 @@ export type Clip = components["schemas"]["Clip"];
 export type ClipPage = components["schemas"]["ClipPage"];
 export type ClipFilterOptions = components["schemas"]["ClipFilterOptions"];
 export type ClipVoice = components["schemas"]["ClipVoice"];
+export type SpeakerCoverage = components["schemas"]["SpeakerCoverage"];
 export type LocalSpeaker = components["schemas"]["LocalSpeaker"];
 export type TranscriptSegment = components["schemas"]["TranscriptSegment"];
 export type SegmentHistory = components["schemas"]["SegmentHistory"];
 export type Person = components["schemas"]["Person"];
+
+/** What the clip is called everywhere: the administrator's title, else the file name. */
+export const clipTitle = (clip: {
+  display_title?: string | null;
+  original_name: string;
+}) => clip.display_title || clip.original_name;
 
 export const CLIP_STATES = [
   "ready",
@@ -19,48 +26,10 @@ export const CLIP_STATES = [
 ] as const;
 export type ClipState = (typeof CLIP_STATES)[number];
 
-export const PAGE_SIZE = 12;
-
 const failure = (error: unknown): { ok: false; code: string } => ({
   ok: false,
   code: errorCode(error) ?? "unknown",
 });
-
-/** The filters of the library, as they live in the address. */
-export type LibraryFilters = {
-  from: string;
-  to: string;
-  source: string;
-  owner: string;
-  /** A Person's id, or "unknown" for the voices nobody identified. */
-  person: string;
-  state: string;
-  page: number;
-};
-
-const positive = (value: string) =>
-  /^[1-9]\d*$/.test(value) ? Number(value) : undefined;
-
-export async function fetchClips(
-  filters: LibraryFilters,
-): Promise<Result<ClipPage>> {
-  const { data, error } = await api.GET("/api/clips", {
-    params: {
-      query: {
-        page: filters.page,
-        page_size: PAGE_SIZE,
-        from: filters.from || undefined,
-        to: filters.to || undefined,
-        source_id: positive(filters.source),
-        owner_id: positive(filters.owner),
-        status: CLIP_STATES.find((state) => state === filters.state),
-        person_id: positive(filters.person),
-        person_unknown: filters.person === "unknown" ? true : undefined,
-      },
-    },
-  });
-  return data ? { ok: true, value: data } : failure(error);
-}
 
 export async function fetchFilterOptions(): Promise<
   Result<{ options: ClipFilterOptions; persons: Person[] }>

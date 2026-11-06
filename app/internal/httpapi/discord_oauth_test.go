@@ -29,13 +29,18 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	var logs bytes.Buffer
 	s := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(&logs, nil)))
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	var identity atomic.Value
 	identity.Store("123456")
 	var mode atomic.Value
 	mode.Store("ok")
+	var globalName atomic.Value
+	globalName.Store("Fixture Display")
+	// The Discord handle the fixture answers: "administrator" collides with the local administrator.
+	var handle atomic.Value
+	handle.Store("administrator")
+	identity.Store("999999")
 	entered := make(chan struct{}, 2)
 	release := make(chan struct{})
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -45,7 +50,7 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 				<-release
 			}
 			if mode.Load().(string) == "token-error" {
-				reply(w, 500, map[string]string{"error": "fixture-secret"})
+				reply(w, 400, map[string]string{"error": "invalid_client", "error_description": "fixture-secret"})
 				return
 			}
 			if mode.Load().(string) == "malformed-token" {
@@ -55,11 +60,15 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 			reply(w, 200, map[string]string{"access_token": "fixture-token"})
 			return
 		}
+		if mode.Load().(string) == "user-unauthorized" {
+			reply(w, 401, map[string]any{"code": 0, "message": "401: Unauthorized fixture-secret"})
+			return
+		}
 		if mode.Load().(string) == "invalid-user" {
 			reply(w, 200, map[string]string{"id": ""})
 			return
 		}
-		reply(w, 200, map[string]string{"id": identity.Load().(string), "username": "administrator"})
+		reply(w, 200, map[string]string{"id": identity.Load().(string), "username": handle.Load().(string), "global_name": globalName.Load().(string)})
 	}))
 	defer provider.Close()
 	s.Config.DiscordTokenURL = provider.URL + "/token"
@@ -235,12 +244,29 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	call(visitor, "GET", path, "", "", 400)
-	for _, failure := range []string{"token-error", "malformed-token", "invalid-user"} {
-		mode.Store(failure)
+	for _, failure := range []struct{ mode, step, reason, status, discord string }{
+		{"token-error", "token_exchange", "http_status", `"status":400`, `"discord_error":"invalid_client"`},
+		{"malformed-token", "token_exchange", "invalid_response", `"status":200`, ""},
+		{"user-unauthorized", "profile_fetch", "http_status", `"status":401`, `"discord_error":"0"`},
+		{"invalid-user", "profile_fetch", "invalid_response", `"status":200`, ""},
+	} {
+		mode.Store(failure.mode)
+		logs.Reset()
 		path = start(visitor, false)
 		_, body := call(visitor, "GET", path, "", "", 502)
 		if string(bytes.TrimSpace(body)) != `{"error":"discord_unavailable"}` {
 			t.Fatal(string(body))
+		}
+		line := logs.String()
+		for _, want := range []string{"discord oauth step failed", `"step":"` + failure.step + `"`, `"reason":"` + failure.reason + `"`, failure.status, failure.discord} {
+			if !strings.Contains(line, want) {
+				t.Fatalf("%s: log lacks %q: %s", failure.mode, want, line)
+			}
+		}
+		for _, secret := range []string{"fixture-secret", "fixture-token", "fixture-app", "snitch_oauth", "snitch_session", "code="} {
+			if strings.Contains(line, secret) {
+				t.Fatalf("%s: log leaks %q: %s", failure.mode, secret, line)
+			}
 		}
 		call(visitor, "GET", path, "", "", 400)
 		call(admin, "POST", "/api/auth/login", `{"username":"administrator","password":"synthetic-password"}`, "", 200)
@@ -307,9 +333,31 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	active := client()
 	call(active, "GET", start(active, false), "", "", 303)
 	_, body := call(active, "GET", "/api/auth/me", "", "", 200)
-	if !bytes.Contains(body, []byte(`"username":"discord_999999"`)) {
+	// A handle already taken by a local account is never an identity match: a technical name is allocated.
+	if !bytes.Contains(body, []byte(`"username":"discord_`)) {
 		t.Fatal(string(body))
 	}
+	// A free handle becomes the username, so the interface shows the person's Discord name.
+	identity.Store("888888")
+	handle.Store("lastplayergs")
+	fresh := client()
+	call(fresh, "GET", start(fresh, false), "", "", 303)
+	_, body = call(fresh, "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"username":"lastplayergs"`)) {
+		t.Fatal(string(body))
+	}
+	// An account still named "discord_…" adopts its handle at its next sign-in when it is free.
+	if _, err := pool.Exec(context.Background(), `UPDATE users SET username='discord_888888' WHERE username='lastplayergs'`); err != nil {
+		t.Fatal(err)
+	}
+	again := client()
+	call(again, "GET", start(again, false), "", "", 303)
+	_, body = call(again, "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"username":"lastplayergs"`)) {
+		t.Fatal(string(body))
+	}
+	handle.Store("administrator")
+	identity.Store("999999")
 	t.Run("session persistence failures return browser navigation to a friendly notice", func(t *testing.T) {
 		visitor := client()
 		path := start(visitor, false)
@@ -403,6 +451,24 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 	if relinked.Header.Get("Location") != "/account?notice=discord_linked" {
 		t.Fatalf("link return: %s", relinked.Header.Get("Location"))
 	}
+	// Only the display name is kept, read-only: global_name, else the username. No token is ever stored.
+	_, body = call(locals[winner], "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"discord_username":"administrator"`)) || !bytes.Contains(body, []byte(`"discord_name":"Fixture Display"`)) || bytes.Contains(body, []byte("fixture-token")) {
+		t.Fatalf("linked Discord name: %s", body)
+	}
+	globalName.Store("")
+	call(locals[winner], "GET", start(locals[winner], true), "", "", 303)
+	_, body = call(locals[winner], "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(body, []byte(`"discord_name":"administrator"`)) {
+		t.Fatalf("username fallback: %s", body)
+	}
+	globalName.Store("Changed display")
+	call(reconnect, "GET", start(reconnect, false), "", "", 303)
+	_, refreshed := call(reconnect, "GET", "/api/auth/me", "", "", 200)
+	if !bytes.Contains(refreshed, []byte(`"discord_name":"Changed display"`)) {
+		t.Fatalf("sign-in kept a stale Discord name: %s", refreshed)
+	}
+	globalName.Store("Fixture Display")
 	call(reconnect, "GET", start(reconnect, false), "", "", 303)
 	s.Config.DiscordTokenURL = ":invalid-provider-url"
 	unavailable := client()
@@ -412,5 +478,170 @@ func testDiscordOAuth(t *testing.T, pool *pgxpool.Pool) {
 		if strings.Contains(logs.String(), sensitive) {
 			t.Fatal("OAuth credentials appeared in logs")
 		}
+	}
+}
+
+// The return address sent to Discord is fixed when the sign-in starts and replayed verbatim at
+// the callback, whatever proxy headers the callback carries.
+func testDiscordRedirectStability(t *testing.T, pool *pgxpool.Pool) {
+	var tokenRedirects, tokenCodes []string
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/token" {
+			r.ParseForm()
+			tokenRedirects = append(tokenRedirects, r.PostForm.Get("redirect_uri"))
+			tokenCodes = append(tokenCodes, r.PostForm.Get("code"))
+			reply(w, 200, map[string]string{"access_token": r.PostForm.Get("code")})
+			return
+		}
+		// Each fixture code is its own Discord identity.
+		id := strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer ")
+		reply(w, 200, map[string]string{"id": id, "username": "stable", "global_name": "Stable"})
+	}))
+	defer provider.Close()
+	newServer := func(trusted bool) (*Server, *httptest.Server) {
+		cfg := config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}
+		if trusted {
+			cfg.TrustedProxies = config.DefaultTrustedProxies()
+		}
+		s := New(pool, cfg, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+		s.Config.DiscordTokenURL = provider.URL + "/token"
+		s.Config.DiscordUserURL = provider.URL + "/me"
+		s.Config.DiscordAuthorizeURL = provider.URL + "/authorize"
+		return s, httptest.NewServer(s.Handler())
+	}
+	s, ts := newServer(true)
+	defer ts.Close()
+	_, untrusted := newServer(false)
+	defer untrusted.Close()
+	code, err := setup.Issue(context.Background(), pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newClient := func() *http.Client {
+		j, _ := cookiejar.New(nil)
+		return &http.Client{Jar: j, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	}
+	do := func(c *http.Client, method, base, path, body string, headers map[string]string) (*http.Response, []byte) {
+		t.Helper()
+		r, _ := http.NewRequest(method, base+path, strings.NewReader(body))
+		r.Header.Set("Content-Type", "application/json")
+		for k, v := range headers {
+			if k == "Host" {
+				r.Host = v
+			} else {
+				r.Header.Set(k, v)
+			}
+		}
+		resp, err := c.Do(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		return resp, b
+	}
+	admin := newClient()
+	setupBody, _ := json.Marshal(map[string]string{"code": code, "username": "administrator", "password": "synthetic-password"})
+	if resp, b := do(admin, "POST", ts.URL, "/api/setup", string(setupBody), map[string]string{"Origin": ts.URL}); resp.StatusCode != 201 {
+		t.Fatal(resp.StatusCode, string(b))
+	}
+	if err := s.Store.Set(context.Background(), "discord_client_id", "fixture-app"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Store.Set(context.Background(), "discord_client_secret", "fixture-secret"); err != nil {
+		t.Fatal(err)
+	}
+	startState := func(c *http.Client, base, path string, headers map[string]string) (string, int) {
+		t.Helper()
+		resp, b := do(c, "POST", base, path, "", headers)
+		var out struct {
+			URL string `json:"url"`
+		}
+		json.Unmarshal(b, &out)
+		if resp.StatusCode != 200 {
+			return "", resp.StatusCode
+		}
+		u, _ := url.Parse(out.URL)
+		return u.Query().Get("state"), 200
+	}
+	callback := func(c *http.Client, base, code, state string, headers map[string]string) *http.Response {
+		// The browser returns over the public HTTPS address, so it sends the Secure cookies the jar
+		// holds; the proxy then forwards the request to Snitch as plain HTTP.
+		u, _ := url.Parse(base)
+		var cookies []string
+		for _, ck := range c.Jar.Cookies(&url.URL{Scheme: "https", Host: u.Host}) {
+			cookies = append(cookies, ck.Name+"="+ck.Value)
+		}
+		merged := map[string]string{"Cookie": strings.Join(cookies, "; ")}
+		for k, v := range headers {
+			merged[k] = v
+		}
+		resp, _ := do(c, "GET", base, "/api/auth/discord/callback?code="+code+"&state="+state, "", merged)
+		return resp
+	}
+	// Cloudflare -> Caddy -> Snitch: HTTPS at the start, plain internal HTTP without any header at the callback.
+	httpsHeaders := map[string]string{"Origin": "https://snitch.example.org", "Sec-Fetch-Site": "same-origin", "X-Forwarded-Proto": "https", "X-Forwarded-Host": "snitch.example.org"}
+	const wantHTTPS = "https://snitch.example.org/api/auth/discord/callback"
+	for _, flow := range []string{"sign-in", "link"} {
+		visitor := newClient()
+		path := "/api/auth/discord/start"
+		if flow == "link" {
+			visitor = admin
+			path = "/api/auth/discord/link"
+		}
+		tokenRedirects = nil
+		headers := httpsHeaders
+		if flow == "link" {
+			_, b := do(admin, "GET", ts.URL, "/api/auth/me", "", nil)
+			var me struct {
+				CSRF string `json:"csrf_token"`
+			}
+			json.Unmarshal(b, &me)
+			headers = map[string]string{"Origin": httpsHeaders["Origin"], "Sec-Fetch-Site": "same-origin", "X-Forwarded-Proto": "https", "X-Forwarded-Host": "snitch.example.org", "X-CSRF-Token": me.CSRF}
+		}
+		state, status := startState(visitor, ts.URL, path, headers)
+		if status != 200 {
+			t.Fatalf("%s start: %d", flow, status)
+		}
+		var stored string
+		if err := pool.QueryRow(context.Background(), `SELECT redirect_uri FROM oauth_states`).Scan(&stored); err != nil || stored != wantHTTPS {
+			t.Fatalf("%s stored redirect_uri %q %v", flow, stored, err)
+		}
+		// Callback: no Origin, no Referer, no proxy header, a different Host.
+		resp := callback(visitor, ts.URL, "id-"+flow, state, map[string]string{"Host": "internal.invalid:9"})
+		if resp.StatusCode != 303 || len(tokenRedirects) != 1 || tokenRedirects[0] != wantHTTPS {
+			t.Fatalf("%s callback: %d, token exchange used %v", flow, resp.StatusCode, tokenRedirects)
+		}
+		cleared := false
+		for _, c := range resp.Cookies() {
+			cleared = cleared || (c.Name == "snitch_oauth" && c.MaxAge < 0)
+		}
+		if !cleared {
+			t.Fatalf("%s: temporary cookie not cleared", flow)
+		}
+		// A consumed state never works twice.
+		if again := callback(visitor, ts.URL, "id-"+flow, state, nil); again.StatusCode != 400 || len(tokenRedirects) != 1 {
+			t.Fatalf("%s replay: %d %v", flow, again.StatusCode, tokenRedirects)
+		}
+	}
+	// Untrusted peer: forged forwarding headers are ignored, so no foreign return address is possible.
+	tokenRedirects = nil
+	forged := map[string]string{"Origin": untrusted.URL, "X-Forwarded-Proto": "https", "X-Forwarded-Host": "attacker.invalid"}
+	visitor := newClient()
+	state, status := startState(visitor, untrusted.URL, "/api/auth/discord/start", forged)
+	if status != 200 {
+		t.Fatalf("untrusted start: %d", status)
+	}
+	var stored string
+	if err := pool.QueryRow(context.Background(), `SELECT redirect_uri FROM oauth_states`).Scan(&stored); err != nil || stored != untrusted.URL+"/api/auth/discord/callback" {
+		t.Fatalf("forged headers honored: %q %v", stored, err)
+	}
+	callback(visitor, untrusted.URL, "id-local", state, map[string]string{"X-Forwarded-Host": "attacker.invalid"})
+	if len(tokenRedirects) != 1 || strings.Contains(tokenRedirects[0], "attacker") || tokenRedirects[0] != untrusted.URL+"/api/auth/discord/callback" {
+		t.Fatalf("local token exchange %v", tokenRedirects)
+	}
+	// A forged Origin of another host is still refused before any state is written.
+	if _, status := startState(newClient(), untrusted.URL, "/api/auth/discord/start", map[string]string{"Origin": "https://attacker.invalid"}); status != 403 {
+		t.Fatalf("foreign origin accepted: %d", status)
 	}
 }

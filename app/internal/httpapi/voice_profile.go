@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"snitch/internal/logging"
 	"strings"
 	"time"
 
@@ -52,26 +53,58 @@ func (s *Server) linkPersonAccount(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_account")
 		return
 	}
-	var userID int64
-	if err := s.Pool.QueryRow(r.Context(), `SELECT id FROM users WHERE username=$1`, username).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
-		fail(w, http.StatusNotFound, "user_not_found")
-		return
-	} else if err != nil {
+	ss := r.Context().Value(sessionKey{}).(session)
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE persons SET user_id=$2,updated_at=now() WHERE id=$1`, id, userID)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		fail(w, http.StatusConflict, "account_already_linked")
+	defer tx.Rollback(ctx)
+	var personName string
+	var current *int64
+	err = tx.QueryRow(ctx, `SELECT display_name,user_id FROM persons WHERE id=$1 FOR UPDATE`, id).Scan(&personName, &current)
+	if errors.Is(err, pgx.ErrNoRows) {
+		fail(w, http.StatusNotFound, "person_not_found")
 		return
 	}
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	if tag.RowsAffected() == 0 {
-		fail(w, http.StatusNotFound, "person_not_found")
+	var userID int64
+	if err = tx.QueryRow(ctx, `SELECT id FROM users WHERE username=$1`, username).Scan(&userID); errors.Is(err, pgx.ErrNoRows) {
+		fail(w, http.StatusNotFound, "user_not_found")
+		return
+	} else if err != nil {
+		s.internal(w, err)
+		return
+	}
+	// A replacement is the Administrator's explicit decision: keep who the link leaves.
+	var prevID *int64
+	var prevName string
+	if current != nil && *current != userID {
+		prevID = current
+		if err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT username FROM users WHERE id=$1),'')`, *current).Scan(&prevName); err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
+	if _, err = tx.Exec(ctx, `UPDATE persons SET user_id=$2,updated_at=now() WHERE id=$1`, id, userID); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			fail(w, http.StatusConflict, "account_already_linked")
+			return
+		}
+		s.internal(w, err)
+		return
+	}
+	if err = recordPersonLinkEvent(ctx, tx, personLinkEvent{Action: "link", PersonID: id, PersonName: personName, UserID: &userID, Username: username, PreviousUserID: prevID, PreviousUsername: prevName, ActorID: &ss.User.ID, ActorUsername: ss.User.Username}); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = tx.Commit(ctx); err != nil {
+		s.internal(w, err)
 		return
 	}
 	s.replyPerson(w, r, id)
@@ -82,13 +115,45 @@ func (s *Server) unlinkPersonAccount(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tag, err := s.Pool.Exec(r.Context(), `UPDATE persons SET user_id=NULL,updated_at=now() WHERE id=$1`, id)
+	ss := r.Context().Value(sessionKey{}).(session)
+	ctx := r.Context()
+	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	if tag.RowsAffected() == 0 {
+	defer tx.Rollback(ctx)
+	var personName string
+	var current *int64
+	err = tx.QueryRow(ctx, `SELECT display_name,user_id FROM persons WHERE id=$1 FOR UPDATE`, id).Scan(&personName, &current)
+	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "person_not_found")
+		return
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if current == nil {
+		// Nothing to unlink: the call is idempotent and leaves no trace.
+		s.replyPerson(w, r, id)
+		return
+	}
+	var name string
+	if err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT username FROM users WHERE id=$1),'')`, *current).Scan(&name); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if _, err = tx.Exec(ctx, `UPDATE persons SET user_id=NULL,updated_at=now() WHERE id=$1`, id); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = recordPersonLinkEvent(ctx, tx, personLinkEvent{Action: "unlink", PersonID: id, PersonName: personName, UserID: current, Username: name, ActorID: &ss.User.ID, ActorUsername: ss.User.Username}); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = tx.Commit(ctx); err != nil {
+		s.internal(w, err)
 		return
 	}
 	s.replyPerson(w, r, id)
@@ -138,7 +203,7 @@ func (s *Server) deleteVoiceProfile(w http.ResponseWriter, r *http.Request) {
 	author := s.authorOf(r)
 	for _, clipID := range microphoneClips {
 		if _, applyErr := s.applyMicrophone(ctx, clipID, author); applyErr != nil {
-			s.Log.Error("microphone track update failed after voice profile deletion", "clip_id", clipID, "error", applyErr)
+			s.Log.Error("microphone track update failed after voice profile deletion", append([]any{"clip_id", clipID}, logging.Failure(applyErr)...)...)
 		}
 	}
 	reply(w, http.StatusOK, result)

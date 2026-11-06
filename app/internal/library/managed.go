@@ -25,27 +25,34 @@ func (s *Service) scanManaged(ctx context.Context, source Source) error {
 	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workers WHERE revoked_at IS NULL AND last_seen_at > now()-interval '2 minutes')`).Scan(&available); err != nil {
 		return err
 	}
-	if !available {
-		s.ScheduleScan(source.ID, 10*time.Second)
-		return nil
-	}
-	rows, err := s.pool.Query(ctx, `SELECT relative_path FROM source_files WHERE source_id=$1 AND scan_requested ORDER BY relative_path LIMIT 50`, source.ID)
+	// An index-only request (#195) needs no Worker: it probes and fingerprints the file here.
+	rows, err := s.pool.Query(ctx, `SELECT relative_path,index_only FROM source_files WHERE source_id=$1 AND scan_requested ORDER BY relative_path LIMIT 50`, source.ID)
 	if err != nil {
 		return err
 	}
 	paths := []string{}
+	indexOnly := map[string]bool{}
 	for rows.Next() {
 		var p string
-		if err := rows.Scan(&p); err != nil {
+		var only bool
+		if err := rows.Scan(&p, &only); err != nil {
 			rows.Close()
 			return err
 		}
+		if !available && !only {
+			continue
+		}
 		paths = append(paths, p)
+		indexOnly[p] = only
 	}
 	err = rows.Err()
 	rows.Close()
 	if err != nil {
 		return err
+	}
+	if len(paths) == 0 {
+		s.ScheduleScan(source.ID, 10*time.Second)
+		return nil
 	}
 	var pending, slowRetry, warning bool
 	for _, relative := range paths {
@@ -81,7 +88,7 @@ func (s *Service) scanManaged(ctx context.Context, source Source) error {
 			}
 			continue
 		}
-		if s.OnManagedReady != nil {
+		if s.OnManagedReady != nil && !indexOnly[relative] {
 			var clipID int64
 			if e := s.pool.QueryRow(ctx, `SELECT clip_id FROM source_files WHERE source_id=$1 AND relative_path=$2`, source.ID, relative).Scan(&clipID); e != nil {
 				return e
@@ -126,7 +133,7 @@ func (s *Service) scanManaged(ctx context.Context, source Source) error {
 	return nil
 }
 
-// ManagedPath rejects absolute/traversing paths and every symlink component.
+// ManagedPath rejects absolute/traversing paths, system directories and every symlink component.
 // All callers work under an administrator-selected, already mounted root.
 func ManagedPath(root, relative string) (string, error) {
 	if relative == "" {
@@ -146,7 +153,7 @@ func ManagedPath(root, relative string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		if st.Mode()&os.ModeSymlink != 0 {
+		if st.Mode()&os.ModeSymlink != 0 || st.IsDir() && IsSystemDirectory(part) {
 			return "", ErrInvalidSource
 		}
 	}

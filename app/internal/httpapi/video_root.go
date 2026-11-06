@@ -18,6 +18,37 @@ type videoEntry struct {
 	Path      string `json:"path"`
 	Directory bool   `json:"directory"`
 	Size      int64  `json:"size_bytes"`
+	// Private marks a top-level folder made private (#93, ADR 0026); Locked is set when this viewer
+	// may not open it. Both only ever appear on top-level folders, and nothing inside a locked one is listed.
+	Private bool `json:"private"`
+	Locked  bool `json:"locked"`
+}
+
+// privateTopFolders returns the private top-level folders of a source (#93).
+func (s *Server) privateTopFolders(r *http.Request, sourceID int64) (map[string]bool, error) {
+	rows, err := s.Pool.Query(r.Context(), `SELECT folder FROM private_folders WHERE source_id=$1`, sourceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var folder string
+		if err := rows.Scan(&folder); err != nil {
+			return nil, err
+		}
+		out[folder] = true
+	}
+	return out, rows.Err()
+}
+
+// firstSegment is the top-level folder a root-relative path lies in, or "" for the root itself.
+func firstSegment(relative string) string {
+	clean := strings.Trim(filepath.ToSlash(filepath.Clean("/"+relative)), "/")
+	if i := strings.IndexByte(clean, '/'); i >= 0 {
+		return clean[:i]
+	}
+	return clean
 }
 
 func videoExtension(path string) bool {
@@ -80,6 +111,18 @@ func (s *Server) videoBrowse(w http.ResponseWriter, r *http.Request) {
 		fail(w, 422, "video_path_unavailable")
 		return
 	}
+	// ADR 0026: a private folder shows its name and lock to everyone; only the Super-administrator opens it.
+	superAdmin := isSuperAdministrator(r.Context().Value(sessionKey{}).(session).User.Role)
+	private, err := s.privateTopFolders(r, root.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	inside := firstSegment(relative)
+	if !superAdmin && private[inside] {
+		fail(w, 403, "forbidden")
+		return
+	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
 		fail(w, 422, "video_path_unavailable")
@@ -87,7 +130,7 @@ func (s *Server) videoBrowse(w http.ResponseWriter, r *http.Request) {
 	}
 	out := []videoEntry{}
 	for _, entry := range entries {
-		if strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
+		if entry.IsDir() && library.IsSystemDirectory(entry.Name()) || strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
 			continue
 		}
 		if !entry.IsDir() && !videoExtension(entry.Name()) {
@@ -97,7 +140,8 @@ func (s *Server) videoBrowse(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			continue
 		}
-		out = append(out, videoEntry{filepath.ToSlash(filepath.Join(relative, entry.Name())), entry.IsDir(), info.Size()})
+		isPrivate := inside == "" && entry.IsDir() && private[entry.Name()]
+		out = append(out, videoEntry{filepath.ToSlash(filepath.Join(relative, entry.Name())), entry.IsDir(), info.Size(), isPrivate, isPrivate && !superAdmin})
 		if len(out) > 10000 {
 			fail(w, 422, "video_selection_too_large")
 			return
@@ -125,6 +169,16 @@ func (s *Server) videoFolder(w http.ResponseWriter, r *http.Request) {
 	parent, err := library.ManagedPath(root.Path, input.Parent)
 	if err != nil {
 		fail(w, 422, "video_path_unavailable")
+		return
+	}
+	superAdmin := isSuperAdministrator(r.Context().Value(sessionKey{}).(session).User.Role)
+	private, err := s.privateTopFolders(r, root.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if !superAdmin && private[firstSegment(input.Parent)] {
+		fail(w, 403, "forbidden")
 		return
 	}
 	// os.Root also confines the write if a local process changes a directory to a symlink.
@@ -162,6 +216,13 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 		fail(w, 409, "video_root_unconfigured")
 		return
 	}
+	// ADR 0026: only the Super-administrator previews or queues files of a private folder.
+	superAdmin := isSuperAdministrator(r.Context().Value(sessionKey{}).(session).User.Role)
+	private, err := s.privateTopFolders(r, root.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	found := map[string]fs.FileInfo{}
 	for _, relative := range input.Paths {
 		absolute, e := library.ManagedPath(root.Path, relative)
@@ -169,7 +230,11 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 			fail(w, 422, "video_path_unavailable")
 			return
 		}
-		e = filepath.WalkDir(absolute, func(path string, entry fs.DirEntry, err error) error {
+		if !superAdmin && private[firstSegment(relative)] {
+			fail(w, 403, "forbidden")
+			return
+		}
+		e = library.WalkMediaDir(absolute, func(path string, entry fs.DirEntry, err error) error {
 			if err != nil {
 				return err
 			}
@@ -177,6 +242,16 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 				return r.Context().Err()
 			}
 			if entry.Type()&os.ModeSymlink != 0 {
+				return nil
+			}
+			rel, e := filepath.Rel(root.Path, path)
+			if e != nil {
+				return e
+			}
+			if !superAdmin && private[firstSegment(rel)] {
+				if entry.IsDir() {
+					return filepath.SkipDir
+				}
 				return nil
 			}
 			if path != absolute && strings.HasPrefix(entry.Name(), ".") {
@@ -187,10 +262,6 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 			}
 			if entry.IsDir() || !entry.Type().IsRegular() || !videoExtension(path) {
 				return nil
-			}
-			rel, e := filepath.Rel(root.Path, path)
-			if e != nil {
-				return e
 			}
 			if _, e = library.ManagedPath(root.Path, rel); e != nil {
 				return e

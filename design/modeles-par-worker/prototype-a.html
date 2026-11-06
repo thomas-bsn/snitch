@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snitch — Modèles vocaux par Worker (référence A)</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Fira+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Manrope:wght@500;700;800&display=swap');
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;font-family:Inter,system-ui,sans-serif;background:#0e0e11;color:#e8e8ee}
+button{font:inherit;cursor:pointer;color:inherit}
+input{font:inherit}
+:focus-visible{outline:2px solid #8f8ff5;outline-offset:2px}
+.top{max-width:1360px;margin:auto;padding:22px 24px 14px;display:flex;gap:18px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.top h1{font:700 17px Manrope,sans-serif;margin:0}
+.top p{margin:3px 0 0;font-size:12px;color:#9a9aa6}
+.switch{display:flex;gap:4px;padding:4px;background:#1b1b20;border:1px solid #2a2a31;border-radius:12px;flex-wrap:wrap}
+.switch button{border:0;background:transparent;padding:9px 13px;border-radius:8px;font-size:12px;font-weight:600;color:#9a9aa6;min-height:36px}
+.switch button[aria-pressed=true]{background:#8f8ff5;color:#10102a}
+.stage{max-width:1360px;margin:0 auto 40px;padding:0 24px}
+.dirnote{font-size:12px;color:#9a9aa6;margin:0 0 10px;line-height:1.5}
+.frame{border-radius:16px;overflow:hidden;border:1px solid #2a2a31;position:relative;min-height:640px}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#ececf0;color:#101014;padding:10px 16px;border-radius:10px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:50}
+.toast.on{opacity:1}
+
+/* ===== shared page chrome ===== */
+.app{background:var(--bg);color:var(--ink);font-family:var(--font);min-height:640px;padding:22px 24px 28px;font-size:var(--fs)}
+.head{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;margin-bottom:16px;flex-wrap:wrap}
+.head h2{margin:0;font:700 20px var(--font-h);letter-spacing:-.02em}
+.head p{margin:4px 0 0;color:var(--mute);font-size:12px}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:16px}
+.tabs span{padding:8px 12px;font-size:12px;color:var(--mute);border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs span.on{color:var(--ink);border-color:var(--accent);font-weight:600}
+.btn{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);padding:7px 11px;border-radius:var(--r-sm);font-size:12px;font-weight:600;min-height:32px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--accent-fg)}
+.btn.sm{padding:4px 9px;min-height:28px;font-size:11px}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.mute{color:var(--mute)}
+.mono{font-family:'Fira Code',ui-monospace,monospace}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 8px 2px 6px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge{align-self:flex-start;justify-self:start}
+.badge svg{width:11px;height:11px}
+.b-ok{background:var(--ok-bg);color:var(--ok-fg)}
+.b-run{background:var(--run-bg);color:var(--run-fg)}
+.b-bad{background:var(--bad-bg);color:var(--bad-fg)}
+.b-off{background:var(--off-bg);color:var(--off-fg)}
+.prog{height:5px;border-radius:5px;background:var(--line);overflow:hidden;margin-top:6px}
+.prog i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.prog.ind i{width:35%;animation:ind 1.4s ease-in-out infinite}
+@keyframes ind{0%{margin-left:-35%}100%{margin-left:100%}}
+@media (prefers-reduced-motion:reduce){.prog.ind i{animation:none;margin-left:0;width:100%;opacity:.5}}
+.err{margin-top:6px;padding:6px 8px;border-radius:var(--r-sm);background:var(--bad-bg);color:var(--bad-fg);font-size:11px;line-height:1.4}
+.note{margin-top:6px;font-size:11px;color:var(--mute);line-height:1.4}
+.actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+
+/* ===== modal / drawer ===== */
+.veil{position:absolute;inset:0;background:#0009;display:flex;justify-content:center;align-items:flex-start;padding:30px 16px;z-index:20;overflow:auto}
+.modal{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:var(--r);width:min(560px,100%);padding:20px;font-family:var(--font);font-size:13px}
+.modal h3{margin:0 0 4px;font:700 16px var(--font-h)}
+.field{display:flex;gap:8px;margin:14px 0 6px}
+.field input{flex:1;min-width:0;background:var(--bg);color:var(--ink);border:1px solid var(--line-strong);border-radius:var(--r-sm);padding:9px 11px;font-size:13px}
+.scen{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 12px;align-items:center;font-size:11px;color:var(--mute)}
+.recap{border:1px solid var(--line);border-radius:var(--r-sm);padding:4px 12px;margin:10px 0;background:var(--bg)}
+.recap div{display:flex;justify-content:space-between;gap:12px;padding:7px 0;border-bottom:1px solid var(--line);font-size:12px}
+.recap div:last-child{border:0}
+.recap dt{color:var(--mute)} .recap dd{margin:0;font-weight:600;text-align:right}
+.seg{display:flex;gap:6px;margin:8px 0;flex-wrap:wrap}
+.seg button{flex:1;min-width:120px;padding:9px;border:1px solid var(--line-strong);background:var(--bg);border-radius:var(--r-sm);font-size:12px;font-weight:600;min-height:40px}
+.seg button[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.callout{padding:10px 12px;border-radius:var(--r-sm);font-size:12px;line-height:1.5;margin:8px 0}
+.callout.ok{background:var(--ok-bg);color:var(--ok-fg)}
+.callout.bad{background:var(--bad-bg);color:var(--bad-fg)}
+.callout.run{background:var(--run-bg);color:var(--run-fg)}
+.mfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
+.drawer{position:absolute;top:0;right:0;bottom:0;width:min(400px,100%);background:var(--surface);border-left:1px solid var(--line-strong);padding:20px;overflow:auto;z-index:15;color:var(--ink);font-family:var(--font);font-size:13px}
+.drawer h3{margin:0;font:700 16px var(--font-h)}
+.hist{list-style:none;margin:8px 0 0;padding:0}
+.hist li{padding:8px 0;border-bottom:1px solid var(--line);font-size:12px;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}
+.hist time{color:var(--mute);font-size:11px;grid-column:1}
+.hist b{grid-column:2}
+.hist span{grid-column:2;color:var(--mute)}
+
+/* ===== A : Atelier (fidèle au dépôt, dense) ===== */
+[data-dir=a]{--bg:#fff;--surface:#fff;--line:#e8e8ec;--line-strong:#dcdce2;--ink:#1b1b1f;--mute:#6b6b76;--accent:#5b5bd6;--accent-solid:#5b5bd6;--accent-fg:#fff;--accent-soft:#ececfb;--accent-ink:#3a3aa8;--ok-bg:#e6f6ec;--ok-fg:#1e6a3c;--run-bg:#ececfb;--run-fg:#3a3aa8;--bad-bg:#fdecec;--bad-fg:#8a1f1f;--off-bg:#f0f0f3;--off-fg:#5d5d68;--r:12px;--r-sm:8px;--font:Inter,system-ui,sans-serif;--font-h:Inter,sans-serif;--fs:13px}
+.tbl{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.tbl th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute);text-align:left;padding:9px 12px;background:#f7f7f8;border-bottom:1px solid var(--line);font-weight:600}
+.tbl td{padding:12px;vertical-align:top;border-bottom:1px solid var(--line)}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.w b{display:block;font-size:13px}
+.tbl td.w small{color:var(--mute);font-size:11px}
+.cellname{font-weight:600;font-size:12.5px;margin-bottom:4px}
+.cellrev{font:11px 'Fira Code',monospace;color:var(--mute)}
+
+[data-theme=dark] [data-dir=a]{--bg:#0f0f12;--surface:#1b1b20;--line:#2a2a31;--line-strong:#3a3a43;--ink:#ececf0;--mute:#9a9aa6;--accent:#8f8ff5;--accent-solid:#5b5bd6;--accent-soft:#262650;--accent-ink:#c1c1ff;--ok-bg:#16301f;--ok-fg:#7fd69a;--run-bg:#262650;--run-fg:#c1c1ff;--bad-bg:#3a1a1a;--bad-fg:#f0a0a0;--off-bg:#2a2a31;--off-fg:#b4b4c0}
+[data-theme=dark] .tbl th{background:#16161a}
+/* ===== B : Cartes douces (admin SaaS clair) ===== */
+[data-dir=b]{--bg:#f4f1ec;--surface:#fffdf9;--line:#e6e0d6;--line-strong:#d6cebf;--ink:#2b2620;--mute:#7a7164;--accent:#c2562b;--accent-solid:#c2562b;--accent-fg:#fff;--accent-soft:#fbe7dc;--accent-ink:#8d3a18;--ok-bg:#e2f0dd;--ok-fg:#2f6a22;--run-bg:#fbe7dc;--run-fg:#8d3a18;--bad-bg:#f8dcd8;--bad-fg:#8e231a;--off-bg:#ece6da;--off-fg:#6b6354;--r:20px;--r-sm:12px;--font:Manrope,system-ui,sans-serif;--font-h:Manrope,sans-serif;--fs:13px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:0 1px 2px #0000000d}
+.card header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.card header b{font:800 15px Manrope}
+.card header small{display:block;color:var(--mute);font-size:11px;margin-top:2px}
+.lane{padding:12px;border-radius:14px;background:var(--bg);margin-top:8px}
+.lane .lt{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px}
+.lane .lt span{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--mute)}
+
+/* ===== C : Pipeline (stepper sombre) ===== */
+[data-dir=c]{--bg:#0f1115;--surface:#171a21;--line:#272b35;--line-strong:#363c49;--ink:#e9ecf2;--mute:#8d95a5;--accent:#4cc9a6;--accent-solid:#4cc9a6;--accent-fg:#06231b;--accent-soft:#12332b;--accent-ink:#8ff0d3;--ok-bg:#12332b;--ok-fg:#7ee8c6;--run-bg:#1b2a44;--run-fg:#9cc0ff;--bad-bg:#3b1a1d;--bad-fg:#ff9ea4;--off-bg:#232733;--off-fg:#98a0b0;--r:12px;--r-sm:8px;--font:'Fira Sans',system-ui,sans-serif;--font-h:'Fira Sans',sans-serif;--fs:13px}
+.wblock{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px 18px;margin-bottom:14px}
+.wblock>header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:10px;flex-wrap:wrap}
+.wblock>header b{font-size:15px}
+.prow{display:grid;grid-template-columns:150px 1fr auto;gap:14px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.prow:first-of-type{border-top:0}
+.prow .who b{display:block;font-size:12px}
+.steps{display:flex;align-items:center;gap:0;min-width:0;overflow-x:auto;padding:4px 0}
+.step{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:78px;position:relative;font-size:10.5px;color:var(--mute);text-align:center}
+.step i{width:18px;height:18px;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);display:grid;place-items:center;z-index:1}
+.step::before{content:"";position:absolute;top:8px;left:-50%;width:100%;height:2px;background:var(--line-strong)}
+.step:first-child::before{display:none}
+.step.done i{background:var(--accent);border-color:var(--accent)}
+.step.done::before,.step.cur::before{background:var(--accent)}
+.step.done{color:var(--ink)}
+.step.cur i{border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.step.cur{color:var(--ink);font-weight:600}
+.step.fail i{border-color:#ff7c86;background:#3b1a1d}
+.step.fail{color:#ff9ea4;font-weight:600}
+.step svg{width:9px;height:9px}
+.prow .acts{display:flex;gap:6px;flex-direction:column;align-items:stretch}
+
+/* ===== D : Console (terminal ops) ===== */
+[data-dir=d]{--bg:#0b0d0b;--surface:#111411;--line:#232a22;--line-strong:#34402f;--ink:#d5e8cc;--mute:#7e9078;--accent:#9be564;--accent-solid:#9be564;--accent-fg:#0b1405;--accent-soft:#1c2a16;--accent-ink:#b9f08d;--ok-bg:#16301a;--ok-fg:#9be564;--run-bg:#2a2a12;--run-fg:#f1d96b;--bad-bg:#3a1613;--bad-fg:#ff8a78;--off-bg:#1a1f19;--off-fg:#86957f;--r:3px;--r-sm:2px;--font:'Fira Code',ui-monospace,monospace;--font-h:'Fira Code',monospace;--fs:12px}
+[data-dir=d] .badge{border-radius:2px;text-transform:uppercase;letter-spacing:.04em;font-size:10px}
+[data-dir=d] .btn{text-transform:lowercase}
+.term{border:1px solid var(--line);background:var(--surface)}
+.trow{display:grid;grid-template-columns:150px 70px 1fr 140px auto;gap:12px;padding:9px 12px;border-bottom:1px solid var(--line);align-items:center}
+.trow.h{color:var(--mute);font-size:10px;text-transform:uppercase;letter-spacing:.1em;background:#0d100d}
+.trow .pb{font-size:11px;letter-spacing:-.5px;color:var(--accent)}
+.wline{padding:8px 12px;background:#0d100d;border-bottom:1px solid var(--line);color:var(--accent-ink);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.cmd{color:var(--mute);margin:0 0 12px}
+.cmd b{color:var(--accent)}
+
+/* ===== E : Matrice + volet (verre sombre) ===== */
+[data-dir=e]{--bg:radial-gradient(1100px 500px at 80% -10%,#2a3f78 0,transparent 60%),#0f172a;--surface:#1b2438;--line:#2c3856;--line-strong:#475577;--ink:#f1f5fb;--mute:#9aa8c4;--accent:#5eead4;--accent-solid:#14b8a6;--accent-fg:#02201c;--accent-soft:#12403c;--accent-ink:#99f6e4;--ok-bg:#0f3b32;--ok-fg:#6ee7b7;--run-bg:#1e3a6e;--run-fg:#a5c8ff;--bad-bg:#4a1d28;--bad-fg:#fda4af;--off-bg:#263149;--off-fg:#a3b0c9;--r:16px;--r-sm:10px;--font:'Fira Sans',system-ui,sans-serif;--font-h:'Fira Sans',sans-serif;--fs:13px}
+[data-dir=e] .app{background:var(--bg)}
+.mx{display:grid;grid-template-columns:200px repeat(3,minmax(0,1fr));gap:8px}
+.mx .ch{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--mute);padding:6px 4px;font-weight:600}
+.mx .rw{padding:12px 4px;display:flex;flex-direction:column;justify-content:center}
+.mx .rw b{font-size:13px}.mx .rw small{color:var(--mute);font-size:11px}
+.mc{background:#ffffff0d;backdrop-filter:blur(12px);border:1px solid #ffffff22;border-radius:var(--r-sm);padding:10px 12px;text-align:left;min-height:84px;display:flex;flex-direction:column;gap:6px;color:var(--ink)}
+.mc:hover{border-color:var(--accent);background:#ffffff16}
+.mc .mn{font-size:12px;font-weight:600;line-height:1.25}
+.mc .mr{font:10.5px 'Fira Code',monospace;color:var(--mute)}
+.mc.sel{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-soft)}
+.drawer{backdrop-filter:blur(16px)}
+
+@media (max-width:760px){
+ .prow{grid-template-columns:1fr}
+ .mx{grid-template-columns:1fr}.mx .ch{display:none}
+ .trow{grid-template-columns:1fr 1fr}
+ .tbl{display:block;overflow-x:auto}
+}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>Modèles vocaux par Worker — direction A (référence)</h1>
+    <p>Prototype jetable (#303 / #265). Données synthétiques. Clique les boutons : les actions affichent seulement un message.</p>
+  </div>
+  <div class="switch" role="group" aria-label="Thème"><button id="theme" aria-pressed="false">Mode sombre</button></div><div id="switch" hidden></div>
+</div>
+<div class="stage">
+  <p class="dirnote" id="dirnote"></p>
+  <div class="frame" id="frame"></div>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const ICON = {
+  ok:'<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M2 6.5l2.6 2.6L10 3.5"/></svg>',
+  run:'<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="6" cy="6" r="4" stroke-dasharray="14 8"/></svg>',
+  bad:'<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 3l6 6M9 3l-6 6"/></svg>',
+  off:'<svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 6h6"/></svg>',
+  dot:'<svg viewBox="0 0 12 12" fill="currentColor" aria-hidden="true"><circle cx="6" cy="6" r="2.5"/></svg>'
+};
+const STATUS = {
+  not_installed:{l:'Non installé',c:'off',i:'off'},
+  requested:{l:'Demandé',c:'run',i:'dot'},
+  downloading:{l:'Téléchargement',c:'run',i:'run'},
+  verifying:{l:'Vérification',c:'run',i:'run'},
+  ready:{l:'Prêt',c:'ok',i:'ok'},
+  switching:{l:'Bascule',c:'run',i:'run'},
+  removing:{l:'Retrait',c:'run',i:'run'},
+  failed:{l:'Échec',c:'bad',i:'bad'}
+};
+const TYPES = [{k:'diar',l:'Diarisation'},{k:'fp',l:'Fingerprint'},{k:'sep',l:'Séparation'}];
+const CAUSES = {
+  disk_full:'Espace insuffisant : il manque 340 Mo pour garder les deux modèles. L’ancien est conservé. Libérez de la place ou désinstallez-le explicitement.',
+  hf_auth_required:'Accès Hugging Face refusé : le jeton central n’a pas accès à ce dépôt.'
+};
+const WORKERS = [
+  {id:'w1',name:'atelier-gpu',meta:'Linux · RTX 4090 · 212 Go libres',m:{
+    diar:{name:'Sortformer 4spk v2.1',rev:'cd03eee',status:'ready',size:'471 Mo'},
+    fp:{name:'WeSpeaker ResNet34',rev:'837717d',status:'ready',size:'27 Mo'},
+    sep:{status:'not_installed'}}},
+  {id:'w2',name:'salon-wsl2',meta:'Windows WSL2 · RTX 3060 · 48 Go libres',m:{
+    diar:{name:'Nemotron diar (candidat)',rev:'a41f9c2',status:'downloading',progress:63,size:'1,2 Go',replacing:'Sortformer 4spk v2.1'},
+    fp:{name:'WeSpeaker ResNet34',rev:'837717d',status:'ready',size:'27 Mo'},
+    sep:{status:'not_installed'}}},
+  {id:'w3',name:'nas-cpu',meta:'Linux · CPU seul · 3 Go libres',m:{
+    diar:{name:'Nemotron diar (candidat)',rev:'a41f9c2',status:'failed',cause:'disk_full',size:'1,2 Go',replacing:'Sortformer 4spk v2.1'},
+    fp:{name:'TitaNet large',rev:'5e0b7d1',status:'verifying',size:'96 Mo',replacing:'WeSpeaker ResNet34'},
+    sep:{status:'not_installed'}}},
+  {id:'w4',name:'laptop-thomas',meta:'macOS · Apple M3 · 120 Go libres',m:{
+    diar:{name:'Nemotron diar (candidat)',rev:'a41f9c2',status:'switching',size:'1,2 Go',replacing:'Sortformer 4spk v2.1'},
+    fp:{name:'TitaNet large',rev:'5e0b7d1',status:'removing',size:'96 Mo',removing:'WeSpeaker ResNet34 (ancien)'},
+    sep:{status:'not_installed'}}},
+  {id:'w5',name:'bureau-mac',meta:'macOS · Apple M1 · 80 Go libres',m:{
+    diar:{name:'Pyannote community-1',rev:'3533c8c',status:'requested',size:'34 Mo'},
+    fp:{status:'not_installed'},
+    sep:{status:'not_installed'}}}
+];
+const HISTORY = [
+  {t:'05/11 14:02',a:'Remplacer diarisation → Nemotron diar',w:'salon-wsl2',r:'Téléchargement 63 %',by:'Thomas'},
+  {t:'05/11 13:58',a:'Installer Nemotron diar',w:'nas-cpu',r:'Échec : disque plein',by:'Thomas'},
+  {t:'05/11 13:40',a:'Retirer WeSpeaker ResNet34 (ancien)',w:'laptop-thomas',r:'En cours',by:'Snitch (après bascule)'},
+  {t:'05/11 13:31',a:'Bascule fingerprint → TitaNet large',w:'laptop-thomas',r:'Confirmée',by:'Snitch'},
+  {t:'04/11 18:12',a:'Installer Sortformer 4spk v2.1',w:'atelier-gpu',r:'Prêt',by:'Thomas'}
+];
+const DIRS_ALL = {
+  a:{n:'A · Atelier',d:'Fidèle au dépôt (tokens clairs, accent indigo, Inter). Tableau dense : une ligne par Worker, une colonne par type. Le plus proche de ce qui existe déjà.'},
+  b:{n:'B · Cartes douces',d:'Une carte par Worker avec trois couloirs. Chaleureux, arrondi, accent terracotta. Lecture rapide pour peu de Workers.'},
+  c:{n:'C · Pipeline',d:'Stepper sombre : montre où en est chaque ordre (demandé → téléchargé → vérifié → prêt → bascule → retrait). Rend le remplacement très lisible.'},
+  d:{n:'D · Console',d:'Terminal d’exploitation en monospace. Très dense, pour les admins techniques. Progression en barres ASCII.'},
+  e:{n:'E · Matrice + volet',d:'Matrice Workers × types en verre sombre. Les détails, actions et historique vivent dans un volet latéral. Passe bien à l’échelle (beaucoup de Workers).'}
+};
+const DIRS={a:DIRS_ALL.a};
+let dir = 'a', ui = {drawer:null, modal:null};
+
+const badge = s => { const x=STATUS[s]; return `<span class="badge b-${x.c}">${ICON[x.i]}${x.l}</span>`; };
+const busy = s => ['requested','downloading','verifying','switching','removing'].includes(s);
+function prog(m){
+  if(m.status==='downloading') return `<div class="prog" role="progressbar" aria-valuenow="${m.progress}" aria-valuemin="0" aria-valuemax="100" aria-label="Téléchargement"><i style="width:${m.progress}%"></i></div><div class="note">${m.progress} % de ${m.size}</div>`;
+  if(['verifying','switching','removing','requested'].includes(m.status)) return `<div class="prog ind" aria-hidden="true"><i></i></div>`;
+  return '';
+}
+function extra(m, w){
+  let h='';
+  if(m.replacing && m.status!=='ready') h+=`<div class="note">Remplace ${m.replacing} (conservé jusqu’à la bascule)</div>`;
+  if(m.removing) h+=`<div class="note">Retire ${m.removing} sur ordre de Snitch</div>`;
+  if(m.status==='failed') h+=`<div class="err" role="alert">${CAUSES[m.cause]}</div>`;
+  return h;
+}
+function acts(w, t, sm=true){
+  const m=w.m[t], c=sm?'btn sm':'btn';
+  if(t==='sep') return `<div class="actions"><button class="${c}" disabled title="Aucun adaptateur de séparation (#268)">Installer</button></div><div class="note">Type catalogué, non exécutable : aucun adaptateur (#268).</div>`;
+  const b=[];
+  if(m.status==='not_installed') b.push(`<button class="${c} pri" data-act="choose" data-w="${w.id}" data-t="${t}">Choisir un modèle</button>`);
+  if(m.status==='failed') { b.push(`<button class="${c} pri" data-act="retry" data-w="${w.id}" data-t="${t}">Réessayer</button>`); b.push(`<button class="${c}" data-act="cancel" data-w="${w.id}" data-t="${t}">Annuler le remplacement</button>`); }
+  if(m.status==='ready') { b.push(`<button class="${c}" data-act="choose" data-w="${w.id}" data-t="${t}">Changer</button>`); b.push(`<button class="${c}" data-act="uninstall" data-w="${w.id}" data-t="${t}">Désinstaller</button>`); }
+  if(busy(m.status)) b.push(`<button class="${c}" data-act="hist" data-w="${w.id}">Voir l’ordre</button>`);
+  return `<div class="actions">${b.join('')}</div>`;
+}
+function slot(w,t){
+  const m=w.m[t];
+  const name = t==='sep' ? '<span class="mute">Aucun modèle</span>' : (m.name?`<div class="cellname">${m.name}</div>`:'<span class="mute">Absent</span>');
+  const rev = m.rev?`<div class="cellrev">rév. ${m.rev} · ${m.size}</div>`:'';
+  return `${name}${rev}<div style="margin-top:6px">${badge(m.status)}</div>${prog(m)}${extra(m,w)}`;
+}
+const legend = () => `<div class="legend" aria-label="Statuts">${Object.keys(STATUS).map(badge).join('')}</div>`;
+const head = (sub) => `<div class="head"><div><h2>Voice Processing</h2><p>${sub}</p></div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-act="hist">Historique des ordres</button><button class="btn" data-act="apply">Appliquer à plusieurs Workers</button><button class="btn pri" data-act="add">Ajouter un modèle</button></div></div><div class="tabs"><span>Pipeline</span><span class="on">Modèles par Worker</span><span>Catalogue</span><span>Hugging Face</span></div>`;
+
+function renderA(){
+  return `<div class="app">${head('Un modèle maximum par type et par Worker. Snitch décide, le Worker exécute.')}${legend()}
+  <div class="callout run" style="margin:0 0 12px">Séparation des voix : type présent dans le catalogue, mais non exécutable tant qu’aucun adaptateur n’existe (#268). Il apparaîtra ici dès qu’un modèle sera installable.</div>
+  <table class="tbl"><thead><tr><th>Worker</th>${TYPES.slice(0,2).map(t=>`<th>${t.l}</th>`).join('')}</tr></thead><tbody>
+  ${WORKERS.map(w=>`<tr><td class="w"><b>${w.name}</b><small>${w.meta}</small></td>${TYPES.slice(0,2).map(t=>`<td>${slot(w,t.k)}${acts(w,t.k)}</td>`).join('')}</tr>`).join('')}
+  </tbody></table></div>`;
+}
+function renderB(){
+  return `<div class="app">${head('Chaque Worker garde au plus un modèle par type.')}${legend()}
+  <div class="cards">${WORKERS.map(w=>{
+    const worst = Object.values(w.m).some(x=>x.status==='failed')?'failed':Object.values(w.m).some(x=>busy(x.status))?'downloading':'ready';
+    return `<article class="card"><header><div><b>${w.name}</b><small>${w.meta}</small></div>${badge(worst)}</header>
+    ${TYPES.map(t=>`<div class="lane"><div class="lt"><span>${t.l}</span>${badge(w.m[t.k].status)}</div>${w.m[t.k].name?`<div class="cellname">${w.m[t.k].name}</div><div class="cellrev">rév. ${w.m[t.k].rev} · ${w.m[t.k].size}</div>`:'<span class="mute">Aucun modèle</span>'}${prog(w.m[t.k])}${extra(w.m[t.k],w)}${acts(w,t.k)}</div>`).join('')}
+    </article>`}).join('')}</div></div>`;
+}
+const FLOW=['requested','downloading','verifying','ready','switching','removing'];
+const FLOWL={requested:'Demandé',downloading:'Téléchargé',verifying:'Vérifié',ready:'Prêt',switching:'Bascule',removing:'Retrait ancien'};
+function stepper(m){
+  if(m.status==='not_installed') return `<span class="mute">Aucun ordre</span>`;
+  const replacing = !!(m.replacing||m.removing);
+  const flow = replacing?FLOW:FLOW.slice(0,4);
+  let idx = m.status==='failed' ? (m.cause==='disk_full'?1:2) : flow.indexOf(m.status);
+  if(m.status==='ready' && replacing) idx=3;
+  return `<div class="steps" role="list">${flow.map((s,i)=>{
+    let cls = i<idx?'done':i===idx?(m.status==='failed'?'fail':(m.status==='ready'?'done':'cur')):'';
+    const ic = cls==='done'?ICON.ok:cls==='fail'?ICON.bad:'';
+    return `<div class="step ${cls}" role="listitem"><i>${ic}</i>${FLOWL[s]}</div>`}).join('')}</div>`;
+}
+function renderC(){
+  return `<div class="app">${head('Suivi des ordres : de la demande au retrait de l’ancien modèle.')}${legend()}
+  ${WORKERS.map(w=>`<section class="wblock"><header><div><b>${w.name}</b> <span class="mute" style="font-size:11px;margin-left:8px">${w.meta}</span></div></header>
+  ${TYPES.map(t=>{const m=w.m[t.k];return `<div class="prow"><div class="who"><b>${t.l}</b>${m.name?`<span class="mute">${m.name}</span>`:'<span class="mute">Absent</span>'}</div>
+  <div>${stepper(m)}${m.status==='downloading'?prog(m):''}${extra(m,w)}</div><div class="acts">${badge(m.status)}${acts(w,t.k)}</div></div>`}).join('')}
+  </section>`).join('')}</div>`;
+}
+const bar = p => { const n=Math.round(p/10); return '█'.repeat(n)+'░'.repeat(10-n)+' '+p+'%'; };
+function renderD(){
+  return `<div class="app"><p class="cmd"><b>$</b> snitch models list --workers all</p>
+  ${head('Console d’exploitation. Snitch possède l’état désiré.')}${legend()}
+  <div class="term">${WORKERS.map(w=>`<div class="wline"><span>▸ ${w.name}</span><span class="mute">${w.meta}</span></div>
+  <div class="trow h"><span>type</span><span>rév.</span><span>modèle / progression</span><span>statut</span><span>actions</span></div>
+  ${TYPES.map(t=>{const m=w.m[t.k];return `<div class="trow"><span>${t.k}</span><span class="mute">${m.rev||'—'}</span>
+  <span>${m.name||'<span class="mute">(absent)</span>'}${m.status==='downloading'?`<div class="pb" aria-label="${m.progress} %">${bar(m.progress)}</div>`:''}${['verifying','switching','removing','requested'].includes(m.status)?`<div class="pb">░▒▓░▒▓░▒▓░▒ …</div>`:''}${m.status==='failed'?`<div class="err" role="alert">${CAUSES[m.cause]}</div>`:''}${m.replacing&&m.status!=='ready'?`<div class="note">remplace ${m.replacing}</div>`:''}${m.removing?`<div class="note">retire ${m.removing}</div>`:''}</span>
+  ${badge(m.status)}<span>${acts(w,t.k).replace('class="actions"','class="actions" style="margin:0"')}</span></div>`}).join('')}`).join('')}</div></div>`;
+}
+function renderE(){
+  const d = ui.drawer;
+  return `<div class="app">${head('Vue d’ensemble : clique une cellule pour voir le détail et agir.')}${legend()}
+  <div class="mx"><div></div>${TYPES.map(t=>`<div class="ch">${t.l}</div>`).join('')}
+  ${WORKERS.map(w=>`<div class="rw"><b>${w.name}</b><small>${w.meta.split(' · ').slice(-1)[0]}</small></div>${TYPES.map(t=>{const m=w.m[t.k];return `<button class="mc ${d&&d.w===w.id&&d.t===t.k?'sel':''}" data-act="cell" data-w="${w.id}" data-t="${t.k}" aria-label="${w.name}, ${t.l}, ${STATUS[m.status].l}"><span class="mn">${m.name||'Aucun modèle'}</span>${m.rev?`<span class="mr">${m.rev} · ${m.size}</span>`:''}${badge(m.status)}${m.status==='downloading'?prog(m):''}</button>`}).join('')}`).join('')}</div>
+  ${d?drawerHtml(d):''}</div>`;
+}
+function drawerHtml(d){
+  const w=WORKERS.find(x=>x.id===d.w), t=TYPES.find(x=>x.k===d.t), m=w.m[d.t];
+  return `<aside class="drawer" aria-label="Détail"><div style="display:flex;justify-content:space-between;align-items:start"><div><h3>${t.l} · ${w.name}</h3><div class="mute" style="font-size:12px;margin-top:3px">${w.meta}</div></div><button class="btn sm" data-act="close">Fermer</button></div>
+  <div style="margin:14px 0">${badge(m.status)}</div>
+  <dl class="recap" style="margin:0 0 8px">${[['Modèle',m.name||'Aucun'],['Révision',m.rev||'—'],['Volume occupé',m.size||'—'],['Remplace',m.replacing||'—']].map(r=>`<div><dt>${r[0]}</dt><dd>${r[1]}</dd></div>`).join('')}</dl>
+  ${prog(m)}${extra(m,w)}${acts(w,d.t,false)}
+  <h3 style="margin-top:22px;font-size:13px">Historique des ordres</h3><ul class="hist">${histItems(w.name)}</ul></aside>`;
+}
+const histItems = n => HISTORY.filter(h=>!n||h.w===n).map(h=>`<li><time>${h.t}</time><b>${h.a}</b><span>${h.w} · ${h.r} · ${h.by}</span></li>`).join('') || '<li><span>Aucun ordre.</span></li>';
+
+/* ----- modals ----- */
+let addState = {scen:null, type:null};
+function addModal(){
+  const s=addState.scen;
+  let body='';
+  if(s==='known') body=`<div class="callout run">Type proposé : <b>Diarisation</b> (pipeline_tag speaker-diarization). Confirmez ci-dessous.</div>
+    <div class="seg" role="group" aria-label="Type"><button aria-pressed="true">Diarisation</button><button aria-pressed="false">Fingerprint</button><button aria-pressed="false">Séparation</button></div>
+    <dl class="recap"><div><dt>Modèle</dt><dd>nvidia/diar_streaming_sortformer_4spk-v2.1</dd></div><div><dt>Type</dt><dd>Diarisation</dd></div><div><dt>Moteur compatible</dt><dd>NVIDIA NeMo</dd></div><div><dt>Révision</dt><dd class="mono">cd03eee9…</dd></div><div><dt>Licence</dt><dd>NVIDIA Open Model</dd></div><div><dt>Gated</dt><dd>Non</dd></div></dl>`;
+  if(s==='unsure') body=`<div class="callout bad">Type non déterminé de façon fiable. Choisissez la catégorie : rien n’est inventé.</div>
+    <div class="seg" role="group" aria-label="Type">${TYPES.map(t=>`<button aria-pressed="${addState.type===t.k}" data-act="pickType" data-t="${t.k}">${t.l}</button>`).join('')}</div>
+    <dl class="recap"><div><dt>Modèle</dt><dd>acme/voice-embed-large</dd></div><div><dt>Type</dt><dd>${addState.type?TYPES.find(x=>x.k===addState.type).l:'À choisir'}</dd></div><div><dt>Moteur compatible</dt><dd>Transformers</dd></div><div><dt>Révision</dt><dd class="mono">9be1a07…</dd></div><div><dt>Licence</dt><dd>Apache-2.0</dd></div><div><dt>Gated</dt><dd>Oui · jeton requis</dd></div></dl>`;
+  if(s==='unsupported') body=`<div class="callout bad" role="alert"><b>Non pris en charge.</b> Ce dépôt n’a que des poids <span class="mono">.bin</span> (pickle) et demande du code distant : aucun adaptateur approuvé ne peut le charger. L’installation est bloquée.</div>
+    <dl class="recap"><div><dt>Modèle</dt><dd>someone/cool-diarizer</dd></div><div><dt>Type</dt><dd>Diarisation (déclaré, non prouvé)</dd></div><div><dt>Moteur compatible</dt><dd>Aucun</dd></div><div><dt>Révision</dt><dd class="mono">—</dd></div></dl>`;
+  if(!s) body=`<p class="mute" style="font-size:12px;margin:10px 0">Collez un dépôt Hugging Face. Snitch lit les métadonnées publiques ; rien n’est téléchargé ni exécuté. Le moteur n’est jamais à choisir.</p>`;
+  const canAdd = s==='known' || (s==='unsure' && addState.type);
+  return `<div class="veil" data-act="veil"><div class="modal" role="dialog" aria-modal="true" aria-label="Ajouter un modèle"><h3>Ajouter un modèle au catalogue</h3>
+  <div class="field"><input aria-label="Dépôt Hugging Face" placeholder="org/nom-du-modèle ou URL Hugging Face" value="${s==='known'?'nvidia/diar_streaming_sortformer_4spk-v2.1':s==='unsure'?'acme/voice-embed-large':s==='unsupported'?'someone/cool-diarizer':''}"><button class="btn pri" data-act="inspect">Inspecter</button></div>
+  <div class="scen"><span>Simuler :</span><button class="btn sm" data-act="scen" data-s="known">Repo connu</button><button class="btn sm" data-act="scen" data-s="unsure">Type incertain</button><button class="btn sm" data-act="scen" data-s="unsupported">Incompatible</button></div>
+  ${body}<div class="mfoot"><button class="btn" data-act="closeModal">Annuler</button><button class="btn pri" ${canAdd?'':'disabled'} data-act="addok">Ajouter au catalogue</button></div></div></div>`;
+}
+function chooseModal(wid,t){
+  const w=WORKERS.find(x=>x.id===wid), cur=w.m[t];
+  const opts = t==='diar'?[['Sortformer 4spk v2.1','NeMo','471 Mo',false],['Nemotron diar','NeMo','1,2 Go',false],['Pyannote community-1','pyannote','34 Mo',true]]:[['WeSpeaker ResNet34','pyannote','27 Mo',false],['TitaNet large','NeMo','96 Mo',false]];
+  return `<div class="veil" data-act="veil"><div class="modal" role="dialog" aria-modal="true" aria-label="Choisir un modèle"><h3>${cur.name?'Changer':'Installer'} · ${TYPES.find(x=>x.k===t).l}</h3><div class="mute" style="font-size:12px">Sur ${w.name} · ${w.meta}</div>
+  <div class="seg" style="flex-direction:column;margin-top:14px">${opts.map((o,i)=>`<button aria-pressed="${i===1}" style="text-align:left;display:flex;justify-content:space-between"><span>${o[0]} <span class="mute" style="font-weight:400">· ${o[1]}${o[3]?' · gated':''}</span></span><span class="mute">${o[2]}</span></button>`).join('')}</div>
+  ${cur.name?`<div class="callout run">Le nouveau modèle sera téléchargé et testé avant la bascule. <b>${cur.name}</b> reste actif et n’est retiré qu’après confirmation, sur ordre de Snitch.</div>`:''}
+  ${w.id==='w3'?'<div class="callout bad">Espace libre : 3 Go. Garder les deux modèles demande 1,7 Go : le remplacement risque d’échouer. Libérez de la place d’abord.</div>':''}
+  ${t==='fp'&&cur.name?'<div class="callout bad"><b>Changer d’empreinte invalide les anciennes.</b> 1 248 empreintes seront recalculées. L’ancien modèle est conservé jusqu’à la fin de la migration.</div>':''}
+  <div class="mfoot"><button class="btn" data-act="closeModal">Annuler</button><button class="btn pri" data-act="order">Envoyer l’ordre</button></div></div></div>`;
+}
+function applyModal(){
+  return `<div class="veil" data-act="veil"><div class="modal" role="dialog" aria-modal="true" aria-label="Appliquer à plusieurs Workers"><h3>Appliquer à plusieurs Workers</h3><div class="mute" style="font-size:12px">Action explicite : un ordre est créé pour chaque Worker coché.</div>
+  <div class="seg" style="margin-top:12px"><button aria-pressed="true">Diarisation</button><button aria-pressed="false">Fingerprint</button></div>
+  <div class="recap">${WORKERS.map((w,i)=>`<div><dt><label><input type="checkbox" ${i<3?'checked':''}> ${w.name}</label></dt><dd class="mute">${w.meta.split(' · ').slice(-1)[0]}</dd></div>`).join('')}</div>
+  <div class="mfoot"><button class="btn" data-act="closeModal">Annuler</button><button class="btn pri" data-act="order">Envoyer 3 ordres</button></div></div></div>`;
+}
+function histModal(wid){
+  const w=WORKERS.find(x=>x.id===wid);
+  return `<div class="veil" data-act="veil"><div class="modal" role="dialog" aria-modal="true" aria-label="Historique"><h3>Historique des ordres${w?` · ${w.name}`:''}</h3><ul class="hist">${histItems(w&&w.name)}</ul><div class="mfoot"><button class="btn" data-act="closeModal">Fermer</button></div></div></div>`;
+}
+
+/* ----- shell ----- */
+const R={a:renderA,b:renderB,c:renderC,d:renderD,e:renderE};
+function paint(){
+  const f=document.getElementById('frame');
+  f.innerHTML = `<div data-dir="${dir}" style="min-height:640px;position:relative">${R[dir]()}${ui.modal||''}</div>`;
+  document.getElementById('dirnote').textContent = DIRS[dir].d;
+  document.querySelectorAll('#switch button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.d===dir));
+}
+document.getElementById('switch').innerHTML = Object.entries(DIRS).map(([k,v])=>`<button data-d="${k}" aria-pressed="${k===dir}">${v.n}</button>`).join('');
+document.getElementById('switch').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;dir=b.dataset.d;ui={drawer:null,modal:null};paint()});
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');setTimeout(()=>e.classList.remove('on'),2200)}
+document.getElementById('frame').addEventListener('click',e=>{
+  const el=e.target.closest('[data-act]'); if(!el) return;
+  const a=el.dataset.act;
+  if(a==='veil'){ if(e.target!==el) return; ui.modal=null; return paint(); }
+  if(a==='add'){ addState={scen:null,type:null}; ui.modal=addModal(); }
+  else if(a==='scen'){ addState={scen:el.dataset.s,type:null}; ui.modal=addModal(); }
+  else if(a==='pickType'){ addState.type=el.dataset.t; ui.modal=addModal(); }
+  else if(a==='inspect'){ if(!addState.scen) toast('Choisissez un scénario à simuler.'); ui.modal=addModal(); }
+  else if(a==='choose'){ ui.modal=chooseModal(el.dataset.w,el.dataset.t); }
+  else if(a==='apply'){ ui.modal=applyModal(); }
+  else if(a==='hist'){ ui.modal=histModal(el.dataset.w); }
+  else if(a==='closeModal'){ ui.modal=null; }
+  else if(a==='addok'||a==='order'){ ui.modal=null; toast(a==='order'?'Ordre enregistré (prototype).':'Modèle ajouté au catalogue (prototype).'); }
+  else if(a==='retry'){ toast('Nouvel ordre envoyé : même modèle, nouvelle tentative.'); }
+  else if(a==='cancel'){ toast('Remplacement annulé : l’ancien modèle reste actif.'); }
+  else if(a==='uninstall'){ toast('Ordre de désinstallation envoyé (confirmation requise en vrai).'); }
+  else if(a==='cell'){ ui.drawer={w:el.dataset.w,t:el.dataset.t}; }
+  else if(a==='close'){ ui.drawer=null; }
+  paint();
+});
+document.getElementById('theme').addEventListener('click',e=>{const on=document.body.dataset.theme!=='dark';document.body.dataset.theme=on?'dark':'';e.currentTarget.setAttribute('aria-pressed',on)});
+paint();
+</script>
+</body>
+</html>

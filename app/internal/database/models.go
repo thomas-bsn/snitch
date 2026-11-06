@@ -10,8 +10,10 @@ import (
 )
 
 type AccountAvatar struct {
-	UserID int64  `json:"user_id"`
-	Png    []byte `json:"png"`
+	UserID      int64       `json:"user_id"`
+	Png         []byte      `json:"png"`
+	Source      string      `json:"source"`
+	DiscordHash pgtype.Text `json:"discord_hash"`
 }
 
 type AttributionEvent struct {
@@ -32,6 +34,16 @@ type AttributionEvent struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type AvatarPreference struct {
+	UserID               int64              `json:"user_id"`
+	Source               string             `json:"source"`
+	Version              int64              `json:"version"`
+	DiscordCheckedAt     pgtype.Timestamptz `json:"discord_checked_at"`
+	DiscordNextAttemptAt pgtype.Timestamptz `json:"discord_next_attempt_at"`
+	DiscordFailures      int32              `json:"discord_failures"`
+	DiscordLastError     pgtype.Text        `json:"discord_last_error"`
+}
+
 type Clip struct {
 	ID                  int64              `json:"id"`
 	OwnerID             int64              `json:"owner_id"`
@@ -48,6 +60,59 @@ type Clip struct {
 	AudioCodec          string             `json:"audio_codec"`
 	Tracks              []byte             `json:"tracks"`
 	ContentSha256       []byte             `json:"content_sha256"`
+	Game                pgtype.Text        `json:"game"`
+	GameOrigin          pgtype.Text        `json:"game_origin"`
+	CaptureTime         pgtype.Timestamptz `json:"capture_time"`
+	CaptureTimeOrigin   pgtype.Text        `json:"capture_time_origin"`
+	GameEdited          bool               `json:"game_edited"`
+	CaptureTimeEdited   bool               `json:"capture_time_edited"`
+	DisplayTitle        pgtype.Text        `json:"display_title"`
+	DetectedMetadata    []byte             `json:"detected_metadata"`
+}
+
+type ClipAnalysisDeletion struct {
+	ID                  int64              `json:"id"`
+	ClipID              int64              `json:"clip_id"`
+	Steps               []string           `json:"steps"`
+	DeletedBy           pgtype.Int8        `json:"deleted_by"`
+	DeletedByUsername   string             `json:"deleted_by_username"`
+	LostSegments        int32              `json:"lost_segments"`
+	LostCorrections     int32              `json:"lost_corrections"`
+	LostVoices          int32              `json:"lost_voices"`
+	LostValidatedVoices int32              `json:"lost_validated_voices"`
+	LostPersons         int32              `json:"lost_persons"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	LostRefusals        int32              `json:"lost_refusals"`
+	LostDispositions    int32              `json:"lost_dispositions"`
+}
+
+type ClipAnalysisRun struct {
+	ID                          int64              `json:"id"`
+	ClipID                      int64              `json:"clip_id"`
+	Scope                       string             `json:"scope"`
+	Status                      string             `json:"status"`
+	StartedBy                   pgtype.Int8        `json:"started_by"`
+	CreatedAt                   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt                   pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt                  pgtype.Timestamptz `json:"finished_at"`
+	Mode                        string             `json:"mode"`
+	ForcedSteps                 []string           `json:"forced_steps"`
+	ConfirmedReplaceCorrections bool               `json:"confirmed_replace_corrections"`
+	ConfirmedReplaceValidations bool               `json:"confirmed_replace_validations"`
+	ConfirmedStakeAt            pgtype.Timestamptz `json:"confirmed_stake_at"`
+}
+
+type ClipAnalysisStep struct {
+	RunID      int64              `json:"run_id"`
+	Step       string             `json:"step"`
+	Status     string             `json:"status"`
+	Reason     string             `json:"reason"`
+	JobID      pgtype.Int8        `json:"job_id"`
+	Attempt    int32              `json:"attempt"`
+	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+	RetrySince pgtype.Timestamptz `json:"retry_since"`
 }
 
 type ClipAudioTrackOverride struct {
@@ -55,6 +120,20 @@ type ClipAudioTrackOverride struct {
 	AudioStreamIndex int32              `json:"audio_stream_index"`
 	Version          int64              `json:"version"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ClipDeletionFile struct {
+	ClipID       int64  `json:"clip_id"`
+	RootPath     string `json:"root_path"`
+	RelativePath string `json:"relative_path"`
+	StagedPath   string `json:"staged_path"`
+	Phase        string `json:"phase"`
+}
+
+type ClipMetadataSetting struct {
+	ID       bool   `json:"id"`
+	Country  string `json:"country"`
+	Timezone string `json:"timezone"`
 }
 
 type ClipMicrophoneOverride struct {
@@ -80,6 +159,32 @@ type ClipSource struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	HealthMessage  string             `json:"health_message"`
 	ManagedRoot    bool               `json:"managed_root"`
+}
+
+type ClipThumbnail struct {
+	ClipID    int64              `json:"clip_id"`
+	Jpeg      []byte             `json:"jpeg"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ClipWaveform struct {
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	JobID            int64              `json:"job_id"`
+	Peaks            []byte             `json:"peaks"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type DiscordBotState struct {
+	ID                int16              `json:"id"`
+	BotName           pgtype.Text        `json:"bot_name"`
+	Status            string             `json:"status"`
+	LastError         pgtype.Text        `json:"last_error"`
+	LastSyncStartedAt pgtype.Timestamptz `json:"last_sync_started_at"`
+	LastSyncAt        pgtype.Timestamptz `json:"last_sync_at"`
+	LastRefreshed     int32              `json:"last_refreshed"`
+	LastFailed        int32              `json:"last_failed"`
+	LockedUntil       pgtype.Timestamptz `json:"locked_until"`
 }
 
 type EmbeddingIndexState struct {
@@ -108,6 +213,47 @@ type EmbeddingTask struct {
 	Error              pgtype.Text        `json:"error"`
 	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
 	LeaseExpiresAt     pgtype.Timestamptz `json:"lease_expires_at"`
+}
+
+type EmbeddingValidation struct {
+	TokenHash []byte             `json:"token_hash"`
+	UserID    int64              `json:"user_id"`
+	Url       string             `json:"url"`
+	Model     string             `json:"model"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Event struct {
+	ID        int64              `json:"id"`
+	Topic     string             `json:"topic"`
+	Kind      string             `json:"kind"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type FolderRequest struct {
+	ID                int64              `json:"id"`
+	Parent            string             `json:"parent"`
+	Name              string             `json:"name"`
+	Status            string             `json:"status"`
+	RequestedBy       pgtype.Int8        `json:"requested_by"`
+	RequesterUsername string             `json:"requester_username"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	DecidedAt         pgtype.Timestamptz `json:"decided_at"`
+	DecidedBy         pgtype.Int8        `json:"decided_by"`
+	DecidedByUsername string             `json:"decided_by_username"`
+}
+
+type FolderRequestEvent struct {
+	ID                int64              `json:"id"`
+	Action            string             `json:"action"`
+	Parent            string             `json:"parent"`
+	Name              string             `json:"name"`
+	RequesterID       pgtype.Int8        `json:"requester_id"`
+	RequesterUsername string             `json:"requester_username"`
+	ActorID           pgtype.Int8        `json:"actor_id"`
+	ActorUsername     string             `json:"actor_username"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type Installation struct {
@@ -140,6 +286,7 @@ type Job struct {
 	CompletedLeaseTokenHash []byte             `json:"completed_lease_token_hash"`
 	Cycle                   int32              `json:"cycle"`
 	ResultDigest            pgtype.Text        `json:"result_digest"`
+	RequestedModelID        pgtype.Text        `json:"requested_model_id"`
 }
 
 type JobControl struct {
@@ -150,27 +297,59 @@ type JobControl struct {
 }
 
 type JobEvent struct {
+	ID         int64              `json:"id"`
+	JobID      int64              `json:"job_id"`
+	Event      string             `json:"event"`
+	Cycle      int32              `json:"cycle"`
+	Attempt    pgtype.Int4        `json:"attempt"`
+	Actor      string             `json:"actor"`
+	ActorID    string             `json:"actor_id"`
+	ErrorCode  string             `json:"error_code"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Step       pgtype.Text        `json:"step"`
+	Provider   pgtype.Text        `json:"provider"`
+	Model      pgtype.Text        `json:"model"`
+	Revision   pgtype.Text        `json:"revision"`
+	HttpStatus pgtype.Int4        `json:"http_status"`
+	DurationMs pgtype.Int4        `json:"duration_ms"`
+}
+
+type JobLogLine struct {
 	ID        int64              `json:"id"`
 	JobID     int64              `json:"job_id"`
-	Event     string             `json:"event"`
-	Cycle     int32              `json:"cycle"`
-	Attempt   pgtype.Int4        `json:"attempt"`
-	Actor     string             `json:"actor"`
-	ActorID   string             `json:"actor_id"`
-	ErrorCode string             `json:"error_code"`
+	Text      string             `json:"text"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type LibraryIndexRun struct {
+	ID         int64              `json:"id"`
+	SourceID   int64              `json:"source_id"`
+	Mode       string             `json:"mode"`
+	Status     string             `json:"status"`
+	CreatedBy  pgtype.Int8        `json:"created_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
 type LocalSpeaker struct {
-	ID               int64       `json:"id"`
-	ClipID           int64       `json:"clip_id"`
-	AudioStreamIndex int32       `json:"audio_stream_index"`
-	DiarizationJobID pgtype.Int8 `json:"diarization_job_id"`
-	Label            string      `json:"label"`
-	Ordinal          int32       `json:"ordinal"`
-	SpeakingSeconds  float64     `json:"speaking_seconds"`
-	TurnCount        int32       `json:"turn_count"`
-	Kind             string      `json:"kind"`
+	ID               int64              `json:"id"`
+	ClipID           int64              `json:"clip_id"`
+	AudioStreamIndex int32              `json:"audio_stream_index"`
+	DiarizationJobID pgtype.Int8        `json:"diarization_job_id"`
+	Label            string             `json:"label"`
+	Ordinal          int32              `json:"ordinal"`
+	SpeakingSeconds  float64            `json:"speaking_seconds"`
+	TurnCount        int32              `json:"turn_count"`
+	Kind             string             `json:"kind"`
+	ArchivedAt       pgtype.Timestamptz `json:"archived_at"`
+}
+
+type LocalSpeakerDisposition struct {
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	Disposition    string             `json:"disposition"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
 type MicrophoneTrackEvent struct {
@@ -186,12 +365,37 @@ type MicrophoneTrackEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type Notification struct {
+	ID            int64              `json:"id"`
+	Kind          string             `json:"kind"`
+	ClipID        pgtype.Int8        `json:"clip_id"`
+	State         string             `json:"state"`
+	PendingCount  int32              `json:"pending_count"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ResolvedAt    pgtype.Timestamptz `json:"resolved_at"`
+	Cause         string             `json:"cause"`
+	JobID         pgtype.Int8        `json:"job_id"`
+	Step          string             `json:"step"`
+	ErrorCode     string             `json:"error_code"`
+	FolderPath    string             `json:"folder_path"`
+	FolderOutcome string             `json:"folder_outcome"`
+}
+
+type NotificationRecipient struct {
+	NotificationID int64              `json:"notification_id"`
+	UserID         int64              `json:"user_id"`
+	ReadAt         pgtype.Timestamptz `json:"read_at"`
+	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
 type OauthState struct {
 	StateHash   []byte             `json:"state_hash"`
 	BrowserHash []byte             `json:"browser_hash"`
 	UserID      pgtype.Int8        `json:"user_id"`
 	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
 	SessionHash []byte             `json:"session_hash"`
+	RedirectUri string             `json:"redirect_uri"`
 }
 
 type Person struct {
@@ -217,6 +421,39 @@ type PersonEvent struct {
 	AuthorID            pgtype.Int8        `json:"author_id"`
 	AuthorUsername      string             `json:"author_username"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type PersonLinkEvent struct {
+	ID               int64              `json:"id"`
+	Action           string             `json:"action"`
+	PersonID         int64              `json:"person_id"`
+	PersonName       string             `json:"person_name"`
+	UserID           pgtype.Int8        `json:"user_id"`
+	Username         string             `json:"username"`
+	PreviousUserID   pgtype.Int8        `json:"previous_user_id"`
+	PreviousUsername string             `json:"previous_username"`
+	ActorID          pgtype.Int8        `json:"actor_id"`
+	ActorUsername    string             `json:"actor_username"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type PersonLinkRequest struct {
+	ID                int64              `json:"id"`
+	PersonID          int64              `json:"person_id"`
+	UserID            int64              `json:"user_id"`
+	Status            string             `json:"status"`
+	Message           string             `json:"message"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	DecidedAt         pgtype.Timestamptz `json:"decided_at"`
+	DecidedBy         pgtype.Int8        `json:"decided_by"`
+	DecidedByUsername string             `json:"decided_by_username"`
+}
+
+type PrivateFolder struct {
+	SourceID  int64              `json:"source_id"`
+	Folder    string             `json:"folder"`
+	SetBy     pgtype.Int8        `json:"set_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type SegmentCorrection struct {
@@ -303,6 +540,10 @@ type SourceFile struct {
 	Status             string             `json:"status"`
 	ErrorCode          pgtype.Text        `json:"error_code"`
 	ScanRequested      bool               `json:"scan_requested"`
+	FirstSeenAt        pgtype.Timestamptz `json:"first_seen_at"`
+	PreviousClipID     pgtype.Int8        `json:"previous_clip_id"`
+	IndexOnly          bool               `json:"index_only"`
+	IndexRunID         pgtype.Int8        `json:"index_run_id"`
 }
 
 type SourceMicrophoneTrack struct {
@@ -370,6 +611,14 @@ type TranscriptionPipelineVersion struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type TranscriptionSetting struct {
+	ID        bool               `json:"id"`
+	Mode      string             `json:"mode"`
+	Endpoint  string             `json:"endpoint"`
+	Version   string             `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type TranscriptionVocabularyTerm struct {
 	ID                int64              `json:"id"`
 	Term              string             `json:"term"`
@@ -420,15 +669,23 @@ type UploadedMedium struct {
 }
 
 type User struct {
-	ID           int64              `json:"id"`
-	Username     string             `json:"username"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
-	Role         string             `json:"role"`
-	Approved     bool               `json:"approved"`
-	DiscordID    pgtype.Text        `json:"discord_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	Language     pgtype.Text        `json:"language"`
-	DeletedAt    pgtype.Timestamptz `json:"deleted_at"`
+	ID              int64              `json:"id"`
+	Username        string             `json:"username"`
+	PasswordHash    pgtype.Text        `json:"password_hash"`
+	Role            string             `json:"role"`
+	Approved        bool               `json:"approved"`
+	DiscordID       pgtype.Text        `json:"discord_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Language        pgtype.Text        `json:"language"`
+	DeletedAt       pgtype.Timestamptz `json:"deleted_at"`
+	DiscordName     pgtype.Text        `json:"discord_name"`
+	DisplayName     pgtype.Text        `json:"display_name"`
+	DiscordUsername pgtype.Text        `json:"discord_username"`
+}
+
+type VoiceActiveModel struct {
+	Kind    string `json:"kind"`
+	ModelID string `json:"model_id"`
 }
 
 type VoiceAutomationEvent struct {
@@ -443,6 +700,18 @@ type VoiceAutomationEvent struct {
 	PrecisionThreshold float64            `json:"precision_threshold"`
 	MinConfirmations   int32              `json:"min_confirmations"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceDispositionEvent struct {
+	ID             int64              `json:"id"`
+	LocalSpeakerID pgtype.Int8        `json:"local_speaker_id"`
+	ClipID         int64              `json:"clip_id"`
+	OldDisposition string             `json:"old_disposition"`
+	NewDisposition string             `json:"new_disposition"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	Reason         string             `json:"reason"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type VoiceFingerprint struct {
@@ -463,6 +732,20 @@ type VoiceFingerprint struct {
 	Dimensions       int32              `json:"dimensions"`
 	Embedding        pgvector.Vector    `json:"embedding"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	Benchmark        bool               `json:"benchmark"`
+}
+
+type VoiceFingerprintTransition struct {
+	ID                  int64              `json:"id"`
+	FromModelID         string             `json:"from_model_id"`
+	ToModelID           string             `json:"to_model_id"`
+	Phase               string             `json:"phase"`
+	AnnouncedReferences int32              `json:"announced_references"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorName          string             `json:"author_name"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	SwitchedAt          pgtype.Timestamptz `json:"switched_at"`
 }
 
 type VoiceGroupExclusion struct {
@@ -496,6 +779,32 @@ type VoiceMatchingSetting struct {
 	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
 }
 
+type VoiceModelCandidate struct {
+	ID       bool               `json:"id"`
+	ModelID  string             `json:"model_id"`
+	ChosenAt pgtype.Timestamptz `json:"chosen_at"`
+}
+
+type VoiceModelCatalog struct {
+	ID                  string             `json:"id"`
+	Kind                string             `json:"kind"`
+	Engine              string             `json:"engine"`
+	Repo                string             `json:"repo"`
+	Revision            string             `json:"revision"`
+	Label               string             `json:"label"`
+	License             string             `json:"license"`
+	Gated               bool               `json:"gated"`
+	MaxSpeakers         int32              `json:"max_speakers"`
+	SizeBytes           int64              `json:"size_bytes"`
+	VramBytes           int64              `json:"vram_bytes"`
+	SupportsNumSpeakers bool               `json:"supports_num_speakers"`
+	Enabled             bool               `json:"enabled"`
+	Supported           bool               `json:"supported"`
+	UnsupportedReason   string             `json:"unsupported_reason"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+}
+
 type VoicePipelineActive struct {
 	ID      bool   `json:"id"`
 	Version string `json:"version"`
@@ -520,12 +829,33 @@ type VoiceProfileDeletion struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceRefusal struct {
+	LocalSpeakerID int64              `json:"local_speaker_id"`
+	PersonID       int64              `json:"person_id"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceRefusalEvent struct {
+	ID             int64              `json:"id"`
+	LocalSpeakerID pgtype.Int8        `json:"local_speaker_id"`
+	ClipID         int64              `json:"clip_id"`
+	PersonID       pgtype.Int8        `json:"person_id"`
+	PersonName     string             `json:"person_name"`
+	Action         string             `json:"action"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername string             `json:"author_username"`
+	Reason         string             `json:"reason"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceSample struct {
 	ID             int64              `json:"id"`
 	PersonID       int64              `json:"person_id"`
 	LocalSpeakerID int64              `json:"local_speaker_id"`
 	ClipID         int64              `json:"clip_id"`
-	AttributionID  int64              `json:"attribution_id"`
+	AttributionID  pgtype.Int8        `json:"attribution_id"`
 	CreatedBy      pgtype.Int8        `json:"created_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
@@ -534,17 +864,131 @@ type VoiceSample struct {
 }
 
 type Worker struct {
-	ID                  string             `json:"id"`
-	Name                string             `json:"name"`
-	TokenHash           []byte             `json:"token_hash"`
-	MaxConcurrency      int32              `json:"max_concurrency"`
-	ReportedConcurrency int32              `json:"reported_concurrency"`
-	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
-	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
-	CreatedAt           pgtype.Timestamptz `json:"created_at"`
-	SupportedSteps      []string           `json:"supported_steps"`
-	Models              []byte             `json:"models"`
-	TranscriptionModel  string             `json:"transcription_model"`
-	Machine             []byte             `json:"machine"`
-	RemoteAddress       string             `json:"remote_address"`
+	ID                       string             `json:"id"`
+	Name                     string             `json:"name"`
+	TokenHash                []byte             `json:"token_hash"`
+	MaxConcurrency           int32              `json:"max_concurrency"`
+	ReportedConcurrency      int32              `json:"reported_concurrency"`
+	LastSeenAt               pgtype.Timestamptz `json:"last_seen_at"`
+	RevokedAt                pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt                pgtype.Timestamptz `json:"created_at"`
+	SupportedSteps           []string           `json:"supported_steps"`
+	Models                   []byte             `json:"models"`
+	TranscriptionModel       string             `json:"transcription_model"`
+	Machine                  []byte             `json:"machine"`
+	RemoteAddress            string             `json:"remote_address"`
+	FirstPulseAt             pgtype.Timestamptz `json:"first_pulse_at"`
+	RevokeReason             string             `json:"revoke_reason"`
+	RevocationAcknowledgedAt pgtype.Timestamptz `json:"revocation_acknowledged_at"`
+	LastClaimAt              pgtype.Timestamptz `json:"last_claim_at"`
+}
+
+type WorkerHfToken struct {
+	WorkerID     string             `json:"worker_id"`
+	AckedVersion string             `json:"acked_version"`
+	Source       string             `json:"source"`
+	ErrorCode    string             `json:"error_code"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkerInstallEvent struct {
+	ID         int64              `json:"id"`
+	WorkerID   string             `json:"worker_id"`
+	Phase      string             `json:"phase"`
+	Status     string             `json:"status"`
+	CauseCode  string             `json:"cause_code"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	ReceivedAt pgtype.Timestamptz `json:"received_at"`
+}
+
+type WorkerInstallInvite struct {
+	CodeHash              []byte             `json:"code_hash"`
+	WorkerID              string             `json:"worker_id"`
+	EncryptedToken        []byte             `json:"encrypted_token"`
+	ApiUrl                string             `json:"api_url"`
+	Image                 string             `json:"image"`
+	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
+	TranscriptionMode     string             `json:"transcription_mode"`
+	TranscriptionEndpoint string             `json:"transcription_endpoint"`
+	TranscriptionModel    string             `json:"transcription_model"`
+	TranscriptionLanguage string             `json:"transcription_language"`
+	UsedAt                pgtype.Timestamptz `json:"used_at"`
+}
+
+type WorkerModelOrder struct {
+	ID             string             `json:"id"`
+	WorkerID       string             `json:"worker_id"`
+	Kind           string             `json:"kind"`
+	Action         string             `json:"action"`
+	ModelID        string             `json:"model_id"`
+	Revision       string             `json:"revision"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorName     string             `json:"author_name"`
+	Status         string             `json:"status"`
+	CauseCode      string             `json:"cause_code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	AckedAt        pgtype.Timestamptz `json:"acked_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+}
+
+type WorkerModelReplacement struct {
+	WorkerID      string             `json:"worker_id"`
+	Kind          string             `json:"kind"`
+	OldModelID    string             `json:"old_model_id"`
+	NewModelID    string             `json:"new_model_id"`
+	Phase         string             `json:"phase"`
+	CauseCode     string             `json:"cause_code"`
+	RemoveOrderID pgtype.Text        `json:"remove_order_id"`
+	AuthorID      pgtype.Int8        `json:"author_id"`
+	AuthorName    string             `json:"author_name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkerTranscriptionConfig struct {
+	WorkerID         string             `json:"worker_id"`
+	ReceivedVersion  string             `json:"received_version"`
+	TestedVersion    string             `json:"tested_version"`
+	ActiveVersion    string             `json:"active_version"`
+	ErrorCode        string             `json:"error_code"`
+	TestRequestedAt  pgtype.Timestamptz `json:"test_requested_at"`
+	TestedAt         pgtype.Timestamptz `json:"tested_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	EndpointOverride string             `json:"endpoint_override"`
+	Reachable        bool               `json:"reachable"`
+	ReachCheckedAt   pgtype.Timestamptz `json:"reach_checked_at"`
+	ReachLatencyMs   int32              `json:"reach_latency_ms"`
+	ReachFailure     []byte             `json:"reach_failure"`
+}
+
+type WorkerUpdateStatus struct {
+	WorkerID   string             `json:"worker_id"`
+	State      string             `json:"state"`
+	Version    string             `json:"version"`
+	Digest     string             `json:"digest"`
+	CauseCode  string             `json:"cause_code"`
+	ReportedAt pgtype.Timestamptz `json:"reported_at"`
+}
+
+type WorkerUpdateTarget struct {
+	ID        bool               `json:"id"`
+	Version   pgtype.Text        `json:"version"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	Mode      string             `json:"mode"`
+}
+
+type WorkerVoiceModel struct {
+	WorkerID         string             `json:"worker_id"`
+	ModelID          string             `json:"model_id"`
+	State            string             `json:"state"`
+	CauseCode        string             `json:"cause_code"`
+	BytesReceived    int64              `json:"bytes_received"`
+	BytesTotal       int64              `json:"bytes_total"`
+	RetryRequested   bool               `json:"retry_requested"`
+	RemovalRequested bool               `json:"removal_requested"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	Revision         string             `json:"revision"`
+	OccupiedBytes    int64              `json:"occupied_bytes"`
+	OrderID          pgtype.Text        `json:"order_id"`
 }

@@ -1,0 +1,216 @@
+{
+  "widths": [1440, 390],
+  "themes": ["light", "dark"],
+  "states": [
+    {
+      "screen": "fiche-video",
+      "state": "echec",
+      "prototype": "/prototype/fiche-video?variant=C",
+      "app": "/clips/{clip}"
+    },
+    {
+      "screen": "fiche-video",
+      "state": "voix",
+      "prototype": "/prototype/fiche-video?variant=C&tab=voices",
+      "app": "/clips/{clip}",
+      "appClick": "Voix"
+    },
+    {
+      "screen": "fiche-video",
+      "state": "analyse-panneau",
+      "prototype": "/prototype/fiche-video?variant=C",
+      "prototypeClick": "Analyse",
+      "app": "/clips/{clip}",
+      "appClick": "Analyse"
+    },
+    {
+      "screen": "people",
+      "state": "annuaire",
+      "prototype": "/prototype/people?variant=D",
+      "app": "/people"
+    },
+    {
+      "screen": "people",
+      "state": "annuaire-personne",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "ML\\s*Marc Lefèvre",
+      "app": "/people",
+      "appLink": "Marc Lefèvre"
+    },
+    {
+      "screen": "people",
+      "state": "annuaire-personne-faible",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "TR\\s*Thomas Roux",
+      "app": "/people",
+      "appLink": "Thomas Roux"
+    },
+    {
+      "screen": "people",
+      "state": "a-traiter",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "À traiter",
+      "app": "/people/verification"
+    },
+    {
+      "screen": "people",
+      "state": "voix-inconnues",
+      "prototype": "/prototype/people?variant=D",
+      "prototypeClick": "Voix inconnues",
+      "app": "/people/groups"
+    },
+    {
+      "screen": "traitement",
+      "state": "traitement",
+      "prototype": "/prototype/people?variant=D&traiter=40",
+      "app": "/people/verification?clip={clip}"
+    },
+    {
+      "screen": "bibliotheque",
+      "state": "liste",
+      "prototype": "/prototype/library?variant=D",
+      "app": "/library?folder=2026/octobre"
+    },
+    {
+      "screen": "bibliotheque",
+      "state": "icones",
+      "prototype": "/prototype/library?variant=D",
+      "prototypeClick": "Icônes",
+      "app": "/library?folder=2026/octobre",
+      "appClick": "Icônes"
+    },
+    {
+      "screen": "import",
+      "state": "import",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import"
+    },
+    {
+      "screen": "import",
+      "state": "selecteur",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [{ "click": "Déjà sur le serveur" }],
+      "appSteps": [
+        { "click": "Déjà sur le serveur" },
+        { "click": "2026" },
+        { "click": "novembre" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "selection",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Déjà sur le serveur" },
+        { "check": "Sélectionner rush-nuit-01.mp4" },
+        { "check": "Sélectionner rush-nuit-02.mp4" }
+      ],
+      "appSteps": [
+        { "click": "Déjà sur le serveur" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "check": "Sélectionner rush-nuit-01.mp4" },
+        { "check": "Sélectionner rush-nuit-02.mp4" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "televersement",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [{ "click": "Depuis mon ordinateur" }],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Choisir ce dossier" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "destination",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" }
+      ]
+    },
+    {
+      "screen": "import",
+      "state": "nouveau-dossier-utilisateur",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "prototypeRole": "user",
+      "appUser": "member"
+    },
+    {
+      "screen": "import",
+      "state": "demande-envoyee",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" },
+        { "click": "Envoyer la demande" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" },
+        { "click": "Envoyer la demande" }
+      ],
+      "prototypeRole": "user",
+      "appUser": "member"
+    },
+    {
+      "screen": "import",
+      "state": "nouveau-dossier-admin",
+      "prototype": "/prototype/import?variant=A",
+      "app": "/import",
+      "prototypeSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Changer…" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "appSteps": [
+        { "click": "Depuis mon ordinateur" },
+        { "click": "Choisir un dossier…" },
+        { "click": "2026" },
+        { "click": "novembre" },
+        { "click": "Nouveau dossier" },
+        { "fill": "reportage-hiver" }
+      ],
+      "prototypeRole": "admin"
+    }
+  ]
+}

@@ -176,15 +176,17 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
       ).toBeVisible();
     }
 
-// The sidebar leads to the four screens and marks the current one.
+    // The header is the only entry into search; submitting an empty field opens its prompt.
     await page.goto("/library");
-    const sidebar = page.getByRole("navigation", { name: "Main navigation" });
-    await sidebar.getByRole("link", { name: "Search" }).click();
+    const query = page.getByRole("searchbox", {
+      name: "Search the transcripts",
+    });
+    await query.fill("");
+    await query.press("Enter");
     await expect(page).toHaveURL(/\/search$/);
-    await expect(sidebar.getByRole("link", { name: "Search" })).toHaveAttribute(
-      "aria-current",
-      "page",
-    );
+    await expect(
+      page.getByRole("heading", { name: "Search", exact: true, level: 1 }),
+    ).toBeVisible();
 
     // The header search opens the search screen with the query in the address.
     await page

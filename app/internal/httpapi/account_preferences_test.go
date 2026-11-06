@@ -31,7 +31,6 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 	server := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32)}, slog.New(slog.NewJSONHandler(io.Discard, nil)))
 	ts := httptest.NewServer(server.Handler())
 	t.Cleanup(ts.Close)
-	server.Config.PublicURL = ts.URL
 	newClient := func() *http.Client {
 		jar, err := cookiejar.New(nil)
 		if err != nil {
@@ -90,6 +89,61 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 	t.Run("preferences require a session", func(t *testing.T) {
 		call(newClient(), "", "GET", "/api/account/preferences", "", 401)
 		call(newClient(), "", "PUT", "/api/account/preferences", `{"language":"fr"}`, 401)
+	})
+	t.Run("Discord link state and unlink preserve the local sign-in safeguard", func(t *testing.T) {
+		var me struct {
+			User struct {
+				ID int64 `json:"id"`
+			} `json:"user"`
+			DiscordLinked    bool `json:"discord_linked"`
+			CanUnlinkDiscord bool `json:"can_unlink_discord"`
+		}
+		if err := json.Unmarshal(call(admin, "", "GET", "/api/auth/me", "", 200), &me); err != nil {
+			t.Fatal(err)
+		}
+		userID := me.User.ID
+		var localPassword *string
+		if err := pool.QueryRow(ctx, `SELECT password_hash FROM users WHERE id=$1`, userID).Scan(&localPassword); err != nil {
+			t.Fatal(err)
+		}
+		// The last case removes the local password to test the Discord-only safeguard; put it back so the
+		// later language cases can still open a new session with it.
+		t.Cleanup(func() {
+			if _, err := pool.Exec(ctx, `UPDATE users SET password_hash=$1 WHERE id=$2`, localPassword, userID); err != nil {
+				t.Error(err)
+			}
+		})
+		if _, err := pool.Exec(ctx, `UPDATE users SET discord_id='fixture-discord-user' WHERE id=$1`, userID); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(call(admin, "", "GET", "/api/auth/me", "", 200), &me); err != nil {
+			t.Fatal(err)
+		}
+		if !me.DiscordLinked || !me.CanUnlinkDiscord {
+			t.Fatalf("linked account state: linked=%v can_unlink=%v", me.DiscordLinked, me.CanUnlinkDiscord)
+		}
+		call(admin, "", "DELETE", "/api/account/discord", "", 403)
+		call(admin, adminCSRF, "DELETE", "/api/account/discord", "", 200)
+		var linked bool
+		if err := pool.QueryRow(ctx, `SELECT discord_id IS NOT NULL FROM users WHERE id=$1`, userID).Scan(&linked); err != nil || linked {
+			t.Fatalf("Discord identity should be removed: linked=%v err=%v", linked, err)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE users SET discord_id='fixture-discord-only',password_hash=NULL WHERE id=$1`, userID); err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(call(admin, "", "GET", "/api/auth/me", "", 200), &me); err != nil {
+			t.Fatal(err)
+		}
+		if !me.DiscordLinked || me.CanUnlinkDiscord {
+			t.Fatalf("Discord-only account state: linked=%v can_unlink=%v", me.DiscordLinked, me.CanUnlinkDiscord)
+		}
+		out := call(admin, adminCSRF, "DELETE", "/api/account/discord", "", 409)
+		if !bytes.Contains(out, []byte(`"error":"discord_local_login_required"`)) {
+			t.Fatalf("unexpected safeguard response: %s", out)
+		}
+		if err := pool.QueryRow(ctx, `SELECT discord_id IS NOT NULL FROM users WHERE id=$1`, userID).Scan(&linked); err != nil || !linked {
+			t.Fatalf("Discord-only identity must remain linked: linked=%v err=%v", linked, err)
+		}
 	})
 	t.Run("a new account has no language chosen", func(t *testing.T) {
 		if got := language(admin); got != nil {
@@ -184,8 +238,82 @@ func testAccountPreferences(t *testing.T, pool *pgxpool.Pool) {
 		if err != nil || format != "png" || cfg.Width != 256 || cfg.Height != 256 {
 			t.Fatalf("invalid stored avatar: %+v %s %v", cfg, format, err)
 		}
+
+		var person struct {
+			ID int64 `json:"id"`
+		}
+		if err := json.Unmarshal(call(admin, adminCSRF, "POST", "/api/persons", `{"display_name":"Synthetic avatar person"}`, 201), &person); err != nil {
+			t.Fatal(err)
+		}
+		path := "/api/persons/" + strconv.FormatInt(person.ID, 10) + "/avatar"
+		call(newClient(), "", "GET", path, "", 401)
+		call(admin, "", "GET", path, "", 404)
+		var request struct {
+			ID int64 `json:"id"`
+		}
+		if err := json.Unmarshal(call(admin, adminCSRF, "POST", "/api/me/person/request", `{"person_id":`+strconv.FormatInt(person.ID, 10)+`}`, 201), &request); err != nil {
+			t.Fatal(err)
+		}
+		call(admin, "", "GET", path, "", 404) // A pending request does not disclose a photo.
+		call(admin, adminCSRF, "POST", "/api/admin/person-link-requests/"+strconv.FormatInt(request.ID, 10)+"/approve", "", 200)
+		if got := call(admin, "", "GET", path, "", 200); !bytes.Equal(got, data) {
+			t.Fatal("linked Personne did not inherit the selected photo")
+		}
+		call(admin, adminCSRF, "DELETE", "/api/me/person", "", 200)
+		call(admin, "", "GET", path, "", 404)
 		call(admin, adminCSRF, "DELETE", "/api/account/avatar", "", 204)
 		call(admin, "", "GET", "/api/account/avatar", "", 404)
+	})
+
+	t.Run("a local username with a Discord prefix remains the displayed local name", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `UPDATE users SET username='discord_local',discord_id='987654',discord_name='External display name' WHERE username='administrator'`); err != nil {
+			t.Fatal(err)
+		}
+		me := call(admin, "", "GET", "/api/auth/me", "", 200)
+		if !bytes.Contains(me, []byte(`"display_name":"discord_local"`)) {
+			t.Fatalf("local name replaced by Discord: %s", me)
+		}
+		if _, err := pool.Exec(ctx, `UPDATE users SET username='administrator',discord_id=NULL,discord_name=NULL WHERE username='discord_local'`); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	t.Run("identity and password can be edited without losing the account", func(t *testing.T) {
+		call(newClient(), "", "PUT", "/api/account/profile", `{"display_name":"New name","username":"new-login"}`, 401)
+		call(admin, "", "PUT", "/api/account/profile", `{"display_name":"New name","username":"new-login"}`, 403)
+		call(admin, adminCSRF, "PUT", "/api/account/profile", `{"display_name":"New name","username":"second-member"}`, 409)
+		call(admin, adminCSRF, "PUT", "/api/account/profile", `{"display_name":" ","username":"new-login"}`, 400)
+		call(admin, adminCSRF, "PUT", "/api/account/profile", `{"display_name":"New name","username":"new-login"}`, 200)
+		me := call(admin, "", "GET", "/api/auth/me", "", 200)
+		if !bytes.Contains(me, []byte(`"display_name":"New name"`)) || !bytes.Contains(me, []byte(`"has_password":true`)) {
+			t.Fatalf("updated identity missing: %s", me)
+		}
+		other := newClient()
+		call(other, "", "POST", "/api/auth/login", `{"username":"new-login","password":"synthetic-password-123"}`, 200)
+		call(admin, adminCSRF, "PUT", "/api/account/password", `{"current_password":"wrong-password","new_password":"replacement-password"}`, 403)
+		call(admin, adminCSRF, "PUT", "/api/account/password", `{"current_password":"synthetic-password-123","new_password":"replacement-password"}`, 200)
+		call(other, "", "GET", "/api/auth/me", "", 401)
+		call(admin, "", "GET", "/api/auth/me", "", 200)
+		call(newClient(), "", "POST", "/api/auth/login", `{"username":"new-login","password":"synthetic-password-123"}`, 401)
+		call(newClient(), "", "POST", "/api/auth/login", `{"username":"new-login","password":"replacement-password"}`, 200)
+	})
+	t.Run("Discord-only accounts can set a local password then unlink", func(t *testing.T) {
+		server.rates.Clear() // This case opens several sessions independently of the previous one.
+		member := newClient()
+		call(member, "", "POST", "/api/auth/login", `{"username":"second-member","password":"synthetic-password-456"}`, 200)
+		csrf := csrfOf(member)
+		_, err := pool.Exec(ctx, `UPDATE users SET username='discord_123456',password_hash=NULL,discord_id='123456',discord_name='Display from Discord' WHERE username='second-member'`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		me := call(member, "", "GET", "/api/auth/me", "", 200)
+		if !bytes.Contains(me, []byte(`"display_name":"Display from Discord"`)) || !bytes.Contains(me, []byte(`"has_password":false`)) {
+			t.Fatalf("Discord account should show its display name: %s", me)
+		}
+		call(member, csrf, "PUT", "/api/account/password", `{"new_password":"short"}`, 400)
+		call(member, csrf, "PUT", "/api/account/password", `{"new_password":"local-password-for-discord"}`, 200)
+		call(member, csrf, "DELETE", "/api/account/discord", "", 200)
+		call(newClient(), "", "POST", "/api/auth/login", `{"username":"discord_123456","password":"local-password-for-discord"}`, 200)
 	})
 
 }

@@ -11,6 +11,7 @@ from ... import errors
 from ...models.error import Error
 from ...models.job_page import JobPage
 from ...models.list_jobs_status import ListJobsStatus
+from ...models.list_jobs_workflow import ListJobsWorkflow
 from ...types import UNSET, Unset
 from typing import cast
 
@@ -18,6 +19,7 @@ from typing import cast
 
 def _get_kwargs(
     *,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
@@ -30,6 +32,12 @@ def _get_kwargs(
 
 
     params: dict[str, Any] = {}
+
+    json_workflow: str | Unset = UNSET
+    if not isinstance(workflow, Unset):
+        json_workflow = workflow.value
+
+    params["workflow"] = json_workflow
 
     json_status: str | Unset = UNSET
     if not isinstance(status, Unset):
@@ -88,6 +96,7 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
@@ -98,6 +107,7 @@ def sync_detailed(
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
@@ -114,7 +124,8 @@ def sync_detailed(
 
 
     kwargs = _get_kwargs(
-        status=status,
+        workflow=workflow,
+status=status,
 clip_id=clip_id,
 step=step,
 page=page,
@@ -131,6 +142,7 @@ page_size=page_size,
 def sync(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
@@ -141,6 +153,7 @@ def sync(
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
@@ -158,6 +171,7 @@ def sync(
 
     return sync_detailed(
         client=client,
+workflow=workflow,
 status=status,
 clip_id=clip_id,
 step=step,
@@ -169,6 +183,7 @@ page_size=page_size,
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
@@ -179,6 +194,7 @@ async def asyncio_detailed(
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
@@ -195,7 +211,8 @@ async def asyncio_detailed(
 
 
     kwargs = _get_kwargs(
-        status=status,
+        workflow=workflow,
+status=status,
 clip_id=clip_id,
 step=step,
 page=page,
@@ -212,6 +229,7 @@ page_size=page_size,
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
+    workflow: ListJobsWorkflow | Unset = UNSET,
     status: ListJobsStatus | Unset = UNSET,
     clip_id: int | Unset = UNSET,
     step: str | Unset = UNSET,
@@ -222,6 +240,7 @@ async def asyncio(
     """  Administrateurs uniquement. Aucun chemin local n'est exposé.
 
     Args:
+        workflow (ListJobsWorkflow | Unset):
         status (ListJobsStatus | Unset):
         clip_id (int | Unset):
         step (str | Unset):
@@ -239,6 +258,7 @@ async def asyncio(
 
     return (await asyncio_detailed(
         client=client,
+workflow=workflow,
 status=status,
 clip_id=clip_id,
 step=step,

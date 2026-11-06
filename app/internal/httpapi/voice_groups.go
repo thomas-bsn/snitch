@@ -10,6 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"snitch/internal/analysis"
 )
 
 // Groups of unknown voices (phase 5).
@@ -33,17 +35,17 @@ import (
 // counted nor named, and the id of a group is its smallest visible member, so it never
 // reveals a hidden voice. The review view reuses loadVoiceGroups.
 
-const unknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic'))`
+const unknownSpeakerPredicate = analysis.UnknownSpeakerPredicate
 
 // voiceGroupsCTE defines members(id, clip_id, clip_name, label, speaking_seconds, excluded,
 // gid) for the caller ($1 user id, $2 administrator): the visible unknown voices with the
 // id of their group. Visibility is applied before the connected components are computed,
 // so a voice of a clip the caller cannot see never joins two voices they can see.
 const voiceGroupsCTE = `WITH RECURSIVE eligible AS (
-  SELECT ls.id,ls.clip_id,c.original_name AS clip_name,ls.label,ls.speaking_seconds,
+  SELECT ls.id,ls.clip_id,COALESCE(c.display_title,c.original_name) AS clip_name,ls.label,ls.speaking_seconds,
          EXISTS (SELECT 1 FROM voice_group_exclusions x WHERE x.local_speaker_id=ls.id) AS excluded
   FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id
-  WHERE (c.visibility='shared' OR c.owner_id=$1 OR $2) AND ` + unknownSpeakerPredicate + `
+  WHERE clip_readable(c.id,c.owner_id,c.visibility,$1,$2) AND ` + unknownSpeakerPredicate + `
 ), edges AS (
   SELECT l.speaker_a_id AS a,l.speaker_b_id AS b FROM voice_group_links l
     JOIN eligible x ON x.id=l.speaker_a_id AND NOT x.excluded JOIN eligible y ON y.id=l.speaker_b_id AND NOT y.excluded
@@ -85,6 +87,7 @@ type voiceGroupFilter struct {
 	sortByMembers bool
 	limit, offset int
 	id            int64 // a single group when > 0
+	voice         int64 // the group holding this visible voice when > 0
 }
 
 func (s *Server) registerVoiceGroupRoutes(mux *http.ServeMux) {
@@ -107,8 +110,9 @@ func (s *Server) loadVoiceGroups(ctx context.Context, q interface {
 	rows, err := q.Query(ctx, voiceGroupsCTE+`, grouped AS (
   SELECT group_id,count(*)::int AS member_count,count(DISTINCT clip_id)::int AS clip_count FROM members GROUP BY group_id
   HAVING (NOT $3 OR count(*) > 1) AND ($4::bigint = 0 OR group_id = $4)
+  AND ($7::bigint = 0 OR group_id IN (SELECT m.group_id FROM members m WHERE m.id = $7))
 )
-SELECT group_id,member_count,clip_count,count(*) OVER ()::int FROM grouped ORDER BY `+order+` LIMIT $5 OFFSET $6`, userID, admin, f.proposedOnly, f.id, f.limit, f.offset)
+SELECT group_id,member_count,clip_count,count(*) OVER ()::int FROM grouped ORDER BY `+order+` LIMIT $5 OFFSET $6`, userID, admin, f.proposedOnly, f.id, f.limit, f.offset, f.voice)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -190,6 +194,14 @@ func (s *Server) listVoiceGroups(w http.ResponseWriter, r *http.Request) {
 		f.limit = n
 	}
 	f.offset = (page - 1) * f.limit
+	if v := query.Get("voice"); v != "" {
+		n, err := strconv.ParseInt(v, 10, 64)
+		if err != nil || n < 1 {
+			fail(w, http.StatusBadRequest, "invalid_filter")
+			return
+		}
+		f.voice = n
+	}
 	groups, total, err := s.loadVoiceGroups(r.Context(), s.Pool, ss.User.ID, isAdministrator(ss.User.Role), f)
 	if err != nil {
 		s.internal(w, err)
@@ -260,6 +272,7 @@ func (s *Server) restoreGroupMember(w http.ResponseWriter, r *http.Request) {
 type voiceGroupNaming struct {
 	PersonID        *int64  `json:"person_id"`
 	NewPersonName   *string `json:"new_person_name"`
+	AllowHomonym    bool    `json:"allow_homonym"`
 	LocalSpeakerIDs []int64 `json:"local_speaker_ids"`
 }
 
@@ -351,8 +364,13 @@ func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	var personID int64
 	if input.NewPersonName != nil {
-		if err = tx.QueryRow(ctx, `INSERT INTO persons(display_name,created_by) VALUES($1,$2) RETURNING id`, name, ss.User.ID).Scan(&personID); err != nil {
+		var existing []personCandidate
+		if personID, existing, err = insertPerson(ctx, tx, name, ss.User.ID, input.AllowHomonym); err != nil {
 			s.internal(w, err)
+			return
+		}
+		if len(existing) > 0 {
+			personExists(w, existing)
 			return
 		}
 	} else {
@@ -457,7 +475,7 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 	if _, err = tx.Exec(ctx, `SET LOCAL hnsw.iterative_scan = relaxed_order`); err != nil {
 		return err
 	}
-	rows, err := tx.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id WHERE f.usable AND f.scope='speaker' AND `+unknownSpeakerPredicate)
+	rows, err := tx.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND `+unknownSpeakerPredicate)
 	if err != nil {
 		return err
 	}
@@ -481,11 +499,11 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 		query := fmt.Sprintf(`INSERT INTO voice_group_links(speaker_a_id,speaker_b_id,similarity,model,model_version,dimensions)
 SELECT least(t.sid,n.sid),greatest(t.sid,n.sid),max(n.sim),$1::text,$2::text,%[1]d
 FROM (SELECT f.local_speaker_id AS sid,f.embedding::vector(%[1]d) AS e FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id
-      WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND `+unknownSpeakerPredicate+`) t
+      WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND `+unknownSpeakerPredicate+`) t
 CROSS JOIN LATERAL (
   SELECT f2.local_speaker_id AS sid,1-(f2.embedding::vector(%[1]d) <=> t.e) AS sim
   FROM voice_fingerprints f2 JOIN local_speakers ls ON ls.id=f2.local_speaker_id
-  WHERE f2.usable AND f2.scope='speaker' AND f2.model=$1 AND f2.model_version=$2 AND f2.dimensions=%[1]d AND f2.local_speaker_id<>t.sid AND `+unknownSpeakerPredicate+`
+  WHERE f2.usable AND NOT f2.benchmark AND f2.scope='speaker' AND f2.model=$1 AND f2.model_version=$2 AND f2.dimensions=%[1]d AND f2.local_speaker_id<>t.sid AND `+unknownSpeakerPredicate+`
   ORDER BY f2.embedding::vector(%[1]d) <=> t.e LIMIT 20) n
 WHERE n.sim>=$3
 GROUP BY 1,2`, g.dimensions)

@@ -321,23 +321,6 @@ func testPublicAddress(t *testing.T, pool *pgxpool.Pool) {
 		}
 	})
 
-	t.Run("a configured public address wins over the request", func(t *testing.T) {
-		_, ts := start(t, base(func(c *config.Config) { c.PublicURL = "https://pinned.example"; c.TrustedProxies = loopback }), false)
-		cookie, _ := login(t, ts, map[string]string{"Origin": "https://pinned.example"})
-		if !cookie.Secure {
-			t.Fatal("cookie not secured for an HTTPS public address")
-		}
-		for name, origin := range map[string]string{"request address": ts.URL, "forwarded address": "https://snitch.example.org"} {
-			h := map[string]string{"Origin": origin, "X-Forwarded-Host": "snitch.example.org", "X-Forwarded-Proto": "https"}
-			if r := loginStatus(t, ts, h); r.status != 403 {
-				t.Fatalf("%s accepted over the configured address: %d", name, r.status)
-			}
-		}
-		if got := redirectURI(t, ts, map[string]string{"Origin": "https://pinned.example", "X-Forwarded-Host": "snitch.example.org"}); got != "https://pinned.example/api/auth/discord/callback" {
-			t.Fatalf("discord return address %q", got)
-		}
-	})
-
 	t.Run("the session cookie follows the scheme unless a setting decides", func(t *testing.T) {
 		_, tlsServer := start(t, base(nil), true)
 		cookie, _ := login(t, tlsServer, map[string]string{"Origin": tlsServer.URL})

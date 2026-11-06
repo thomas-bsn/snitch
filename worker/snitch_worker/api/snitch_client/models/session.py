@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -27,10 +28,22 @@ class Session:
         Attributes:
             user (User):
             csrf_token (str):
+            discord_linked (bool): Whether this account has a Discord identity linked.
+            can_unlink_discord (bool): True only when Discord is linked and a local password is configured.
+            has_password (bool):
+            discord_name (None | str | Unset): Display name of the linked Discord identity (global name, else username);
+                null when unlinked or linked before it was kept. Read-only.
+            discord_username (None | str | Unset): Vrai username Discord, distinct du global_name ; actualisé à la connexion
+                et par le bot.
      """
 
     user: User
     csrf_token: str
+    discord_linked: bool
+    can_unlink_discord: bool
+    has_password: bool
+    discord_name: None | str | Unset = UNSET
+    discord_username: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -43,13 +56,38 @@ class Session:
 
         csrf_token = self.csrf_token
 
+        discord_linked = self.discord_linked
+
+        can_unlink_discord = self.can_unlink_discord
+
+        has_password = self.has_password
+
+        discord_name: None | str | Unset
+        if isinstance(self.discord_name, Unset):
+            discord_name = UNSET
+        else:
+            discord_name = self.discord_name
+
+        discord_username: None | str | Unset
+        if isinstance(self.discord_username, Unset):
+            discord_username = UNSET
+        else:
+            discord_username = self.discord_username
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "user": user,
             "csrf_token": csrf_token,
+            "discord_linked": discord_linked,
+            "can_unlink_discord": can_unlink_discord,
+            "has_password": has_password,
         })
+        if discord_name is not UNSET:
+            field_dict["discord_name"] = discord_name
+        if discord_username is not UNSET:
+            field_dict["discord_username"] = discord_username
 
         return field_dict
 
@@ -66,9 +104,40 @@ class Session:
 
         csrf_token = d.pop("csrf_token")
 
+        discord_linked = d.pop("discord_linked")
+
+        can_unlink_discord = d.pop("can_unlink_discord")
+
+        has_password = d.pop("has_password")
+
+        def _parse_discord_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        discord_name = _parse_discord_name(d.pop("discord_name", UNSET))
+
+
+        def _parse_discord_username(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        discord_username = _parse_discord_username(d.pop("discord_username", UNSET))
+
+
         session = cls(
             user=user,
             csrf_token=csrf_token,
+            discord_linked=discord_linked,
+            can_unlink_discord=can_unlink_discord,
+            has_password=has_password,
+            discord_name=discord_name,
+            discord_username=discord_username,
         )
 
 

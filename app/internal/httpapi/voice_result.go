@@ -81,9 +81,11 @@ func parseDiarization(raw json.RawMessage, config voicePipeline, index int) (dia
 	return result, turns <= maxVoiceTurns
 }
 
-func parseFingerprints(raw json.RawMessage, index int, diarizationJobID int64) (fingerprintResult, bool) {
+// parseFingerprints validates a fingerprint result. A job that requested a model (requiredModel, its repo)
+// only accepts a result computed by that model: the fingerprints would otherwise be filed in another group.
+func parseFingerprints(raw json.RawMessage, index int, diarizationJobID int64, requiredModel string) (fingerprintResult, bool) {
 	var result fingerprintResult
-	if json.Unmarshal(raw, &result) != nil || result.EmbeddingModel == "" || len(result.EmbeddingModel) > 100 || result.EmbeddingModelVersion == "" || len(result.EmbeddingModelVersion) > 64 || result.AudioStreamIndex == nil || *result.AudioStreamIndex != index || result.DiarizationJobID == nil || *result.DiarizationJobID != diarizationJobID || result.Dimensions < 1 || result.Dimensions > maxVoiceDimensions || result.Fingerprints == nil || len(*result.Fingerprints) > maxVoiceFingerprint {
+	if json.Unmarshal(raw, &result) != nil || result.EmbeddingModel == "" || (requiredModel != "" && result.EmbeddingModel != requiredModel) || len(result.EmbeddingModel) > 100 || result.EmbeddingModelVersion == "" || len(result.EmbeddingModelVersion) > 64 || result.AudioStreamIndex == nil || *result.AudioStreamIndex != index || result.DiarizationJobID == nil || *result.DiarizationJobID != diarizationJobID || result.Dimensions < 1 || result.Dimensions > maxVoiceDimensions || result.Fingerprints == nil || len(*result.Fingerprints) > maxVoiceFingerprint {
 		return result, false
 	}
 	for _, fp := range *result.Fingerprints {
@@ -147,16 +149,39 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 				return projectDiarization(ctx, tx, job, parsed, pipelineVersion, index)
 			}
 		} else {
-			parsed, valid := parseFingerprints(result, index, diarizationID)
+			requiredModel, err := jobs.RequestedModelRepo(r.Context(), s.Pool, id)
+			if err != nil {
+				s.internal(w, err)
+				return
+			}
+			parsed, valid := parseFingerprints(result, index, diarizationID, requiredModel)
 			if !valid {
 				fail(w, http.StatusBadRequest, "invalid_voice_result")
 				return
+			}
+			if requiredModel == "" {
+				// A production result of a catalogue model that is not the active one (a Worker still on the previous
+				// model after a switch) would be filed next to the references of another model (ADR 0044).
+				var foreign bool
+				if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_model_catalog c WHERE c.kind='fingerprint' AND c.repo=$1 AND NOT EXISTS (SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=c.id))`, parsed.EmbeddingModel).Scan(&foreign); err != nil {
+					s.internal(w, err)
+					return
+				}
+				if foreign {
+					fail(w, http.StatusConflict, "stale_voice_result")
+					return
+				}
 			}
 			summarize = func(json.RawMessage) json.RawMessage { return fingerprintSummary(parsed) }
 			project = func(ctx context.Context, tx pgx.Tx, job jobs.Job) error {
 				return projectFingerprints(ctx, tx, job, parsed, config, index, diarizationID)
 			}
 		}
+	}
+	project = chainProjections(project, waveformProjection(step, result))
+	if summarize == nil && strings.HasPrefix(step, "voice.diarization.") {
+		// Peaks are stored per track by the waveform projection, never in jobs.result.
+		summarize = withoutPeaks
 	}
 	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), inputVersion, result, jobs.CompleteOptions{MaxResultBytes: maxVoiceResultBytes, Summarize: summarize, Project: project})
 	switch {
@@ -171,17 +196,30 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 	case err != nil:
 		s.internal(w, err)
 	default:
-		if strings.HasPrefix(step, "voice.fingerprint.") {
+		if strings.HasPrefix(step, "voice.fingerprint.") && !s.isBenchmarkJob(r.Context(), job.ID) {
 			// New fingerprints are matched against the existing references, in the
 			// database only. A failure never undoes the stored result.
 			s.matchingChanged(r.Context(), job.ClipID)
+		} else if strings.HasPrefix(step, "voice.fingerprint.") {
+			// A recomputed reference may complete the essential migration of a fingerprint model change.
+			s.stepFingerprintTransition(r.Context())
 		}
+		s.reconcileAnalysis(r.Context(), job.ClipID)
 		reply(w, http.StatusOK, job)
 	}
 }
 
-// errDiarizationLocked refuses a diarization result for a stream whose local
-// speakers carry human validations: replacing them would erase those validations.
+// isBenchmarkJob tells whether a job asked for a precise model: its fingerprints are a benchmark and change
+// nothing in the identification of the library.
+func (s *Server) isBenchmarkJob(ctx context.Context, jobID int64) bool {
+	var benchmark bool
+	if err := s.Pool.QueryRow(ctx, `SELECT requested_model_id IS NOT NULL FROM jobs WHERE id=$1`, jobID).Scan(&benchmark); err != nil {
+		return false
+	}
+	return benchmark
+}
+
+// errDiarizationLocked refuses a diarization result for a designated microphone track.
 var errDiarizationLocked = errors.New("diarization locked by human validation")
 
 // projectDiarization replaces the clip's local speakers for the audio stream and
@@ -190,21 +228,60 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	if _, err := tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, job.ClipID); err != nil {
 		return fmt.Errorf("lock clip for diarization: %w", err)
 	}
-	// Validations take the clip row FOR SHARE, so this check cannot race with one.
-	var locked bool
-	// A designated microphone track is never diarized either (microphone track).
-	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND a.validation_state='validated') OR EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, job.ClipID, index).Scan(&locked); err != nil {
-		return fmt.Errorf("check validated speakers: %w", err)
+	// Validations take the clip row FOR SHARE, so none can race with this replacement.
+	// A designated microphone track is never diarized (microphone track).
+	var microphone bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='microphone')`, job.ClipID, index).Scan(&microphone); err != nil {
+		return fmt.Errorf("check microphone track: %w", err)
 	}
-	if locked {
+	if microphone {
 		return errDiarizationLocked
 	}
-	if err := dropSpeakerOverrides(ctx, tx, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
+	// A forced reanalysis only replaces the human work it showed: a validation or a speaker
+	// correction made after the confirmation locks the speakers instead of being lost.
+	var newer bool
+	if err := tx.QueryRow(ctx, `WITH cutoff AS (SELECT r.confirmed_stake_at AS at FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=$3 AND 'diarization'=ANY(r.forced_steps) AND r.confirmed_stake_at IS NOT NULL ORDER BY r.id DESC LIMIT 1)
+SELECT EXISTS(SELECT 1 FROM cutoff, local_speakers ls WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'
+ AND (EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='validated' AND a.decided_at > cutoff.at)
+ OR EXISTS (SELECT 1 FROM segment_corrections sc WHERE sc.speaker_override_id=ls.id AND sc.speaker_corrected_at > cutoff.at)))`, job.ClipID, index, job.ID).Scan(&newer); err != nil {
+		return fmt.Errorf("check human work after confirmation: %w", err)
+	}
+	if newer {
+		return errDiarizationLocked
+	}
+	// Dispositions and refusals follow the new voice that covers most of each old one, or are
+	// dropped; either way they are journaled before the old voices go (ADR 0031).
+	carry, err := planVoiceCarry(ctx, tx, job.ClipID, index, result)
+	if err != nil {
+		return fmt.Errorf("plan the carry of dispositions and refusals: %w", err)
+	}
+	newLabels := make([]string, len(*result.Speakers))
+	for ordinal, speaker := range *result.Speakers {
+		newLabels[ordinal] = speaker.Label
+	}
+	if err = carry.release(ctx, tx, newLabels); err != nil {
+		return fmt.Errorf("release dispositions and refusals: %w", err)
+	}
+	// Speaker corrections point to the replaced speakers: they become obsolete (history kept).
+	if err := dropSpeakerOverrides(ctx, tx, droppedByDiarization, `ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("record dropped speaker corrections: %w", err)
+	}
+	// The speakers a human validated are archived, never deleted: the validated
+	// Attribution, the Voice samples and the speaker fingerprints stay linked to the audio.
+	// An archived speaker keeps no turn and no machine attribution.
+	if _, err := tx.Exec(ctx, `WITH archived AS (
+ UPDATE local_speakers ls SET kind='archived',archived_at=now()
+ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'
+   AND EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='validated')
+ RETURNING ls.id), cleaned AS (
+ DELETE FROM speaker_attributions a USING archived WHERE a.local_speaker_id=archived.id AND a.validation_state='unvalidated' RETURNING a.id)
+DELETE FROM speaker_turns st USING archived WHERE st.local_speaker_id=archived.id`, job.ClipID, index); err != nil {
+		return fmt.Errorf("archive validated speakers: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM local_speakers WHERE clip_id=$1 AND audio_stream_index=$2 AND kind='diarized'`, job.ClipID, index); err != nil {
 		return fmt.Errorf("replace local speakers: %w", err)
 	}
+	newIDs := make([]int64, len(*result.Speakers))
 	for ordinal, speaker := range *result.Speakers {
 		seconds := 0.0
 		for _, t := range *speaker.Turns {
@@ -214,21 +291,25 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 		if err := tx.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id`, job.ClipID, index, job.ID, speaker.Label, ordinal, seconds, len(*speaker.Turns)).Scan(&speakerID); err != nil {
 			return fmt.Errorf("insert local speaker: %w", err)
 		}
+		newIDs[ordinal] = speakerID
 		for turnIndex, t := range *speaker.Turns {
 			if _, err := tx.Exec(ctx, `INSERT INTO speaker_turns(local_speaker_id,clip_id,turn_index,start_seconds,end_seconds) VALUES($1,$2,$3,$4,$5)`, speakerID, job.ClipID, turnIndex, *t.Start, *t.End); err != nil {
 				return fmt.Errorf("insert speaker turn: %w", err)
 			}
 		}
 	}
+	if err = carry.apply(ctx, tx, newIDs); err != nil {
+		return fmt.Errorf("carry dispositions and refusals: %w", err)
+	}
 	step := fmt.Sprintf("voice.fingerprint.%d", index)
 	version := fmt.Sprintf("f5-a%d-p%s-d%d", index, pipelineVersion, job.ID)
-	if _, err := tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND status IN ('pending','leased','retry_wait')`, job.ClipID, step, version); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND requested_model_id IS NULL AND status IN ('pending','leased','retry_wait')`, job.ClipID, step, version); err != nil {
 		return fmt.Errorf("supersede fingerprint step: %w", err)
 	}
 	if len(*result.Speakers) == 0 {
 		return nil
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,0,3) ON CONFLICT (clip_id,step,input_version) WHERE status IN ('pending','leased','retry_wait') DO NOTHING`, job.ClipID, step, version); err != nil {
+	if _, err := tx.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,0,3) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING`, job.ClipID, step, version); err != nil {
 		return fmt.Errorf("queue fingerprint step: %w", err)
 	}
 	return nil
@@ -248,6 +329,12 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 	if err != nil {
 		return fmt.Errorf("read current diarization: %w", err)
 	}
+	// The fingerprints of a requested model form a benchmark group: they replace only their own earlier
+	// results and never the production ones.
+	var benchmark bool
+	if err = tx.QueryRow(ctx, `SELECT requested_model_id IS NOT NULL FROM jobs WHERE id=$1`, job.ID).Scan(&benchmark); err != nil {
+		return fmt.Errorf("read fingerprint job request: %w", err)
+	}
 	speakers := map[string]int64{}
 	rows, err := tx.Query(ctx, `SELECT id,label FROM local_speakers WHERE diarization_job_id=$1`, diarizationID)
 	if err != nil {
@@ -266,7 +353,7 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 	if err = rows.Err(); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM voice_fingerprints WHERE clip_id=$1 AND local_speaker_id IN (SELECT id FROM local_speakers WHERE diarization_job_id=$2)`, job.ClipID, diarizationID); err != nil {
+	if _, err = tx.Exec(ctx, `DELETE FROM voice_fingerprints WHERE clip_id=$1 AND benchmark=$3 AND ($3::boolean IS FALSE OR (model=$4 AND model_version=$5)) AND local_speaker_id IN (SELECT id FROM local_speakers WHERE diarization_job_id=$2)`, job.ClipID, diarizationID, benchmark, result.EmbeddingModel, result.EmbeddingModelVersion); err != nil {
 		return fmt.Errorf("replace fingerprints: %w", err)
 	}
 	for _, fp := range *result.Fingerprints {
@@ -296,7 +383,7 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 			values[i] = strconv.FormatFloat(float64(float32(v)), 'g', -1, 32)
 		}
 		vector := "[" + strings.Join(values, ",") + "]"
-		if _, err = tx.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,turn_id,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector)`, speakerID, job.ClipID, job.ID, fp.Scope, turnID, *fp.Start, *fp.End, duration, *fp.Quality, reason == "", reason, result.EmbeddingModel, result.EmbeddingModelVersion, result.Dimensions, vector); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,turn_id,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding,benchmark) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector,$16)`, speakerID, job.ClipID, job.ID, fp.Scope, turnID, *fp.Start, *fp.End, duration, *fp.Quality, reason == "", reason, result.EmbeddingModel, result.EmbeddingModelVersion, result.Dimensions, vector, benchmark); err != nil {
 			return fmt.Errorf("insert fingerprint: %w", err)
 		}
 	}

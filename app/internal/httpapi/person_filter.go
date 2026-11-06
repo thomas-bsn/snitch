@@ -67,11 +67,11 @@ func segmentSpeakerJoin(alias, clip, stream, start, end, job, idx string) string
 	return fmt.Sprintf(` LEFT JOIN LATERAL (SELECT CASE WHEN eff.decision_level IN %[7]s THEN eff.person_id END person_id,
  CASE WHEN eff.decision_level IN %[7]s THEN p.display_name END person_name,COALESCE(eff.decision_level,'unknown') level
  FROM (SELECT x.id FROM (
-  SELECT ls.id,0 pri,0::double precision weight,ls.ordinal FROM segment_corrections sso JOIN local_speakers ls ON ls.id=sso.speaker_override_id WHERE sso.transcription_job_id=%[9]s AND sso.segment_index=%[10]s AND sso.stale_at IS NULL AND ls.clip_id=%[2]s AND ls.audio_stream_index=%[3]s
+  SELECT ls.id,0 pri,0::double precision weight,ls.ordinal FROM segment_corrections sso JOIN local_speakers ls ON ls.id=sso.speaker_override_id WHERE sso.transcription_job_id=%[9]s AND sso.segment_index=%[10]s AND sso.stale_at IS NULL AND ls.kind<>'archived' AND ls.clip_id=%[2]s AND ls.audio_stream_index=%[3]s AND %[11]s
   UNION ALL
-  SELECT ls.id,1,-sum(%[6]s),ls.ordinal FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=%[2]s AND ls.audio_stream_index=%[3]s AND %[6]s>0 GROUP BY ls.id,ls.ordinal) x ORDER BY x.pri,x.weight,x.ordinal LIMIT 1) dom
+  SELECT ls.id,1,-sum(%[6]s),ls.ordinal FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=%[2]s AND ls.kind<>'archived' AND ls.audio_stream_index=%[3]s AND %[6]s>0 AND %[11]s GROUP BY ls.id,ls.ordinal) x ORDER BY x.pri,x.weight,x.ordinal LIMIT 1) dom
  LEFT JOIN LATERAL (%[8]s) eff ON true LEFT JOIN persons p ON p.id=eff.person_id) %[1]s ON true`,
-		alias, clip, stream, start, end, overlap, identifiedLevels, effectiveAttributionOf("dom"), job, idx)
+		alias, clip, stream, start, end, overlap, identifiedLevels, effectiveAttributionOf("dom"), job, idx, notIgnoredVoice)
 }
 
 // segmentPersonPredicate filters rows joined with segmentSpeakerJoin. personArg and
@@ -85,7 +85,7 @@ func segmentPersonPredicate(alias, personArg, unknownArg string) string {
 // at all. This is the clip-level reading of the segment rule (segmentPersonPredicate):
 // a segment without identified voice is unknown, including in a clip never diarized.
 func clipPersonPredicate(personArg, unknownArg string) string {
-	return fmt.Sprintf(`(%[1]s::bigint=0 OR EXISTS(SELECT 1 FROM local_speakers ls CROSS JOIN LATERAL (%[3]s) eff WHERE ls.clip_id=c.id AND eff.decision_level IN %[4]s AND eff.person_id=%[1]s::bigint)) AND (NOT %[2]s::boolean OR NOT EXISTS(SELECT 1 FROM local_speakers ls WHERE ls.clip_id=c.id) OR EXISTS(SELECT 1 FROM local_speakers ls LEFT JOIN LATERAL (%[3]s) eff ON true WHERE ls.clip_id=c.id AND (eff.person_id IS NULL OR eff.decision_level NOT IN %[4]s)))`,
+	return fmt.Sprintf(`(%[1]s::bigint=0 OR EXISTS(SELECT 1 FROM local_speakers ls CROSS JOIN LATERAL (%[3]s) eff WHERE ls.clip_id=c.id AND ls.kind<>'archived' AND eff.decision_level IN %[4]s AND eff.person_id=%[1]s::bigint)) AND (NOT %[2]s::boolean OR NOT EXISTS(SELECT 1 FROM local_speakers ls WHERE ls.clip_id=c.id AND ls.kind<>'archived') OR EXISTS(SELECT 1 FROM local_speakers ls LEFT JOIN LATERAL (%[3]s) eff ON true WHERE ls.clip_id=c.id AND ls.kind<>'archived' AND (eff.person_id IS NULL OR eff.decision_level NOT IN %[4]s)))`,
 		personArg, unknownArg, effectiveAttributionOf("ls"), identifiedLevels)
 }
 
@@ -102,7 +102,7 @@ func (s *Server) clipPersons(ctx context.Context, clipIDs []int64) (map[int64][]
 	if len(clipIDs) == 0 {
 		return out, nil
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT ls.clip_id,p.id,p.display_name,eff.decision_level FROM local_speakers ls CROSS JOIN LATERAL (`+effectiveAttributionOf("ls")+`) eff JOIN persons p ON p.id=eff.person_id WHERE ls.clip_id=ANY($1) AND eff.decision_level IN `+identifiedLevels, clipIDs)
+	rows, err := s.Pool.Query(ctx, `SELECT ls.clip_id,p.id,p.display_name,eff.decision_level FROM local_speakers ls CROSS JOIN LATERAL (`+effectiveAttributionOf("ls")+`) eff JOIN persons p ON p.id=eff.person_id WHERE ls.clip_id=ANY($1) AND ls.kind<>'archived' AND eff.decision_level IN `+identifiedLevels, clipIDs)
 	if err != nil {
 		return nil, err
 	}

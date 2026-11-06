@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
 	"snitch/internal/setup"
@@ -58,7 +59,6 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer s.Close()
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)
@@ -167,6 +167,78 @@ func testFolderSources(t *testing.T, pool *pgxpool.Pool) {
 	if clip.Name != "synthetic-clip.mp4" || clip.Status != "ready" || clip.SizeBytes != int64(len("synthetic-video-fixture")) || clip.Duration != 4.25 || clip.VideoCodec != "h264" || clip.RecordedAt != "2025-01-02T03:04:05Z" || clip.DateEstimated || len(clip.Tracks) != 3 || clip.Tracks[1].Language != "fra" {
 		t.Fatalf("unexpected clip metadata: %+v", clip)
 	}
+	var list struct {
+		Items []struct {
+			ID         int64   `json:"id"`
+			Game       *string `json:"game"`
+			RecordedAt *string `json:"recorded_at"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(request(admin, "GET", "/api/clips", "", "", http.StatusOK), &list); err != nil || len(list.Items) != 1 {
+		t.Fatalf("clip list: %+v %v", list, err)
+	}
+	clipPath := "/api/admin/clips/" + strconv.FormatInt(list.Items[0].ID, 10) + "/metadata"
+	request(admin, "PUT", clipPath, `{"game":"Manual game","recorded_at":null,"game_changed":true,"recorded_at_changed":false}`, session.CSRF, http.StatusOK)
+	request(admin, "POST", "/api/admin/clip-metadata/reprocess", "", session.CSRF, http.StatusOK)
+	if err := json.Unmarshal(request(admin, "GET", "/api/clips", "", "", http.StatusOK), &list); err != nil || len(list.Items) != 1 || list.Items[0].Game == nil || *list.Items[0].Game != "Manual game" || list.Items[0].RecordedAt == nil || !sameTimestamp(*list.Items[0].RecordedAt, "2025-01-02T03:04:05Z") {
+		t.Fatalf("reprocessed metadata: %s %v", request(admin, "GET", "/api/clips", "", "", http.StatusOK), err)
+	}
+	// Reprocessing must not attribute the metadata of a replaced file to the old clip,
+	// even when its size and modification time are unchanged.
+	info, err := os.Stat(media)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(media, 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(media, bytes.Repeat([]byte("x"), len("synthetic-video-fixture")), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(media, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	out := request(admin, "POST", "/api/admin/clip-metadata/reprocess", "", session.CSRF, http.StatusOK)
+	if !bytes.Contains(out, []byte(`"unavailable":1`)) {
+		t.Fatalf("replaced file should be skipped: %s", out)
+	}
+	// A second intact copy must be tried when the first accessible copy changed.
+	secondRoot := t.TempDir()
+	secondPath := filepath.Join(secondRoot, "copy.mp4")
+	if err := os.WriteFile(secondPath, []byte("synthetic-video-fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var secondSource int64
+	err = pool.QueryRow(context.Background(), `INSERT INTO clip_sources(name,root_path,owner_id) SELECT 'second-fixture',$1,id FROM users WHERE username='administrator' RETURNING id`, secondRoot).Scan(&secondSource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = pool.Exec(context.Background(), `INSERT INTO source_files(source_id,relative_path,clip_id,size_bytes,modified_at,stable_since,last_seen_generation,status) VALUES($1,'copy.mp4',$2,$3,$4,now(),0,'ready')`, secondSource, list.Items[0].ID, info.Size(), info.ModTime().Add(-time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out = request(admin, "POST", "/api/admin/clip-metadata/reprocess", "", session.CSRF, http.StatusOK)
+	if !bytes.Contains(out, []byte(`"updated":1`)) {
+		t.Fatalf("intact copy should be reprocessed: %s", out)
+	}
+	// The background reconciliation scans every source and may index copy.mp4 again between two
+	// separate deletes: the source row is locked first, so a concurrent insert waits and then fails.
+	if err = pgx.BeginFunc(context.Background(), pool, func(tx pgx.Tx) error {
+		for _, q := range []string{`SELECT id FROM clip_sources WHERE id=$1 FOR UPDATE`, `DELETE FROM source_files WHERE source_id=$1`, `DELETE FROM clip_sources WHERE id=$1`} {
+			if _, e := tx.Exec(context.Background(), q, secondSource); e != nil {
+				return e
+			}
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(media, []byte("synthetic-video-fixture"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(media, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
 	if byName["broken.mp4"].Status != "unreadable" || byName["broken.mp4"].ErrorCode != "video_unreadable" || byName["no-video.mp4"].Status != "unreadable" || byName["no-video.mp4"].ErrorCode != "video_stream_missing" {
 		t.Fatalf("invalid videos did not have visible errors: %+v", byName)
 	}
@@ -228,6 +300,20 @@ func testSourceReconciliation(t *testing.T, pool *pgxpool.Pool) {
 	if err := os.MkdirAll(secondRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	// System folders must neither be discovered nor prevent reconciliation of ordinary videos.
+	for _, rel := range []string{"#recycle", "@eaDir", "nested/#recycle", "nested/@eaDir"} {
+		dir := filepath.Join(firstRoot, rel)
+		if err := os.MkdirAll(dir, 0700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "ignored.mp4"), []byte("synthetic-system-video"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(dir, 0); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(dir, 0700) })
+	}
 	firstMedia := filepath.Join(firstRoot, "same.mp4")
 	if err := os.WriteFile(firstMedia, []byte("same-synthetic-content"), 0o400); err != nil {
 		t.Fatal(err)
@@ -255,7 +341,6 @@ func testSourceReconciliation(t *testing.T, pool *pgxpool.Pool) {
 	}
 	defer s.Close()
 	ts := httptest.NewUnstartedServer(s.Handler())
-	s.Config.PublicURL = "http://" + ts.Listener.Addr().String()
 	ts.Start()
 	defer ts.Close()
 	jar, _ := cookiejar.New(nil)
@@ -539,4 +624,10 @@ func syntheticConcurrentProbeFixture(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return probe
+}
+
+func sameTimestamp(a, b string) bool {
+	x, errA := time.Parse(time.RFC3339, a)
+	y, errB := time.Parse(time.RFC3339, b)
+	return errA == nil && errB == nil && x.Equal(y)
 }

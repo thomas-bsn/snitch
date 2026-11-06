@@ -56,6 +56,7 @@ export function SearchForm({
         <h2 className="m-0 hidden text-[10.5px] font-semibold uppercase tracking-[0.08em] text-mute lg:block">
           {t("search.filters.heading")}
         </h2>
+        <p className="text-xs text-mute">{t("metadata.dateFilterZone")}</p>
         <DateField
           label={t("library.filters.from")}
           value={filters.from}

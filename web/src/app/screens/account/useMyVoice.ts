@@ -6,16 +6,23 @@ import {
   type Person,
   type VoiceProfileDeletion,
 } from "../../api/client";
+import { fetchPersonImpact, type PersonImpact } from "../../people/peopleApi";
 import { useSession, type Outcome } from "../../session";
-
-export type MyClip = { id: number; original_name: string; recorded_at: string };
 
 export type MyVoice =
   | { phase: "loading" }
   | { phase: "failed"; code: string }
   /** No Person is linked to the account: Snitch holds no voice profile for it. */
   | { phase: "none" }
-  | { phase: "ready"; person: Person; clips: MyClip[] };
+  | {
+      phase: "ready";
+      person: Person;
+      /** Clips visible to the account where the Person is identified. */
+      clipTotal: number;
+      /** What deleting the voice profile erases; null once deleted or when unreadable. */
+      impact: PersonImpact | null;
+      impactFailed: boolean;
+    };
 
 /** The Person linked to the signed-in account, the clips where they are identified, and the deletion of the voice profile. */
 export function useMyVoice() {
@@ -38,10 +45,20 @@ export function useMyVoice() {
         return;
       }
       const person = mine.data;
-      const list = await api.GET("/api/clips", {
-        params: { query: { person_id: person.id, page_size: 100 } },
+      const deleted = person.voice_profile_deleted_at !== null;
+      const [list, impact] = await Promise.all([
+        api.GET("/api/clips", {
+          params: { query: { person_id: person.id, page_size: 1 } },
+        }),
+        deleted ? undefined : fetchPersonImpact(person.id),
+      ]);
+      setVoice({
+        phase: "ready",
+        person,
+        clipTotal: list.data?.total ?? 0,
+        impact: impact?.ok ? impact.value : null,
+        impactFailed: impact !== undefined && !impact.ok,
       });
-      setVoice({ phase: "ready", person, clips: list.data?.items ?? [] });
     } catch {
       setVoice({ phase: "failed", code: "unavailable" });
     }
@@ -68,5 +85,5 @@ export function useMyVoice() {
     [csrfToken, load],
   );
 
-  return { voice, erase };
+  return { voice, erase, reload: load };
 }

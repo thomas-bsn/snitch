@@ -6,7 +6,10 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
+	"snitch/internal/analysis"
+	"snitch/internal/logging"
 	"sort"
 	"strings"
 	"sync"
@@ -56,6 +59,14 @@ type matchingSettings struct {
 type voiceDB interface {
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
+
+// Closed reasons a voice stays unknown or ambiguous in the per-clip matching log.
+const (
+	reasonNoReference      = "no_reference"
+	reasonTiedCandidates   = "tied_candidates"
+	reasonBelowThreshold   = "below_threshold"
+	reasonMicroTrackDirect = "micro_track_direct"
+)
 
 func loadMatchingSettings(ctx context.Context, db voiceDB) (matchingSettings, error) {
 	var v matchingSettings
@@ -131,7 +142,7 @@ func (s *Server) postVoiceRematch(w http.ResponseWriter, r *http.Request) {
 // the next rematch (or the administrator's explicit one) repairs the attributions.
 func (s *Server) matchingChanged(ctx context.Context, clipID int64) {
 	if _, err := s.rematchVoices(context.WithoutCancel(ctx), clipID); err != nil {
-		s.Log.Error("voice matching failed", "clip_id", clipID, "error", err)
+		s.Log.Error("voice matching failed", append([]any{"clip_id", clipID}, logging.Failure(err)...)...)
 	}
 }
 
@@ -153,6 +164,7 @@ type matchTarget struct {
 	speakerID, clipID int64
 	scores            []matchScore // best first, already at or above the suggestion threshold
 	model, version    string
+	noReference       bool // fingerprint group without any reference: nothing to compare with
 }
 
 type existingMatch struct {
@@ -193,7 +205,7 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	if clipID > 0 {
 		scope = &clipID
 	}
-	groupRows, err := tx.Query(ctx, `SELECT DISTINCT model,model_version,dimensions FROM voice_fingerprints WHERE usable AND scope='speaker' AND ($1::bigint IS NULL OR clip_id=$1)`, scope)
+	groupRows, err := tx.Query(ctx, `SELECT DISTINCT model,model_version,dimensions FROM voice_fingerprints WHERE usable AND NOT benchmark AND scope='speaker' AND ($1::bigint IS NULL OR clip_id=$1)`, scope)
 	if err != nil {
 		return stats, err
 	}
@@ -227,7 +239,19 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 		return stats, err
 	}
 	evaluated := make(map[int64]bool, len(targets))
+	// Per clip, why voices stay unknown or ambiguous: closed reasons and counts only.
+	reasons := map[int64]map[string]int{}
+	note := func(clip int64, reason string) {
+		if reasons[clip] == nil {
+			reasons[clip] = map[string]int{}
+		}
+		reasons[clip][reason]++
+	}
 	for _, t := range targets {
+		if t.noReference {
+			note(t.clipID, reasonNoReference)
+			continue
+		}
 		evaluated[t.speakerID] = true
 		level, person, confidence, candidates := decideMatch(t.scores, settings)
 		stats.Evaluated++
@@ -240,6 +264,12 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 			stats.Ambiguous++
 		default:
 			stats.Unknown++
+		}
+		switch level {
+		case LevelAmbiguous:
+			note(t.clipID, reasonTiedCandidates)
+		case LevelUnknown:
+			note(t.clipID, reasonBelowThreshold)
 		}
 		if err = writeMatch(ctx, tx, t, level, person, confidence, candidates, existing[t.speakerID], names); err != nil {
 			return stats, err
@@ -256,15 +286,26 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 		}
 		stats.Removed++
 	}
+	summaries, err := clipMatchSummaries(ctx, tx, reasons, scope)
+	if err != nil {
+		return stats, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return stats, err
 	}
+	s.logClipSummaries(summaries, scope != nil)
 	for _, g := range groups {
 		s.ensureVoiceIndex(ctx, g)
 	}
 	// Proposed proximity between unknown voices follows the references and thresholds.
 	if err = s.refreshVoiceGroupLinks(ctx); err != nil {
-		s.Log.Error("voice group links failed", "error", err)
+		s.Log.Error("voice group links failed", logging.Failure(err)...)
+	}
+	// The voices that still need a human decision are announced (or the action resolved).
+	if clipID > 0 {
+		s.syncSpeakerReview(ctx, clipID)
+	} else {
+		s.syncAllSpeakerReviews(ctx)
 	}
 	return stats, nil
 }
@@ -277,18 +318,19 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 	query := fmt.Sprintf(`WITH refs AS (
   SELECT vs.person_id,f.embedding::vector(%[1]d) AS e
   FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
+  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
 ), targets AS (
   SELECT f.local_speaker_id AS sid,f.clip_id,f.embedding::vector(%[1]d) AS e
   FROM voice_fingerprints f
-  WHERE f.usable AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
-    AND NOT EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.id=f.local_speaker_id AND ls.kind='microphone')
+  WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
+    AND EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.id=f.local_speaker_id AND ls.kind<>'microphone' AND `+analysis.NoDispositionVoice+`)
     AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=f.local_speaker_id AND (a.validation_state='validated' OR a.origin<>'%[2]s'))
 ), scored AS (
-  SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4
+  SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r
+  WHERE NOT EXISTS (SELECT 1 FROM voice_refusals x WHERE x.local_speaker_id=t.sid AND x.person_id=r.person_id)
+  GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4
 )
-SELECT t.sid,t.clip_id,s.person_id,s.score FROM targets t LEFT JOIN scored s ON s.sid=t.sid
-WHERE EXISTS (SELECT 1 FROM refs)
+SELECT t.sid,t.clip_id,s.person_id,s.score,NOT EXISTS (SELECT 1 FROM refs) FROM targets t LEFT JOIN scored s ON s.sid=t.sid
 ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigin)
 	rows, err := tx.Query(ctx, query, g.model, g.version, scope, settings.SuggestionThreshold)
 	if err != nil {
@@ -300,11 +342,12 @@ ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigi
 		var sid, clip int64
 		var person *int64
 		var score *float64
-		if err = rows.Scan(&sid, &clip, &person, &score); err != nil {
+		var noReference bool
+		if err = rows.Scan(&sid, &clip, &person, &score, &noReference); err != nil {
 			return nil, err
 		}
 		if len(out) == 0 || out[len(out)-1].speakerID != sid {
-			out = append(out, matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version})
+			out = append(out, matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version, noReference: noReference})
 		}
 		if person != nil && score != nil {
 			last := &out[len(out)-1]
@@ -512,8 +555,69 @@ func (s *Server) ensureVoiceIndex(ctx context.Context, g matchGroup) {
 	quote := func(v string) string { return "'" + strings.ReplaceAll(v, "'", "''") + "'" }
 	statement := fmt.Sprintf(`CREATE INDEX IF NOT EXISTS %s ON voice_fingerprints USING hnsw ((embedding::vector(%d)) vector_cosine_ops) WHERE usable AND scope='speaker' AND model=%s AND model_version=%s AND dimensions=%d`, name, g.dimensions, quote(g.model), quote(g.version), g.dimensions)
 	if _, err := s.Pool.Exec(ctx, statement); err != nil {
-		s.Log.Error("voice index creation failed", "index", name, "error", err)
+		s.Log.Error("voice index creation failed", append([]any{"index", name}, logging.Failure(err)...)...)
 		return
 	}
 	voiceIndexes.Store(name, true)
+}
+
+type clipMatchSummary struct {
+	clipID  int64
+	levels  map[string]int
+	reasons map[string]int
+}
+
+// clipMatchSummaries counts, per clip touched by this run, the voices by decision level and the
+// closed reasons of the unknown and ambiguous ones. Only counts: no Person, fingerprint or score.
+func clipMatchSummaries(ctx context.Context, tx pgx.Tx, reasons map[int64]map[string]int, scope *int64) ([]clipMatchSummary, error) {
+	clips := map[int64]bool{}
+	for clip := range reasons {
+		clips[clip] = true
+	}
+	if scope != nil {
+		clips[*scope] = true
+	}
+	var out []clipMatchSummary
+	for clip := range clips {
+		rows, err := tx.Query(ctx, `SELECT a.decision_level,a.origin=$2,count(*) FROM speaker_attributions a JOIN local_speakers ls ON ls.id=a.local_speaker_id WHERE ls.clip_id=$1 GROUP BY 1,2`, clip, microphoneOrigin)
+		if err != nil {
+			return nil, err
+		}
+		summary := clipMatchSummary{clipID: clip, levels: map[string]int{}, reasons: map[string]int{}}
+		for reason, n := range reasons[clip] {
+			summary.reasons[reason] = n
+		}
+		for rows.Next() {
+			var level string
+			var direct bool
+			var n int
+			if err = rows.Scan(&level, &direct, &n); err != nil {
+				rows.Close()
+				return nil, err
+			}
+			summary.levels[level] += n
+			if direct {
+				summary.reasons[reasonMicroTrackDirect] += n
+			}
+		}
+		rows.Close()
+		if err = rows.Err(); err != nil {
+			return nil, err
+		}
+		// A voice without reference is unknown but holds no attribution row.
+		summary.levels[string(LevelUnknown)] += reasons[clip][reasonNoReference]
+		out = append(out, summary)
+	}
+	return out, nil
+}
+
+// logClipSummaries writes one line per clip: INFO for a clip-scoped run, DEBUG for a library-wide one.
+func (s *Server) logClipSummaries(summaries []clipMatchSummary, scoped bool) {
+	level := slog.LevelDebug
+	if scoped {
+		level = slog.LevelInfo
+	}
+	for _, summary := range summaries {
+		s.Log.Log(context.Background(), level, "voice_matching_summary", "clip_id", summary.clipID, "levels", summary.levels, "reasons", summary.reasons)
+	}
 }

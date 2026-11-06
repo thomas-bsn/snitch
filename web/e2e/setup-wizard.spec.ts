@@ -99,20 +99,32 @@ test.describe.serial("assistant d'installation", () => {
     await expectNoViolations(page);
     await page.getByRole("button", { name: "Create the account" }).click();
 
+    // Set the country and its proposed time zone.
+    await expect(
+      page.getByRole("heading", { name: "Location and metadata" }),
+    ).toBeVisible();
+    await page.getByLabel("Country").selectOption("FR");
+    await expect(page.getByLabel("Time zone")).toHaveValue("Europe/Paris");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+
     // Discord: configured for real (Snitch does not call Discord to save it).
     await expect(
       page.getByRole("heading", { name: "Sign in with Discord" }),
     ).toBeVisible();
     await expect(page).toHaveURL(/\/setup$/);
     const steps = page.getByRole("list", { name: "Setup steps" });
-    await expect(steps.getByRole("listitem")).toHaveCount(7);
-    await expect(steps.getByRole("listitem").nth(2)).toHaveAttribute(
+    await expect(steps.getByRole("listitem")).toHaveCount(9);
+    await expect(steps.getByRole("listitem").nth(3)).toHaveAttribute(
       "aria-current",
       "step",
     );
     await expect(
       page.getByLabel("Return address to register in Discord"),
     ).toHaveValue(`${process.env.SNITCH_TEST_URL}/api/auth/discord/callback`);
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Location and metadata" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(
       page.getByText("This step is complete. It will not be repeated."),
@@ -126,6 +138,7 @@ test.describe.serial("assistant d'installation", () => {
     ).toBeVisible();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expectNoViolations(page);
     await page.getByLabel("Application ID").fill("123456789012345678");
     await page.getByLabel("Application secret").fill("synthetic-secret");
@@ -155,7 +168,7 @@ test.describe.serial("assistant d'installation", () => {
       page
         .getByRole("list", { name: "Setup steps" })
         .getByRole("listitem")
-        .nth(2),
+        .nth(3),
     ).toContainText("Done");
 
     // Skipping is always possible.
@@ -170,12 +183,7 @@ test.describe.serial("assistant d'installation", () => {
       page.getByRole("button", { name: "Skip for now" }),
     ).toBeVisible();
     await page.getByLabel("Worker name").fill("gaming-pc");
-    await page
-      .getByLabel("Whisper server address")
-      .fill("http://host.docker.internal:8000");
-    await page.getByLabel("Whisper model name").fill("whisper-large-v3");
-    await page.getByRole("main").getByLabel("Language").selectOption("fr");
-    await page.getByLabel("Hugging Face token").fill(HF_TOKEN);
+    await expect(page.getByLabel("Whisper server address")).toHaveValue("");
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "Semantic search" }),
@@ -186,29 +194,42 @@ test.describe.serial("assistant d'installation", () => {
       .focus();
     await page.keyboard.press("Enter");
     await expect(page.getByLabel("Worker name")).toHaveValue("gaming-pc");
-    await expect(page.getByLabel("Hugging Face token")).toHaveValue(HF_TOKEN);
     await page.getByRole("button", { name: "Create the Worker" }).click();
-    const dialog = page.getByRole("alertdialog");
-    await expect(dialog).toContainText("whisper-large-v3 · fr");
-    await page.getByRole("button", { name: "Confirm and create" }).click();
-    await expect(page.getByText("Copy both files now.")).toBeVisible();
+    await expect(
+      page.getByText("Copy the installation command now."),
+    ).toBeVisible();
+    await page.getByText("Advanced: deployment files").click();
     const env = await page
       .getByRole("textbox", { name: "Content of .env" })
       .inputValue();
-    expect(env).toContain("HF_TOKEN=" + HF_TOKEN);
+    expect(env).not.toContain("HF_TOKEN");
+    expect(env).not.toContain(HF_TOKEN);
     expect(env).toMatch(/^SNITCH_WORKER_TOKEN=rw_\S+$/m);
     await expectNoViolations(page);
-    await page.getByRole("button", { name: "I copied the files" }).click();
+    await page.getByRole("button", { name: "Done" }).click();
 
+    // The optional Hugging Face token step sits between the Worker and the import.
+    await expect(
+      page.getByRole("heading", { name: "Hugging Face token (optional)" }),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Skip for now" }).click();
     await expect(
       page.getByRole("heading", { name: "Import your first videos" }),
     ).toBeVisible();
     await expect(
       page.getByText("Nothing is scanned or processed"),
     ).toBeVisible();
+    // The same indexation as in the administration, optional, never started by itself.
+    await expect(
+      page.getByRole("region", { name: "Index the whole video root" }),
+    ).toBeVisible();
     await expect(page.getByRole("link", { name: /open.*import/i })).toHaveCount(
       0,
     );
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Hugging Face token (optional)" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(
       page.getByText("This step is complete. It will not be repeated."),
@@ -216,7 +237,11 @@ test.describe.serial("assistant d'installation", () => {
     await expect(
       page.getByRole("button", { name: "Create the Worker" }),
     ).toHaveCount(0);
+    // Continue goes to the next undecided step: the skipped token step is passed over.
     await page.getByRole("button", { name: "Continue", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Import your first videos" }),
+    ).toBeVisible();
     await expectNoViolations(page);
     await page.getByRole("button", { name: "Skip for now" }).click();
 

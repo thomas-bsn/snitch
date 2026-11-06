@@ -6,13 +6,16 @@
 #   docker compose up -d
 #
 # Le worker ne publie aucun port : il appelle l'API Snitch en HTTPS sortant uniquement.
-# Aucun modèle n'est dans l'image. Premier démarrage « tout automatique » (opt-in explicite) :
-# avec SNITCH_VOICE_DOWNLOAD_ON_START=1, SNITCH_VOICE_CONFIRM_TERMS=1 et HF_TOKEN, la commande
-# de démarrage (python -m snitch_worker.bootstrap) télécharge les modèles manquants dans le
-# volume, puis lance le worker SANS HF_TOKEN et hors ligne. Sans opt-in, rien n'est téléchargé :
-# les modèles doivent déjà être dans le volume (worker/scripts/download_models.py).
+# Aucun modèle n'est dans l'image et le démarrage n'en télécharge aucun : un worker neuf n'a pas de
+# modèle vocal. Ils s'installent sur ordre de Snitch (administration, Voix) dans le volume, puis
+# le worker tourne hors ligne et SANS HF_TOKEN (voir docs/real-voice-worker.md, ADR 0038).
+# Rotation des logs Docker (10 Mo x 5 fichiers par service) : le NAS ne se remplit pas.
+x-logging: &logging
+  driver: json-file
+  options: {max-size: 10m, max-file: "5"}
 services:
   worker:
+    logging: *logging
     build:
       context: ../..
       dockerfile: deploy/docker/worker.Dockerfile
@@ -31,6 +34,8 @@ services:
       SNITCH_WORKER_CA_BUNDLE: ${SNITCH_WORKER_CA_BUNDLE:-}
       # Tâches simultanées (1 à 4) ; 1 recommandé pour garder la VRAM disponible.
       SNITCH_WORKER_CAPACITY: ${SNITCH_WORKER_CAPACITY:-1}
+      # Niveau de log : ERROR, WARN, INFO (défaut) ou DEBUG.
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
       SNITCH_WORKER_MACHINE_NAME: ${SNITCH_WORKER_MACHINE_NAME:-}
       # Fournisseur de transcription compatible OpenAI (Whisper local par exemple).
       TRANSCRIPTION_API_URL: ${TRANSCRIPTION_API_URL:-}
@@ -39,22 +44,13 @@ services:
       # Modèles vocaux : chemins DANS le conteneur, sous le volume monté ci-dessous.
       SNITCH_VOICE_DIARIZATION_MODEL_PATH: ${SNITCH_VOICE_DIARIZATION_MODEL_PATH:-/models/diarization}
       SNITCH_VOICE_EMBEDDING_MODEL_PATH: ${SNITCH_VOICE_EMBEDDING_MODEL_PATH:-/models/embedding}
-      # Facultatif : sinon lue du marqueur .snitch-voice-models.json écrit par le bootstrap.
+      # Facultatif, seulement pour des modèles préparés à la main.
       SNITCH_VOICE_EMBEDDING_MODEL_VERSION: ${SNITCH_VOICE_EMBEDDING_MODEL_VERSION:-}
       SNITCH_VOICE_EMBEDDING_MODEL_NAME: ${SNITCH_VOICE_EMBEDDING_MODEL_NAME:-pyannote/wespeaker-voxceleb-resnet34-LM}
       SNITCH_VOICE_DEVICE: ${SNITCH_VOICE_DEVICE:-cuda}
-      # Bootstrap de démarrage (opt-in, voir l'en-tête). La version d'empreinte est lue du
-      # marqueur du volume quand SNITCH_VOICE_EMBEDDING_MODEL_VERSION est vide.
-      SNITCH_VOICE_DOWNLOAD_ON_START: ${SNITCH_VOICE_DOWNLOAD_ON_START:-0}
-      SNITCH_VOICE_CONFIRM_TERMS: ${SNITCH_VOICE_CONFIRM_TERMS:-0}
-      SNITCH_VOICE_MODEL_REVISION: ${SNITCH_VOICE_MODEL_REVISION:-}
-      # Jeton Hugging Face : lu par le seul processus de bootstrap, retiré de l'environnement
-      # du worker avant son lancement (le worker reste en HF_HUB_OFFLINE=1). Lecture seule suffit.
-      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
-      # Dossier hôte contenant diarization/ et embedding/. Inscriptible pour que le premier
-      # démarrage y télécharge les modèles ; le worker, lui, ne fait que les lire. Si les modèles
-      # sont déjà préparés et que l'opt-in est absent, on peut ajouter « :ro ».
+      # Dossier hôte des modèles. Inscriptible : les modèles que Snitch ordonne d'installer y sont
+      # téléchargés, vérifiés et conservés (catalog/) ; le reste du temps le worker ne fait que les lire.
       - ${SNITCH_MODELS_DIR:?Renseigner SNITCH_MODELS_DIR (dossier des modèles sur le PC)}:/models
     # Joindre un Whisper ou un Ollama qui tourne directement sur le PC (hors Docker) :
     # TRANSCRIPTION_API_URL=http://host.docker.internal:8000

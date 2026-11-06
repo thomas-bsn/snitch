@@ -40,7 +40,7 @@ class SearchResult:
             clip_id (int):
             clip_name (str):
             visibility (SearchResultVisibility):
-            recorded_at (datetime.datetime):
+            recorded_at (datetime.datetime | None):
             status (SearchResultStatus):
             sources (list[str]):
             match_type (SearchResultMatchType):
@@ -55,7 +55,7 @@ class SearchResult:
     clip_id: int
     clip_name: str
     visibility: SearchResultVisibility
-    recorded_at: datetime.datetime
+    recorded_at: datetime.datetime | None
     status: SearchResultStatus
     sources: list[str]
     match_type: SearchResultMatchType
@@ -86,7 +86,11 @@ class SearchResult:
 
         visibility = self.visibility.value
 
-        recorded_at = self.recorded_at.isoformat()
+        recorded_at: None | str
+        if isinstance(self.recorded_at, datetime.datetime):
+            recorded_at = self.recorded_at.isoformat()
+        else:
+            recorded_at = self.recorded_at
 
         status = self.status.value
 
@@ -163,9 +167,22 @@ class SearchResult:
 
 
 
-        recorded_at = datetime.datetime.fromisoformat(d.pop("recorded_at"))
+        def _parse_recorded_at(data: object) -> datetime.datetime | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                recorded_at_type_0 = datetime.datetime.fromisoformat(data)
 
 
+
+                return recorded_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None, data)
+
+        recorded_at = _parse_recorded_at(d.pop("recorded_at"))
 
 
         status = SearchResultStatus(d.pop("status"))

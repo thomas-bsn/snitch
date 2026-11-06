@@ -16,8 +16,7 @@ import (
 // Request headers can be forged, so the address is built from the request itself (TLS state and
 // Host header) and only the proxy headers X-Forwarded-Proto and X-Forwarded-Host sent by a
 // trusted proxy are honored. A peer is trusted when its address (the TCP peer, never a header)
-// is inside Config.TrustedProxies. A configured PUBLIC_URL overrides the deduction entirely.
-// Behind a trusted HTTP proxy chain, same-origin browser metadata can recover HTTPS
+// is inside Config.TrustedProxies.// Behind a trusted HTTP proxy chain, same-origin browser metadata can recover HTTPS
 // lost between proxies. It can only upgrade the scheme of the already established host.
 
 var hostPattern = regexp.MustCompile(`^(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])(?::[0-9]{1,5})?$|^\[[0-9a-f:.]+\](?::[0-9]{1,5})?$`)
@@ -25,9 +24,6 @@ var hostPattern = regexp.MustCompile(`^(?:[a-z0-9]|[a-z0-9][a-z0-9._-]*[a-z0-9])
 // publicOrigin returns the origin (scheme://host[:port], no trailing slash) the client used.
 // It is empty when the request carries no usable host.
 func (s *Server) publicOrigin(r *http.Request) string {
-	if s.Config.PublicURL != "" {
-		return s.Config.PublicURL
-	}
 	scheme, host := "http", strings.ToLower(r.Host)
 	if r.TLS != nil {
 		scheme = "https"

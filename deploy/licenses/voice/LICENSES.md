@@ -7,10 +7,15 @@ Ce document complète `deploy/NOTICES.md` pour `deploy/docker/worker.Dockerfile`
 | Composant | Version | Licence | Remarque |
 | --- | --- | --- | --- |
 | pyannote.audio | 4.0.7 | MIT (confirmé : le texte `LICENSE` « MIT License, Copyright (c) 2020 CNRS » de la roue est copié dans l'image ; la roue embarque aussi `LICENSE.WeSpeaker`) | Dépend de pyannote-core, pyannote-database, pyannote-metrics, pyannote-pipeline, pyannoteai-sdk, lightning, torchmetrics, matplotlib, etc. |
+| nemo-toolkit[asr] | 3.0.0 | Apache-2.0 (métadonnée PyPI, texte de licence dans la roue) | Moteur du modèle Sortformer ; ajoute à la fermeture (voir `worker/voice-runtime.lock`) de nombreuses dépendances ; le 2026-11-02, les 192 distributions du verrou ont été contrôlées SANS construire l'image (lecture des listes de fichiers des roues sur PyPI, `collect_python_notices.py` non exécuté) : seules les quatre ci-dessous et primePy n'embarquent aucune licence, `audioop-lts` n'est pas installé sur Python 3.12. Ce contrôle reste à confirmer par le vrai build : `collect_python_notices.py` fait échouer le build si l'une n'en fournit aucune (build non exécuté lors de l'ajout : à lancer, et compléter `deploy/licenses/voice/extra/` au besoin). |
 | torch | 2.8.0 | BSD-3-Clause (métadonnée PyPI) | Roue Linux x86_64 liée à CUDA 12.8. |
 | torchaudio, torchcodec | 2.8.0, 0.7.0 | BSD (projets PyTorch) | torchcodec décode avec les bibliothèques FFmpeg du système (Debian, voir NOTICES). |
 | soundfile | 0.14.0 | BSD-3-Clause (PyPI) | Backend de `torchaudio.load`, sans lequel le chargement WAV échoue (constaté). |
 | primePy | 1.3 | MIT (classifieur PyPI et dépôt amont) | La roue ne contient aucun fichier de licence : le texte amont est dans `deploy/licenses/voice/extra/primePy/LICENSE` et copié dans l'image par `collect_python_notices.py` (répertoire `/licenses-extra`). |
+| sentencepiece | 0.2.2 | Apache-2.0 (métadonnée PyPI) | La roue ne contient aucun fichier de licence (vérifié le 2026-11-02 sur la roue `cp312` manylinux x86_64 des empreintes du verrou) : texte amont (`google/sentencepiece`, étiquette `v0.2.2`) dans `deploy/licenses/voice/extra/sentencepiece/LICENSE`. |
+| tokenizers | 0.23.3 | Apache-2.0 (classifieur PyPI) | Roue sans fichier de licence (même vérification) : texte amont (`huggingface/tokenizers`, `v0.23.3`) dans `extra/tokenizers/LICENSE`. |
+| tensorboard-data-server | 0.7.2 | Apache-2.0 (classifieur PyPI) | Roue sans fichier de licence (même vérification) : texte amont (`tensorflow/tensorboard`, étiquette `2.20.0`, dépôt qui l'héberge) dans `extra/tensorboard-data-server/LICENSE`. |
+| antlr4-python3-runtime | 4.9.3 | BSD-3-Clause (PyPI : « BSD ») | Publié uniquement en source : l'archive ne contient aucun fichier de licence, donc la roue construite à l'installation n'en aura pas. Texte amont (`antlr/antlr4`, `4.9.3`, `LICENSE.txt`) dans `extra/antlr4-python3-runtime/LICENSE`. |
 | Autres | voir `worker/voice-runtime.lock` | Variées (MIT, BSD, Apache-2.0, MPL-2.0, PSF...) | Fermeture complète avec empreintes SHA-256. Non relue une par une ici : les textes sont copiés dans l'image. |
 
 ## CUDA, cuDNN et bibliothèques NVIDIA (dans l'image)
@@ -24,6 +29,8 @@ Le pilote NVIDIA et le NVIDIA Container Toolkit ne sont pas dans l'image : ils r
 | Modèle | Licence affichée | Accès |
 | --- | --- | --- |
 | `pyannote/speaker-diarization-community-1` | CC-BY-4.0 | Dépôt « gated » : il faut un compte Hugging Face, accepter les conditions sur la page du modèle (partage d'informations de compte, e-mails occasionnels possibles) et fournir un jeton. |
-| `pyannote/wespeaker-voxceleb-resnet34-LM` | CC-BY-4.0 ; la fiche indique que le modèle suit la licence de son jeu de données (VoxCeleb) | À la lecture de la fiche, aucun accès restreint n'est mentionné ; non confirmé de façon authentifiée. `download_models.py` exige quand même `--confirm-terms` pour les deux : vérifier la page au moment du téléchargement et accepter ce qui est demandé. |
+| `pyannote/wespeaker-voxceleb-resnet34-LM` | CC-BY-4.0 ; la fiche indique que le modèle suit la licence de son jeu de données (VoxCeleb) | À la lecture de la fiche, aucun accès restreint n'est mentionné ; non confirmé de façon authentifiée. Vérifier la page au moment de l'ordre d'installation et accepter ce qui est demandé. |
+
+| `nvidia/diar_streaming_sortformer_4spk-v2.1` | Licence « other » : NVIDIA Open Model License (fiche et API Hugging Face lues le 2026-11-02, https://www.nvidia.com/en-us/agreements/enterprise-software/nvidia-open-model-license/) | Dépôt public, non « gated ». Moteur NeMo, 4 locuteurs au plus. Conditions de la licence à relire avant un usage au-delà du personnel : je ne les ai pas analysées. |
 
 CC-BY-4.0 impose l'attribution (pyannote, WeSpeaker). Les poids ne sont ni dans le dépôt ni dans l'image : chaque administrateur les télécharge lui-même après avoir accepté les conditions. Les conditions d'usage de VoxCeleb pour les poids issus de ce jeu de données n'ont pas pu être vérifiées en détail : à relire avant un usage au-delà du personnel.

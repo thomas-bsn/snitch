@@ -10,7 +10,7 @@ Un utilisateur connecté écoute un extrait d'un Locuteur local, crée une Perso
 | --- | --- |
 | `persons` | Identité (`display_name`). Jamais un compte : `user_id` est un lien facultatif et unique vers `users`. |
 | `speaker_attributions` | Lien Locuteur local - Personne : `person_id`, `decision_level` (`human`, `automatic`, `suggestion`, `ambiguous`, `unknown`), `validation_state` (`validated`, `unvalidated`), `confidence`, `origin`, auteur (id et nom au moment de la décision), `revision`, `decided_at`. |
-| `voice_samples` | Échantillon vocal validé : référence d'une Personne. `retired_at`/`retired_reason` retirent un échantillon des références sans l'effacer. Le rapprochement ne lit que les échantillons actifs (`retired_at IS NULL`). |
+| `voice_samples` | Échantillon vocal validé : référence d'une Personne. `retired_at`/`retired_reason` retirent un échantillon des références sans l'effacer. Une correction le retire (`corrected`), un refus d'identification aussi (`refus_identification`) : l'échantillon survit alors à son attribution supprimée (`attribution_id` vidé) et l'historique le désigne toujours. Le rapprochement ne lit que les échantillons actifs (`retired_at IS NULL`). |
 | `attribution_events` | Historique immuable : action, ancienne et nouvelle Personne (id et nom au moment du changement), anciens et nouveaux niveaux, auteur, date. Aucune donnée vocale. |
 
 Un Locuteur local porte au plus une ligne **validée** et au plus une ligne **machine** (`unvalidated`), chacune garantie par un index unique partiel. L'attribution effective est la ligne validée si elle existe, sinon la ligne machine, sinon « inconnu ». Une attribution automatique n'est jamais un échantillon validé et n'altère pas les références : seules une validation ou une correction humaine créent un `voice_samples`.
@@ -26,13 +26,15 @@ Un Locuteur local porte au plus une ligne **validée** et au plus une ligne **ma
 
 ## Re-diarisation d'un clip validé
 
-Une nouvelle diarisation remplace les `local_speakers` d'un clip et d'une piste. Les attributions et échantillons référencent `local_speakers(id)` avec `ON DELETE CASCADE`, car la suppression d'un clip doit effacer les données dérivées. Pour qu'une validation humaine ne soit jamais perdue par cette cascade, **une piste dont au moins un Locuteur local est validé ne peut plus être rediarisée** :
+Une relance (`POST /api/admin/clips/{id}/voice`, onglet Voix du clip) est toujours une action explicite d'un administrateur, avec le modèle actif (même modèle autorisé : nouveau cycle) ; une activation de modèle ne relance rien.
 
-- `POST /api/admin/clips/{id}/voice` répond `409 voice_locked_by_validation` ;
-- un résultat de diarisation déjà en cours est refusé à l'achèvement (`409 diarization_locked`), sous le verrou de ligne du clip que prennent aussi les validations (pas de course possible) ;
-- en dernier recours, un déclencheur PostgreSQL refuse la suppression d'un Locuteur local validé tant que son clip existe (`23001`), ce qui bloque aussi la suppression directe de la tâche de diarisation correspondante.
+- **Confirmation.** Si la piste porte des locuteurs validés, des échantillons vocaux actifs ou des corrections de locuteur de la transcription, l'API répond `409 voice_rediarization_confirmation_required` avec `stake` (`validated_speakers`, `voice_samples`, `speaker_corrections`) et ne planifie rien ; `confirm_replace_validations: true` confirme.
+- **Résultat visible.** L'ancien résultat reste affiché tant que la relance n'a pas réussi (en attente, en cours ou en échec).
+- **À la réussite.** Les corrections de locuteur deviennent obsolètes (retirées, avec un événement d'historique, comme les segments corrigés après une retranscription). Les Locuteurs locaux validés ne sont pas supprimés : ils passent en `kind = 'archived'` (migration 00056) avec leur attribution validée, leurs échantillons vocaux et leurs empreintes de locuteur, liés à l'audio, sans tour ni attribution automatique ; ils n'apparaissent plus dans la liste des voix, la transcription ni le rapprochement des voix inconnues, mais l'échantillon reste une référence de la Personne. Les autres locuteurs sont remplacés.
+- **Historique.** `GET /api/clips/{id}/voice` liste dans `history` les résultats remplacés (tâche, modèle, version, date, nombre de voix, voix validées conservées).
+- Seule une piste micro désignée reste refusée à l'achèvement (`409 diarization_locked`). Un déclencheur PostgreSQL refuse toujours la suppression d'un Locuteur local validé tant que son clip existe (`23001`).
 
-Les attributions automatiques (non validées) sont des données dérivées : elles sont recalculées après une re-diarisation. Une voix validée par erreur se corrige (autre Personne) ; son retrait relève du ticket sur la suppression de Personne. Le changement de piste ou de modèle sur un clip validé n'est pas prévu dans cette phase.
+Les attributions automatiques (non validées) sont des données dérivées : elles sont recalculées après une re-diarisation. Le changement de piste sur un clip validé n'est pas prévu.
 
 ## Contrat et code
 
