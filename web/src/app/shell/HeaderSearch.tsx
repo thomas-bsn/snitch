@@ -17,9 +17,13 @@ export function HeaderSearch() {
     }
   }, [location.pathname, location.search]);
 
-  function submit(event: FormEvent) {
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const trimmed = query.trim();
+    // Read the field itself: a submit that follows a scripted fill can arrive before React has
+    // committed the last change to state, and the user's query must not be dropped.
+    const trimmed = String(
+      new FormData(event.currentTarget).get("q") ?? "",
+    ).trim();
     const current = new URLSearchParams(location.search);
     const params = new URLSearchParams();
     for (const key of [
@@ -53,6 +57,7 @@ export function HeaderSearch() {
       <Search className="size-4 shrink-0" aria-hidden="true" />
       <input
         type="search"
+        name="q"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         aria-label={t("header.searchLabel")}
