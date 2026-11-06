@@ -880,6 +880,7 @@ type Worker struct {
 	FirstPulseAt             pgtype.Timestamptz `json:"first_pulse_at"`
 	RevokeReason             string             `json:"revoke_reason"`
 	RevocationAcknowledgedAt pgtype.Timestamptz `json:"revocation_acknowledged_at"`
+	LastClaimAt              pgtype.Timestamptz `json:"last_claim_at"`
 }
 
 type WorkerHfToken struct {

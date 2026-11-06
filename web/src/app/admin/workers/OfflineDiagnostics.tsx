@@ -21,7 +21,9 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
   const [baseline, setBaseline] = useState<string | null>(null);
 
   if (worker.revoked_at) return null;
-  if (worker.connected && !open) return null;
+  // Online yet no longer claiming (#321): presence is fine, the diagnosis is still needed.
+  const stalled = worker.connected && !!worker.claim_stalled;
+  if (worker.connected && !stalled && !open) return null;
 
   const returned = open && hasReturned(worker, baseline);
   const commands = restartCommands(worker.id);
@@ -51,7 +53,13 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
         </button>
       </div>
       {!open && (
-        <p className="text-mute">{t("workers.diagnostics.offlineLead")}</p>
+        <p className="text-mute">
+          {t(
+            stalled
+              ? "workers.diagnostics.claimStalledLead"
+              : "workers.diagnostics.offlineLead",
+          )}
+        </p>
       )}
       <div id={panelId} hidden={!open} className="flex flex-col gap-3">
         {open && (

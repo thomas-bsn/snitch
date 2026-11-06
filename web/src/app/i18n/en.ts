@@ -1001,6 +1001,8 @@ export const en = {
       "{count} jobs cannot start: no worker has validated the current transcription configuration",
     incidentBlockedNotValidated:
       "{count} jobs cannot start: the transcription configuration failed its test on the workers",
+    incidentBlockedNotClaiming:
+      "{count} jobs cannot start: a worker is online but no longer claims tasks",
     incidentGeneric:
       "A technical incident is slowing processing down. Administrators have been notified.",
     incidentResolved: "Technical incident resolved",
@@ -1547,6 +1549,8 @@ export const en = {
       open: "Diagnose / Reconnect",
       offlineLead:
         "This Worker is installed but currently offline. Open the diagnosis for leads and local commands.",
+      claimStalledLead:
+        "This Worker is online and free, but has not asked for a task for over 2 minutes. Open the diagnosis: its logs (claim_poll_failed events) name the failing step; as a last resort, restart it.",
       lastPulse: "Last pulse",
       installation: "Installation",
       noRemote:
@@ -1588,6 +1592,7 @@ export const en = {
     },
     status: {
       online: "Online",
+      notClaiming: "Online, no longer claiming tasks",
       offline: "Offline",
       revoked: "Revoked",
     },
@@ -2384,6 +2389,8 @@ export const en = {
           "No Worker has validated the current transcription configuration. Open the Workers page and validate it on a Worker.",
         transcription_not_validated:
           "The transcription configuration failed its test on the connected Workers. Fix it on the Workers page; the task then starts by itself.",
+        worker_not_claiming:
+          "A compatible Worker is online and free, but has not asked for a task for over 2 minutes. Open its diagnosis on the Workers page to read its logs (claim_poll_failed); the task starts as soon as it claims again.",
         run_cancelled: "Cancelled: this step will not run.",
         running: "A Worker is transcribing the clip.",
         retry_scheduled: "The attempt failed; a new one is planned.",

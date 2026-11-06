@@ -3479,7 +3479,7 @@ export interface components {
         | "done"
         | "not_applicable"
         | "not_yet_supported";
-      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
+      /** @description Code stable : awaiting_preparation, awaiting_previous_step, clip_not_ready, audio_track_selection_required, clip_ready, awaiting_worker, awaiting_compatible_worker, queue_paused, transcription_version_mismatch, transcription_not_validated, worker_not_claiming, run_cancelled, running, retry_scheduled, completed, reused_existing, kept_for_corrections, job_dead, job_cancelled, job_failed, outside_scope, transcription_required, awaiting_transcription, awaiting_indexer, semantic_search_unavailable, semantic_index_failed, microphone_track, microphone_direct_attribution, no_speakers, awaiting_fingerprints, matching_failed, upstream_failed. */
       reason: string;
       /** Format: int64 */
       job_id: number | null;
@@ -4175,6 +4175,8 @@ export interface components {
        */
       revocation_acknowledged_at: string | null;
       connected: boolean;
+      /** @description Vues administrateur (liste et détail) seulement : vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321). La présence seule ne dit pas qu'il peut réclamer des tâches. Absent ou faux sinon. */
+      claim_stalled?: boolean;
       /** @description Modèles déclarés par le worker à son dernier pouls, visibles des administrateurs. Un rôle absent est « non déclaré ». */
       models?: components["schemas"]["WorkerModels"];
     };
@@ -4332,6 +4334,8 @@ export interface components {
        */
       revocation_acknowledged_at: string | null;
       connected: boolean;
+      /** @description Vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321) : la présence seule ne dit pas qu'il peut réclamer des tâches. */
+      claim_stalled?: boolean;
       models?: components["schemas"]["WorkerModels"];
       /** @description Dernières tâches de ce worker, une ligne par tâche, la plus récente d'abord. */
       recent_tasks: components["schemas"]["WorkerRecentTask"][];
@@ -5452,7 +5456,7 @@ export interface components {
       job_id: number | null;
       /** @description Incident : étape concernée (administrateurs uniquement), jamais de chemin ni de secret. */
       step: string;
-      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated), jamais l'erreur brute. */
+      /** @description Incident : code d'erreur normalisé (provider_unavailable, model_missing, invalid_input, worker_failed, retries_exhausted, transcription_version_mismatch, transcription_not_validated, worker_not_claiming), jamais l'erreur brute. */
       error_code: string;
       /** @description Vrai pour le message générique sûr vu par un non-administrateur. */
       generic: boolean;

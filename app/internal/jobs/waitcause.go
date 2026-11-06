@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"snitch/internal/workers"
 )
 
 // Stable codes explaining why a pending job is not leased yet. The empty cause is a normal wait: a compatible
@@ -16,11 +18,14 @@ const (
 	CauseNoCompatibleWorker       = "no_compatible_worker"
 	CauseTranscriptionMismatch    = "transcription_version_mismatch"
 	CauseTranscriptionNotVerified = "transcription_not_validated"
+	// CauseWorkerNotClaiming: an eligible Worker is connected and has a free slot, but has not asked for a job for
+	// workers.ClaimSilence (issue #321). Its presence is healthy, its claiming loop is not.
+	CauseWorkerNotClaiming = "worker_not_claiming"
 )
 
 // DurableCause reports whether a cause lasts until someone acts, as opposed to a normal wait or a deliberate pause.
 func DurableCause(cause string) bool {
-	return cause == CauseTranscriptionMismatch || cause == CauseTranscriptionNotVerified
+	return cause == CauseTranscriptionMismatch || cause == CauseTranscriptionNotVerified || cause == CauseWorkerNotClaiming
 }
 
 type rowQuerier interface {
@@ -46,25 +51,33 @@ func StepWaitCause(ctx context.Context, q rowQuerier, step string, connected tim
 	if paused {
 		return CauseQueuePaused, nil
 	}
-	var capable, eligible, failed int
+	var capable, eligible, failed, stalled int
 	err := q.QueryRow(ctx, `
-		SELECT count(*)::int,
-		       count(*) FILTER (WHERE $3 = false OR COALESCE(c.active_version,'')='' OR c.active_version=(SELECT ts.version FROM transcription_settings ts WHERE ts.id=true))::int,
-		       count(*) FILTER (WHERE COALESCE(c.error_code,'')<>'')::int
+		WITH candidates AS (
+		SELECT w.id,
+		       ($3 = false OR COALESCE(c.active_version,'')='' OR c.active_version=(SELECT ts.version FROM transcription_settings ts WHERE ts.id=true)) AS eligible,
+		       COALESCE(c.error_code,'')<>'' AS failed,
+		       `+workers.StalledClaimingSQL+` AS stalled
 		FROM workers w LEFT JOIN worker_transcription_config c ON c.worker_id=w.id
 		WHERE w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second')
 		  AND EXISTS (
 		      SELECT 1 FROM unnest(w.supported_steps) AS capability
 		      WHERE CASE WHEN right(capability,2)='.*'
 		            THEN left($1::text,length(capability)-1)=left(capability,length(capability)-1)
-		            ELSE $1::text=capability END)`,
-		step, int64(connected.Seconds()), strings.HasPrefix(step, "transcription.")).Scan(&capable, &eligible, &failed)
+		            ELSE $1::text=capability END))
+		SELECT count(*)::int, count(*) FILTER (WHERE eligible)::int, count(*) FILTER (WHERE failed)::int,
+		       count(*) FILTER (WHERE eligible AND stalled)::int
+		FROM candidates`,
+		step, int64(connected.Seconds()), strings.HasPrefix(step, "transcription.")).Scan(&capable, &eligible, &failed, &stalled)
 	if err != nil {
 		return "", fmt.Errorf("diagnose pending step: %w", err)
 	}
 	switch {
 	case capable == 0:
 		return CauseNoCompatibleWorker, nil
+	case eligible > 0 && stalled == eligible:
+		// Every eligible Worker is Online and free, yet none claims: never "busy", never "start a Worker".
+		return CauseWorkerNotClaiming, nil
 	case eligible > 0:
 		return "", nil
 	case failed > 0:

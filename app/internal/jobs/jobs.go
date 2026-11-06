@@ -388,6 +388,11 @@ const localVoiceModelReadyGuard = `(
 // With a real voice provider (pyannote, nemo) active, a voice job only goes to a worker that declares the
 // active model of its kind.
 func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assignment, err error) {
+	// The Worker's claiming loop works (issue #321), whatever this claim then finds or fails on: presence alone
+	// cannot tell it. Recorded on its own, outside the claim transaction and the global job_control lock.
+	if _, err = s.pool.Exec(ctx, `UPDATE workers SET last_claim_at=now() WHERE id=$1 AND revoked_at IS NULL`, workerID); err != nil {
+		return nil, fmt.Errorf("record worker claim: %w", err)
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin job claim: %w", err)

@@ -283,7 +283,7 @@ func (s *Server) workerDetail(r *http.Request, id string) (map[string]any, error
 	}
 	result := map[string]any{
 		"id": detail.ID, "name": detail.Name, "max_concurrency": detail.MaxConcurrency, "reported_concurrency": detail.ReportedConcurrency,
-		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "revoke_reason": detail.RevokeReason, "revocation_acknowledged_at": detail.RevocationAcknowledgedAt, "connected": detail.Connected,
+		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "revoke_reason": detail.RevokeReason, "revocation_acknowledged_at": detail.RevocationAcknowledgedAt, "connected": detail.Connected, "claim_stalled": detail.ClaimStalled,
 		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "install": detail.Install, "transcription_config_ready": detail.TranscriptionConfigReady, "recent_tasks": detail.RecentTasks, "bundle": bundle,
 	}
 	if detail.TranscriptionConfig != nil {

@@ -62,6 +62,8 @@ class WorkerDetail:
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
             remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
+            claim_stalled (bool | Unset): Vrai quand le Worker est connecté et libre mais n'a demandé aucune tâche depuis 2
+                minutes (issue #321) : la présence seule ne dit pas qu'il peut réclamer des tâches.
             models (WorkerModels | Unset): Modèles utilisés par un worker, par rôle. Tous les rôles sont facultatifs. Jamais
                 de secret, de jeton ni de clé d’API : les valeurs sont bornées, limitées à des caractères sûrs, et les valeurs
                 ressemblant à un secret sont refusées.
@@ -86,6 +88,7 @@ class WorkerDetail:
     install: WorkerInstall | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
+    claim_stalled: bool | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -164,6 +167,8 @@ class WorkerDetail:
 
         remote_address = self.remote_address
 
+        claim_stalled = self.claim_stalled
+
         models: dict[str, Any] | Unset = UNSET
         if not isinstance(self.models, Unset):
             models = self.models.to_dict()
@@ -199,6 +204,8 @@ class WorkerDetail:
             field_dict["machine"] = machine
         if remote_address is not UNSET:
             field_dict["remote_address"] = remote_address
+        if claim_stalled is not UNSET:
+            field_dict["claim_stalled"] = claim_stalled
         if models is not UNSET:
             field_dict["models"] = models
 
@@ -348,6 +355,8 @@ class WorkerDetail:
 
         remote_address = d.pop("remote_address", UNSET)
 
+        claim_stalled = d.pop("claim_stalled", UNSET)
+
         _models = d.pop("models", UNSET)
         models: WorkerModels | Unset
         if isinstance(_models,  Unset):
@@ -378,6 +387,7 @@ class WorkerDetail:
             install=install,
             machine=machine,
             remote_address=remote_address,
+            claim_stalled=claim_stalled,
             models=models,
         )
 

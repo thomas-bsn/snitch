@@ -1376,6 +1376,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testPendingTranscriptionDiagnosis(t, pool)
 	})
+	t.Run("worker not claiming diagnosis", func(t *testing.T) {
+		reset(t)
+		testWorkerNotClaimingDiagnosis(t, pool)
+	})
 	t.Run("worker transcription reachability", func(t *testing.T) {
 		reset(t)
 		testWorkerReachabilityReporting(t, pool)

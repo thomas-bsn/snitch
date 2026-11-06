@@ -11,9 +11,13 @@ export const ROLES: Role[] = ["transcription", "diarization", "fingerprint"];
 export function workerStatus(worker: {
   connected: boolean;
   revoked_at: string | null;
+  claim_stalled?: boolean;
 }): { tone: PillTone; label: MessageKey } {
   if (worker.revoked_at)
     return { tone: "bad", label: "workers.status.revoked" };
+  // Presence alone does not say the Worker can take jobs (#321).
+  if (worker.connected && worker.claim_stalled)
+    return { tone: "bad", label: "workers.status.notClaiming" };
   return worker.connected
     ? { tone: "ok", label: "workers.status.online" }
     : { tone: "idle", label: "workers.status.offline" };

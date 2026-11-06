@@ -860,8 +860,8 @@ func jobState(job jobs.Job, runStart time.Time) stepState {
 }
 
 // workerWaitReason says exactly why a pending job waits, with the rules Claim applies: a stable code from jobs
-// (paused queue, no compatible Worker, incompatible or unvalidated transcription configuration), or
-// awaiting_worker when an eligible Worker is only busy.
+// (paused queue, no compatible Worker, incompatible or unvalidated transcription configuration, eligible Worker
+// online but no longer claiming), or awaiting_worker when an eligible Worker is only busy.
 func (s *Service) workerWaitReason(ctx context.Context, jobID int64) (string, error) {
 	var step string
 	if err := s.pool.QueryRow(ctx, `SELECT step FROM jobs WHERE id=$1`, jobID).Scan(&step); err != nil {
