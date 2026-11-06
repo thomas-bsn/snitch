@@ -719,6 +719,12 @@ export const fr: Messages = {
       removing: "Retrait",
       failed: "Échec",
     },
+    blocked: {
+      worker_offline:
+        "L’ordre attend : ce Worker n’est pas connecté. Il l’exécutera dès sa reconnexion.",
+      order_not_pulled:
+        "L’ordre attend depuis plus de deux minutes alors que le Worker est connecté : consultez ses journaux, ou redémarrez-le si cela dure.",
+    },
     cause: {
       invalid_order:
         "Le Worker a refusé l’ordre après ses contrôles : réessayez, et signalez-le si cela se répète.",

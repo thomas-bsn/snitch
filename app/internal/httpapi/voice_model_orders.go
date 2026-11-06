@@ -278,6 +278,8 @@ type workerModelCell struct {
 	BytesTotal    int64  `json:"bytes_total"`
 	OccupiedBytes int64  `json:"occupied_bytes"`
 	OrderID       string `json:"order_id"`
+	// Blocked says why an install order stays unanswered: "worker_offline" or "order_not_pulled" (see orderStallAfter).
+	Blocked string `json:"blocked"`
 	// ReplacesModelID is the model this one is replacing on the Worker; WaitingForJobs says the removal of that
 	// old model waits for a running job.
 	ReplacesModelID string `json:"replaces_model_id"`
@@ -289,6 +291,26 @@ type workerModelsRow struct {
 	Name      string            `json:"name"`
 	Connected bool              `json:"connected"`
 	Models    []workerModelCell `json:"models"`
+}
+
+// orderStallAfter is how long an install order may wait for its Worker before the view says why it is stuck.
+const orderStallAfter = 2 * time.Minute
+
+// blockedOrder explains an install order that stays unanswered: its Worker is not connected, or it is connected
+// and did not pull the order. An order that is not old enough, or already over, has no such cause.
+func (s *Server) blockedOrder(ctx context.Context, orderID string, connected bool) (string, error) {
+	var stalled bool
+	err := s.Pool.QueryRow(ctx, `SELECT status IN ('pending','acknowledged') AND created_at < now()-make_interval(secs => $2) FROM worker_model_orders WHERE id=$1`, orderID, orderStallAfter.Seconds()).Scan(&stalled)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && !stalled) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	if !connected {
+		return "worker_offline", nil
+	}
+	return "order_not_pulled", nil
 }
 
 // listModelsByWorker is the minimal "Models per Worker" view: for each Worker, the model of each type.
@@ -326,6 +348,12 @@ func (s *Server) listModelsByWorker(w http.ResponseWriter, r *http.Request) {
 				c = workerModelCell{Kind: kind, State: "not_installed"}
 			}
 			c.Supported = supported[kind]
+			if c.State == "requested" && c.OrderID != "" {
+				if c.Blocked, err = s.blockedOrder(r.Context(), c.OrderID, item.Connected); err != nil {
+					s.internal(w, err)
+					return
+				}
+			}
 			row.Models = append(row.Models, c)
 		}
 		out.Workers = append(out.Workers, row)
