@@ -103,6 +103,11 @@ _LEGACY = {
 }
 
 
+def kind_of(item: Mapping[str, Any]) -> str:
+    """The type of an item; the diarization model when the server does not say."""
+    return item["kind"] if item.get("kind") in _LEGACY else "diarization"
+
+
 def _legacy_path(environ: Mapping[str, str], repo: str, revision: str, kind: str = "diarization") -> str:
     key, variable, default = _LEGACY.get(kind, _LEGACY["diarization"])
     entry = (voice_manifest.read_manifest(environ) or {}).get(key)
@@ -204,7 +209,7 @@ class ModelManager:
         repo, revision = item.get("repo"), item.get("revision")
         if not (isinstance(repo, str) and isinstance(revision, str) and valid_model(repo, revision)):
             return False
-        kind = item.get("kind") if item.get("kind") in _LEGACY else "diarization"
+        kind = kind_of(item)
         return is_ready(self._env, repo, revision) or bool(_legacy_path(self._env, repo, revision, kind))
 
     def remove(self, items: list[dict[str, Any]], report: Report | None = None) -> None:
@@ -239,7 +244,7 @@ class ModelManager:
         if is_ready(self._env, repo, revision):
             say("ready")
             return
-        kind = item.get("kind") if item.get("kind") in _LEGACY else "diarization"
+        kind = kind_of(item)
         verify = self._verify_fingerprint if kind == "fingerprint" else self._verify
         legacy = _legacy_path(self._env, repo, revision, kind)
         location = legacy or target

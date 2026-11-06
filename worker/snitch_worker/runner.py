@@ -553,11 +553,12 @@ def _models_loop(client: AuthenticatedClient, stop: threading.Event, interval: f
     """Orders are pulled on their own thread: a job that runs for hours never leaves an order pending (#327).
 
     The loop outlives every recoverable error, like the claiming loops (#321)."""
-    while not stop.wait(interval):
+    while not stop.is_set():
         if guard is not None and guard.revoked.is_set():
             return
         if isinstance(client, AuthenticatedClient):
             sync_models_once(client)
+        stop.wait(interval)
 
 
 def _heartbeat_loop(
