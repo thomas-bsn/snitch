@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PROTOTYPE — logos de jeux sur les dossiers</title>
+<style>
+:root{--bg:#0e0e13;--panel:#14141b;--line:#262633;--fg:#e8e8f0;--mut:#8b8ba0;--acc:#7c7cf0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,sans-serif}
+.banner{background:#3a2a00;color:#ffd27a;padding:8px 16px;font-size:13px}
+header{display:flex;gap:12px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+header b{font-size:16px}.sp{flex:1}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{background:none;color:var(--mut);border:0;padding:7px 14px;cursor:pointer;font:inherit}
+.seg button.on{background:var(--acc);color:#fff}
+label{color:var(--mut);font-size:13px;display:flex;gap:6px;align-items:center}
+.stats{padding:12px 20px;color:var(--mut)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px 8px;padding:8px 20px 40px}
+.item{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;border-radius:10px;cursor:pointer;text-align:center}
+.item:hover{background:var(--panel)}
+.name{font-weight:600;font-size:14px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sub{font-size:12px;color:var(--mut);margin-top:-4px}
+.badge{font-size:11px;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--mut)}
+.badge.ok{color:#6fdc9a;border-color:#245a3c}.badge.maybe{color:#ffd27a;border-color:#5a4a1c}
+svg{display:block}
+.panel{position:fixed;right:16px;bottom:16px;width:340px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13px;display:none}
+.panel.show{display:block}.panel h3{margin:0 0 6px;font-size:14px}.panel code{color:#c8c8ff}
+.panel select,.panel button{background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit}
+</style></head><body>
+<div class="banner">PROTOTYPE jetable : les « logos » sont des pastilles stylisées (sigle + couleur) pour montrer le principe, pas les vrais visuels. En vrai : ID Steam / SteamGridDB, mis en cache côté serveur.</div>
+<header>
+  <b>videos</b><span class="sp"></span>
+  <div class="seg" id="mode"><button data-m="folder">Dossiers</button><button data-m="logo" class="on">Logos de jeux</button></div>
+  <label><input type="checkbox" id="strict"> Match strict (exact seulement)</label>
+</header>
+<div class="stats" id="stats"></div>
+<div class="grid" id="grid"></div>
+<div class="panel" id="panel"></div>
+<script>
+// --- Catalogue de jeux (en prod : Steam app list / SteamGridDB) : [titre, sigle, couleur, alias normalisés]
+const GAMES=[
+ ["Among Us","AU","#c51111",["amongus"]],["Balatro","B","#d4402f",["balatro"]],
+ ["Black Myth: Wukong","BMW","#b8892b",["blackmythwukong"]],["Brawlhalla","BH","#2f7fd4",["brawlhalla"]],
+ ["Call of Duty: Black Ops","BO","#3a3a3a",["callofdutyblack"]],["Call of Duty: Modern Warfare","MW","#4a5a3a",["callofdutymoder"]],
+ ["Chained Together","CT","#2aa6a0",["chainedtogether"]],["Content Warning","CW","#e0c020",["contentwarning"]],
+ ["Contraband Police","CP","#3b6fb0",["contrabandpolice"]],["Counter-Strike 2","CS2","#e8a21a",["counterstrike2","counterstrikeglob"]],
+ ["Dark Souls II","DS2","#8a6a3a",["darksoulsii"]],["Dark Souls III","DS3","#a0522d",["darksoulsiii"]],
+ ["Dark Souls Remastered","DSR","#7a5a2a",["darksoulsremast"]],["Dead by Daylight","DbD","#a31f1f",["deadbydaylight"]],
+ ["Detroit: Become Human","DBH","#2b6fd0",["detroitbecomehu"]],["Dishonored","DIS","#6a6a4a",["dishonored"]],
+ ["BlueStacks","BS","#2fb36b",["bluestacks"]],
+];
+const FOLDERS=[
+ ["1.7"],["360 Videos"],["4dcd188552ce887..."],["Among Us"],["Among Us 3d Demo"],["Badlion Client"],["Balatro"],
+ ["Base Profile"],["Bet"],["Black Myth Wukong"],["BlueStacks"],["Brawlhalla"],["Bread.and.fred-gol..."],["Call of Duty Black ..."],
+ ["Call of Duty Moder..."],["Call of Duty Moder..."],["Captures",1],["Chainedtogether"],["Clips"],["Common"],["Content"],
+ ["Content Warning"],["Contraband Police"],["Counter-strike Glob..."],["Counter-strike 2"],["Cslol-manager"],
+ ["Dark Souls II"],["Dark Souls III"],["Dark Souls Remast..."],["Dead by Daylight"],["Desktop",1],["Detroit Become Hu..."],
+ ["Discord",1],["Dishonored"],["EA Desktop"],
+];
+// Bruit à ignorer pour rapprocher "Among Us 3d Demo" de "Among Us".
+const NOISE=/\b(3d|demo|client|beta|playtest|dedicated server|launcher|test)\b/g;
+const norm=s=>s.toLowerCase().replace(/\.\.\.$/,"").replace(NOISE,"").replace(/[^a-z0-9]/g,"");
+function match(folder,strict){
+  const raw=folder.toLowerCase().replace(/\.\.\.$/,"").replace(/[^a-z0-9]/g,"");
+  const n=norm(folder); if(n.length<4) return null;
+  for(const g of GAMES) for(const a of g[3]){
+    if(n===a||raw===a) return {g,conf:"ok",why:"nom exact"};
+    if(!strict && (a.startsWith(n)||n.startsWith(a)) && n.length>=8) return {g,conf:"maybe",why:"préfixe / nom tronqué ou variante (« demo », « client »…)"};
+  }
+  return null;
+}
+const folderSvg=(lock)=>`<svg width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="${lock?'#9a9aa8':'#8b8bf5'}" stroke-width="3" stroke-linejoin="round"><path d="M6 18a5 5 0 0 1 5-5h14l6 7h22a5 5 0 0 1 5 5v22a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5z" fill="${lock?'#1e1e24':'#2a2a5a'}"/>${lock?'<rect x="38" y="36" width="16" height="13" rx="3" fill="#14141b"/><path d="M42 36v-4a4 4 0 0 1 8 0v4"/>':''}</svg>`;
+const logoSvg=(g)=>`<svg width="64" height="64" viewBox="0 0 64 64"><rect x="2" y="2" width="60" height="60" rx="14" fill="${g[2]}"/><rect x="2" y="2" width="60" height="60" rx="14" fill="url(#sh)" opacity=".35"/><text x="32" y="${g[1].length>2?39:41}" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="${g[1].length>2?20:26}" fill="#fff">${g[1]}</text></svg>`;
+let mode="logo",overrides={};
+function render(){
+  const strict=document.getElementById("strict").checked;
+  const grid=document.getElementById("grid");grid.innerHTML="";let hit=0,maybe=0;
+  FOLDERS.forEach(([name,lock],i)=>{
+    const m=overrides[i]!==undefined?(overrides[i]===null?null:{g:GAMES[overrides[i]],conf:"ok",why:"choisi à la main"}):(lock?null:match(name,strict));
+    if(m&&mode==="logo"){hit++;if(m.conf==="maybe")maybe++;}
+    const el=document.createElement("div");el.className="item";
+    el.innerHTML=(m&&mode==="logo"?logoSvg(m.g):folderSvg(lock))+`<div class="name" title="${name}">${name}</div>`+(lock?'<div class="sub">(private folder)</div>':'')+(m&&mode==="logo"?`<span class="badge ${m.conf}">${m.g[0]}</span>`:'');
+    el.onclick=()=>openPanel(i,name,m);grid.appendChild(el);
+  });
+  document.getElementById("stats").textContent=`${FOLDERS.length} dossiers · ${hit} reconnus comme jeux (${maybe} à confirmer)`+(mode==="folder"?" — mode dossiers":"");
+}
+function openPanel(i,name,m){
+  const p=document.getElementById("panel");p.classList.add("show");
+  p.innerHTML=`<h3>${name}</h3>`+(m?`Reconnu : <b>${m.g[0]}</b> <span class="badge ${m.conf}">${m.conf==="ok"?"sûr":"à confirmer"}</span><br><span style="color:var(--mut)">${m.why}</span>`:`<span style="color:var(--mut)">Aucun jeu reconnu : l'icône dossier est conservée.</span>`)+
+  `<p>Corriger : <select id="pick"><option value="">— choisir —</option><option value="none">Aucun (icône dossier)</option>${GAMES.map((g,k)=>`<option value="${k}">${g[0]}</option>`).join("")}</select> <button id="ok">OK</button> <button id="x">Fermer</button></p>`+
+  `<p style="color:var(--mut)">Le choix serait mémorisé par dossier (le dossier garde son nom, seul l'affichage change).</p>`;
+  document.getElementById("x").onclick=()=>p.classList.remove("show");
+  document.getElementById("ok").onclick=()=>{const v=document.getElementById("pick").value;if(v==="")return;overrides[i]=v==="none"?null:+v;render();p.classList.remove("show");};
+}
+document.querySelectorAll("#mode button").forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll("#mode button").forEach(x=>x.classList.toggle("on",x===b));render();});
+document.getElementById("strict").onchange=render;
+document.body.insertAdjacentHTML("afterbegin",'<svg width="0" height="0"><defs><linearGradient id="sh" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#000"/></linearGradient></defs></svg>');
+render();
+</script></body></html>
