@@ -25,6 +25,25 @@ func TestConfig(t *testing.T) {
 	}
 }
 
+func TestFolderLogoOverrides(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://test")
+	t.Setenv("MASTER_KEY", base64.StdEncoding.EncodeToString(make([]byte, 32)))
+	t.Setenv("FOLDER_LOGOS_OVERRIDES", "Fall Guys=1097150, Counter-strike Global Offensive=730")
+	got, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.FolderLogoOverrides["Fall Guys"] != 1097150 || got.FolderLogoOverrides["Counter-strike Global Offensive"] != 730 {
+		t.Fatalf("unexpected overrides: %#v", got.FolderLogoOverrides)
+	}
+	for _, value := range []string{"Fall Guys", "Fall Guys=0", "=1097150", "Fall Guys=nope"} {
+		t.Setenv("FOLDER_LOGOS_OVERRIDES", value)
+		if _, err := Load(); err == nil {
+			t.Fatalf("invalid overrides accepted: %q", value)
+		}
+	}
+}
+
 func TestConfigNeedsNoMasterKey(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("DATABASE_URL", "postgres://test")

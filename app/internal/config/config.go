@@ -40,6 +40,8 @@ type Config struct {
 	// Steam store and CDN, where the logo of the game a folder is named after is found; FolderLogos turns it off.
 	SteamStoreURL, SteamCDNURL string
 	FolderLogos                bool
+	// FolderLogoOverrides maps a folder name to a Steam app id for games the store search does not index.
+	FolderLogoOverrides map[string]int64
 }
 
 // DefaultSecretsDir is where the deployment mounts the volume that keeps the generated secrets.
@@ -71,6 +73,10 @@ func Load() (Config, error) {
 		c.EmbeddingsURL = os.Getenv("EMBEDDINGS_DEFAULT_URL")
 	}
 	var err error
+	c.FolderLogoOverrides, err = parseFolderLogoOverrides(os.Getenv("FOLDER_LOGOS_OVERRIDES"))
+	if err != nil {
+		return c, err
+	}
 	c.StabilityWindow, err = time.ParseDuration(env("CLIP_STABILITY_WINDOW", "3s"))
 	if err != nil || c.StabilityWindow < 0 || c.StabilityWindow > 24*time.Hour {
 		return c, errors.New("CLIP_STABILITY_WINDOW must be between 0 and 24 hours")
@@ -183,6 +189,31 @@ func splitRoots(value string) []string {
 		}
 	}
 	return roots
+}
+
+// parseFolderLogoOverrides reads FOLDER_LOGOS_OVERRIDES: "Name=appid,Other Name=appid".
+func parseFolderLogoOverrides(value string) (map[string]int64, error) {
+	if strings.TrimSpace(value) == "" {
+		return nil, nil
+	}
+	overrides := map[string]int64{}
+	for _, item := range strings.Split(value, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		separator := strings.LastIndex(item, "=")
+		if separator <= 0 || separator == len(item)-1 {
+			return nil, errors.New("FOLDER_LOGOS_OVERRIDES must list Name=appid pairs")
+		}
+		name := strings.TrimSpace(item[:separator])
+		id, err := strconv.ParseInt(strings.TrimSpace(item[separator+1:]), 10, 64)
+		if name == "" || err != nil || id <= 0 {
+			return nil, errors.New("FOLDER_LOGOS_OVERRIDES must list Name=appid pairs with a positive app id")
+		}
+		overrides[name] = id
+	}
+	return overrides, nil
 }
 
 func splitPatterns(value string) []string {
