@@ -100,3 +100,55 @@ test("un dépôt inconnu ou une adresse étrangère sont refusés avec un messag
     "Paste a Hugging Face repository",
   );
 });
+
+test("le changement d'empreinte montre l'impact réel puis attend un ordre de préparation explicite", async ({
+  browser,
+}) => {
+  const page = await open(browser);
+  const add = await inspect(page, "acme/unsure-pyannote");
+  await add.getByRole("button", { name: "Fingerprint", exact: true }).click();
+  await add
+    .getByRole("button", { name: "Add to the catalogue", exact: true })
+    .click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByRole("tab", { name: /Catalogue/ }).click();
+  const card = page.getByRole("article", {
+    name: "acme/unsure-pyannote",
+    exact: true,
+  });
+  await card.getByRole("button", { name: "Details", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Change fingerprint model", exact: true })
+    .click();
+  const transition = page.getByRole("dialog", {
+    name: "Change fingerprint model",
+    exact: true,
+  });
+  await expect(transition).toContainText("References to recalculate");
+  await expect(transition).toContainText(
+    "0 Worker(s) already have the target ready",
+  );
+  const start = transition.getByRole("button", {
+    name: "Start transition",
+    exact: true,
+  });
+  await expect(start).toBeDisabled();
+  await transition
+    .getByLabel("I confirm recalculating the 0 displayed references.")
+    .check();
+  await start.click();
+  await expect(transition).toContainText(
+    "Preparing Workers. The old model remains active.",
+  );
+  await expect(
+    transition.getByRole("button", { name: "Prepare on Workers", exact: true }),
+  ).toBeVisible();
+  await transition
+    .getByRole("button", { name: "Cancel transition", exact: true })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Cancel transition", exact: true })
+    .click();
+  await expect(transition).toContainText("Transition cancelled.");
+});

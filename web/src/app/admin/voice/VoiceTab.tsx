@@ -3,30 +3,26 @@ import { api, errorCode } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { useI18n } from "../../i18n";
-import { VoiceAdvanced } from "./VoiceAdvanced";
-import { VoiceHeader } from "./VoiceHeader";
-import { VoiceHuggingFace } from "./VoiceHuggingFace";
-import { VoiceInventory } from "./VoiceInventory";
-import { isSuperAdministrator } from "../../roles";
-import { useSession } from "../../session";
-import { ModelsByWorker } from "./ModelsByWorker";
-import { VoiceModelCards } from "./VoiceModelCards";
+import { VoiceWorkspace } from "./VoiceWorkspace";
 
 async function load() {
   try {
-    const [overview, models, pipeline, matching, accuracy] = await Promise.all([
-      api.GET("/api/admin/voice-overview"),
-      api.GET("/api/admin/voice-models"),
-      api.GET("/api/admin/voice-pipeline"),
-      api.GET("/api/voice-matching"),
-      api.GET("/api/admin/voice-accuracy"),
-    ]);
+    const [overview, models, pipeline, matching, accuracy, workers] =
+      await Promise.all([
+        api.GET("/api/admin/voice-overview"),
+        api.GET("/api/admin/voice-models"),
+        api.GET("/api/admin/voice-pipeline"),
+        api.GET("/api/voice-matching"),
+        api.GET("/api/admin/voice-accuracy"),
+        api.GET("/api/admin/voice-models/workers"),
+      ]);
     if (
       overview.data &&
       models.data &&
       pipeline.data &&
       matching.data &&
-      accuracy.data
+      accuracy.data &&
+      workers.data
     )
       return {
         ok: true as const,
@@ -36,6 +32,7 @@ async function load() {
           pipeline: pipeline.data,
           matching: matching.data,
           accuracy: accuracy.data,
+          workers: workers.data,
         },
       };
     return {
@@ -46,7 +43,8 @@ async function load() {
             models.error ??
             pipeline.error ??
             matching.error ??
-            accuracy.error,
+            accuracy.error ??
+            workers.error,
         ) ?? "unknown",
     };
   } catch {
@@ -54,51 +52,42 @@ async function load() {
   }
 }
 
-/** Administration, voice processing: state and models first, thresholds folded under "Advanced". */
+/** Shared live data for the Worker matrix, catalogue and history. */
 export function VoiceTab() {
   const { t, error } = useI18n();
-  const { user } = useSession();
   const { state, reload } = useLoaded(load);
   const preparing =
     state.status === "ready" &&
-    state.value.models.models.some((m) =>
-      m.workers.some(
-        (w) => w.state === "downloading" || w.state === "verifying",
+    state.value.workers.workers.some((w) =>
+      w.models.some((m) =>
+        [
+          "requested",
+          "downloading",
+          "verifying",
+          "switching",
+          "removing",
+        ].includes(m.state),
       ),
     );
   useEffect(() => {
-    if (!preparing) return;
-    const timer = window.setInterval(reload, 3000);
+    const timer = window.setInterval(reload, preparing ? 3000 : 10000);
     return () => window.clearInterval(timer);
   }, [preparing, reload]);
   if (state.status === "loading")
     return <p role="status">{t("app.loading")}</p>;
   if (state.status === "failed")
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
-  const { overview, models, pipeline, matching, accuracy } = state.value;
+  const { overview, models, pipeline, matching, accuracy, workers } =
+    state.value;
   return (
-    <div className="flex max-w-6xl flex-col gap-6">
-      <h2 className="text-lg font-semibold">{t("voiceAdmin.title")}</h2>
-      <VoiceHeader
-        overview={overview}
-        accuracy={accuracy}
-        catalogue={models}
-        onChanged={reload}
-      />
-      <ModelsByWorker
-        catalogue={models}
-        canAdd={user !== null && isSuperAdministrator(user)}
-        onCatalogueChanged={reload}
-      />
-      <VoiceModelCards catalogue={models} onChanged={reload} />
-      <VoiceHuggingFace />
-      <VoiceInventory overview={overview} />
-      <VoiceAdvanced
-        pipeline={pipeline.config}
-        matching={matching}
-        accuracy={accuracy}
-        onChanged={reload}
-      />
-    </div>
+    <VoiceWorkspace
+      catalogue={models}
+      workers={workers.workers}
+      overview={overview}
+      pipeline={pipeline.config}
+      matching={matching}
+      accuracy={accuracy}
+      onChanged={reload}
+    />
   );
 }

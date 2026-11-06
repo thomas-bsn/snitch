@@ -82,7 +82,7 @@ test("un administrateur remplace le modèle de diarisation d'un Worker, de l'éc
   const cell = section
     .getByRole("row", { name: /worker-remplacement/ })
     .locator("td")
-    .nth(0);
+    .nth(1);
   await expect(cell).toContainText("Ready");
 
   // Replace: an explicit confirmation that says the old model stays until the switch.

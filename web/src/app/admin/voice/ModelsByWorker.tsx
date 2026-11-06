@@ -1,65 +1,20 @@
-import { useEffect, useState } from "react";
-import {
-  ArrowLeftRight,
-  CircleDot,
-  Download,
-  ShieldCheck,
-  Trash2,
-  type LucideIcon,
-} from "lucide-react";
+import { useState } from "react";
+import { History, Plus, Clock3, Server } from "lucide-react";
 import type { components } from "../../../api.gen";
 import { api, errorCode, mutation } from "../../api/client";
-import { useLoaded } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { buttonClass } from "../../components/buttons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
-import { StatusPill, type PillTone } from "../../components/StatusPill";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
-import { ApplyToWorkers } from "./ApplyToWorkers";
-import { OrderHistory } from "./OrderHistory";
 import type { Catalogue } from "./VoiceModelCards";
-import { VoiceModelAdd } from "./VoiceModelAdd";
+import { KindIcon, VoiceBadge, modelKinds } from "./VoiceModelUI";
 
 type Cell = components["schemas"]["WorkerModelCell"];
 export type Row = components["schemas"]["WorkerModelsRow"];
 export type Kind = Cell["kind"];
 
-/** Separation is folded into a banner until an adapter exists (#268): two columns. */
-const kinds: Kind[] = ["diarization", "fingerprint"];
-const states: Cell["state"][] = [
-  "not_installed",
-  "requested",
-  "downloading",
-  "verifying",
-  "ready",
-  "switching",
-  "removing",
-  "failed",
-];
-
-const look: Record<Cell["state"], { tone: PillTone; icon?: LucideIcon }> = {
-  not_installed: { tone: "idle" },
-  requested: { tone: "busy", icon: CircleDot },
-  downloading: { tone: "busy", icon: Download },
-  verifying: { tone: "busy", icon: ShieldCheck },
-  ready: { tone: "ok" },
-  switching: { tone: "busy", icon: ArrowLeftRight },
-  removing: { tone: "busy", icon: Trash2 },
-  failed: { tone: "bad" },
-};
-
 const megabytes = (bytes: number) => Math.round(bytes / 1_000_000);
-
-async function load() {
-  try {
-    const result = await api.GET("/api/admin/voice-models/workers");
-    if (result.data) return { ok: true as const, value: result.data };
-    return { ok: false as const, code: errorCode(result.error) ?? "unknown" };
-  } catch {
-    return { ok: false as const, code: "unavailable" };
-  }
-}
 
 type Pending =
   | {
@@ -93,46 +48,32 @@ function progress(cell: Cell) {
  */
 export function ModelsByWorker({
   catalogue,
-  canAdd,
-  onCatalogueChanged,
+  workers,
+  selected,
+  onSelected,
+  onChanged,
+  onHistory,
+  onInspect,
+  onTransition,
 }: {
   catalogue: Catalogue;
-  canAdd: boolean;
-  onCatalogueChanged: () => void;
+  workers: Row[];
+  selected: string[];
+  onSelected: (ids: string[]) => void;
+  onChanged: () => void;
+  onHistory: (id: string) => void;
+  onInspect: (id: string) => void;
+  onTransition: (id: string) => void;
 }) {
   const { t, error } = useI18n();
   const { session } = useSession();
-  const { state, reload } = useLoaded(load);
+  const [orderKey, setOrderKey] = useState("");
   const [choice, setChoice] = useState<string>("");
   const [pending, setPending] = useState<Pending>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
-  const [history, setHistory] = useState<{ workerId?: string } | undefined>();
-  const [applying, setApplying] = useState(false);
   const headers = mutation(session?.csrf_token);
-  const active =
-    state.status === "ready" &&
-    state.value.workers.some((w) =>
-      w.models.some((m) =>
-        [
-          "requested",
-          "downloading",
-          "verifying",
-          "switching",
-          "removing",
-        ].includes(m.state),
-      ),
-    );
-  useEffect(() => {
-    if (!active) return;
-    const timer = window.setInterval(reload, 3000);
-    return () => window.clearInterval(timer);
-  }, [active, reload]);
-  if (state.status === "loading")
-    return <p role="status">{t("app.loading")}</p>;
-  if (state.status === "failed")
-    return <ErrorAlert>{error(state.code)}</ErrorAlert>;
-
+  const reload = onChanged;
   const labelOf = (id: string) => {
     const model = catalogue.models.find((m) => m.id === id);
     return model?.label || model?.repo || id;
@@ -144,6 +85,7 @@ export function ModelsByWorker({
   const kindLabel = (kind: Kind) => t(`voiceModels.byWorker.type.${kind}`);
 
   function open(next: Pending) {
+    setOrderKey(crypto.randomUUID());
     setFailure(undefined);
     setChoice(next.type === "install" ? next.modelId : "");
     setPending(next);
@@ -154,7 +96,7 @@ export function ModelsByWorker({
     setFailure(undefined);
     try {
       const id = { path: { id: item.worker.worker_id }, header: headers };
-      const key = crypto.randomUUID();
+      const key = orderKey;
       const modelId =
         item.type === "install" ? choice || item.modelId : item.modelId;
       let result;
@@ -321,211 +263,211 @@ export function ModelsByWorker({
     pending?.type === "install" ? options(pending.kind, pending.replaces) : [];
 
   return (
-    <section
-      aria-labelledby="models-by-worker"
-      className="flex flex-col gap-4 rounded-xl border border-line bg-surface p-4"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 max-w-md flex-1">
-          <h3 id="models-by-worker" className="text-lg font-semibold">
-            {t("voiceModels.byWorker.title")}
-          </h3>
-          <p className="text-mute">{t("voiceModels.byWorker.hint")}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            className={buttonClass("secondary")}
-            onClick={() => setHistory({})}
-          >
-            {t("voiceModels.byWorker.history")}
-          </button>
-          <button
-            type="button"
-            className={buttonClass("secondary")}
-            onClick={() => setApplying(true)}
-          >
-            {t("voiceModels.byWorker.applyMany")}
-          </button>
-          {canAdd && <VoiceModelAdd onChanged={onCatalogueChanged} />}
-        </div>
-      </div>
-      <ul
-        aria-label={t("voiceModels.byWorker.statuses")}
-        className="flex flex-wrap gap-2"
-      >
-        {states.map((s) => (
-          <li key={s}>
-            <StatusPill tone={look[s].tone} icon={look[s].icon}>
-              {t(`voiceModels.state.${s}`)}
-            </StatusPill>
-          </li>
-        ))}
-      </ul>
-      <p className="rounded-lg bg-accent-soft px-3 py-2 text-sm text-accent-ink">
-        {t("voiceModels.byWorker.separationBanner")}
-      </p>
-      {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
-      <div
-        role="region"
-        tabIndex={0}
-        aria-label={t("voiceModels.byWorker.tableLabel")}
-        className="overflow-x-auto rounded-lg border border-line"
-      >
-        <table className="w-full min-w-[40rem] text-left text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-wide text-mute">
-              <th scope="col" className="px-3 py-2.5 font-medium">
-                {t("voiceModels.byWorker.worker")}
-              </th>
-              {kinds.map((kind) => (
-                <th key={kind} scope="col" className="px-3 py-2.5 font-medium">
-                  {kindLabel(kind)}
+    <section aria-label={t("voiceModels.byWorker.title")}>
+      {failure && !pending && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      {workers.length === 0 ? (
+        <div className="voice-empty">{t("voiceWorkspace.noWorkers")}</div>
+      ) : (
+        <div
+          role="region"
+          tabIndex={0}
+          aria-label={t("voiceModels.byWorker.tableLabel")}
+          className="voice-table-scroll"
+        >
+          <table className="voice-matrix">
+            <thead>
+              <tr>
+                <th scope="col">
+                  <span className="sr-only">
+                    {t("voiceModels.byWorker.applyWorkers")}
+                  </span>
                 </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {state.value.workers.map((worker) => (
-              <tr
-                key={worker.worker_id}
-                className="border-t border-line align-top"
-              >
-                <th scope="row" className="px-3 py-3 font-medium">
-                  <div>{worker.name}</div>
-                  <button
-                    type="button"
-                    onClick={() => setHistory({ workerId: worker.worker_id })}
-                    aria-label={t("voiceModels.byWorker.historyOf", {
-                      worker: worker.name,
-                    })}
-                    className="mt-1 text-xs font-normal text-accent-ink underline underline-offset-2"
-                  >
-                    {t("voiceModels.byWorker.history")}
-                  </button>
+                <th scope="col">{t("voiceModels.byWorker.worker")}</th>
+                {modelKinds.map((kind) => (
+                  <th scope="col" key={kind}>
+                    <span>
+                      <KindIcon kind={kind} />
+                      {kindLabel(kind)}
+                    </span>
+                  </th>
+                ))}
+                <th scope="col">
+                  <span className="sr-only">{t("voiceWorkspace.history")}</span>
                 </th>
-                {kinds.map((kind) => {
-                  const cell = worker.models.find((m) => m.kind === kind);
-                  const replaceable =
-                    kind === "diarization" &&
-                    cell !== undefined &&
-                    options(kind, cell.model_id).length > 0;
-                  return (
-                    <td key={kind} className="px-3 py-3">
-                      {cell && (
-                        <div className="flex flex-col gap-1.5">
-                          {cell.state === "not_installed" ? (
+              </tr>
+            </thead>
+            <tbody>
+              {workers.map((worker) => (
+                <tr key={worker.worker_id}>
+                  <td>
+                    <label className="voice-select">
+                      <input
+                        type="checkbox"
+                        aria-label={t("voiceWorkspace.selectWorker", {
+                          worker: worker.name,
+                        })}
+                        checked={selected.includes(worker.worker_id)}
+                        onChange={(e) =>
+                          onSelected(
+                            e.target.checked
+                              ? [...selected, worker.worker_id]
+                              : selected.filter(
+                                  (id) => id !== worker.worker_id,
+                                ),
+                          )
+                        }
+                      />
+                    </label>
+                  </td>
+                  <th scope="row">
+                    <strong>
+                      <Server size={15} aria-hidden />
+                      {worker.name}
+                    </strong>
+                    <span className="voice-connection">
+                      <span className={worker.connected ? "online" : ""} />
+                      {t(
+                        worker.connected
+                          ? "voiceWorkspace.online"
+                          : "voiceWorkspace.offline",
+                      )}
+                    </span>
+                  </th>
+                  {modelKinds.map((kind) => {
+                    const cell = worker.models.find((m) => m.kind === kind);
+                    if (kind === "separation")
+                      return (
+                        <td key={kind}>
+                          <div className="voice-worker-cell">
+                            <span className="text-mute">
+                              {t("voiceWorkspace.adapterPending")}
+                            </span>
+                            <VoiceBadge>
+                              {t("voiceWorkspace.coming")}
+                            </VoiceBadge>
+                          </div>
+                        </td>
+                      );
+                    const absent = !cell || cell.state === "not_installed";
+                    return (
+                      <td key={kind}>
+                        <div className="voice-worker-cell">
+                          {absent ? (
                             <>
                               <span className="text-mute">
                                 {t("voiceModels.byWorker.absent")}
                               </span>
-                              <div>
-                                <StatusPill tone="idle">
-                                  {t("voiceModels.state.not_installed")}
-                                </StatusPill>
-                              </div>
-                              {cell.supported && options(kind).length > 0 && (
-                                <div>
-                                  <button
-                                    type="button"
-                                    disabled={busy}
-                                    aria-label={t(
-                                      "voiceModels.byWorker.chooseFor",
-                                      {
-                                        worker: worker.name,
-                                        type: kindLabel(kind),
-                                      },
-                                    )}
-                                    onClick={() =>
-                                      open({
-                                        type: "install",
-                                        worker,
-                                        kind,
-                                        modelId: options(kind)[0].id,
-                                      })
-                                    }
-                                    className={buttonClass("primary")}
-                                  >
-                                    {t("voiceModels.byWorker.choosePrompt")}
-                                  </button>
-                                </div>
+                              <p>{t("voiceWorkspace.noStartup")}</p>
+                              <span className="sr-only">
+                                {t("voiceModels.state.not_installed")}
+                              </span>
+                              {options(kind).length > 0 && (
+                                <button
+                                  type="button"
+                                  className="voice-btn quiet"
+                                  disabled={busy}
+                                  aria-label={t(
+                                    "voiceModels.byWorker.chooseFor",
+                                    {
+                                      worker: worker.name,
+                                      type: kindLabel(kind),
+                                    },
+                                  )}
+                                  onClick={() =>
+                                    open({
+                                      type: "install",
+                                      worker,
+                                      kind,
+                                      modelId: options(kind)[0].id,
+                                    })
+                                  }
+                                >
+                                  {t("voiceModels.byWorker.choosePrompt")}
+                                  <Plus size={14} aria-hidden />
+                                </button>
                               )}
                             </>
                           ) : (
                             <>
-                              <span className="font-medium">
+                              <button
+                                type="button"
+                                className="voice-model-link"
+                                onClick={() => onInspect(cell.model_id)}
+                              >
                                 {cell.label || cell.repo}
-                              </span>
-                              <span className="font-mono text-xs text-mute tabular-nums">
-                                {[
-                                  cell.revision !== "" &&
-                                    t("voiceModels.byWorker.revision", {
-                                      revision: cell.revision.slice(0, 7),
-                                    }),
-                                  (cell.occupied_bytes > 0 ||
-                                    cell.bytes_total > 0) &&
-                                    t("voiceModels.byWorker.volume", {
-                                      size: megabytes(
-                                        cell.occupied_bytes > 0
-                                          ? cell.occupied_bytes
-                                          : cell.bytes_total,
-                                      ),
-                                    }),
-                                ]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </span>
-                              <div>
-                                <StatusPill
-                                  tone={look[cell.state].tone}
-                                  icon={look[cell.state].icon}
+                              </button>
+                              <div className="voice-inline">
+                                <VoiceBadge
+                                  tone={
+                                    cell.state === "ready"
+                                      ? "ok"
+                                      : cell.state === "failed"
+                                        ? "bad"
+                                        : "accent"
+                                  }
                                 >
+                                  {cell.state !== "ready" &&
+                                    cell.state !== "failed" && (
+                                      <Clock3 size={12} aria-hidden />
+                                    )}
                                   {t(`voiceModels.state.${cell.state}`)}
-                                </StatusPill>
+                                </VoiceBadge>
+                                {cell.state === "ready" && (
+                                  <span className="text-mute">
+                                    {t(
+                                      catalogue.models.some(
+                                        (m) =>
+                                          m.id === cell.model_id && m.active,
+                                      )
+                                        ? "voiceWorkspace.production"
+                                        : "voiceWorkspace.reserve",
+                                    )}
+                                  </span>
+                                )}
                               </div>
-                              {[
-                                "requested",
-                                "downloading",
-                                "verifying",
-                                "switching",
-                                "removing",
-                              ].includes(cell.state) && (
-                                <div
-                                  role="progressbar"
+                              <span className="voice-cell-meta">
+                                {cell.revision
+                                  ? cell.revision.slice(0, 7)
+                                  : t("voiceWorkspace.unknown")}{" "}
+                                ·{" "}
+                                {t("voiceModels.byWorker.volume", {
+                                  size: megabytes(
+                                    cell.occupied_bytes || cell.bytes_total,
+                                  ),
+                                })}
+                              </span>
+                              {["downloading", "verifying"].includes(
+                                cell.state,
+                              ) && (
+                                <progress
+                                  className="voice-progress"
+                                  value={progress(cell)}
+                                  max={100}
                                   aria-label={t(
                                     `voiceModels.state.${cell.state}`,
                                   )}
-                                  aria-valuemin={0}
-                                  aria-valuemax={100}
-                                  aria-valuenow={Math.round(progress(cell))}
-                                  className="h-1.5 w-full overflow-hidden rounded-full bg-side"
-                                >
-                                  <div
-                                    className="h-full rounded-full bg-accent-solid"
-                                    style={{ width: `${progress(cell)}%` }}
-                                  />
-                                </div>
+                                />
                               )}
                               {cell.state === "downloading" &&
                                 cell.bytes_total > 0 && (
-                                  <span className="tabular-nums text-mute">
+                                  <small>
                                     {t("voiceModels.progress", {
                                       received: megabytes(cell.bytes_received),
                                       total: megabytes(cell.bytes_total),
                                     })}
-                                  </span>
+                                  </small>
                                 )}
-                              {cell.replaces_model_id !== "" &&
+                              {cell.replaces_model_id &&
                                 cell.state !== "removing" && (
-                                  <span className="text-mute">
+                                  <p>
                                     {t("voiceModels.byWorker.replacing", {
                                       model: modelName(cell.replaces_model_id),
                                     })}
-                                  </span>
+                                  </p>
                                 )}
                               {cell.state === "removing" && (
-                                <span className="text-mute">
-                                  {cell.replaces_model_id !== ""
+                                <p>
+                                  {cell.replaces_model_id
                                     ? t("voiceModels.byWorker.removingOld", {
                                         model: modelName(
                                           cell.replaces_model_id,
@@ -534,27 +476,21 @@ export function ModelsByWorker({
                                     : t(
                                         "voiceModels.byWorker.removingStandalone",
                                       )}
-                                </span>
+                                </p>
                               )}
-                              {cell.state === "switching" &&
-                                cell.waiting_for_jobs && (
-                                  <span className="text-mute">
-                                    {t("voiceModels.byWorker.waitingJobs")}
-                                  </span>
-                                )}
-                              {cell.state === "failed" &&
-                                cell.cause_code !== "" && (
-                                  <p
-                                    role="alert"
-                                    className="rounded-md bg-bad-bg px-2.5 py-1.5 text-bad-fg"
-                                  >
-                                    {t(`voiceModels.cause.${cell.cause_code}`)}
-                                  </p>
-                                )}
-                              <div className="flex flex-wrap gap-2">
+                              {cell.waiting_for_jobs && (
+                                <p>{t("voiceModels.byWorker.waitingJobs")}</p>
+                              )}
+                              {cell.state === "failed" && cell.cause_code && (
+                                <p role="alert" className="voice-error">
+                                  {t(`voiceModels.cause.${cell.cause_code}`)}
+                                </p>
+                              )}
+                              <div className="voice-cell-actions">
                                 {cell.state === "failed" && (
                                   <button
                                     type="button"
+                                    className="voice-btn"
                                     disabled={busy}
                                     onClick={() =>
                                       open({
@@ -564,32 +500,33 @@ export function ModelsByWorker({
                                         modelId: cell.model_id,
                                       })
                                     }
-                                    className={buttonClass("primary")}
                                   >
                                     {t("voiceModels.byWorker.retry")}
                                   </button>
                                 )}
-                                {cell.replaces_model_id !== "" &&
-                                  (cell.state === "requested" ||
-                                    cell.state === "failed") && (
+                                {cell.replaces_model_id &&
+                                  ["requested", "failed"].includes(
+                                    cell.state,
+                                  ) && (
                                     <button
                                       type="button"
+                                      className="voice-btn quiet"
                                       disabled={busy}
                                       onClick={() =>
                                         void cancelReplacement(worker, kind)
                                       }
-                                      className={buttonClass("secondary")}
                                     >
                                       {t(
                                         "voiceModels.byWorker.cancelReplacement",
                                       )}
                                     </button>
                                   )}
-                                {cell.replaces_model_id !== "" &&
+                                {cell.replaces_model_id &&
                                   cell.state === "failed" &&
                                   cell.cause_code === "disk_full" && (
                                     <button
                                       type="button"
+                                      className="voice-btn quiet"
                                       disabled={busy}
                                       onClick={() =>
                                         open({
@@ -600,38 +537,46 @@ export function ModelsByWorker({
                                           successor: cell.model_id,
                                         })
                                       }
-                                      className={buttonClass("danger")}
                                     >
                                       {t("voiceModels.byWorker.removeOld")}
                                     </button>
                                   )}
                                 {cell.state === "ready" &&
-                                  cell.replaces_model_id === "" && (
+                                  !cell.replaces_model_id && (
                                     <>
-                                      {replaceable && (
+                                      {options(kind, cell.model_id).length >
+                                        0 && (
                                         <button
                                           type="button"
+                                          className="voice-btn quiet"
                                           disabled={busy}
                                           onClick={() =>
-                                            open({
-                                              type: "install",
-                                              worker,
-                                              kind,
-                                              replaces: cell.model_id,
-                                              modelId: options(
-                                                kind,
-                                                cell.model_id,
-                                              )[0].id,
-                                            })
+                                            kind === "fingerprint"
+                                              ? onTransition(
+                                                  options(
+                                                    kind,
+                                                    cell.model_id,
+                                                  )[0].id,
+                                                )
+                                              : open({
+                                                  type: "install",
+                                                  worker,
+                                                  kind,
+                                                  replaces: cell.model_id,
+                                                  modelId: options(
+                                                    kind,
+                                                    cell.model_id,
+                                                  )[0].id,
+                                                })
                                           }
-                                          className={buttonClass("secondary")}
                                         >
                                           {t("voiceModels.byWorker.replace")}
                                         </button>
                                       )}
                                       <button
                                         type="button"
-                                        disabled={busy}
+                                        className="voice-btn quiet"
+                                        disabled={busy || cell.waiting_for_jobs}
                                         onClick={() =>
                                           open({
                                             type: "uninstall",
@@ -640,39 +585,45 @@ export function ModelsByWorker({
                                             modelId: cell.model_id,
                                           })
                                         }
-                                        className={buttonClass("secondary")}
                                       >
                                         {t("voiceModels.byWorker.uninstall")}
                                       </button>
                                     </>
                                   )}
-                                {cell.state !== "ready" &&
-                                  cell.state !== "failed" && (
-                                    <button
-                                      type="button"
-                                      onClick={() =>
-                                        setHistory({
-                                          workerId: worker.worker_id,
-                                        })
-                                      }
-                                      className={buttonClass("secondary")}
-                                    >
-                                      {t("voiceModels.byWorker.viewOrder")}
-                                    </button>
-                                  )}
+                                {!["ready", "failed"].includes(cell.state) && (
+                                  <button
+                                    type="button"
+                                    className="voice-btn quiet"
+                                    onClick={() => onHistory(worker.worker_id)}
+                                  >
+                                    {t("voiceModels.byWorker.viewOrder")}
+                                  </button>
+                                )}
                               </div>
                             </>
                           )}
                         </div>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                      </td>
+                    );
+                  })}
+                  <td>
+                    <button
+                      type="button"
+                      className="voice-icon-btn"
+                      aria-label={t("voiceModels.byWorker.historyOf", {
+                        worker: worker.name,
+                      })}
+                      onClick={() => onHistory(worker.worker_id)}
+                    >
+                      <History size={18} aria-hidden />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
       <ConfirmDialog
         open={pending !== undefined}
         onOpenChange={(next) => !next && setPending(undefined)}
@@ -709,22 +660,6 @@ export function ModelsByWorker({
         {dialog?.body}
         {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
       </ConfirmDialog>
-      <OrderHistory
-        open={history !== undefined}
-        onClose={() => setHistory(undefined)}
-        workers={state.value.workers}
-        initialWorkerId={history?.workerId}
-      />
-      <ApplyToWorkers
-        open={applying}
-        onClose={() => {
-          setApplying(false);
-          reload();
-        }}
-        workers={state.value.workers}
-        catalogue={catalogue}
-        kinds={kinds}
-      />
     </section>
   );
 }

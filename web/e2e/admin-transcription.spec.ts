@@ -90,21 +90,29 @@ test("le profil de bibliothèque et le nom propre du Worker", async ({
     .click();
   await expect(page.getByText("FFXIV", { exact: true })).toHaveCount(0);
   await page.goto("/admin/voice");
+  // Identification lives in a side panel now; the voice screen itself stays a matrix.
+  await page
+    .getByRole("button", { name: "Identification and thresholds" })
+    .click();
+  const state = page.getByRole("region", { name: "State" });
+  await expect(state).toContainText("Active diarization model");
   await expect(
-    page.getByRole("region", { name: "Diarization model" }),
+    state.getByText("Automatic attribution: disabled"),
   ).toBeVisible();
-  await expect(page.getByText("Automatic attribution: disabled")).toBeVisible();
   await page.locator("summary").click();
   await page.getByLabel("Suggestion threshold").fill("0.70");
   await page.getByRole("button", { name: "Save thresholds" }).click();
   await expect(page.getByText("Settings saved.")).toBeVisible();
   await page.reload();
+  await page
+    .getByRole("button", { name: "Identification and thresholds" })
+    .click();
   await page.locator("summary").click();
   await expect(page.getByLabel("Suggestion threshold")).toHaveValue("0.7");
   await page.getByLabel("Minimum confirmations").fill("1");
   await page.getByRole("button", { name: "Save activation criteria" }).click();
   await expect(page.getByText("Settings saved.")).toBeVisible();
-  const toggle = page.getByRole("switch", {
+  const toggle = state.getByRole("switch", {
     name: "Automatic voice attribution",
   });
   await toggle.click();
@@ -116,9 +124,11 @@ test("le profil de bibliothèque et le nom propre du Worker", async ({
   await dialog
     .getByRole("button", { name: "Enable automatic attribution" })
     .click();
-  await expect(page.getByText("Automatic attribution: enabled")).toBeVisible();
+  await expect(state.getByText("Automatic attribution: enabled")).toBeVisible();
   await toggle.click();
-  await expect(page.getByText("Automatic attribution: disabled")).toBeVisible();
+  await expect(
+    state.getByText("Automatic attribution: disabled"),
+  ).toBeVisible();
   expect(
     (await new AxeBuilder({ page }).withTags(tags).analyze()).violations,
   ).toEqual([]);

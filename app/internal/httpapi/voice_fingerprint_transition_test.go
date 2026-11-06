@@ -120,6 +120,24 @@ func testVoiceFingerprintTransitionPreview(t *testing.T, pool *pgxpool.Pool) {
 	lib := newTransitionLibrary(t, pool)
 	h := lib.h
 
+	var catalogue struct {
+		Models []struct {
+			ID     string `json:"id"`
+			Active bool   `json:"active"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/voice-models", nil, http.StatusOK), &catalogue); err != nil {
+		t.Fatal(err)
+	}
+	for _, model := range catalogue.Models {
+		if model.ID == fingerprintID && !model.Active {
+			t.Fatal("the catalogue must mark the production fingerprint model active, not in reserve")
+		}
+		if model.ID == benchModelID && model.Active {
+			t.Fatal("the transition target must stay outside production before the switch")
+		}
+	}
+
 	// The impact is known before anything is confirmed: references to recompute, and what is kept.
 	p := h.transitionPreview(benchModelID, http.StatusOK)
 	if p.FromModelID != fingerprintID || p.ToModelID != benchModelID || p.References != 1 || p.Clips != 1 || p.Persons != 1 || p.OtherFingerprints != 1 || p.WorkersReady != 0 {
