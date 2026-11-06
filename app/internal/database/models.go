@@ -231,6 +231,14 @@ type Event struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type FolderLogo struct {
+	NameKey     string             `json:"name_key"`
+	Found       bool               `json:"found"`
+	ContentType string             `json:"content_type"`
+	Image       []byte             `json:"image"`
+	CheckedAt   pgtype.Timestamptz `json:"checked_at"`
+}
+
 type FolderRequest struct {
 	ID                int64              `json:"id"`
 	Parent            string             `json:"parent"`

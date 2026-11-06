@@ -391,6 +391,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelAddFromHF(t, pool)
 	})
+	t.Run("folder logo", func(t *testing.T) {
+		reset(t)
+		testFolderLogo(t, pool)
+	})
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
@@ -1154,6 +1158,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/library/folders", nil, "", 200)
 		// The explorer and the automatic analysis setting: contract conformity here, behavior in their own suites.
 		call(client, "GET", "/api/library/explorer?path=&limit=10&offset=0", nil, "", 200)
+		call(client, "GET", "/api/library/folder-logo?name=Among%20Us", nil, "", 404) // switched off here; behavior in the folder logo suite
 		call(client, "POST", "/api/library/explorer/index", map[string]string{"path": "contract.mp4"}, me.CSRF, 409)
 		call(client, "GET", "/api/admin/settings/automatic-analysis", nil, "", 200)
 		call(client, "PUT", "/api/admin/settings/automatic-analysis", map[string]bool{"enabled": true}, me.CSRF, 200)

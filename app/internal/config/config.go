@@ -37,6 +37,9 @@ type Config struct {
 	DiscordAuthorizeURL, DiscordTokenURL, DiscordUserURL string
 	// Bot API and image CDN used by the avatar synchronization.
 	DiscordAPIURL, DiscordCDNURL string
+	// Steam store and CDN, where the logo of the game a folder is named after is found; FolderLogos turns it off.
+	SteamStoreURL, SteamCDNURL string
+	FolderLogos                bool
 }
 
 // DefaultSecretsDir is where the deployment mounts the volume that keeps the generated secrets.
@@ -59,6 +62,9 @@ func Load() (Config, error) {
 		UploadRoot:          env("UPLOAD_ROOT", "/data/media"),
 		DiscordAuthorizeURL: "https://discord.com/oauth2/authorize", DiscordTokenURL: "https://discord.com/api/oauth2/token", DiscordUserURL: "https://discord.com/api/users/@me",
 		DiscordAPIURL: "https://discord.com/api", DiscordCDNURL: "https://cdn.discordapp.com",
+		SteamStoreURL: "https://store.steampowered.com", SteamCDNURL: "https://cdn.cloudflare.steamstatic.com",
+		// FOLDER_LOGOS=off keeps folder names from ever leaving the instance (they are sent to the Steam store to find a logo).
+		FolderLogos: !strings.EqualFold(os.Getenv("FOLDER_LOGOS"), "off"),
 	}
 	// Preserve installations that selected a model while relying on the bundled service URL.
 	if c.EmbeddingsURL == "" && c.EmbeddingsModel != "" {

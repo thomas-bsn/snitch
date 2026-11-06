@@ -24,6 +24,7 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_avatar: "Choisissez une image JPEG ou PNG de 16 mégapixels maximum.",
   video_root_unavailable:
     "Cette racine ne peut pas être utilisée. Vérifiez qu’elle est montée et accessible en écriture.",
+  folder_logo_not_found: "Aucun logo de jeu pour ce dossier.",
   video_root_unconfigured: "Configurez d’abord le dossier racine des vidéos.",
   video_root_busy:
     "Terminez ou annulez les envois en attente de publication avant de changer la racine.",

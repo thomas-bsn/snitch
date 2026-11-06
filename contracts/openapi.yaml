@@ -4058,6 +4058,7 @@
         }
       }
     },
+    "/api/library/folder-logo": {"get": {"operationId": "getFolderLogo", "description": "Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise.", "parameters": [{"in": "query", "name": "name", "required": true, "schema": {"type": "string", "maxLength": 255}, "description": "Nom du dossier"}], "responses": {"200": {"description": "Jaquette JPEG", "content": {"image/jpeg": {"schema": {"type": "string", "format": "binary"}}}}, "default": {"description": "Aucun jeu pour ce nom (404) ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}}}},
     "/api/library/explorer": {
       "get": {
         "operationId": "listLibraryExplorer",

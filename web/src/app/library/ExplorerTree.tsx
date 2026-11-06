@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ChevronRight, Folder, FolderLock, HardDrive } from "lucide-react";
+import { ChevronRight, HardDrive } from "lucide-react";
+import { FolderGlyph } from "./FolderGlyph";
 import { useI18n } from "../i18n";
 import { fetchExplorerAll, type ExplorerEntry } from "./explorerApi";
 
@@ -101,11 +102,11 @@ export function ExplorerTree({
               }
               onClick={() => onOpen(entry.path)}
             >
-              {entry.private ? (
-                <FolderLock size={16} aria-hidden="true" />
-              ) : (
-                <Folder size={16} aria-hidden="true" className="text-accent" />
-              )}
+              <FolderGlyph
+                name={entry.name}
+                isPrivate={entry.private}
+                size={16}
+              />
               <span className="min-w-0 flex-1 truncate">{entry.name}</span>
               {entry.locked && (
                 <span className="sr-only">

@@ -1477,6 +1477,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/library/folder-logo": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise. */
+    get: operations["getFolderLogo"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/library/explorer": {
     parameters: {
       query?: never;
@@ -10420,6 +10437,38 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getFolderLogo: {
+    parameters: {
+      query: {
+        /** @description Nom du dossier */
+        name: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Jaquette JPEG */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "image/jpeg": string;
+        };
+      };
+      /** @description Aucun jeu pour ce nom (404) ou erreur */
       default: {
         headers: {
           [name: string]: unknown;

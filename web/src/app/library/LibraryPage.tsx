@@ -7,8 +7,6 @@ import {
   ChevronRight,
   File,
   Film,
-  Folder,
-  FolderLock,
   HardDrive,
   Lock,
   LockOpen,
@@ -22,6 +20,7 @@ import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useDocumentTitle } from "../components/useDocumentTitle";
+import { FolderGlyph } from "./FolderGlyph";
 import { useI18n } from "../i18n";
 import { isAdministrator, isSuperAdministrator } from "../roles";
 import { useSession } from "../session";
@@ -924,11 +923,7 @@ function ExplorerRow({
   const name = (
     <span className="flex min-w-0 items-center gap-2">
       {entry.directory ? (
-        entry.private ? (
-          <FolderLock size={16} aria-hidden="true" />
-        ) : (
-          <Folder size={16} aria-hidden="true" className="text-accent" />
-        )
+        <FolderGlyph name={entry.name} isPrivate={entry.private} size={16} />
       ) : (
         <Film size={16} aria-hidden="true" className="text-mute" />
       )}
@@ -1087,22 +1082,7 @@ function ExplorerIcon({
   const body = (
     <>
       {entry.directory ? (
-        entry.private ? (
-          <FolderLock
-            size={56}
-            strokeWidth={1.2}
-            aria-hidden="true"
-            className="text-mute"
-          />
-        ) : (
-          <Folder
-            size={56}
-            strokeWidth={1.2}
-            aria-hidden="true"
-            className="text-accent"
-            fill="var(--accent-soft)"
-          />
-        )
+        <FolderGlyph name={entry.name} isPrivate={entry.private} size={56} />
       ) : (
         <span
           className={`relative flex h-14 w-20 items-center justify-center rounded-md ${

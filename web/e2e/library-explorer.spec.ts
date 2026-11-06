@@ -349,6 +349,33 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(row(page, "inner.mp4")).not.toContainText("Not indexed");
   });
 
+  test("un dossier nommé d'après un jeu montre sa jaquette, les autres gardent l'icône", async ({
+    page,
+  }) => {
+    // 1x1 JPEG: the cover only has to load for the folder icon to be replaced.
+    const jpeg = Buffer.from(
+      "/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wAALCAABAAEBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACP/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AKp//2Q==",
+      "base64",
+    );
+    const asked: string[] = [];
+    await page.route("**/api/library/folder-logo?*", async (route) => {
+      const name = new URL(route.request().url()).searchParams.get("name");
+      asked.push(name ?? "");
+      if (name === "league")
+        return route.fulfill({ contentType: "image/jpeg", body: jpeg });
+      return route.fulfill({
+        status: 404,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "folder_logo_not_found" }),
+      });
+    });
+    await page.goto("/library");
+    await expect(
+      page.locator('img[src*="folder-logo?name=league"]').first(),
+    ).toBeVisible();
+    expect(asked).toContain("league");
+  });
+
   test("la pastille d'une vidéo en cours d'indexation s'anime puis se met à jour seule", async ({
     page,
   }) => {
