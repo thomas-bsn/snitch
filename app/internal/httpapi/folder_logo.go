@@ -94,13 +94,14 @@ var romanNumbers = map[string]string{
 	"ix": "9", "x": "10", "xi": "11", "xii": "12", "xiii": "13", "xiv": "14", "xv": "15",
 }
 
-// folderNameTokens reduces a folder name to the words that identify the game. "Among Us 3d Demo" becomes
-// ["among", "us"], "Bread.and.fred-Goldberg" becomes ["bread", "and", "fred"].
-func folderNameTokens(name string) []string {
+// folderLiteralTokens reduces a folder name to the words that identify the game, keeping roman numerals as they
+// are written. "Among Us 3d Demo" becomes ["among", "us"], "Bread.and.fred-Goldberg" becomes
+// ["bread", "and", "fred"].
+func folderLiteralTokens(name string) []string {
 	name = folderBracket.ReplaceAllString(name, " ")
 	name = folderReleaseTag.ReplaceAllString(name, "")
 	name = folderVersionTail.ReplaceAllString(name, "")
-	tokens := romanDigits(wordTokens(name))
+	tokens := wordTokens(name)
 	out := make([]string, 0, len(tokens))
 	for _, token := range tokens {
 		if !folderNoise[token] {
@@ -113,10 +114,20 @@ func folderNameTokens(name string) []string {
 	return out
 }
 
+// folderNameTokens is the search and matching form: roman numerals become digits ("dark souls iii" becomes
+// "dark souls 3").
+func folderNameTokens(name string) []string {
+	return romanDigits(folderLiteralTokens(name))
+}
+
 // gameTitleTokens reduces a store title to what it has in common with a folder name: punctuation, trademarks
-// and separators disappear, "&" becomes "and", and a trailing roman numeral becomes a digit.
+// and separators disappear, "&" becomes "and", and a roman numeral becomes a digit.
 func gameTitleTokens(title string) []string {
-	return romanDigits(wordTokens(title))
+	return romanDigits(gameTitleLiteralTokens(title))
+}
+
+func gameTitleLiteralTokens(title string) []string {
+	return wordTokens(title)
 }
 
 func wordTokens(name string) []string {
@@ -237,7 +248,7 @@ func (s *Server) steamLogo(ctx context.Context, appID int64, name string) (strin
 		if err = json.Unmarshal(body, &result); err != nil {
 			return "", nil, err
 		}
-		game := chooseFolderGame(folderNameTokens(name), result.Items)
+		game := chooseFolderGame(name, result.Items)
 		if game == nil {
 			return "", nil, nil
 		}
@@ -259,18 +270,21 @@ type steamSearchItem struct {
 	Metascore string `json:"metascore"`
 }
 
-// chooseFolderGame picks the store result that is the game the folder is named after. An exact title wins; a
-// folder that is a prefix of a longer title (the game, then its subtitle) is accepted for a name specific
-// enough not to be a system folder; a title that is a prefix of the folder is accepted only when the extra
-// words are an edition. A result with a metascore is preferred among equally good prefixes, which keeps the
-// main game over its spinoffs when the store ranks the spinoff first.
-func chooseFolderGame(folder []string, items []steamSearchItem) *steamSearchItem {
+// chooseFolderGame picks the store result that is the game the folder is named after. A result written with the
+// same numeral style comes first ("Modern Warfare 2" keeps the 2009 game rather than the 2022 "II"); then an
+// exact title wins, a folder that is a prefix of a longer title (the game, then its subtitle) is accepted for a
+// name specific enough not to be a system folder, and a title that is a prefix of the folder is accepted only
+// when the extra words are an edition. A result with a metascore is preferred among equally good prefixes, which
+// keeps the main game over its spinoffs when the store ranks the spinoff first.
+func chooseFolderGame(name string, items []steamSearchItem) *steamSearchItem {
+	folder := folderNameTokens(name)
+	folderLiteral := folderLiteralTokens(name)
 	folderKey := strings.Join(folder, "")
 	if folderLogoExcluded[folderKey] {
 		return nil
 	}
 	var best *steamSearchItem
-	bestRank, bestMeta, bestExtra := 0, 0, 0
+	bestRank, bestLiteral, bestMeta, bestExtra := 0, false, 0, 0
 	for i := range items {
 		item := &items[i]
 		if item.Type != "app" || item.ID <= 0 {
@@ -282,13 +296,16 @@ func chooseFolderGame(folder []string, items []steamSearchItem) *steamSearchItem
 		if !ok {
 			continue
 		}
+		literal := hasTokenPrefix(gameTitleLiteralTokens(item.Name), folderLiteral)
 		meta := 0
 		if item.Metascore != "" {
 			meta = 1
 		}
-		if best == nil || rank < bestRank || (rank == bestRank && meta > bestMeta) ||
-			(rank == bestRank && meta == bestMeta && extra < bestExtra) {
-			best, bestRank, bestMeta, bestExtra = item, rank, meta, extra
+		if best == nil || (literal && !bestLiteral) ||
+			(literal == bestLiteral && rank < bestRank) ||
+			(literal == bestLiteral && rank == bestRank && meta > bestMeta) ||
+			(literal == bestLiteral && rank == bestRank && meta == bestMeta && extra < bestExtra) {
+			best, bestRank, bestLiteral, bestMeta, bestExtra = item, rank, literal, meta, extra
 		}
 	}
 	return best

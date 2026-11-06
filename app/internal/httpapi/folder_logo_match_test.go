@@ -88,9 +88,21 @@ func TestChooseFolderGame(t *testing.T) {
 			items:  nil,
 			want:   0,
 		},
+		{
+			name:   "a digit in the folder keeps the digit title",
+			folder: "Call of Duty Modern Warfare 2",
+			items:  []steamSearchItem{item(3595230, "Call of Duty®: Modern Warfare® II", ""), item(10180, "Call of Duty®: Modern Warfare® 2 (2009)", "")},
+			want:   10180,
+		},
+		{
+			name:   "a roman numeral in the folder keeps the roman title",
+			folder: "Call of Duty Modern Warfare II",
+			items:  []steamSearchItem{item(3595230, "Call of Duty®: Modern Warfare® II", ""), item(10180, "Call of Duty®: Modern Warfare® 2 (2009)", "")},
+			want:   3595230,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got := chooseFolderGame(folderNameTokens(tc.folder), tc.items)
+			got := chooseFolderGame(tc.folder, tc.items)
 			var id int64
 			if got != nil {
 				id = got.ID
