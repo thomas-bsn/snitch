@@ -1578,6 +1578,8 @@ export const fr: Messages = {
       open: "Diagnostiquer / Reconnecter",
       offlineLead:
         "Ce Worker est installé mais actuellement hors ligne. Ouvrez le diagnostic pour des pistes et des commandes locales.",
+      claimStalledLead:
+        "Ce Worker est en ligne et libre, mais ne demande plus de tâches depuis plus de 2 minutes. Ouvrez le diagnostic : ses journaux (événements claim_poll_failed) indiquent l’étape qui échoue ; en dernier recours, redémarrez-le.",
       lastPulse: "Dernier pouls",
       installation: "Installation",
       noRemote:
@@ -2430,7 +2432,7 @@ export const fr: Messages = {
         transcription_not_validated:
           "La configuration de transcription a échoué à son test sur les Workers connectés. Corrigez-la sur la page Workers ; la tâche démarre ensuite d’elle-même.",
         worker_not_claiming:
-          "Un Worker compatible est en ligne et libre, mais ne demande plus de tâches depuis plus de 2 minutes. Consultez ses journaux (claim_poll_failed) sur la page Workers ; la tâche démarre dès qu’il réclame de nouveau.",
+          "Un Worker compatible est en ligne et libre, mais ne demande plus de tâches depuis plus de 2 minutes. Ouvrez son diagnostic sur la page Workers pour lire ses journaux (claim_poll_failed) ; la tâche démarre dès qu’il réclame de nouveau.",
         run_cancelled: "Annulée : cette étape ne sera pas exécutée.",
         running: "Un Worker transcrit le clip.",
         retry_scheduled: "La tentative a échoué ; une nouvelle est prévue.",

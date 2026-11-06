@@ -488,7 +488,9 @@ func (s *Service) Touch(ctx context.Context, id string, capacity int) error {
 	if capacity < 0 || capacity > 4 {
 		return ErrInvalidInput
 	}
-	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_seen_at=now(),reported_concurrency=$2 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity)
+	// A Worker back after an absence (a redeploy of Snitch, a network cut) is seen before its first claim: its
+	// claiming clock restarts with it, so that gap is never reported as a stalled claiming loop (issue #321).
+	result, err := s.pool.Exec(ctx, `UPDATE workers SET last_claim_at=CASE WHEN last_seen_at IS NULL OR last_seen_at < now() - ($3 * interval '1 second') THEN now() ELSE last_claim_at END,last_seen_at=now(),reported_concurrency=$2 WHERE id=$1 AND revoked_at IS NULL AND max_concurrency >= $2`, id, capacity, int64(ConnectedWindow.Seconds()))
 	if err != nil {
 		return fmt.Errorf("update worker activity: %w", err)
 	}

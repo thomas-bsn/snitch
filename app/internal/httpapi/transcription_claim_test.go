@@ -228,6 +228,17 @@ func testWorkerNotClaimingDiagnosis(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal("a fresh worker is not stalled")
 	}
 
+	// Back from a redeploy longer than ClaimSilence: presence returns before the first claim. That gap is not
+	// a stalled Worker and must raise nothing.
+	exec(`UPDATE workers SET last_seen_at=now()-interval '10 minutes', last_claim_at=now()-interval '10 minutes'`)
+	h.workerCall(http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", http.StatusOK)
+	if got := cause(); got != "" {
+		t.Fatalf("worker just back from an outage: %q", got)
+	}
+	if active := blocked(); len(active) != 0 {
+		t.Fatalf("a worker just back from an outage raised %+v", active)
+	}
+
 	// Online (its presence still pulses) but silent on claims for minutes, while idle.
 	exec(`UPDATE workers SET last_claim_at=now()-interval '10 minutes'`)
 	h.workerCall(http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", http.StatusOK)

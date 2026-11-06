@@ -372,6 +372,8 @@ def presence_retry_delay(attempt: int) -> float:
 
 # Issue #321. While claiming keeps failing, one line at most per interval, plus the first failure and the recovery.
 CLAIM_LOG_INTERVAL = 60.0
+# Issue #321. After consecutive claiming failures the wait doubles from the poll interval and never exceeds this.
+CLAIM_RETRY_CAP = 10.0
 
 
 def _error_category(error: BaseException) -> str:
@@ -414,7 +416,8 @@ class ClaimCycle:
 
 
 class ClaimHealth:
-    """Health of the claiming loops, shared by them, distinct from presence (a healthy pulse says nothing of it).
+    """Health of one claiming loop, distinct from presence (a healthy pulse says nothing of it). Each loop has
+    its own: a success on one loop must not hide, or reset the backoff of, failures on another.
 
     Failures are logged without secrets and without noise: the first one, then at most one line per
     CLAIM_LOG_INTERVAL while they continue, and the recovery with how long claiming was down."""
@@ -889,7 +892,7 @@ def claim_retry_delay(failures: int, poll_interval: float) -> float:
     """The poll interval while claiming works; after consecutive failures, doubled up to a bounded wait."""
     if failures <= 0:
         return poll_interval
-    return min(max(poll_interval, PRESENCE_RETRY_CAP), poll_interval * 2.0 ** min(failures - 1, 10))
+    return min(max(poll_interval, CLAIM_RETRY_CAP), poll_interval * 2.0 ** min(failures - 1, 10))
 
 
 def run_until_stopped(
@@ -922,11 +925,10 @@ def run_until_stopped(
     probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
     presence.start()
     probe.start()
-    health = ClaimHealth()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
 
         def launch() -> Future[None]:
-            return executor.submit(_worker_loop, client, capacity, stop, poll_interval, heartbeat_interval, guard, health)
+            return executor.submit(_worker_loop, client, capacity, stop, poll_interval, heartbeat_interval, guard, ClaimHealth())
 
         workers = [launch() for _ in range(capacity)]
         restarts = [0] * capacity
@@ -950,7 +952,7 @@ def run_until_stopped(
                     error_type=type(error).__name__ if error is not None else "none",
                     restarts=restarts[index],
                 )
-                restart_at[index] = time.monotonic() + presence_retry_delay(restarts[index])
+                restart_at[index] = time.monotonic() + claim_retry_delay(restarts[index], poll_interval)
         wait(workers)
     presence.join()
     probe.join()

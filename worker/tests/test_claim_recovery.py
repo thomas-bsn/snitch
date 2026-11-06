@@ -188,7 +188,7 @@ class RedeployRecoveryTests(unittest.TestCase):
         })
         environ.start()
         self.addCleanup(environ.stop)
-        for name, value in (("PRESENCE_RETRY_CAP", 0.05), ("CLAIM_LOG_INTERVAL", 60.0)):
+        for name, value in (("CLAIM_RETRY_CAP", 0.05), ("CLAIM_LOG_INTERVAL", 60.0)):
             patcher = patch.object(runner, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -264,7 +264,7 @@ class ClaimLoopResilienceTests(unittest.TestCase):
             stop.set()
             return False
 
-        with patch.object(runner, "run_once", side_effect=run_once), patch.object(runner, "PRESENCE_RETRY_CAP", 0.01):
+        with patch.object(runner, "run_once", side_effect=run_once), patch.object(runner, "CLAIM_RETRY_CAP", 0.01):
             runner._worker_loop(object(), 1, stop, 0.001, 0.01)
         self.assertEqual(len(calls), 3)
         failures = [e for e in lines(self.logs) if e["event"] == "claim_poll_failed"]
@@ -281,7 +281,7 @@ class ClaimLoopResilienceTests(unittest.TestCase):
                 stop.set()
             raise httpx.ConnectError("synthetic outage")
 
-        with patch.object(runner, "run_once", side_effect=failing), patch.object(runner, "PRESENCE_RETRY_CAP", 0.2):
+        with patch.object(runner, "run_once", side_effect=failing), patch.object(runner, "CLAIM_RETRY_CAP", 0.2):
             runner._worker_loop(object(), 1, stop, 0.01, 0.01)
         gaps = [later - earlier for earlier, later in zip(stamps, stamps[1:])]
         self.assertGreaterEqual(min(gaps), 0.009)
@@ -305,13 +305,42 @@ class ClaimLoopResilienceTests(unittest.TestCase):
         with (
             patch.object(runner, "run_once", side_effect=run_once),
             patch.object(runner, "pulse", return_value=object()),
-            patch.object(runner, "PRESENCE_RETRY_CAP", 0.01),
+            patch.object(runner, "CLAIM_RETRY_CAP", 0.01),
         ):
             runner.run_until_stopped(object(), 1, stop, poll_interval=0.01, presence_interval=0.01, models_dir=tempfile.gettempdir())
         self.assertEqual(len(calls), 2, "the claim loop must be restarted after it died")
         stopped = [e for e in lines(self.logs) if e["event"] == "claim_loop_stopped"]
         self.assertEqual(len(stopped), 1)
         self.assertEqual(stopped[0]["error_type"], "Fatal")
+
+    def test_a_healthy_loop_does_not_reset_the_failures_of_another(self):
+        # Capacity 2: one loop keeps failing while the other claims fine. The failing loop stays rate limited
+        # (one line) instead of logging a "first" failure after each success of its neighbour.
+        stop = threading.Event()
+        roles = {}
+        lock = threading.Lock()
+        deadline = time.monotonic() + 0.6
+
+        def run_once(*_args, cycle=None, **_kwargs):
+            with lock:
+                role = roles.setdefault(threading.get_ident(), "failing" if not roles else "healthy")
+            if time.monotonic() > deadline:
+                stop.set()
+            if role == "failing":
+                cycle.operation = "claim"
+                raise httpx.ConnectError("synthetic outage")
+            cycle.answered()
+            return False
+
+        with (
+            patch.object(runner, "run_once", side_effect=run_once),
+            patch.object(runner, "pulse", return_value=object()),
+            patch.object(runner, "CLAIM_RETRY_CAP", 0.01),
+        ):
+            runner.run_until_stopped(object(), 2, stop, poll_interval=0.005, presence_interval=0.05, models_dir=tempfile.gettempdir())
+        events = [e["event"] for e in lines(self.logs)]
+        self.assertEqual(events.count("claim_poll_failed"), 1, events)
+        self.assertNotIn("claim_poll_recovered", events)
 
     def test_a_failing_pulse_does_not_keep_the_worker_from_claiming(self):
         claims = []

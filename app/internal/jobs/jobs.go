@@ -388,6 +388,11 @@ const localVoiceModelReadyGuard = `(
 // With a real voice provider (pyannote, nemo) active, a voice job only goes to a worker that declares the
 // active model of its kind.
 func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assignment, err error) {
+	// The Worker's claiming loop works (issue #321), whatever this claim then finds or fails on: presence alone
+	// cannot tell it. Recorded on its own, outside the claim transaction and the global job_control lock.
+	if _, err = s.pool.Exec(ctx, `UPDATE workers SET last_claim_at=now() WHERE id=$1 AND revoked_at IS NULL`, workerID); err != nil {
+		return nil, fmt.Errorf("record worker claim: %w", err)
+	}
 	tx, err := s.pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("begin job claim: %w", err)
@@ -399,11 +404,6 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 	var globalCapacity int
 	if err = tx.QueryRow(ctx, `SELECT paused,max_concurrency FROM job_control WHERE id=true FOR UPDATE`).Scan(&paused, &globalCapacity); err != nil {
 		return nil, fmt.Errorf("read global job controls for claim: %w", err)
-	}
-	// The Worker's claiming loop works (issue #321), whatever this claim then finds, paused queue included:
-	// presence alone cannot tell it. Rolled back with the claim when the claim fails.
-	if _, err = tx.Exec(ctx, `UPDATE workers SET last_claim_at=now() WHERE id=$1 AND revoked_at IS NULL`, workerID); err != nil {
-		return nil, fmt.Errorf("record worker claim: %w", err)
 	}
 	if paused {
 		return nil, tx.Commit(ctx)

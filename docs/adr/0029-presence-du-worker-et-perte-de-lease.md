@@ -18,6 +18,6 @@ Le pulse de présence n'est envoyé qu'entre deux jobs. Pendant une transcriptio
 
 ## Conséquences
 
-- Le statut Online reflète la machine, pas l'activité ; l'activité se lit sur les jobs.
+- Le statut Online reflète la machine, pas l'activité ; l'activité se lit sur les jobs. La capacité à réclamer des jobs se lit à part : voir l'ADR 0045.
 - Un même job ne peut plus être traité deux fois par perte silencieuse de lease.
 - Limite réelle : un appel C ou CUDA unique n'est pas interruptible depuis Python ; le Worker l'attend, écarte son résultat, et un autre Worker peut refaire le job entre-temps.

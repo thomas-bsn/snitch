@@ -1549,6 +1549,8 @@ export const en = {
       open: "Diagnose / Reconnect",
       offlineLead:
         "This Worker is installed but currently offline. Open the diagnosis for leads and local commands.",
+      claimStalledLead:
+        "This Worker is online and free, but has not asked for a task for over 2 minutes. Open the diagnosis: its logs (claim_poll_failed events) name the failing step; as a last resort, restart it.",
       lastPulse: "Last pulse",
       installation: "Installation",
       noRemote:
@@ -2388,7 +2390,7 @@ export const en = {
         transcription_not_validated:
           "The transcription configuration failed its test on the connected Workers. Fix it on the Workers page; the task then starts by itself.",
         worker_not_claiming:
-          "A compatible Worker is online and free, but has not asked for a task for over 2 minutes. Check its logs (claim_poll_failed) from the Workers page; the task starts as soon as it claims again.",
+          "A compatible Worker is online and free, but has not asked for a task for over 2 minutes. Open its diagnosis on the Workers page to read its logs (claim_poll_failed); the task starts as soon as it claims again.",
         run_cancelled: "Cancelled: this step will not run.",
         running: "A Worker is transcribing the clip.",
         retry_scheduled: "The attempt failed; a new one is planned.",
