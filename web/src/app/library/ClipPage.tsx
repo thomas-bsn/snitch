@@ -444,7 +444,8 @@ export function ClipPage() {
   const openedFromHere = hasOrigin(location.state);
   const sequence = useSequence(openedFromHere ? back : null);
   const [stripOpen, toggleStrip] = useStripOpen();
-  // Search lists passages: one clip can come twice, so the arrow's choice is kept.
+  // The tile the arrows moved to stays the current one, even if the list names the
+  // same clip twice (two paths of one video).
   const chosen = useRef<number | null>(null);
   const index = useMemo(() => {
     if (!sequence) return -1;

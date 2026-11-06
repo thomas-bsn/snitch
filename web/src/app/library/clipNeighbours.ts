@@ -15,11 +15,35 @@ export type Neighbour = {
   title: string;
   /** Search only: the moment of the passage found, where the clip opens. */
   at?: number;
+  /** Search only: how many passages of this clip were found. */
+  passages?: number;
   excerpt?: string;
   durationSeconds?: number | null;
   recordedAt?: string | null;
   state?: ExplorerState;
 };
+
+/**
+ * A search returns one result per passage, so the same clip can come four times.
+ * The strip keeps one tile per clip, opened at its first passage, and counts them:
+ * moving to the next clip must not walk through the same video's passages.
+ */
+function groupPassages(items: Neighbour[]): Neighbour[] {
+  const byClip = new Map<number, Neighbour>();
+  for (const item of items) {
+    const seen = byClip.get(item.clipId);
+    if (!seen) {
+      byClip.set(item.clipId, { ...item, passages: 1 });
+      continue;
+    }
+    seen.passages = (seen.passages ?? 1) + 1;
+    if (item.at !== undefined && (seen.at === undefined || item.at < seen.at)) {
+      seen.at = item.at;
+      seen.excerpt = item.excerpt;
+    }
+  }
+  return [...byClip.values()];
+}
 
 export type Sequence = {
   kind: "library" | "search";
@@ -60,15 +84,17 @@ async function readSequence(from: string): Promise<Result<Sequence>> {
       value: {
         kind: "search",
         label: q,
-        items: found.value.items
-          .filter((r) => r.status === "ready")
-          .map((r) => ({
-            clipId: r.clip_id,
-            title: r.clip_name,
-            at: Math.floor(r.timestamp),
-            excerpt: r.matched_text || r.context,
-            recordedAt: r.recorded_at,
-          })),
+        items: groupPassages(
+          found.value.items
+            .filter((r) => r.status === "ready")
+            .map((r) => ({
+              clipId: r.clip_id,
+              title: r.clip_name,
+              at: Math.floor(r.timestamp),
+              excerpt: r.matched_text || r.context,
+              recordedAt: r.recorded_at,
+            })),
+        ),
       },
     };
   }

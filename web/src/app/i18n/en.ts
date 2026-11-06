@@ -2227,6 +2227,7 @@ export const en = {
       announce: "Clip {index} of {total}: {name}",
       searchLabel: "results for “{q}”",
       at: "at {time}",
+      passages: "{count} passages found",
       autoNext: "Play the next one at the end",
       countdown: "Next clip in {seconds} s",
       playNow: "Play now",

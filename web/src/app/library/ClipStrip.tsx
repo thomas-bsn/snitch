@@ -151,6 +151,7 @@ function Tile({
       : typeof item.durationSeconds === "number"
         ? formatTimecode(item.durationSeconds)
         : "";
+  const passages = item.passages ?? 0;
   return (
     <button
       type="button"
@@ -172,10 +173,23 @@ function Tile({
             {sub}
           </span>
         )}
+        {passages > 1 && (
+          <span
+            aria-hidden="true"
+            className="absolute top-1 left-1 rounded bg-black/70 px-1 font-mono text-[11px] text-white"
+          >
+            ×{passages}
+          </span>
+        )}
         {current && (
           <span className="absolute inset-0 rounded-md ring-2 ring-accent ring-inset" />
         )}
       </span>
+      {passages > 1 && (
+        <span className="sr-only">
+          {t("clip.nav.passages", { count: passages })}
+        </span>
+      )}
       <span
         className={`line-clamp-2 text-xs leading-snug [overflow-wrap:anywhere] ${
           current ? "font-semibold text-accent-ink" : "text-ink"

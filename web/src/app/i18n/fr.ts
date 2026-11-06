@@ -2265,6 +2265,7 @@ export const fr: Messages = {
       announce: "Clip {index} sur {total} : {name}",
       searchLabel: "résultats pour « {q} »",
       at: "à {time}",
+      passages: "{count} passages trouvés",
       autoNext: "Enchaîner à la fin",
       countdown: "Clip suivant dans {seconds} s",
       playNow: "Lire maintenant",
