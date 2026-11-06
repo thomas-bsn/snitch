@@ -109,6 +109,10 @@ func testSearchCorrections(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("exact: the word is read from the corrected text, punctuation stripped: %+v", page)
 		}
 	}
+	// Exact search takes a phrase: its words follow each other, punctuation is ignored.
+	if page := search(reader, "exact", "troisieme chose", ""); page.Total != 1 || page.Items[0].MatchType != "exact" || !page.Items[0].Corrected || page.Items[0].Timestamp != 1.25 {
+		t.Fatalf("exact phrase: %+v", page)
+	}
 	// Phrase (full text) and approximate matches use the corrected text only.
 	if page := search(reader, "full_text", "troisieme chose", ""); page.Total != 1 || page.Items[0].MatchType != "full_text" || !page.Items[0].Corrected {
 		t.Fatalf("full text phrase: %+v", page)

@@ -20,7 +20,19 @@ export function HeaderSearch() {
   function submit(event: FormEvent) {
     event.preventDefault();
     const trimmed = query.trim();
-    navigate(trimmed ? `/search?q=${encodeURIComponent(trimmed)}` : "/search");
+    const current = new URLSearchParams(location.search);
+    const params = new URLSearchParams();
+    // Preserve library filters that exist in the current LibraryPage.
+    for (const key of ["from", "to", "source", "owner", "person", "state"]) {
+      const value = current.get(key);
+      if (value) params.set(key, value);
+    }
+    if (trimmed) params.set("q", trimmed);
+    else params.delete("q");
+    params.delete("page");
+    navigate(
+      `/search${params.size ? `?${params.toString().replace(/\+/g, "%20")}` : ""}`,
+    );
   }
 
   return (

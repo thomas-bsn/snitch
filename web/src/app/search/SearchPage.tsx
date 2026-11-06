@@ -1,20 +1,16 @@
+import { Check, Search as SearchIcon } from "lucide-react";
 import { useCallback, useMemo } from "react";
 import { useLocation } from "react-router";
 import { useLoaded } from "../api/loaded";
 import { useAddressParams } from "../api/useAddressParams";
-import { ErrorAlert, StatusNotice } from "../components/Alert";
+import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { useI18n } from "../i18n";
 import { fetchFilterOptions } from "../library/libraryApi";
+import { SearchClipGroup, groupResults } from "./SearchClipGroup";
 import { SearchForm } from "./SearchForm";
-import { SearchResultItem } from "./SearchResultItem";
-import {
-  PAGE_SIZE,
-  SEARCH_MODES,
-  fetchSearch,
-  type SearchFilters,
-} from "./searchApi";
+import { PAGE_SIZE, fetchSearch, type SearchFilters } from "./searchApi";
 
 const FILTER_KEYS = [
   "from",
@@ -27,10 +23,8 @@ const FILTER_KEYS = [
 
 function readFilters(params: URLSearchParams): SearchFilters {
   const page = Number(params.get("page"));
-  const mode = SEARCH_MODES.find((value) => value === params.get("mode"));
   return {
     q: (params.get("q") ?? "").trim().slice(0, 200),
-    mode: mode ?? "full_text",
     from: params.get("from") ?? "",
     to: params.get("to") ?? "",
     source: params.get("source") ?? "",
@@ -41,7 +35,7 @@ function readFilters(params: URLSearchParams): SearchFilters {
   };
 }
 
-/** The search screen: the passages found in the transcripts, each opening its clip. */
+/** The search screen: the passages found, grouped by clip, with the voice that speaks. */
 export function SearchPage() {
   const { t, error } = useI18n();
   const location = useLocation();
@@ -67,12 +61,7 @@ export function SearchPage() {
   function change(patch: Partial<SearchFilters>) {
     update((next) => {
       for (const [key, value] of Object.entries(patch)) {
-        if (
-          value === "" ||
-          value === 1 ||
-          (key === "mode" && value === "full_text")
-        )
-          next.delete(key);
+        if (value === "" || value === 1) next.delete(key);
         else next.set(key, String(value));
       }
       if (!("page" in patch)) next.delete("page");
@@ -83,124 +72,179 @@ export function SearchPage() {
     filters.q !== "" && search.state.status === "ready"
       ? search.state.value
       : null;
+  const groups = useMemo(() => groupResults(result?.items ?? []), [result]);
   const pages = result
     ? Math.max(1, Math.ceil(result.total / (result.page_size || PAGE_SIZE)))
     : 1;
   const here = location.pathname + location.search;
 
+  const passages =
+    result && result.total > 0
+      ? result.total === 1
+        ? t("search.passageOne")
+        : t("search.passages", { count: result.total })
+      : "";
+  const clips =
+    result && result.total > 0
+      ? groups.length === 1
+        ? pages > 1
+          ? t("search.clipPageOne")
+          : t("search.clipOne")
+        : pages > 1
+          ? t("search.clipPage", { count: groups.length })
+          : t("search.clips", { count: groups.length })
+      : "";
+
   return (
     <section className="flex flex-col gap-5 px-4 py-6 md:px-7">
-      <h1 className="text-[22px] font-semibold">{t("pages.search.title")}</h1>
-
-      <SearchForm
-        filters={filters}
-        options={
-          choices.state.status === "ready" ? choices.state.value.options : null
-        }
-        persons={
-          choices.state.status === "ready" ? choices.state.value.persons : []
-        }
-        active={active}
-        onSearch={(q) => change({ q })}
-        onChange={change}
-        onClear={() =>
-          update((next) => {
-            for (const key of FILTER_KEYS) next.delete(key);
-            next.delete("page");
-          })
-        }
-      />
-
-      {filters.q === "" && (
-        <p className="max-w-xl text-mute">{t("search.prompt")}</p>
-      )}
-
-      {filters.q !== "" && search.state.status === "failed" && (
-        <div className="flex flex-col items-start gap-3">
-          <ErrorAlert>{error(search.state.code)}</ErrorAlert>
-          <button
-            type="button"
-            className={buttonClass("secondary")}
-            onClick={search.reload}
-          >
-            {t("library.retry")}
-          </button>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-[22px] font-semibold">
+            {t("pages.search.title")}
+          </h1>
+          {filters.q !== "" && result && result.total > 0 && (
+            <p className="mt-1.5 text-mute" aria-live="polite">
+              {t("search.summary", {
+                passages,
+                clips,
+                query: filters.q,
+              })}
+            </p>
+          )}
+          {filters.q !== "" && result && result.total === 0 && (
+            <p className="mt-1.5 text-mute">
+              {t("search.none.lead", { query: filters.q })}
+            </p>
+          )}
         </div>
-      )}
-      {filters.q !== "" && search.state.status === "loading" && (
-        <p className="text-mute" role="status">
-          {t("search.loading")}
-        </p>
-      )}
+        <span className="inline-flex w-fit shrink-0 items-center gap-1.5 rounded-full bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent-ink">
+          <Check className="size-3.5" aria-hidden="true" />
+          {t("search.exactNote")}
+        </span>
+      </div>
 
-      {result?.degraded && <StatusNotice>{t("search.degraded")}</StatusNotice>}
+      {filters.q === "" ? (
+        <div className="flex max-w-2xl flex-col items-start gap-3 rounded-xl border border-dashed border-line-strong p-6">
+          <span className="grid size-11 place-items-center rounded-xl bg-side text-mute">
+            <SearchIcon className="size-5" aria-hidden="true" />
+          </span>
+          <div>
+            <h2 className="text-base font-semibold">
+              {t("search.prompt.title")}
+            </h2>
+            <p className="mt-1 text-mute">{t("search.prompt.body")}</p>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_288px] lg:items-start">
+          <div className="flex min-w-0 flex-col gap-4">
+            {search.state.status === "failed" && (
+              <div className="flex flex-col items-start gap-3">
+                <ErrorAlert>{error(search.state.code)}</ErrorAlert>
+                <button
+                  type="button"
+                  className={buttonClass("secondary")}
+                  onClick={search.reload}
+                >
+                  {t("library.retry")}
+                </button>
+              </div>
+            )}
+            {search.state.status === "loading" && (
+              <p className="text-mute" role="status">
+                {t("search.loading")}
+              </p>
+            )}
 
-      {result && (
-        <>
-          <p className="m-0 text-mute" aria-live="polite">
-            {result.total === 1
-              ? t("search.countOne")
-              : t("search.count", { count: result.total })}
-            {" · "}
-            {t("search.modeUsed", {
-              mode: t(
-                `search.modes.${result.degraded ? "full_text" : filters.mode}.name`,
-              ),
-            })}
-          </p>
+            {result && result.items.length === 0 && (
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-6 py-12 text-center">
+                <span className="grid size-11 place-items-center rounded-xl bg-side text-mute">
+                  <SearchIcon className="size-5" aria-hidden="true" />
+                </span>
+                <h2 className="text-base font-semibold">
+                  {t("search.none.title")}
+                </h2>
+                <p className="max-w-md text-mute">{t("search.none.body")}</p>
+                <button
+                  type="button"
+                  className={buttonClass("secondary")}
+                  onClick={() => change({ q: "" })}
+                >
+                  {t("search.none.clear")}
+                </button>
+              </div>
+            )}
 
-          {result.items.length === 0 ? (
-            <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-line-strong px-6 py-12 text-center">
-              <h2 className="text-base font-semibold">
-                {t("search.none.title")}
-              </h2>
-              <p className="max-w-md text-mute">{t("search.none.body")}</p>
-            </div>
-          ) : (
-            <ol
-              aria-label={t("search.results")}
-              className="m-0 list-none rounded-xl border border-line p-0"
-            >
-              {result.items.map((item, index) => (
-                <SearchResultItem
-                  key={`${item.clip_id}-${item.timestamp}-${index}`}
-                  result={item}
-                  from={here}
-                />
-              ))}
-            </ol>
-          )}
+            {result && result.items.length > 0 && (
+              <>
+                <p className="m-0 text-[10.5px] font-semibold uppercase tracking-[0.08em] text-mute">
+                  {t("search.groupedByClip")}
+                </p>
+                <div className="flex flex-col gap-3.5">
+                  {groups.map((group) => (
+                    <SearchClipGroup
+                      key={group.clipId}
+                      group={group}
+                      from={here}
+                    />
+                  ))}
+                </div>
 
-          {pages > 1 && (
-            <nav
-              aria-label={t("search.pagination.label")}
-              className="flex items-center justify-center gap-3"
-            >
-              <button
-                type="button"
-                className={buttonClass("secondary")}
-                disabled={filters.page <= 1}
-                onClick={() => change({ page: filters.page - 1 })}
-              >
-                {t("library.pagination.previous")}
-              </button>
-              <span className="text-mute">
-                {t("library.pagination.position", {
-                  page: filters.page,
-                  pages,
-                })}
-              </span>
-              <button
-                type="button"
-                className={buttonClass("secondary")}
-                disabled={filters.page >= pages}
-                onClick={() => change({ page: filters.page + 1 })}
-              >
-                {t("library.pagination.next")}
-              </button>
-            </nav>
-          )}
-        </>
+                {pages > 1 && (
+                  <nav
+                    aria-label={t("search.pagination.label")}
+                    className="flex flex-wrap items-center justify-center gap-3"
+                  >
+                    <button
+                      type="button"
+                      className={buttonClass("secondary")}
+                      disabled={filters.page <= 1}
+                      onClick={() => change({ page: filters.page - 1 })}
+                    >
+                      {t("library.pagination.previous")}
+                    </button>
+                    <span className="text-mute">
+                      {t("library.pagination.position", {
+                        page: filters.page,
+                        pages,
+                      })}
+                    </span>
+                    <button
+                      type="button"
+                      className={buttonClass("secondary")}
+                      disabled={filters.page >= pages}
+                      onClick={() => change({ page: filters.page + 1 })}
+                    >
+                      {t("library.pagination.next")}
+                    </button>
+                  </nav>
+                )}
+              </>
+            )}
+          </div>
+
+          <SearchForm
+            filters={filters}
+            options={
+              choices.state.status === "ready"
+                ? choices.state.value.options
+                : null
+            }
+            persons={
+              choices.state.status === "ready"
+                ? choices.state.value.persons
+                : []
+            }
+            active={active}
+            onChange={change}
+            onClear={() =>
+              update((next) => {
+                for (const key of FILTER_KEYS) next.delete(key);
+                next.delete("page");
+              })
+            }
+          />
+        </div>
       )}
     </section>
   );

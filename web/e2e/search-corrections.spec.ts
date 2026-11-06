@@ -28,24 +28,32 @@ test("la recherche trouve le texte corrigé d’un segment et plus l’ancien", 
   expect(old).toMatchObject({ total: 0, items: [] });
 
   await page.goto("/search");
-  const search = page.getByRole("search", { name: "Search by quote" });
-  const query = search.getByRole("searchbox", { name: "What was said" });
-  const results = page.getByRole("list", { name: "Passages found" });
+  const query = page.getByRole("searchbox", {
+    name: "Search the transcripts",
+  });
+
+  // The replaced text is gone, even in exact search.
   await query.fill("joue");
-  await page.getByText("Exact", { exact: true }).click();
-  await search.getByRole("button", { name: "Search" }).click();
+  await query.press("Enter");
   await expect(
     page.getByRole("heading", { name: "Nothing found" }),
   ).toBeVisible();
-  await expect(results).toHaveCount(0);
+  await expect(
+    page.getByRole("list", { name: /Passages found in/ }),
+  ).toHaveCount(0);
 
+  // Exact search takes a phrase: its words follow each other, punctuation is ignored.
   await query.fill("tres bien");
-  await page.getByText("Full text", { exact: true }).click();
-  await search.getByRole("button", { name: "Search" }).click();
+  await query.press("Enter");
+  const results = page.getByRole("list", {
+    name: "Passages found in synthetic-voices.mp4",
+  });
   await expect(results).toContainText("Très bien dit");
   await expect(results).toContainText("Corrected");
   // The segment start is unchanged: the result still opens at its timestamp.
   await expect(
-    results.getByRole("link", { name: "Open synthetic-voices.mp4 at 0:01" }),
+    results.getByRole("link", {
+      name: "Open synthetic-voices.mp4 at 0:01",
+    }),
   ).toBeVisible();
 });

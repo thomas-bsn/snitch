@@ -176,7 +176,7 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
       ).toBeVisible();
     }
 
-    // The sidebar leads to the four screens and marks the current one.
+// The sidebar leads to the four screens and marks the current one.
     await page.goto("/library");
     const sidebar = page.getByRole("navigation", { name: "Main navigation" });
     await sidebar.getByRole("link", { name: "Search" }).click();
@@ -194,7 +194,7 @@ test.describe.serial("connexion dans la nouvelle interface", () => {
     await expect(page).toHaveURL(/\/search\?q=hello%20world$/);
     await page.reload();
     await expect(
-      page.getByRole("searchbox", { name: "What was said" }),
+      page.getByRole("searchbox", { name: "Search the transcripts" }),
     ).toHaveValue("hello world");
 
     // The Import button is always there.
