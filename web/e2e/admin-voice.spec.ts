@@ -24,7 +24,7 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
     page.getByRole("heading", { name: "Voice models" }),
   ).toBeVisible();
 
-  // Settings remain reachable from the footer; automation never enables itself.
+  // Settings are prominent above the matrix; automation never enables itself.
   await page
     .getByRole("button", { name: "Identification and thresholds" })
     .click();

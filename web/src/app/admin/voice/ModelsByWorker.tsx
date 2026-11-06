@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { History, Plus, Clock3 } from "lucide-react";
+import { History, Plus, Clock3, Server } from "lucide-react";
 import type { components } from "../../../api.gen";
 import { api, errorCode, mutation } from "../../api/client";
 import { ErrorAlert } from "../../components/Alert";
@@ -320,7 +320,10 @@ export function ModelsByWorker({
                     </label>
                   </td>
                   <th scope="row">
-                    <strong>{worker.name}</strong>
+                    <strong>
+                      <Server size={15} aria-hidden />
+                      {worker.name}
+                    </strong>
                     <span className="voice-connection">
                       <span className={worker.connected ? "online" : ""} />
                       {t(

@@ -2,9 +2,10 @@ import { useState } from "react";
 import {
   Download,
   History,
-  LockKeyhole,
+  ChevronRight,
+  Fingerprint,
+  LibraryBig,
   Server,
-  Settings2,
   ShieldCheck,
   Waves,
 } from "lucide-react";
@@ -25,7 +26,7 @@ import { VoiceAdvanced } from "./VoiceAdvanced";
 import { VoiceInventory } from "./VoiceInventory";
 import { FingerprintTransition } from "./FingerprintTransition";
 import type { Catalogue } from "./VoiceModelCards";
-import { modelKinds, installKinds } from "./VoiceModelUI";
+import { KindIcon, modelKinds, installKinds } from "./VoiceModelUI";
 import "./voice-workspace.css";
 
 type Props = {
@@ -104,6 +105,65 @@ export function VoiceWorkspace({
           )}
         </div>
       </div>
+      <div className="voice-shortcuts">
+        <button
+          type="button"
+          className="voice-shortcut"
+          aria-haspopup="dialog"
+          onClick={() => setSettings("identification")}
+        >
+          <span className="voice-shortcut-icon">
+            <Fingerprint size={24} aria-hidden />
+          </span>
+          <span className="voice-shortcut-copy">
+            <strong id="voice-identification-title">
+              {t("voiceWorkspace.settings")}
+            </strong>
+            <span id="voice-identification-hint">
+              {t("voiceWorkspace.settingsHint")}
+            </span>
+            <span
+              className={`voice-shortcut-state ${accuracy.auto_enabled ? "enabled" : ""}`}
+            >
+              <span aria-hidden />
+              {t(
+                accuracy.auto_enabled
+                  ? "voiceAdmin.enabled"
+                  : "voiceAdmin.disabled",
+              )}
+            </span>
+          </span>
+          <ChevronRight
+            className="voice-shortcut-arrow"
+            size={18}
+            aria-hidden
+          />
+        </button>
+        <button
+          type="button"
+          className="voice-shortcut"
+          aria-haspopup="dialog"
+          onClick={() => setSettings("access")}
+        >
+          <span className="voice-shortcut-icon brand">
+            <img src="/brands/hugging-face.svg" width="32" height="32" alt="" />
+          </span>
+          <span className="voice-shortcut-copy">
+            <strong id="voice-access-title">
+              {t("voiceWorkspace.access")}
+            </strong>
+            <span id="voice-access-hint">{t("voiceWorkspace.accessHint")}</span>
+            <span className="voice-shortcut-action">
+              {t("voiceWorkspace.manageToken")}
+            </span>
+          </span>
+          <ChevronRight
+            className="voice-shortcut-arrow"
+            size={18}
+            aria-hidden
+          />
+        </button>
+      </div>
       <div
         className="voice-tabs"
         role="tablist"
@@ -138,6 +198,13 @@ export function VoiceWorkspace({
             tabIndex={tab === key ? 0 : -1}
             onClick={() => changeTab(key)}
           >
+            {key === "workers" ? (
+              <Server size={16} aria-hidden />
+            ) : key === "catalogue" ? (
+              <LibraryBig size={16} aria-hidden />
+            ) : (
+              <History size={16} aria-hidden />
+            )}
             {t(`voiceWorkspace.${key}`)}
             <span>
               {key === "workers"
@@ -156,7 +223,10 @@ export function VoiceWorkspace({
         </span>
         {modelKinds.map((kind) => (
           <div key={kind}>
-            <span>{t(`voiceModels.byWorker.type.${kind}`)}</span>
+            <span>
+              <KindIcon kind={kind} />
+              {t(`voiceModels.byWorker.type.${kind}`)}
+            </span>
             <strong>
               {catalogue.models.find((m) => m.kind === kind && m.active)
                 ?.label ||
@@ -235,14 +305,6 @@ export function VoiceWorkspace({
           <ShieldCheck size={16} aria-hidden />
           {t("voiceWorkspace.productionNote")}
         </span>
-        <button type="button" onClick={() => setSettings("identification")}>
-          {t("voiceWorkspace.settings")}
-          <Settings2 size={16} aria-hidden />
-        </button>
-        <button type="button" onClick={() => setSettings("access")}>
-          {t("voiceWorkspace.access")}
-          <LockKeyhole size={16} aria-hidden />
-        </button>
       </div>
       {history && (
         <OrderHistory

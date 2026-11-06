@@ -21,8 +21,8 @@ sans les commandes de laboratoire des prototypes.
   auteur, date, référence, révision et résultat. Les boutons de la page et de la
   matrice ouvrent aussi cet historique en panneau latéral.
 - **Production** : un bandeau commun affiche les modèles actifs. Les réglages
-  d’identification, les seuils, les mesures et l’accès HF s’ouvrent depuis le bas
-  de page. Les fonctions précédentes restent accessibles.
+  d’identification, les seuils, les mesures et l’accès HF s’ouvrent depuis deux
+  cartes visibles sous le titre, avec l’état réel de l’attribution automatique. Les fonctions précédentes restent accessibles.
 
 Les onglets ont une adresse partageable (`?view=catalogue`, `?view=history`) et
 se parcourent avec les flèches, Début et Fin. La matrice défile horizontalement
@@ -81,3 +81,18 @@ visuelle de l’utilisateur. Aucun changement de contrat ou de migration n’est
 Restant : validation visuelle de l’utilisateur avant push et ouverture de PR.
 La validation avec de vrais modèles n’a pas été effectuée et ne fait pas partie
 de cette refonte.
+
+## Affinage visuel
+
+Les accès Identification et Hugging Face sont placés avant les onglets. Les icônes
+Lucide accompagnent les onglets, les types de modèles et les Workers. Le logo HF
+est fourni localement, sans requête vers un tiers à l’ouverture de la page, depuis
+les [ressources officielles Hugging Face](https://huggingface.co/brand).
+Les retours au survol et à la sélection restent discrets ; une courte entrée anime
+la matrice et le catalogue. `prefers-reduced-motion` désactive ces animations.
+Les fenêtres et les confirmations gardent leurs parcours existants.
+
+Vérification de cet affinage : compilation et formatage verts, 7 parcours
+Playwright repassés, 12 audits clair/sombre et desktop/mobile sans violation,
+paysage sans débordement. En mode mouvement réduit, animation et transition
+calculées sont désactivées. Ouverture du panneau HF vérifiée sur le serveur local.
