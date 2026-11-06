@@ -29,7 +29,7 @@ export function SearchResultItem({
 
   return (
     <li className="flex gap-3 border-b border-line px-3.5 py-3 last:border-b-0 hover:bg-side md:gap-4 md:px-4 md:py-3.5">
-      <span className="mt-0.5 flex shrink-0 rounded-full ring-1 ring-line">
+      <span className="mt-0.5 flex shrink-0 self-start rounded-full ring-1 ring-line">
         <SpeakerAvatar person={result.person} />
       </span>
       <div className="flex min-w-0 flex-1 flex-col gap-1">
