@@ -594,6 +594,8 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testSegmentHistory(t, pool)
 	})
+	t.Run("audio plan children", func(t *testing.T) { reset(t); testAudioPlanChildren(t, pool) })
+	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
 		reset(t)
 		testSegmentExport(t, pool)
@@ -1233,6 +1235,10 @@ func TestFoundation(t *testing.T) {
 		userJar, _ := cookiejar.New(nil)
 		user := &http.Client{Jar: userJar, CheckRedirect: client.CheckRedirect}
 		call(user, "POST", "/api/auth/login", map[string]string{"username": "player", "password": "synthetic-password"}, "", 200)
+		audioPlanPath := "/api/admin/clips/" + strconv64(contractClipID) + "/audio-plans/999999"
+		call(anon, "GET", audioPlanPath, nil, "", 401)
+		call(user, "GET", audioPlanPath, nil, "", 403)
+		call(client, "GET", audioPlanPath, nil, "", 404)
 		call(user, "GET", "/api/admin/settings", nil, "", 403)
 		call(user, "GET", "/api/admin/vocabulary", nil, "", 403)
 		call(user, "GET", "/api/admin/users", nil, "", 403)

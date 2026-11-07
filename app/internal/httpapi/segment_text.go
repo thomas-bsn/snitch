@@ -40,7 +40,7 @@ func visibleTranscriptsCTE(clipFilter string) string {
 	if clipFilter != "" {
 		clipFilter = " AND " + clipFilter
 	}
-	return `transcript AS (SELECT DISTINCT ON (j.clip_id) j.clip_id,j.id job_id,j.result FROM jobs j WHERE j.status='done' AND j.step LIKE 'transcription.audio.%'` + clipFilter + ` ORDER BY j.clip_id,j.updated_at DESC,j.id DESC)`
+	return `transcript AS (SELECT DISTINCT ON (j.clip_id) j.clip_id,j.id job_id,j.result FROM audio_visible_legacy_transcripts j WHERE true` + clipFilter + ` ORDER BY j.clip_id,j.updated_at DESC,j.id DESC)`
 }
 
 // effectiveSegmentsCTE is the CTE `eff_segments`, one row per segment of each visible
@@ -109,7 +109,7 @@ type visibleTranscript struct {
 // visibleTranscriptsCTE), or ok=false when the clip has none.
 func (s *Server) visibleTranscription(ctx context.Context, q queryer, clipID int64) (visibleTranscript, bool, error) {
 	var v visibleTranscript
-	err := q.QueryRow(ctx, `SELECT id,result FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, clipID).Scan(&v.JobID, &v.Result)
+	err := q.QueryRow(ctx, `SELECT id,result FROM audio_visible_legacy_transcripts WHERE clip_id=$1`, clipID).Scan(&v.JobID, &v.Result)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return visibleTranscript{}, false, nil
 	}
@@ -169,6 +169,7 @@ func overlaySegments(transcription any, jobID int64, states map[int]segmentState
 
 // segmentRef is one segment of the visible transcription of a visible clip.
 type segmentRef struct {
+	RevisionID   string
 	Clip         clipItem
 	JobID        int64
 	Index        int
@@ -215,6 +216,9 @@ func (s *Server) resolveSegment(ctx context.Context, q queryer, clip clipItem, i
 	}
 	var result struct {
 		Stream   *int `json:"audio_stream_index"`
+		Revision struct {
+			ID string `json:"id"`
+		} `json:"revision"`
 		Segments []struct {
 			Text string `json:"text"`
 		} `json:"segments"`
@@ -222,7 +226,7 @@ func (s *Server) resolveSegment(ctx context.Context, q queryer, clip clipItem, i
 	if err = json.Unmarshal(visible.Result, &result); err != nil || index >= len(result.Segments) {
 		return segmentRef{}, false, nil
 	}
-	ref := segmentRef{Clip: clip, JobID: visible.JobID, Index: index, Count: len(result.Segments), OriginalText: result.Segments[index].Text, Stream: -1}
+	ref := segmentRef{RevisionID: result.Revision.ID, Clip: clip, JobID: visible.JobID, Index: index, Count: len(result.Segments), OriginalText: result.Segments[index].Text, Stream: -1}
 	if result.Stream != nil {
 		ref.Stream = *result.Stream
 	}

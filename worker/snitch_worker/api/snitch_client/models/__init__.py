@@ -22,6 +22,20 @@ from .attribution_event import AttributionEvent
 from .attribution_history import AttributionHistory
 from .attribution_input import AttributionInput
 from .attribution_validation_state import AttributionValidationState
+from .audio_loss_preview import AudioLossPreview
+from .audio_plan import AudioPlan
+from .audio_plan_child import AudioPlanChild
+from .audio_plan_child_stage import AudioPlanChildStage
+from .audio_plan_child_status import AudioPlanChildStatus
+from .audio_plan_input import AudioPlanInput
+from .audio_plan_input_mode import AudioPlanInputMode
+from .audio_plan_state import AudioPlanState
+from .audio_speech_interval import AudioSpeechInterval
+from .audio_track_decision import AudioTrackDecision
+from .audio_track_decision_action import AudioTrackDecisionAction
+from .audio_track_diagnostic import AudioTrackDiagnostic
+from .audio_track_diagnostic_status import AudioTrackDiagnosticStatus
+from .audio_track_inventory import AudioTrackInventory
 from .audio_track_override import AudioTrackOverride
 from .audio_track_rule import AudioTrackRule
 from .audio_track_rule_result import AudioTrackRuleResult
@@ -325,7 +339,12 @@ from .start_library_index_run_body_mode import StartLibraryIndexRunBodyMode
 from .status import Status
 from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
 from .test_embedding_settings_body import TestEmbeddingSettingsBody
+from .transcript_manifest_segment import TranscriptManifestSegment
+from .transcript_manifest_word import TranscriptManifestWord
+from .transcript_revision import TranscriptRevision
+from .transcript_revision_time_base import TranscriptRevisionTimeBase
 from .transcript_segment import TranscriptSegment
+from .transcript_source import TranscriptSource
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
 from .transcription_input import TranscriptionInput
@@ -547,6 +566,20 @@ __all__ = (
     "AttributionHistory",
     "AttributionInput",
     "AttributionValidationState",
+    "AudioLossPreview",
+    "AudioPlan",
+    "AudioPlanChild",
+    "AudioPlanChildStage",
+    "AudioPlanChildStatus",
+    "AudioPlanInput",
+    "AudioPlanInputMode",
+    "AudioPlanState",
+    "AudioSpeechInterval",
+    "AudioTrackDecision",
+    "AudioTrackDecisionAction",
+    "AudioTrackDiagnostic",
+    "AudioTrackDiagnosticStatus",
+    "AudioTrackInventory",
     "AudioTrackOverride",
     "AudioTrackRule",
     "AudioTrackRuleResult",
@@ -864,7 +897,12 @@ __all__ = (
     "TranscriptionSettingsState",
     "TranscriptionSettingsStateMode",
     "TranscriptionSettingsStateStatus",
+    "TranscriptManifestSegment",
+    "TranscriptManifestWord",
+    "TranscriptRevision",
+    "TranscriptRevisionTimeBase",
     "TranscriptSegment",
+    "TranscriptSource",
     "TranscriptWord",
     "UpdateAccountPasswordResponse200",
     "UpdateAccountProfileResponse200",

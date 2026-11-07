@@ -657,7 +657,11 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 		return Job{}, fmt.Errorf("complete worker job: %w", err)
 	}
 	if newlyCompleted {
-		if strings.HasPrefix(job.Step, "transcription.audio.") {
+		var audioChild bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audio_plan_children WHERE job_id=$1)`, job.ID).Scan(&audioChild); err != nil {
+			return Job{}, fmt.Errorf("read audio child binding: %w", err)
+		}
+		if !audioChild && strings.HasPrefix(job.Step, "transcription.audio.") {
 			var embeddingStateID int
 			if err = tx.QueryRow(ctx, `SELECT id FROM embedding_index_state WHERE id=1 FOR SHARE`).Scan(&embeddingStateID); err != nil {
 				return Job{}, fmt.Errorf("lock embedding profile state: %w", err)
@@ -673,7 +677,7 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 				return Job{}, fmt.Errorf("mark replaced corrections obsolete: %w", err)
 			}
 		}
-		if opts.Project != nil {
+		if opts.Project != nil && !audioChild {
 			if err = opts.Project(ctx, tx, job); err != nil {
 				return Job{}, err
 			}

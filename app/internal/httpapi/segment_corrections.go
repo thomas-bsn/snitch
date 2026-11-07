@@ -83,6 +83,7 @@ type segmentConflictView struct {
 }
 
 type segmentTextInput struct {
+	ExpectedRevisionID *string `json:"expected_revision_id"`
 	Text               *string `json:"text"`
 	ExpectedVersion    *int    `json:"expected_version"`
 	Reason             string  `json:"reason"`
@@ -105,6 +106,7 @@ func cleanSegmentText(text string) (string, string) {
 // version it believes it replaces (0 for a never corrected segment), an optional
 // reason, and the transcription job it was made on.
 type correctionEnvelope struct {
+	RevisionID      *string
 	ExpectedVersion int
 	Reason          string
 	JobID           *int64
@@ -112,8 +114,8 @@ type correctionEnvelope struct {
 
 // parseEnvelope validates the envelope fields, answering 400 invalid_request or
 // invalid_reason itself.
-func parseEnvelope(w http.ResponseWriter, expectedVersion *int, reason string, jobID *int64) (correctionEnvelope, bool) {
-	if expectedVersion == nil || *expectedVersion < 0 || (jobID != nil && *jobID < 1) {
+func parseEnvelope(w http.ResponseWriter, expectedVersion *int, reason string, jobID *int64, revisionID *string) (correctionEnvelope, bool) {
+	if (revisionID != nil && strings.TrimSpace(*revisionID) == "") || expectedVersion == nil || *expectedVersion < 0 || (jobID != nil && *jobID < 1) {
 		fail(w, http.StatusBadRequest, codeInvalidRequest)
 		return correctionEnvelope{}, false
 	}
@@ -122,7 +124,7 @@ func parseEnvelope(w http.ResponseWriter, expectedVersion *int, reason string, j
 		fail(w, http.StatusBadRequest, codeInvalidReason)
 		return correctionEnvelope{}, false
 	}
-	return correctionEnvelope{ExpectedVersion: *expectedVersion, Reason: reason, JobID: jobID}, true
+	return correctionEnvelope{ExpectedVersion: *expectedVersion, Reason: reason, JobID: jobID, RevisionID: revisionID}, true
 }
 
 // lockedSegment is the segment of a correction in progress: its row is locked for the
@@ -199,7 +201,7 @@ func (s *Server) correctSegment(w http.ResponseWriter, r *http.Request, clip cli
 		fail(w, http.StatusNotFound, codeSegmentNotFound)
 		return
 	}
-	if env.JobID != nil && *env.JobID != ref.JobID {
+	if (env.JobID != nil && *env.JobID != ref.JobID) || (env.RevisionID != nil && *env.RevisionID != ref.RevisionID) {
 		tx.Rollback(ctx)
 		s.segmentConflict(w, r, ref, codeTranscriptionChanged)
 		return
@@ -307,7 +309,7 @@ func (s *Server) putSegmentText(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, codeInvalidRequest)
 		return
 	}
-	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID)
+	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID, input.ExpectedRevisionID)
 	if !ok {
 		return
 	}

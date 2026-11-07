@@ -13,6 +13,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.speaker_coverage import SpeakerCoverage
+  from ..models.transcript_revision import TranscriptRevision
   from ..models.transcript_segment import TranscriptSegment
   from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem
 
@@ -39,6 +40,7 @@ class Transcription:
                 pour un segment ; absent sans diarisation.
             speaker_coverage (list[SpeakerCoverage] | Unset): Couverture des locuteurs détectés par la transcription de la
                 piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation.
+            revision (TranscriptRevision | Unset):
      """
 
     provider: str
@@ -50,6 +52,7 @@ class Transcription:
     transcription_job_id: int | Unset = UNSET
     local_speakers: list[TranscriptionLocalSpeakersItem] | Unset = UNSET
     speaker_coverage: list[SpeakerCoverage] | Unset = UNSET
+    revision: TranscriptRevision | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -58,6 +61,7 @@ class Transcription:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.speaker_coverage import SpeakerCoverage # noqa: PLC0415
+        from ..models.transcript_revision import TranscriptRevision # noqa: PLC0415
         from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
         from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem # noqa: PLC0415
         provider = self.provider
@@ -97,6 +101,10 @@ class Transcription:
 
 
 
+        revision: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.revision, Unset):
+            revision = self.revision.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -116,6 +124,8 @@ class Transcription:
             field_dict["local_speakers"] = local_speakers
         if speaker_coverage is not UNSET:
             field_dict["speaker_coverage"] = speaker_coverage
+        if revision is not UNSET:
+            field_dict["revision"] = revision
 
         return field_dict
 
@@ -124,6 +134,7 @@ class Transcription:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.speaker_coverage import SpeakerCoverage # noqa: PLC0415
+        from ..models.transcript_revision import TranscriptRevision # noqa: PLC0415
         from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
         from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem # noqa: PLC0415
         d = dict(src_dict)
@@ -173,6 +184,16 @@ class Transcription:
                 speaker_coverage.append(speaker_coverage_item)
 
 
+        _revision = d.pop("revision", UNSET)
+        revision: TranscriptRevision | Unset
+        if isinstance(_revision,  Unset):
+            revision = UNSET
+        else:
+            revision = TranscriptRevision.from_dict(_revision)
+
+
+
+
         transcription = cls(
             provider=provider,
             model=model,
@@ -183,6 +204,7 @@ class Transcription:
             transcription_job_id=transcription_job_id,
             local_speakers=local_speakers,
             speaker_coverage=speaker_coverage,
+            revision=revision,
         )
 
 

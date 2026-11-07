@@ -416,7 +416,7 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) backfillEmbeddings(w http.ResponseWriter, r *http.Request) {
-	tag, err := s.Pool.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT ON (clip_id) id FROM jobs WHERE status='done' AND step LIKE 'transcription.audio.%' ORDER BY clip_id,updated_at DESC,id DESC) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,j.id FROM embedding_profiles p JOIN embedding_index_state st ON st.active_profile_id=p.id CROSS JOIN latest j ON CONFLICT(profile_id,transcription_job_id) DO UPDATE SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE embedding_tasks.state='failed'`)
+	tag, err := s.Pool.Exec(r.Context(), `WITH latest AS (SELECT id FROM audio_visible_legacy_transcripts) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,j.id FROM embedding_profiles p JOIN embedding_index_state st ON st.active_profile_id=p.id CROSS JOIN latest j ON CONFLICT(profile_id,transcription_job_id) DO UPDATE SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE embedding_tasks.state='failed'`)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -489,7 +489,7 @@ func (s *Server) rebuildEmbeddings(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	if _, err = tx.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT ON (clip_id) id FROM jobs WHERE status='done' AND step LIKE 'transcription.audio.%' ORDER BY clip_id,updated_at DESC,id DESC) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT $1,j.id FROM latest j ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
+	if _, err = tx.Exec(r.Context(), `WITH latest AS (SELECT id FROM audio_visible_legacy_transcripts) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT $1,j.id FROM latest j ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
 		s.internal(w, err)
 		return
 	}

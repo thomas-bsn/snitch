@@ -3555,6 +3555,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/audio-plans/{plan_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getAudioPlan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5817,6 +5833,8 @@ export interface components {
        * @description Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis.
        */
       transcription_job_id?: number;
+      /** @description Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les anciens clients monopistes. */
+      expected_revision_id?: string;
     };
     SegmentCorrection: {
       /** Format: int64 */
@@ -5852,6 +5870,8 @@ export interface components {
        * @description Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis.
        */
       transcription_job_id?: number;
+      /** @description Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les anciens clients monopistes. */
+      expected_revision_id?: string;
     };
     SegmentSpeaker: {
       /** Format: int64 */
@@ -5881,6 +5901,8 @@ export interface components {
       reason?: string;
       /** Format: int64 */
       transcription_job_id?: number;
+      /** @description Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les anciens clients monopistes. */
+      expected_revision_id?: string;
     };
     SegmentHistoryEntry: {
       /** Format: int64 */
@@ -6345,6 +6367,7 @@ export interface components {
       /** @description Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation. */
       speaker_coverage?: components["schemas"]["SpeakerCoverage"][];
       segments: components["schemas"]["TranscriptSegment"][];
+      revision?: components["schemas"]["TranscriptRevision"];
     };
     SpeakerCoverage: {
       /** Format: int64 */
@@ -6664,6 +6687,142 @@ export interface components {
       /** Format: date-time */
       supervisor_last_seen_at: string | null;
       supervisor_available: boolean;
+    };
+    AudioTrackInventory: {
+      index: number;
+      title: string;
+      codec: string;
+      language: string;
+      channels: number;
+      channel_layout: string;
+      /** Format: double */
+      duration_seconds: number | null;
+      /** Format: double */
+      start_seconds: number;
+      evidence: string[];
+    };
+    AudioTrackDecision: {
+      track_index: number;
+      /** @enum {string} */
+      action: "include" | "exclude";
+      forced: boolean;
+      reason: string;
+      /** Format: int64 */
+      actor_id: number;
+      /** Format: date-time */
+      decided_at: string;
+    };
+    AudioPlanInput: {
+      /** @enum {string} */
+      mode: "auto" | "manual";
+      track_indices: number[];
+      inventory: components["schemas"]["AudioTrackInventory"][];
+      decisions: components["schemas"]["AudioTrackDecision"][];
+      detector_version: string;
+      detector_config_version: string;
+      merge_version: string;
+      pipeline_version: string;
+      vocabulary_version: string;
+    };
+    AudioPlan: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      run_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      input_version: string;
+      /** Format: date-time */
+      created_at: string;
+      input: components["schemas"]["AudioPlanInput"];
+    };
+    AudioSpeechInterval: {
+      /** Format: double */
+      start: number;
+      /** Format: double */
+      end: number;
+    };
+    AudioTrackDiagnostic: {
+      /** Format: int64 */
+      plan_id: number;
+      track_index: number;
+      input_version: string;
+      /** @enum {string} */
+      status: "speech" | "no_speech" | "ambiguous" | "unexamined" | "failed";
+      cause: string;
+      detector_version: string;
+      detector_config_version: string;
+      intervals: components["schemas"]["AudioSpeechInterval"][];
+      /** Format: int64 */
+      job_id: number | null;
+      attempt: number;
+    };
+    AudioPlanChild: {
+      /** Format: int64 */
+      plan_id: number;
+      track_index: number;
+      /** @enum {string} */
+      stage: "diagnostic" | "transcription" | "diarization" | "fingerprint";
+      /** Format: int64 */
+      job_id: number;
+      input_version: string;
+      /** @enum {string} */
+      status: "queued" | "running" | "retry" | "done" | "dead" | "cancelled";
+      attempt: number;
+    };
+    AudioLossPreview: {
+      expected_revision_id: string;
+      /** Format: date-time */
+      previewed_at: string;
+      correction_count: number;
+      validated_voice_count: number;
+      replaced_track_indices: number[];
+      invalidated_steps: string[];
+      confirmation_required: boolean;
+    };
+    AudioPlanState: {
+      plan: components["schemas"]["AudioPlan"];
+      diagnostics: components["schemas"]["AudioTrackDiagnostic"][];
+      children: components["schemas"]["AudioPlanChild"][];
+      loss_preview?: components["schemas"]["AudioLossPreview"];
+    };
+    TranscriptSource: {
+      /** @description Indice ffprobe réel ; -1 réservé à une ancienne transcription sans indice enregistré. */
+      track_index: number;
+      /** Format: int64 */
+      job_id: number;
+      segment_index: number;
+      word_index?: number;
+    };
+    TranscriptManifestWord: {
+      index: number;
+      /** Format: double */
+      start: number;
+      /** Format: double */
+      end: number;
+      sources: components["schemas"]["TranscriptSource"][];
+    };
+    TranscriptManifestSegment: {
+      index: number;
+      /** Format: double */
+      start: number;
+      /** Format: double */
+      end: number;
+      sources: components["schemas"]["TranscriptSource"][];
+      words: components["schemas"]["TranscriptManifestWord"][];
+    };
+    TranscriptRevision: {
+      id: string;
+      /** Format: int64 */
+      clip_id: number;
+      /** Format: int64 */
+      plan_id: number | null;
+      /** Format: int64 */
+      legacy_job_id: number | null;
+      empty: boolean;
+      /** @enum {string} */
+      time_base: "clip";
+      segments: components["schemas"]["TranscriptManifestSegment"][];
     };
   };
   responses: never;
@@ -16592,6 +16751,57 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Error"];
         };
+      };
+    };
+  };
+  getAudioPlan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        plan_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Plan immuable et état courant de ses enfants. Auto non activé par cette lecture. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPlanState"];
+        };
+      };
+      /** @description Identifiant invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Clip ou plan introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };
