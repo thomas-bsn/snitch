@@ -15431,6 +15431,167 @@
         }
       }
     },
+    "/api/admin/clips/{id}/audio-selection": {
+      "get": {
+        "operationId": "getClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioSelectionStart"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-selection/preview": {
+      "post": {
+        "operationId": "previewClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioSelectionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/clips/{id}/audio-plans/{plan_id}": {
       "get": {
         "operationId": "getAudioPlan",
@@ -18851,6 +19012,41 @@
           },
           "voice": {
             "$ref": "#/components/schemas/WorkerVoiceInput"
+          },
+          "audio_plan": {
+            "$ref": "#/components/schemas/WorkerAudioPlanTask"
+          }
+        }
+      },
+      "WorkerAudioPlanTask": {
+        "type": "object",
+        "description": "Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip.",
+        "required": [
+          "plan_id",
+          "input_version",
+          "track_index",
+          "start_seconds",
+          "intervals"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "track_index": {
+            "type": "integer"
+          },
+          "start_seconds": {
+            "type": "number"
+          },
+          "intervals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSpeechInterval"
+            }
           }
         }
       },
@@ -25303,6 +25499,281 @@
             "format": "date-time"
           }
         }
+      },
+      "AudioSelectionDiagnostic": {
+        "type": "object",
+        "required": [
+          "track_index",
+          "status",
+          "freshness",
+          "cause"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "no_speech",
+              "ambiguous",
+              "unexamined",
+              "failed"
+            ]
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "current",
+              "stale",
+              "missing"
+            ]
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionContext": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "version",
+          "state_version",
+          "inventory",
+          "diagnostics"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "state_version": {
+            "type": "string"
+          },
+          "inventory": {
+            "type": "array",
+            "description": "Pistes audio réelles du clip, avec leur indice ffprobe ; vide quand la sélection est désactivée.",
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackInventory"
+            }
+          },
+          "input": {
+            "$ref": "#/components/schemas/AudioPlanInput"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSelectionDiagnostic"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionDecision": {
+        "type": "object",
+        "required": [
+          "track_index",
+          "action",
+          "forced",
+          "reason"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "include",
+              "exclude"
+            ]
+          },
+          "forced": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioAnalysisChoice": {
+        "type": "object",
+        "required": [
+          "scope",
+          "mode",
+          "steps"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full",
+              "transcription",
+              "voice"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "full",
+              "steps"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionRequest": {
+        "type": "object",
+        "required": [
+          "version",
+          "mode",
+          "track_indices",
+          "decisions",
+          "analysis"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
+          },
+          "track_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSelectionDecision"
+            }
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/AudioAnalysisChoice"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionEffects": {
+        "type": "object",
+        "required": [
+          "added_steps",
+          "invalidated_steps",
+          "track_indices",
+          "losses",
+          "worker_compatible",
+          "stake_version"
+        ],
+        "properties": {
+          "added_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invalidated_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "track_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "losses": {
+            "$ref": "#/components/schemas/AudioLossPreview"
+          },
+          "worker_compatible": {
+            "type": "boolean"
+          },
+          "stake_version": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionPreview": {
+        "type": "object",
+        "required": [
+          "input",
+          "effects",
+          "preview_token",
+          "expires_at"
+        ],
+        "properties": {
+          "input": {
+            "$ref": "#/components/schemas/AudioPlanInput"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/AudioSelectionEffects"
+          },
+          "preview_token": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionStart": {
+        "type": "object",
+        "required": [
+          "selection",
+          "preview_token",
+          "confirm_losses"
+        ],
+        "properties": {
+          "selection": {
+            "$ref": "#/components/schemas/AudioSelectionRequest"
+          },
+          "preview_token": {
+            "type": "string"
+          },
+          "confirm_losses": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionStarted": {
+        "type": "object",
+        "required": [
+          "state",
+          "worker_compatible"
+        ],
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/AudioPlanState"
+          },
+          "worker_compatible": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
       },
       "AudioPlanInput": {
         "type": "object",

@@ -40,6 +40,7 @@ import (
 )
 
 type Server struct {
+	AudioSelection        AudioSelectionEngine
 	Pool                  *pgxpool.Pool
 	Config                config.Config
 	Log                   *slog.Logger
@@ -272,6 +273,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/users", s.protected(true, http.HandlerFunc(s.pending)))
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
 	mux.Handle("POST /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.startClipAnalysis)))
+	mux.Handle("GET /api/admin/clips/{id}/audio-selection", s.protected(true, http.HandlerFunc(s.getAudioSelection)))
+	mux.Handle("POST /api/admin/clips/{id}/audio-selection/preview", s.protected(true, http.HandlerFunc(s.previewAudioSelection)))
+	mux.Handle("POST /api/admin/clips/{id}/audio-selection", s.protected(true, http.HandlerFunc(s.startAudioSelection)))
 	mux.Handle("GET /api/admin/clips/{id}/audio-plans/{plan_id}", s.protected(true, http.HandlerFunc(s.getAudioPlan)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.getClipAnalysis)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis/history", s.protected(true, http.HandlerFunc(s.getClipAnalysisHistory)))
