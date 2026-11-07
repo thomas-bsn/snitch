@@ -596,6 +596,7 @@ func TestFoundation(t *testing.T) {
 	})
 	t.Run("audio plan children", func(t *testing.T) { reset(t); testAudioPlanChildren(t, pool) })
 	t.Run("audio publication", func(t *testing.T) { reset(t); testAudioPublication(t, pool) })
+	t.Run("audio dedup", func(t *testing.T) { reset(t); testAudioDedup(t, pool) })
 	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
 		reset(t)

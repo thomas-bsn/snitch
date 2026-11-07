@@ -14,6 +14,8 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+  from ..models.transcript_grouping import TranscriptGrouping
+  from ..models.transcript_source import TranscriptSource
   from ..models.transcript_word import TranscriptWord
 
 
@@ -48,6 +50,10 @@ class TranscriptSegment:
             correction_version (int | Unset): Version à renvoyer comme expected_version ; 0 si jamais écrit.
             corrected_by (str | Unset): Auteur de la correction du texte, si corrigé.
             corrected_at (datetime.datetime | Unset): Date de la correction du texte, si corrigé.
+            sources (list[TranscriptSource] | Unset): Toutes les provenances du passage publié (piste réelle, tâche,
+                segment) ; la première porte l'identité des corrections. Absent pour une ancienne transcription.
+            grouping (list[TranscriptGrouping] | Unset): Sources regroupées par preuve acoustique sous ce passage,
+                consultables ; absent sans regroupement.
      """
 
     start: float
@@ -66,6 +72,8 @@ class TranscriptSegment:
     correction_version: int | Unset = UNSET
     corrected_by: str | Unset = UNSET
     corrected_at: datetime.datetime | Unset = UNSET
+    sources: list[TranscriptSource] | Unset = UNSET
+    grouping: list[TranscriptGrouping] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -73,6 +81,8 @@ class TranscriptSegment:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.transcript_grouping import TranscriptGrouping # noqa: PLC0415
+        from ..models.transcript_source import TranscriptSource # noqa: PLC0415
         from ..models.transcript_word import TranscriptWord # noqa: PLC0415
         start = self.start
 
@@ -116,6 +126,24 @@ class TranscriptSegment:
         if not isinstance(self.corrected_at, Unset):
             corrected_at = self.corrected_at.isoformat()
 
+        sources: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.sources, Unset):
+            sources = []
+            for sources_item_data in self.sources:
+                sources_item = sources_item_data.to_dict()
+                sources.append(sources_item)
+
+
+
+        grouping: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.grouping, Unset):
+            grouping = []
+            for grouping_item_data in self.grouping:
+                grouping_item = grouping_item_data.to_dict()
+                grouping.append(grouping_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -149,6 +177,10 @@ class TranscriptSegment:
             field_dict["corrected_by"] = corrected_by
         if corrected_at is not UNSET:
             field_dict["corrected_at"] = corrected_at
+        if sources is not UNSET:
+            field_dict["sources"] = sources
+        if grouping is not UNSET:
+            field_dict["grouping"] = grouping
 
         return field_dict
 
@@ -156,6 +188,8 @@ class TranscriptSegment:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.transcript_grouping import TranscriptGrouping # noqa: PLC0415
+        from ..models.transcript_source import TranscriptSource # noqa: PLC0415
         from ..models.transcript_word import TranscriptWord # noqa: PLC0415
         d = dict(src_dict)
         start = d.pop("start")
@@ -214,6 +248,30 @@ class TranscriptSegment:
 
 
 
+        _sources = d.pop("sources", UNSET)
+        sources: list[TranscriptSource] | Unset = UNSET
+        if _sources is not UNSET:
+            sources = []
+            for sources_item_data in _sources:
+                sources_item = TranscriptSource.from_dict(sources_item_data)
+
+
+
+                sources.append(sources_item)
+
+
+        _grouping = d.pop("grouping", UNSET)
+        grouping: list[TranscriptGrouping] | Unset = UNSET
+        if _grouping is not UNSET:
+            grouping = []
+            for grouping_item_data in _grouping:
+                grouping_item = TranscriptGrouping.from_dict(grouping_item_data)
+
+
+
+                grouping.append(grouping_item)
+
+
         transcript_segment = cls(
             start=start,
             end=end,
@@ -231,6 +289,8 @@ class TranscriptSegment:
             correction_version=correction_version,
             corrected_by=corrected_by,
             corrected_at=corrected_at,
+            sources=sources,
+            grouping=grouping,
         )
 
 

@@ -6346,6 +6346,10 @@ export interface components {
        * @description Date de la correction du texte, si corrigé.
        */
       corrected_at?: string;
+      /** @description Toutes les provenances du passage publié (piste réelle, tâche, segment) ; la première porte l'identité des corrections. Absent pour une ancienne transcription. */
+      sources?: components["schemas"]["TranscriptSource"][];
+      /** @description Sources regroupées par preuve acoustique sous ce passage, consultables ; absent sans regroupement. */
+      grouping?: components["schemas"]["TranscriptGrouping"][];
     };
     Transcription: {
       provider: string;
@@ -6786,6 +6790,33 @@ export interface components {
       children: components["schemas"]["AudioPlanChild"][];
       loss_preview?: components["schemas"]["AudioLossPreview"];
     };
+    /** @description Preuve acoustique pour laquelle une source a été regroupée sous le passage conservé. La source reste consultable ; son texte n'est pas publié en double. */
+    TranscriptGrouping: {
+      source: components["schemas"]["TranscriptSource"];
+      /**
+       * @description Règle acoustique activée qui a prouvé le doublon.
+       * @enum {string}
+       */
+      strategy: "exact_pcm" | "gain";
+      strategy_version: string;
+      /**
+       * Format: double
+       * @description Gain constant prouvé entre la source regroupée et le passage conservé (stratégie gain).
+       */
+      gain?: number;
+      /**
+       * Format: double
+       * @description Décalage résiduel mesuré entre les deux signaux, en secondes.
+       */
+      lag_seconds: number;
+      /**
+       * Format: double
+       * @description Début, dans le repère du clip, de la plage prouvée identique côté passage conservé.
+       */
+      matched_start: number;
+      /** Format: double */
+      matched_end: number;
+    };
     TranscriptSource: {
       /** @description Indice ffprobe réel ; -1 réservé à une ancienne transcription sans indice enregistré. */
       track_index: number;
@@ -6810,6 +6841,8 @@ export interface components {
       end: number;
       sources: components["schemas"]["TranscriptSource"][];
       words: components["schemas"]["TranscriptManifestWord"][];
+      /** @description Sources regroupées sous ce passage avec leur preuve acoustique ; absent si aucun regroupement. Elles figurent aussi dans `sources`. */
+      grouping?: components["schemas"]["TranscriptGrouping"][];
     };
     TranscriptRevision: {
       id: string;

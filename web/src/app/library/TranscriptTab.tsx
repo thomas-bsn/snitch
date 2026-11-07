@@ -9,6 +9,53 @@ import { formatTimecode } from "./clipFormat";
 import { fetchSegmentHistory, type TranscriptSegment } from "./libraryApi";
 import { SPEAKER_LOOKS, speakerState } from "./speakerState";
 
+/** Every track a passage was captured on; the grouped ones with the acoustic proof. */
+function SourceProvenance({ segment }: { segment: TranscriptSegment }) {
+  const { t } = useI18n();
+  const sources = segment.sources ?? [];
+  if (sources.length < 2) return null;
+  const proofs = new Map(
+    (segment.grouping ?? []).map((g) => [g.source.track_index, g]),
+  );
+  return (
+    <details className="mt-1 text-xs text-mute">
+      <summary className="cursor-pointer">
+        {t("clip.transcript.sourcesSummary", { count: sources.length })}
+      </summary>
+      <ul className="m-0 mt-1 list-none p-0">
+        {sources.map((source, position) => {
+          const proof = proofs.get(source.track_index);
+          return (
+            <li key={`${source.job_id}-${source.segment_index}`}>
+              <span className="font-medium">
+                {t("clip.transcript.sourceTrack", {
+                  track: source.track_index,
+                })}
+              </span>
+              {" — "}
+              {proof
+                ? t(
+                    proof.strategy === "gain"
+                      ? "clip.transcript.sourceGain"
+                      : "clip.transcript.sourceExact",
+                    {
+                      gain: (proof.gain ?? 1).toFixed(2),
+                      from: formatTimecode(proof.matched_start),
+                      to: formatTimecode(proof.matched_end),
+                    },
+                  )
+                : position === 0 &&
+                  t("clip.transcript.sourceRetained", {
+                    track: source.track_index,
+                  })}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
+
 function SpeakerCorrection({
   clipId,
   index,
@@ -125,6 +172,7 @@ function Segment({
               : t("clip.transcript.textCorrectedAnon")}
           </p>
         )}
+        <SourceProvenance segment={segment} />
         <SegmentActions
           clipId={clipId}
           jobId={jobId}

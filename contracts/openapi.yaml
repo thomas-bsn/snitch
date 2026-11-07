@@ -24057,6 +24057,20 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de la correction du texte, si corrigé."
+          },
+          "sources": {
+            "type": "array",
+            "description": "Toutes les provenances du passage publié (piste réelle, tâche, segment) ; la première porte l'identité des corrections. Absent pour une ancienne transcription.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSource"
+            }
+          },
+          "grouping": {
+            "type": "array",
+            "description": "Sources regroupées par preuve acoustique sous ce passage, consultables ; absent sans regroupement.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptGrouping"
+            }
           }
         }
       },
@@ -25605,6 +25619,56 @@
           }
         }
       },
+      "TranscriptGrouping": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Preuve acoustique pour laquelle une source a été regroupée sous le passage conservé. La source reste consultable ; son texte n'est pas publié en double.",
+        "required": [
+          "source",
+          "strategy",
+          "strategy_version",
+          "lag_seconds",
+          "matched_start",
+          "matched_end"
+        ],
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/TranscriptSource"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "exact_pcm",
+              "gain"
+            ],
+            "description": "Règle acoustique activée qui a prouvé le doublon."
+          },
+          "strategy_version": {
+            "type": "string"
+          },
+          "gain": {
+            "type": "number",
+            "format": "double",
+            "description": "Gain constant prouvé entre la source regroupée et le passage conservé (stratégie gain)."
+          },
+          "lag_seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Décalage résiduel mesuré entre les deux signaux, en secondes."
+          },
+          "matched_start": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double",
+            "description": "Début, dans le repère du clip, de la plage prouvée identique côté passage conservé."
+          },
+          "matched_end": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          }
+        }
+      },
       "TranscriptSource": {
         "type": "object",
         "additionalProperties": false,
@@ -25703,6 +25767,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/TranscriptManifestWord"
+            }
+          },
+          "grouping": {
+            "type": "array",
+            "description": "Sources regroupées sous ce passage avec leur preuve acoustique ; absent si aucun regroupement. Elles figurent aussi dans `sources`.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptGrouping"
             }
           }
         }
