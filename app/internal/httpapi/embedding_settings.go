@@ -213,7 +213,7 @@ func (s *Server) putEmbeddingSettings(w http.ResponseWriter, r *http.Request) {
 			s.internal(w, err)
 			return
 		}
-		if _, err = tx.Exec(ctx, `WITH latest AS (SELECT DISTINCT ON (clip_id) id FROM jobs WHERE status='done' AND step LIKE 'transcription.audio.%' ORDER BY clip_id,updated_at DESC,id DESC) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT $1,id FROM latest ON CONFLICT DO NOTHING`, id); err != nil {
+		if _, err = tx.Exec(ctx, `WITH latest AS (SELECT id FROM audio_visible_legacy_transcripts) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT $1,id FROM latest ON CONFLICT DO NOTHING`, id); err != nil {
 			s.internal(w, err)
 			return
 		}

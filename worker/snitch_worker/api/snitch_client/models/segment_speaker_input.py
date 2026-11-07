@@ -30,12 +30,15 @@ class SegmentSpeakerInput:
             reason (str | Unset): Motif facultatif (500 caractères au plus).
             transcription_job_id (int | Unset): Transcription lue par l'appelant ; refusée (transcription_changed) si le
                 clip a été retranscrit depuis.
+            expected_revision_id (str | Unset): Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les
+                anciens clients monopistes.
      """
 
     local_speaker_id: int | None
     expected_version: int
     reason: str | Unset = UNSET
     transcription_job_id: int | Unset = UNSET
+    expected_revision_id: str | Unset = UNSET
 
 
 
@@ -51,6 +54,8 @@ class SegmentSpeakerInput:
 
         transcription_job_id = self.transcription_job_id
 
+        expected_revision_id = self.expected_revision_id
+
 
         field_dict: dict[str, Any] = {}
 
@@ -62,6 +67,8 @@ class SegmentSpeakerInput:
             field_dict["reason"] = reason
         if transcription_job_id is not UNSET:
             field_dict["transcription_job_id"] = transcription_job_id
+        if expected_revision_id is not UNSET:
+            field_dict["expected_revision_id"] = expected_revision_id
 
         return field_dict
 
@@ -84,11 +91,14 @@ class SegmentSpeakerInput:
 
         transcription_job_id = d.pop("transcription_job_id", UNSET)
 
+        expected_revision_id = d.pop("expected_revision_id", UNSET)
+
         segment_speaker_input = cls(
             local_speaker_id=local_speaker_id,
             expected_version=expected_version,
             reason=reason,
             transcription_job_id=transcription_job_id,
+            expected_revision_id=expected_revision_id,
         )
 
         return segment_speaker_input

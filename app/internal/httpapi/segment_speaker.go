@@ -17,6 +17,7 @@ func (s *Server) registerSegmentSpeakerRoutes(mux *http.ServeMux) {
 }
 
 type segmentSpeakerInput struct {
+	ExpectedRevisionID *string `json:"expected_revision_id"`
 	// LocalSpeakerID must be present: a number designates a Local speaker, null returns
 	// to the speaker deduced from the speaker turns.
 	LocalSpeakerID     json.RawMessage `json:"local_speaker_id"`
@@ -122,7 +123,7 @@ func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 		}
 		target = &id
 	}
-	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID)
+	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID, input.ExpectedRevisionID)
 	if !ok {
 		return
 	}

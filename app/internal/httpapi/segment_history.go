@@ -151,11 +151,12 @@ func (s *Server) getObsoleteCorrections(w http.ResponseWriter, r *http.Request) 
 }
 
 type segmentRestoreInput struct {
-	ExpectedVersion    *int   `json:"expected_version"`
-	EventID            *int64 `json:"event_id"`
-	Original           bool   `json:"original"`
-	Reason             string `json:"reason"`
-	TranscriptionJobID *int64 `json:"transcription_job_id"`
+	ExpectedRevisionID *string `json:"expected_revision_id"`
+	ExpectedVersion    *int    `json:"expected_version"`
+	EventID            *int64  `json:"event_id"`
+	Original           bool    `json:"original"`
+	Reason             string  `json:"reason"`
+	TranscriptionJobID *int64  `json:"transcription_job_id"`
 }
 
 // restoreSegmentText restores the original text (original=true) or the text a past
@@ -180,7 +181,7 @@ func (s *Server) restoreSegmentText(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, codeInvalidRequest)
 		return
 	}
-	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID)
+	env, ok := parseEnvelope(w, input.ExpectedVersion, input.Reason, input.TranscriptionJobID, input.ExpectedRevisionID)
 	if !ok {
 		return
 	}

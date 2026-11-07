@@ -29,6 +29,8 @@ class SegmentRestoreInput:
                 original.
             reason (str | Unset): Motif facultatif (500 caractères au plus).
             transcription_job_id (int | Unset):
+            expected_revision_id (str | Unset): Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les
+                anciens clients monopistes.
      """
 
     expected_version: int
@@ -36,6 +38,7 @@ class SegmentRestoreInput:
     event_id: int | Unset = UNSET
     reason: str | Unset = UNSET
     transcription_job_id: int | Unset = UNSET
+    expected_revision_id: str | Unset = UNSET
 
 
 
@@ -52,6 +55,8 @@ class SegmentRestoreInput:
 
         transcription_job_id = self.transcription_job_id
 
+        expected_revision_id = self.expected_revision_id
+
 
         field_dict: dict[str, Any] = {}
 
@@ -66,6 +71,8 @@ class SegmentRestoreInput:
             field_dict["reason"] = reason
         if transcription_job_id is not UNSET:
             field_dict["transcription_job_id"] = transcription_job_id
+        if expected_revision_id is not UNSET:
+            field_dict["expected_revision_id"] = expected_revision_id
 
         return field_dict
 
@@ -84,12 +91,15 @@ class SegmentRestoreInput:
 
         transcription_job_id = d.pop("transcription_job_id", UNSET)
 
+        expected_revision_id = d.pop("expected_revision_id", UNSET)
+
         segment_restore_input = cls(
             expected_version=expected_version,
             original=original,
             event_id=event_id,
             reason=reason,
             transcription_job_id=transcription_job_id,
+            expected_revision_id=expected_revision_id,
         )
 
         return segment_restore_input
