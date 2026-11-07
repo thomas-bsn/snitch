@@ -651,6 +651,15 @@ type stepState struct {
 // advance derives every step of the run from the current facts and stores the result.
 // It is idempotent, so concurrent callers converge on the same state.
 func (s *Service) advance(ctx context.Context, run Run) error {
+	// Explicit audio plans have their own durable scheduler. The legacy ticker
+	// must never schedule a singleton transcription on their behalf.
+	var audioPlan bool
+	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audio_plans WHERE run_id=$1)`, run.ID).Scan(&audioPlan); err != nil {
+		return err
+	}
+	if audioPlan {
+		return nil
+	}
 	prep, err := s.hooks.Prepare(ctx, run.ClipID)
 	if err != nil {
 		return err
@@ -882,12 +891,17 @@ func (s *Service) workerWaitReason(ctx context.Context, jobID int64) (string, er
 // Cancel stops the active run of a clip: no further step is planned, pending jobs of the
 // run are cancelled, and a step already running may still finish with a valid result.
 func (s *Service) Cancel(ctx context.Context, clipID int64) (*Run, error) {
-	tag, err := s.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='cancelled',updated_at=now(),finished_at=now() WHERE clip_id=$1 AND status='active'`, clipID)
+	var cancelledRun int64
+	err := s.pool.QueryRow(ctx, `UPDATE clip_analysis_runs SET status='cancelled',updated_at=now(),finished_at=now() WHERE clip_id=$1 AND status='active' RETURNING id`, clipID).Scan(&cancelledRun)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotActive
+	}
 	if err != nil {
 		return nil, err
 	}
-	if tag.RowsAffected() == 0 {
-		return nil, ErrNotActive
+	// Explicit audio plans own their children: stop them with the run.
+	if err = cancelAudioChildren(ctx, s.pool, cancelledRun); err != nil {
+		return nil, err
 	}
 	if _, err = s.pool.Exec(ctx, `UPDATE jobs SET status='cancelled',updated_at=now() WHERE status IN ('pending','retry_wait') AND id IN (SELECT st.job_id FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE r.clip_id=$1 AND r.status='cancelled' AND st.job_id IS NOT NULL AND st.status IN ('waiting','retry','blocked'))`, clipID); err != nil {
 		return nil, err

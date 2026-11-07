@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/auth"
+	"snitch/internal/multitrack"
 )
 
 type Status string
@@ -126,6 +127,8 @@ type Input struct {
 	PipelineVersion    string           `json:"pipeline_version"`
 	TranscriptionModel string           `json:"transcription_model"`
 	Voice              json.RawMessage  `json:"voice,omitempty"`
+	// AudioPlan pins a multitrack transcription child to its immutable plan.
+	AudioPlan *multitrack.Task `json:"audio_plan,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -496,6 +499,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		FROM jobs j
 		LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
 		WHERE j.status='pending' AND j.next_attempt_at<=now()
+ AND (j.input_version NOT LIKE 'mt1:%' OR 'audio.multitrack.v1'=ANY($1::text[]))
 		  AND EXISTS (
 		      SELECT 1 FROM unnest($1::text[]) AS capability
 		      WHERE CASE WHEN right(capability,2)='.*'
@@ -550,6 +554,11 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 	if strings.HasPrefix(input.Job.Step, "transcription.audio.") {
 		if queryErr := s.pool.QueryRow(ctx, `SELECT transcription_model FROM workers WHERE id=$1`, workerID).Scan(&input.TranscriptionModel); queryErr != nil {
 			return Input{}, fmt.Errorf("read worker transcription model: %w", queryErr)
+		}
+
+		if strings.HasPrefix(input.Job.InputVersion, multitrack.Prefix) {
+			err = s.audioPlanInput(ctx, &input)
+			return input, err
 		}
 
 		vocabMarker := strings.Index(input.Job.InputVersion, "-v")

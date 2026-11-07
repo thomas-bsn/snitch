@@ -306,8 +306,27 @@ def detect_voice_spans(wav_path: str, config: dict[str, Any]) -> list[tuple[floa
     return spans
 
 
-def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: dict[str, Any], vocabulary: list[dict[str, Any]]) -> dict[str, Any]:
-    spans = detect_voice_spans(wav_path, config)
+def audio_plan_spans(plan: dict[str, Any]) -> list[tuple[float, float]]:
+    """Track-relative speech intervals pinned by the plan's diagnostic."""
+    return [(float(item["start"]), float(item["end"])) for item in plan.get("intervals") or []]
+
+
+def transcribe_prepared_audio(
+    transcriber: Transcriber,
+    wav_path: str,
+    config: dict[str, Any],
+    vocabulary: list[dict[str, Any]],
+    spans: list[tuple[float, float]] | None = None,
+    offset: float = 0.0,
+) -> dict[str, Any]:
+    """Transcribe the speech spans of a prepared track.
+
+    ``spans`` (track-relative) replaces the energy VAD when a plan pins them.
+    ``offset`` is the stream start in the clip: segments and words get the span
+    start and the offset added exactly once, so results are on the clip timeline.
+    """
+    if spans is None:
+        spans = detect_voice_spans(wav_path, config)
     results: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="snitch-vad-") as temporary:
         for index, (start, end) in enumerate(spans):
@@ -324,11 +343,11 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
             else:
                 part = transcriber.transcribe(chunk_path, vocabulary)
             for segment in part.get("segments", []):
-                segment["start"] = float(segment["start"]) + start
-                segment["end"] = float(segment["end"]) + start
+                segment["start"] = float(segment["start"]) + start + offset
+                segment["end"] = float(segment["end"]) + start + offset
                 for word in segment.get("words", []):
-                    word["start"] = float(word["start"]) + start
-                    word["end"] = float(word["end"]) + start
+                    word["start"] = float(word["start"]) + start + offset
+                    word["end"] = float(word["end"]) + start + offset
             results.extend(part.get("segments", []))
     if not spans:
         return {"provider": "openai-compatible", "model": config.get("model") or getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr"), "segments": []}
@@ -494,7 +513,7 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
 def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
     body = WorkerPulseInput(
         capacity=capacity,
-        supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
+        supported_steps=["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
         models=declared_models(os.environ, voice_models.active_repo()),
         machine=declared_machine(),
     )
@@ -762,9 +781,26 @@ def _run_claimed(
                         for term in (task_input.vocabulary or [])
                     ]
                     cancellation.check()
-                    result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
-                    result["audio_stream_index"] = stream_index
-                    attach_peaks(result, wav_path)
+                    plan_value = getattr(task_input, "audio_plan", None)
+                    plan = plan_value.to_dict() if hasattr(plan_value, "to_dict") else None
+                    if plan:
+                        if int(plan["track_index"]) != stream_index:
+                            raise ValueError("audio plan track does not match the job")
+                        # A plan without usable intervals (forced track) falls back to the VAD.
+                        pinned = audio_plan_spans(plan) or None
+                        result = transcribe_prepared_audio(
+                            active_transcriber, wav_path, pipeline, vocabulary, pinned, float(plan["start_seconds"])
+                        )
+                        result.update(
+                            audio_stream_index=stream_index,
+                            time_base="clip",
+                            audio_plan_id=plan["plan_id"],
+                            audio_plan_version=plan["input_version"],
+                        )
+                    else:
+                        result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
+                        result["audio_stream_index"] = stream_index
+                        attach_peaks(result, wav_path)
             elif is_voice_step(job.step):
                 voice_value = getattr(task_input, "voice", None)
                 voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}

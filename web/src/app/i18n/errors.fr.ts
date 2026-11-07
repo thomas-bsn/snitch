@@ -144,6 +144,23 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_analysis_step: "Cette étape d’analyse n’est pas valide.",
   analysis_deletion_confirmation_required:
     "La suppression fait perdre du travail humain ou une transcription : confirmez les pertes affichées.",
+  audio_selection_stale:
+    "Les pistes audio ou leurs diagnostics ont changé depuis l’ouverture de ce choix. Vérifiez-le à nouveau.",
+  invalid_audio_selection:
+    "Ce choix de pistes audio n’est pas valide : choisissez des pistes existantes et une analyse valide.",
+  audio_decision_required:
+    "Décidez d’inclure ou d’écarter chaque piste ambiguë.",
+  audio_force_required:
+    "Une piste sans parole demande un « utiliser malgré le diagnostic » explicite.",
+  audio_preview_expired:
+    "Cet aperçu a expiré. Refaites l’aperçu des effets avant de lancer.",
+  audio_preview_changed:
+    "Le choix ou le travail concerné a changé depuis l’aperçu. Refaites l’aperçu.",
+  audio_confirmation_required:
+    "Confirmez les conséquences affichées avant le démarrage de l’analyse.",
+  audio_selection_disabled:
+    "Le choix des pistes audio n’est pas encore disponible pour ce clip.",
+  analysis_already_active: "Une analyse est déjà en cours sur ce clip.",
   invalid_reanalysis: "Ce choix de réanalyse n’est pas valide.",
   reanalysis_confirmation_required:
     "Confirmez les conséquences de cette réanalyse avant son démarrage.",
