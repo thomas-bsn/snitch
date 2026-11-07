@@ -240,6 +240,24 @@ type FolderLogo struct {
 	AppID       int64              `json:"app_id"`
 }
 
+type FolderLogoChoice struct {
+	SourceID      int64              `json:"source_id"`
+	RelativePath  string             `json:"relative_path"`
+	UseCustom     bool               `json:"use_custom"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ActiveVersion pgtype.Int4        `json:"active_version"`
+}
+
+type FolderLogoVersion struct {
+	ID           int64              `json:"id"`
+	SourceID     int64              `json:"source_id"`
+	RelativePath string             `json:"relative_path"`
+	Version      int32              `json:"version"`
+	Image        []byte             `json:"image"`
+	ContentType  string             `json:"content_type"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type FolderRequest struct {
 	ID                int64              `json:"id"`
 	Parent            string             `json:"parent"`

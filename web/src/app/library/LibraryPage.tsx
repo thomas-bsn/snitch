@@ -8,9 +8,6 @@ import {
   File,
   Film,
   HardDrive,
-  Lock,
-  LockOpen,
-  MoreHorizontal,
   Play,
 } from "lucide-react";
 import { api, errorCode, mutation } from "../api/client";
@@ -21,10 +18,18 @@ import { buttonClass } from "../components/buttons";
 import { ConfirmDialog } from "../components/ConfirmDialog";
 import { useDocumentTitle } from "../components/useDocumentTitle";
 import { FolderGlyph } from "./FolderGlyph";
+import { FolderLogoDialog } from "./FolderLogoDialog";
+import { ExplorerPropertiesDialog } from "./ExplorerPropertiesDialog";
+import {
+  ExplorerEntryContextMenu,
+  ExplorerEntryMenu,
+  type ExplorerActions,
+  type ExplorerRights,
+} from "./ExplorerEntryMenu";
 import { useI18n } from "../i18n";
 import { isAdministrator, isSuperAdministrator } from "../roles";
 import { useSession } from "../session";
-import { formatTimecode } from "./clipFormat";
+import { formatSize, formatTimecode } from "./clipFormat";
 import { ExplorerThumbnail } from "./ExplorerThumbnail";
 import { ExplorerTree } from "./ExplorerTree";
 import {
@@ -98,17 +103,6 @@ function readFilters(params: URLSearchParams): ExplorerFilters {
     person: params.get("person") ?? "",
     voices: params.get("voices") === "pending" ? "pending" : "",
   };
-}
-
-function formatSize(bytes: number, language: string) {
-  const units = ["B", "KB", "MB", "GB", "TB"];
-  let value = bytes;
-  let unit = 0;
-  while (value >= 1024 && unit < units.length - 1) {
-    value /= 1024;
-    unit += 1;
-  }
-  return `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(value)} ${units[unit]}`;
 }
 
 /** The Bibliothèque as an explorer of the Racine vidéo (ADR 0032): a tree, a toolbar, a list or icons. */
@@ -272,7 +266,6 @@ export function LibraryPage() {
   }
 
   function openFolder(path: string) {
-    setMenuFor(null);
     setOpening(null);
     update((next) => {
       next.delete("page");
@@ -307,8 +300,8 @@ export function LibraryPage() {
     setOpening(entry.path);
   }
 
-  // Folder menu: analysis of the folder's unanalysed videos (administrators), privacy (super-administrators).
-  const [menuFor, setMenuFor] = useState<string | null>(null);
+  // Entry dialogs: analysis of a folder's unanalysed videos (administrators), privacy
+  // (super-administrators), custom logo and properties (ADR 0046).
   const [privacyTarget, setPrivacyTarget] = useState<ExplorerEntry | null>(
     null,
   );
@@ -322,6 +315,9 @@ export function LibraryPage() {
   } | null>(null);
   const [analysisBusy, setAnalysisBusy] = useState(false);
   const [analysisNotice, setAnalysisNotice] = useState<string | null>(null);
+  const [logoTarget, setLogoTarget] = useState<ExplorerEntry | null>(null);
+  const [propertiesTarget, setPropertiesTarget] =
+    useState<ExplorerEntry | null>(null);
 
   async function applyPrivacy() {
     if (!privacyTarget) return;
@@ -348,7 +344,6 @@ export function LibraryPage() {
   }
 
   async function prepareAnalysis(entry: ExplorerEntry) {
-    setMenuFor(null);
     setAnalysisNotice(null);
     const [indexed, unindexed, indexing] = await Promise.all([
       fetchExplorerAll({
@@ -455,6 +450,17 @@ export function LibraryPage() {
 
   const crumbs = folder ? folder.split("/") : [];
   const parentPath = crumbs.slice(0, -1).join("/");
+
+  const rights: ExplorerRights = { admin, superAdmin };
+  const actions: ExplorerActions = {
+    onAnalysis: (entry) => void prepareAnalysis(entry),
+    onPrivacy: (entry) => {
+      setPrivacyError(null);
+      setPrivacyTarget(entry);
+    },
+    onChangeLogo: (entry) => setLogoTarget(entry),
+    onProperties: (entry) => setPropertiesTarget(entry),
+  };
 
   const rootLabel = t("library.explorer.root");
   const toggle =
@@ -748,17 +754,10 @@ export function LibraryPage() {
                         key={entry.path}
                         entry={entry}
                         language={language}
-                        admin={admin}
-                        superAdmin={superAdmin}
-                        menuOpen={menuFor === entry.path}
-                        onMenu={(open) => setMenuFor(open ? entry.path : null)}
+                        rights={rights}
+                        actions={actions}
                         onOpenFolder={openFolder}
                         onOpenVideo={openVideo}
-                        onPrivacy={() => {
-                          setPrivacyError(null);
-                          setPrivacyTarget(entry);
-                        }}
-                        onAnalysis={() => prepareAnalysis(entry)}
                         busyPath={opening}
                       />
                     ))}
@@ -770,11 +769,16 @@ export function LibraryPage() {
           {listing.state.status === "ready" &&
             items.length > 0 &&
             view === "icons" && (
-              <ul className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-0">
+              <ul
+                aria-label={t("library.explorer.listCaption")}
+                className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-2 p-0"
+              >
                 {items.map((entry) => (
                   <li key={entry.path}>
                     <ExplorerIcon
                       entry={entry}
+                      rights={rights}
+                      actions={actions}
                       onOpenFolder={openFolder}
                       onOpenVideo={openVideo}
                     />
@@ -886,6 +890,27 @@ export function LibraryPage() {
           )}
         </ConfirmDialog>
       )}
+      {logoTarget && (
+        <FolderLogoDialog
+          entry={logoTarget}
+          csrf={csrf}
+          open
+          onOpenChange={(open) => {
+            if (!open) setLogoTarget(null);
+          }}
+          onChanged={refreshExplorer}
+        />
+      )}
+
+      {propertiesTarget && (
+        <ExplorerPropertiesDialog
+          entry={propertiesTarget}
+          open
+          onOpenChange={(open) => {
+            if (!open) setPropertiesTarget(null);
+          }}
+        />
+      )}
     </section>
   );
 }
@@ -893,14 +918,10 @@ export function LibraryPage() {
 type RowProps = {
   entry: ExplorerEntry;
   language: string;
-  admin: boolean;
-  superAdmin: boolean;
-  menuOpen: boolean;
-  onMenu: (open: boolean) => void;
+  rights: ExplorerRights;
+  actions: ExplorerActions;
   onOpenFolder: (path: string) => void;
   onOpenVideo: (entry: ExplorerEntry) => void;
-  onPrivacy: () => void;
-  onAnalysis: () => void;
   busyPath: string | null;
 };
 
@@ -908,14 +929,10 @@ type RowProps = {
 function ExplorerRow({
   entry,
   language,
-  admin,
-  superAdmin,
-  menuOpen,
-  onMenu,
+  rights,
+  actions,
   onOpenFolder,
   onOpenVideo,
-  onPrivacy,
-  onAnalysis,
   busyPath,
 }: RowProps) {
   const { t } = useI18n();
@@ -923,7 +940,13 @@ function ExplorerRow({
   const name = (
     <span className="flex min-w-0 items-center gap-2">
       {entry.directory ? (
-        <FolderGlyph name={entry.name} isPrivate={entry.private} size={16} />
+        <FolderGlyph
+          name={entry.name}
+          path={entry.path}
+          version={entry.logo_version}
+          locked={entry.locked}
+          size={16}
+        />
       ) : (
         <Film size={16} aria-hidden="true" className="text-mute" />
       )}
@@ -937,142 +960,110 @@ function ExplorerRow({
   );
   const busy = busyPath === entry.path;
   return (
-    <tr className="border-b border-line align-middle hover:bg-side">
-      <td className="px-2 py-2">
-        <div className="flex items-center gap-2">
-          {entry.directory ? (
-            <button
-              type="button"
-              className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:no-underline md:min-h-0"
-              disabled={entry.locked}
-              title={
-                entry.locked ? t("library.privateFolder.lockedHint") : undefined
-              }
-              onClick={() => onOpenFolder(entry.path)}
-            >
-              {name}
-            </button>
-          ) : entry.clip_id ? (
-            <Link
-              to={`/clips/${entry.clip_id}`}
-              state={clipOrigin.state}
-              onClick={clipOrigin.remember}
-              data-clip-id={entry.clip_id}
-              aria-label={t("library.card.open", { name: entry.name })}
-              className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
-            >
-              {name}
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:opacity-60 md:min-h-0"
-              disabled={busy}
-              onClick={() => onOpenVideo(entry)}
-            >
-              {name}
-            </button>
-          )}
-          {entry.match_count !== undefined && (
-            <span className="rounded-full bg-accent-soft px-1.5 text-xs whitespace-nowrap text-accent-ink">
-              {t("library.explorer.matchCount", { count: entry.match_count })}
-            </span>
-          )}
-          {entry.voices_pending > 0 && (
-            <span className="rounded-full bg-warn-bg px-1.5 text-xs whitespace-nowrap text-warn-fg">
-              {t("library.explorer.voicesToProcess", {
-                count: entry.voices_pending,
-              })}
-            </span>
-          )}
-        </div>
-      </td>
-      <td className="px-2 py-2">
-        {entry.directory ? null : (
-          <ExplorerStatePill state={busy ? "in_progress" : entry.state} />
-        )}
-      </td>
-      <td className="px-2 py-2 tabular-nums text-mute">
-        {entry.duration_seconds != null
-          ? formatTimecode(entry.duration_seconds)
-          : "—"}
-      </td>
-      <td className="px-2 py-2 text-mute">{entry.owner || "—"}</td>
-      <td className="px-2 py-2 text-mute">
-        {entry.added_at
-          ? new Intl.DateTimeFormat(language, { dateStyle: "medium" }).format(
-              new Date(entry.added_at),
-            )
-          : "—"}
-      </td>
-      <td className="px-2 py-2 tabular-nums text-mute">
-        {entry.directory ? "—" : formatSize(entry.size_bytes, language)}
-      </td>
-      <td className="relative px-3 py-2 text-right">
-        {entry.directory && (admin || superAdmin) && !entry.locked && (
-          <>
-            <button
-              type="button"
-              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded px-1.5 text-mute hover:bg-line md:min-h-0 md:min-w-0"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-              aria-label={t("library.explorer.folderMenu", {
-                name: entry.name,
-              })}
-              onClick={() => onMenu(!menuOpen)}
-            >
-              <MoreHorizontal size={16} aria-hidden="true" />
-            </button>
-            {menuOpen && (
-              <div
-                role="menu"
-                className="absolute right-3 z-10 mt-1 flex min-w-[14rem] flex-col rounded-lg border border-line bg-surface p-1 text-left shadow-md"
-              >
-                {admin && (
-                  <button
-                    role="menuitem"
-                    type="button"
-                    className="rounded px-3 py-2 text-left text-sm hover:bg-hover"
-                    onClick={onAnalysis}
-                  >
-                    {t("library.explorer.analyseUnanalysed")}
-                  </button>
-                )}
-                {superAdmin && !entry.path.includes("/") && (
-                  <button
-                    role="menuitem"
-                    type="button"
-                    className="rounded px-3 py-2 text-left text-sm hover:bg-hover"
-                    onClick={onPrivacy}
-                  >
-                    {entry.private ? (
-                      <LockOpen size={14} aria-hidden="true" />
-                    ) : (
-                      <Lock size={14} aria-hidden="true" />
-                    )}{" "}
-                    {t(
-                      entry.private
-                        ? "library.explorer.makeShared"
-                        : "library.explorer.makePrivate",
-                    )}
-                  </button>
-                )}
-              </div>
+    <ExplorerEntryContextMenu
+      entry={entry}
+      rights={rights}
+      handlers={actions}
+      trigger={
+        <tr className="border-b border-line align-middle hover:bg-side">
+          <td className="px-2 py-2">
+            <div className="flex items-center gap-2">
+              {entry.directory ? (
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:cursor-not-allowed disabled:no-underline md:min-h-0"
+                  disabled={entry.locked}
+                  title={
+                    entry.locked
+                      ? t("library.privateFolder.lockedHint")
+                      : undefined
+                  }
+                  onClick={() => onOpenFolder(entry.path)}
+                >
+                  {name}
+                </button>
+              ) : entry.clip_id ? (
+                <Link
+                  to={`/clips/${entry.clip_id}`}
+                  state={clipOrigin.state}
+                  onClick={clipOrigin.remember}
+                  data-clip-id={entry.clip_id}
+                  aria-label={t("library.card.open", { name: entry.name })}
+                  className="inline-flex min-h-11 max-w-full items-center font-medium text-ink hover:underline md:min-h-0"
+                >
+                  {name}
+                </Link>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 max-w-full items-center text-left font-medium text-ink hover:underline disabled:opacity-60 md:min-h-0"
+                  disabled={busy}
+                  onClick={() => onOpenVideo(entry)}
+                >
+                  {name}
+                </button>
+              )}
+              {entry.match_count !== undefined && (
+                <span className="rounded-full bg-accent-soft px-1.5 text-xs whitespace-nowrap text-accent-ink">
+                  {t("library.explorer.matchCount", {
+                    count: entry.match_count,
+                  })}
+                </span>
+              )}
+              {entry.voices_pending > 0 && (
+                <span className="rounded-full bg-warn-bg px-1.5 text-xs whitespace-nowrap text-warn-fg">
+                  {t("library.explorer.voicesToProcess", {
+                    count: entry.voices_pending,
+                  })}
+                </span>
+              )}
+            </div>
+          </td>
+          <td className="px-2 py-2">
+            {entry.directory ? null : (
+              <ExplorerStatePill state={busy ? "in_progress" : entry.state} />
             )}
-          </>
-        )}
-      </td>
-    </tr>
+          </td>
+          <td className="px-2 py-2 tabular-nums text-mute">
+            {entry.duration_seconds != null
+              ? formatTimecode(entry.duration_seconds)
+              : "—"}
+          </td>
+          <td className="px-2 py-2 text-mute">{entry.owner || "—"}</td>
+          <td className="px-2 py-2 text-mute">
+            {entry.added_at
+              ? new Intl.DateTimeFormat(language, {
+                  dateStyle: "medium",
+                }).format(new Date(entry.added_at))
+              : "—"}
+          </td>
+          <td className="px-2 py-2 tabular-nums text-mute">
+            {entry.directory ? "—" : formatSize(entry.size_bytes, language)}
+          </td>
+          <td className="relative px-3 py-2 text-right">
+            <ExplorerEntryMenu
+              entry={entry}
+              rights={rights}
+              handlers={actions}
+            />
+          </td>
+        </tr>
+      }
+    />
   );
 }
 
 /** One tile of the icons view: the same name and state as the list. */
 function ExplorerIcon({
   entry,
+  rights,
+  actions,
   onOpenFolder,
   onOpenVideo,
 }: {
   entry: ExplorerEntry;
+  rights: ExplorerRights;
+  actions: ExplorerActions;
   onOpenFolder: (path: string) => void;
   onOpenVideo: (entry: ExplorerEntry) => void;
 }) {
@@ -1082,7 +1073,13 @@ function ExplorerIcon({
   const body = (
     <>
       {entry.directory ? (
-        <FolderGlyph name={entry.name} isPrivate={entry.private} size={56} />
+        <FolderGlyph
+          name={entry.name}
+          path={entry.path}
+          version={entry.logo_version}
+          locked={entry.locked}
+          size={56}
+        />
       ) : (
         <span
           className={`relative flex h-14 w-20 items-center justify-center rounded-md ${
@@ -1121,35 +1118,37 @@ function ExplorerIcon({
   );
   const tile =
     "flex w-full flex-col items-center gap-1 rounded-xl p-3 text-center hover:bg-side disabled:opacity-60";
-  if (entry.directory) {
-    return (
-      <button
-        type="button"
-        className={tile}
-        disabled={entry.locked}
-        onClick={() => onOpenFolder(entry.path)}
-      >
-        {body}
-      </button>
-    );
-  }
-  if (entry.clip_id) {
-    return (
-      <Link
-        to={`/clips/${entry.clip_id}`}
-        state={clipOrigin.state}
-        onClick={clipOrigin.remember}
-        data-clip-id={entry.clip_id}
-        className={tile}
-      >
-        {body}
-      </Link>
-    );
-  }
-  return (
+  const element = entry.directory ? (
+    <button
+      type="button"
+      className={tile}
+      disabled={entry.locked}
+      onClick={() => onOpenFolder(entry.path)}
+    >
+      {body}
+    </button>
+  ) : entry.clip_id ? (
+    <Link
+      to={`/clips/${entry.clip_id}`}
+      state={clipOrigin.state}
+      onClick={clipOrigin.remember}
+      data-clip-id={entry.clip_id}
+      className={tile}
+    >
+      {body}
+    </Link>
+  ) : (
     <button type="button" className={tile} onClick={() => onOpenVideo(entry)}>
       {body}
     </button>
+  );
+  return (
+    <ExplorerEntryContextMenu
+      entry={entry}
+      rights={rights}
+      handlers={actions}
+      trigger={<div className="min-w-0">{element}</div>}
+    />
   );
 }
 

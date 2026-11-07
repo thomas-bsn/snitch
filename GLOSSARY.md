@@ -30,6 +30,12 @@ _Avoid_ : Scan (qui désigne la lecture du disque), import (qui désigne l'envoi
 **Dossier privé** : Un dossier de premier niveau d'une Source que seul le Super-administrateur peut parcourir. Les autres utilisateurs voient son nom avec un cadenas, pas ses clips, sauf ceux qu'ils possèdent ou qui proviennent aussi d'un emplacement visible. Il est distinct de la visibilité d'un clip.
 _Avoid_ : Source privée, clip privé.
 
+**Logo de dossier** : L'image importée par un administrateur pour remplacer la jaquette automatique d'un dossier de la Racine vidéo. Jusqu'à quatre images distinctes sont conservées ; sélectionner une ancienne version ou revenir à la jaquette automatique ne crée ni ne supprime d'entrée d'historique. Modifier le logo d'un Dossier privé reste réservé au Super-administrateur.
+_Avoid_ : Jaquette (qui désigne l'image automatique), avatar de dossier.
+
+**Propriétés d'une entrée** : Les chiffres et dates d'un dossier ou d'une vidéo de la Bibliothèque : taille sur le disque, vidéos, durée, propriétaires et dates d'ajout. Pour un dossier, elles portent sur tout son sous-arbre et seulement sur les clips que l'appelant peut lire.
+_Avoid_ : Métadonnées (réservé à la capture), détails du clip.
+
 **Locuteur local** : Une voix distinguée au sein d'un clip, sans identité nécessairement connue.
 _Avoid_ : Personne.
 

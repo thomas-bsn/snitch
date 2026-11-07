@@ -22,6 +22,9 @@ export const errorsEn = {
   video_root_unavailable:
     "This root cannot be used. Check that it is mounted and writable.",
   folder_logo_not_found: "No game logo for this folder.",
+  invalid_folder_logo: "Choose a valid PNG or JPEG image.",
+  folder_logo_too_large: "This image is larger than 2 MB.",
+  folder_logo_version_not_found: "This logo version no longer exists.",
   video_root_unconfigured: "Configure the video root first.",
   video_root_busy:
     "Finish or cancel the uploads waiting to be published before changing the root.",

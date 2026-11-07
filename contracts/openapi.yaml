@@ -6034,41 +6034,57 @@
     "/api/library/folder-logo": {
       "get": {
         "operationId": "getFolderLogo",
-        "description": "Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise.",
+        "description": "Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise.",
         "parameters": [
-          {
-            "in": "query",
-            "name": "name",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "maxLength": 255
-            },
-            "description": "Nom du dossier"
-          }
+          {"in": "query", "name": "name", "required": true, "schema": {"type": "string", "maxLength": 255}, "description": "Nom du dossier"},
+          {"in": "query", "name": "path", "schema": {"type": "string", "maxLength": 1024}, "description": "Dossier relatif à la Racine vidéo : cherche d'abord son logo personnalisé"},
+          {"in": "query", "name": "version", "schema": {"type": "integer", "minimum": 1}, "description": "Une image précise de l'historique (ignorée sans path)"}
         ],
         "responses": {
-          "200": {
-            "description": "Jaquette JPEG",
-            "content": {
-              "image/jpeg": {
-                "schema": {
-                  "type": "string",
-                  "format": "binary"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Aucun jeu pour ce nom (404) ou erreur",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
+          "200": {"description": "Logo PNG ou JPEG", "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}, "image/jpeg": {"schema": {"type": "string", "format": "binary"}}}},
+          "default": {"description": "Aucun logo pour ce dossier (404), dossier privé refusé (403) ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      },
+      "put": {
+        "operationId": "putFolderLogo",
+        "summary": "Choisir un logo personnalisé pour un dossier (administrateur ; Super-administrateur pour un Dossier privé)",
+        "description": "Le corps est l'image elle-même (PNG ou JPEG, 2 Mo maximum). La nouvelle image devient le logo courant et entre dans l'historique de quatre versions.",
+        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string", "maxLength": 1024}, "description": "Dossier relatif à la Racine vidéo"}],
+        "requestBody": {"required": true, "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}, "image/jpeg": {"schema": {"type": "string", "format": "binary"}}}},
+        "responses": {
+          "200": {"description": "Nouveau logo courant et historique", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
+          "413": {"description": "folder_logo_too_large", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+          "default": {"description": "Image invalide, droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      },
+      "delete": {
+        "operationId": "clearFolderLogo",
+        "summary": "Revenir au logo automatique d'un dossier sans effacer son historique",
+        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string", "maxLength": 1024}}],
+        "responses": {
+          "204": {"description": "Logo automatique rétabli"},
+          "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      }
+    },
+    "/api/library/folder-logo/history": {
+      "get": {
+        "operationId": "getFolderLogoHistory",
+        "summary": "Logo personnalisé d'un dossier et ses trois versions précédentes (administrateur)",
+        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string", "maxLength": 1024}}],
+        "responses": {
+          "200": {"description": "Logo courant et historique", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
+          "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+        }
+      },
+      "post": {
+        "operationId": "restoreFolderLogo",
+        "summary": "Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoRestore"}}}},
+        "responses": {
+          "200": {"description": "Logo sélectionné et historique sans entrée dupliquée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
+          "404": {"description": "folder_logo_version_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
+          "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
         }
       }
     },
@@ -6292,6 +6308,18 @@
               }
             }
           }
+        }
+      }
+    },
+    "/api/library/explorer/properties": {
+      "get": {
+        "operationId": "getExplorerProperties",
+        "summary": "Propriétés agrégées d'un dossier ou d'une vidéo de l'explorateur (ADR 0032)",
+        "description": "Un dossier agrège tout son sous-arbre : taille sur disque, nombre de vidéos et de sous-dossiers, durée et propriétaires des seuls clips lisibles, date du plus ancien ajout. Une vidéo donne sa durée, son propriétaire et ses dates ; clip:<id> répond pour un clip sans fichier dans la Racine. Les Dossiers privés et les clips non lisibles ne sont jamais comptés pour qui ne peut pas les ouvrir.",
+        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string"}, "description": "Chemin relatif, vide pour la Racine, ou clip:<id>"}],
+        "responses": {
+          "200": {"description": "Propriétés", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExplorerProperties"}}}},
+          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
         }
       }
     },
@@ -16269,6 +16297,61 @@
           }
         }
       },
+      "FolderLogoVersion": {
+        "type": "object",
+        "required": ["version", "created_at"],
+        "properties": {
+          "version": {"type": "integer", "minimum": 1},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "FolderLogoState": {
+        "type": "object",
+        "required": ["path", "custom", "versions"],
+        "properties": {
+          "path": {"type": "string"},
+          "custom": {"type": "boolean", "description": "Faux : le logo automatique est affiché, les versions restent dans l'historique"},
+          "active_version": {"type": "integer", "minimum": 1, "description": "Version actuellement sélectionnée lorsque custom vaut true"},
+          "versions": {"type": "array", "items": {"$ref": "#/components/schemas/FolderLogoVersion"}, "description": "La plus récente d'abord, quatre au maximum"}
+        }
+      },
+      "FolderLogoRestore": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "version"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "version": {"type": "integer", "minimum": 1}
+        }
+      },
+      "ExplorerOwner": {
+        "type": "object",
+        "required": ["id", "name", "videos"],
+        "properties": {
+          "id": {"type": "integer", "format": "int64"},
+          "name": {"type": "string"},
+          "videos": {"type": "integer", "minimum": 1}
+        }
+      },
+      "ExplorerProperties": {
+        "type": "object",
+        "required": ["path", "name", "directory", "size_bytes", "video_count", "folder_count", "indexed_count", "owners"],
+        "properties": {
+          "path": {"type": "string"},
+          "name": {"type": "string"},
+          "directory": {"type": "boolean"},
+          "size_bytes": {"type": "integer", "format": "int64"},
+          "video_count": {"type": "integer"},
+          "folder_count": {"type": "integer"},
+          "indexed_count": {"type": "integer"},
+          "duration_seconds": {"type": "number", "nullable": true, "description": "Somme des durées des clips lisibles, nulle sans clip indexé"},
+          "added_at": {"type": "string", "format": "date-time", "nullable": true, "description": "Dossier : date du plus ancien clip indexé lisible"},
+          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
+          "game": {"type": "string"},
+          "state": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]},
+          "owners": {"type": "array", "items": {"$ref": "#/components/schemas/ExplorerOwner"}, "description": "Propriétaires des clips lisibles, du plus de vidéos au moins"}
+        }
+      },
       "ExplorerEntry": {
         "type": "object",
         "required": [
@@ -16289,81 +16372,25 @@
           "voices_pending"
         ],
         "properties": {
-          "name": {
-            "type": "string"
-          },
-          "path": {
-            "type": "string",
-            "description": "Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine"
-          },
-          "folder": {
-            "type": "string"
-          },
-          "directory": {
-            "type": "boolean"
-          },
-          "size_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "private": {
-            "type": "boolean"
-          },
-          "locked": {
-            "type": "boolean"
-          },
-          "state": {
-            "type": "string",
-            "enum": [
-              "not_indexed",
-              "in_progress",
-              "not_analyzed",
-              "transcribed",
-              "analyzed",
-              "failed"
-            ]
-          },
-          "clip_id": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          },
-          "owner_id": {
-            "type": "integer",
-            "format": "int64",
-            "nullable": true
-          },
-          "owner": {
-            "type": "string"
-          },
-          "visibility": {
-            "type": "string"
-          },
-          "duration_seconds": {
-            "type": "number",
-            "nullable": true
-          },
-          "added_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "recorded_at": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
-          },
-          "game": {
-            "type": "string"
-          },
-          "voices_pending": {
-            "type": "integer"
-          },
-          "match_count": {
-            "type": "integer",
-            "minimum": 1,
-            "description": "Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant"
-          }
+          "name": {"type": "string"},
+          "path": {"type": "string", "description": "Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine"},
+          "folder": {"type": "string"},
+          "directory": {"type": "boolean"},
+          "size_bytes": {"type": "integer", "format": "int64"},
+          "private": {"type": "boolean"},
+          "locked": {"type": "boolean"},
+          "state": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]},
+          "clip_id": {"type": "integer", "format": "int64", "nullable": true},
+          "owner_id": {"type": "integer", "format": "int64", "nullable": true},
+          "owner": {"type": "string"},
+          "visibility": {"type": "string"},
+          "duration_seconds": {"type": "number", "nullable": true},
+          "added_at": {"type": "string", "format": "date-time", "nullable": true},
+          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
+          "game": {"type": "string"},
+          "voices_pending": {"type": "integer"},
+          "match_count": {"type": "integer", "minimum": 1, "description": "Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant"},
+          "logo_version": {"type": "integer", "description": "Version du logo personnalisé actif d'un dossier, absente sans logo personnalisé"}
         }
       },
       "ExplorerListing": {

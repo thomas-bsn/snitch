@@ -10,6 +10,7 @@ from ... import errors
 
 from ...models.error import Error
 from ...types import File, FileTypes
+from ...types import UNSET, Unset
 from io import BytesIO
 from typing import cast
 
@@ -18,6 +19,8 @@ from typing import cast
 def _get_kwargs(
     *,
     name: str,
+    path: str | Unset = UNSET,
+    version: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
 
@@ -27,6 +30,10 @@ def _get_kwargs(
     params: dict[str, Any] = {}
 
     params["name"] = name
+
+    params["path"] = path
+
+    params["version"] = version
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -74,15 +81,20 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     name: str,
+    path: str | Unset = UNSET,
+    version: int | Unset = UNSET,
 
 ) -> Response[Error | File]:
-    """  Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
+    """  Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la
+    jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
     conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un
     jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off)
     répondent 404 et le dossier garde son icône. Session requise.
 
     Args:
         name (str):
+        path (str | Unset):
+        version (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -95,6 +107,8 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         name=name,
+path=path,
+version=version,
 
     )
 
@@ -108,15 +122,20 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     name: str,
+    path: str | Unset = UNSET,
+    version: int | Unset = UNSET,
 
 ) -> Error | File | None:
-    """  Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
+    """  Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la
+    jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
     conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un
     jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off)
     répondent 404 et le dossier garde son icône. Session requise.
 
     Args:
         name (str):
+        path (str | Unset):
+        version (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -130,6 +149,8 @@ def sync(
     return sync_detailed(
         client=client,
 name=name,
+path=path,
+version=version,
 
     ).parsed
 
@@ -137,15 +158,20 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     name: str,
+    path: str | Unset = UNSET,
+    version: int | Unset = UNSET,
 
 ) -> Response[Error | File]:
-    """  Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
+    """  Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la
+    jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
     conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un
     jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off)
     répondent 404 et le dossier garde son icône. Session requise.
 
     Args:
         name (str):
+        path (str | Unset):
+        version (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -158,6 +184,8 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         name=name,
+path=path,
+version=version,
 
     )
 
@@ -171,15 +199,20 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     name: str,
+    path: str | Unset = UNSET,
+    version: int | Unset = UNSET,
 
 ) -> Error | File | None:
-    """  Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
+    """  Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la
+    jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis
     conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un
     jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off)
     répondent 404 et le dossier garde son icône. Session requise.
 
     Args:
         name (str):
+        path (str | Unset):
+        version (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -193,5 +226,7 @@ async def asyncio(
     return (await asyncio_detailed(
         client=client,
 name=name,
+path=path,
+version=version,
 
     )).parsed

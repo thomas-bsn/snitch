@@ -104,7 +104,9 @@ export function ExplorerTree({
             >
               <FolderGlyph
                 name={entry.name}
-                isPrivate={entry.private}
+                path={entry.path}
+                version={entry.logo_version}
+                locked={entry.locked}
                 size={16}
               />
               <span className="min-w-0 flex-1 truncate">{entry.name}</span>

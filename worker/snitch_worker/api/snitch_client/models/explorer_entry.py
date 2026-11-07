@@ -45,6 +45,7 @@ class ExplorerEntry:
             visibility (str | Unset):
             match_count (int | Unset): Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits
                 de l'appelant
+            logo_version (int | Unset): Version du logo personnalisé actif d'un dossier, absente sans logo personnalisé
      """
 
     name: str
@@ -65,6 +66,7 @@ class ExplorerEntry:
     state: ExplorerEntryState | Unset = UNSET
     visibility: str | Unset = UNSET
     match_count: int | Unset = UNSET
+    logo_version: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -122,6 +124,8 @@ class ExplorerEntry:
 
         match_count = self.match_count
 
+        logo_version = self.logo_version
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -148,6 +152,8 @@ class ExplorerEntry:
             field_dict["visibility"] = visibility
         if match_count is not UNSET:
             field_dict["match_count"] = match_count
+        if logo_version is not UNSET:
+            field_dict["logo_version"] = logo_version
 
         return field_dict
 
@@ -250,6 +256,8 @@ class ExplorerEntry:
 
         match_count = d.pop("match_count", UNSET)
 
+        logo_version = d.pop("logo_version", UNSET)
+
         explorer_entry = cls(
             name=name,
             path=path,
@@ -269,6 +277,7 @@ class ExplorerEntry:
             state=state,
             visibility=visibility,
             match_count=match_count,
+            logo_version=logo_version,
         )
 
 
