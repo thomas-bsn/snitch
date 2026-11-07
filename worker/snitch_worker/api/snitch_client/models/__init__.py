@@ -236,6 +236,7 @@ from .person_ref import PersonRef
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .poll_worker_restart_response_200 import PollWorkerRestartResponse200
 from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
 from .post_worker_transcription_config_status_body_error_code import PostWorkerTranscriptionConfigStatusBodyErrorCode
@@ -346,6 +347,8 @@ from .update_clip_body import UpdateClipBody
 from .update_clip_body_visibility import UpdateClipBodyVisibility
 from .update_member_role_body import UpdateMemberRoleBody
 from .update_member_role_body_role import UpdateMemberRoleBodyRole
+from .update_worker_restart_body import UpdateWorkerRestartBody
+from .update_worker_restart_body_status import UpdateWorkerRestartBodyStatus
 from .update_worker_transcription_model_body import UpdateWorkerTranscriptionModelBody
 from .update_worker_transcription_model_response_200 import UpdateWorkerTranscriptionModelResponse200
 from .upload import Upload
@@ -491,6 +494,11 @@ from .worker_recent_task_outcome import WorkerRecentTaskOutcome
 from .worker_registration import WorkerRegistration
 from .worker_registration_input import WorkerRegistrationInput
 from .worker_registration_install_command_unavailable import WorkerRegistrationInstallCommandUnavailable
+from .worker_restart_command import WorkerRestartCommand
+from .worker_restart_command_status import WorkerRestartCommandStatus
+from .worker_restart_history import WorkerRestartHistory
+from .worker_restart_history_items_item import WorkerRestartHistoryItemsItem
+from .worker_restart_input import WorkerRestartInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
 from .worker_transcription_config import WorkerTranscriptionConfig
@@ -753,6 +761,7 @@ __all__ = (
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PollWorkerRestartResponse200",
     "PostWorkerInstallEventsBody",
     "PostWorkerTranscriptionConfigStatusBody",
     "PostWorkerTranscriptionConfigStatusBodyErrorCode",
@@ -863,6 +872,8 @@ __all__ = (
     "UpdateClipBodyVisibility",
     "UpdateMemberRoleBody",
     "UpdateMemberRoleBodyRole",
+    "UpdateWorkerRestartBody",
+    "UpdateWorkerRestartBodyStatus",
     "UpdateWorkerTranscriptionModelBody",
     "UpdateWorkerTranscriptionModelResponse200",
     "Upload",
@@ -1008,6 +1019,11 @@ __all__ = (
     "WorkerRegistration",
     "WorkerRegistrationInput",
     "WorkerRegistrationInstallCommandUnavailable",
+    "WorkerRestartCommand",
+    "WorkerRestartCommandStatus",
+    "WorkerRestartHistory",
+    "WorkerRestartHistoryItemsItem",
+    "WorkerRestartInput",
     "WorkerResultInput",
     "WorkerResultInputResult",
     "WorkerTranscriptionConfig",

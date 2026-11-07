@@ -58,6 +58,8 @@ class Worker:
             machine (WorkerMachine | Unset): Informations non secrètes déclarées par le Worker ; le système est celui du
                 conteneur.
             remote_address (str | Unset): Adresse IP de connexion observée par Snitch, sans port.
+            managed_restart (bool | Unset): Installe un superviseur local facultatif sur cette machine, permettant à un
+                administrateur authentifié de redémarrer ce Worker géré. Default: False.
             claim_stalled (bool | Unset): Vues administrateur (liste et détail) seulement : vrai quand le Worker est
                 connecté et libre mais n'a demandé aucune tâche depuis 2 minutes (issue #321). La présence seule ne dit pas
                 qu'il peut réclamer des tâches. Absent ou faux sinon.
@@ -84,6 +86,7 @@ class Worker:
     install: WorkerInstall | Unset = UNSET
     machine: WorkerMachine | Unset = UNSET
     remote_address: str | Unset = UNSET
+    managed_restart: bool | Unset = False
     claim_stalled: bool | Unset = UNSET
     models: WorkerModels | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -162,6 +165,8 @@ class Worker:
 
         remote_address = self.remote_address
 
+        managed_restart = self.managed_restart
+
         claim_stalled = self.claim_stalled
 
         models: dict[str, Any] | Unset = UNSET
@@ -199,6 +204,8 @@ class Worker:
             field_dict["machine"] = machine
         if remote_address is not UNSET:
             field_dict["remote_address"] = remote_address
+        if managed_restart is not UNSET:
+            field_dict["managed_restart"] = managed_restart
         if claim_stalled is not UNSET:
             field_dict["claim_stalled"] = claim_stalled
         if models is not UNSET:
@@ -351,6 +358,8 @@ class Worker:
 
         remote_address = d.pop("remote_address", UNSET)
 
+        managed_restart = d.pop("managed_restart", UNSET)
+
         claim_stalled = d.pop("claim_stalled", UNSET)
 
         _models = d.pop("models", UNSET)
@@ -382,6 +391,7 @@ class Worker:
             install=install,
             machine=machine,
             remote_address=remote_address,
+            managed_restart=managed_restart,
             claim_stalled=claim_stalled,
             models=models,
         )

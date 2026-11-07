@@ -77,7 +77,7 @@ func (r *installerRun) run(t *testing.T, token string, env ...string) (stdout, s
 	err = workerInstallScript.Execute(&script, map[string]string{
 		"WorkerID": "wk_syntheticFixtureWorker123", "APIURL": b64("https://snitch.example.org"), "Token": b64(token),
 		"Image": b64("ghcr.io/thomas-bsn/snitch-worker:fixture"), "TranscriptionMode": "unconfigured",
-		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""), "UpdaterScript": b64(workerUpdaterScript),
+		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""), "UpdaterScript": b64(workerUpdaterScript), "SupervisorToken": "", "SupervisorScript": "",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -323,7 +323,7 @@ func (r *installerRun) runTTY(t *testing.T, token string, answers []string, env 
 	if err = workerInstallScript.Execute(&script, map[string]string{
 		"WorkerID": "wk_syntheticFixtureWorker123", "APIURL": b64("https://snitch.example.org"), "Token": b64(token),
 		"Image": b64("ghcr.io/thomas-bsn/snitch-worker:fixture"), "TranscriptionMode": "unconfigured",
-		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""), "UpdaterScript": b64(workerUpdaterScript),
+		"TranscriptionEndpoint": b64(""), "TranscriptionModel": b64(""), "TranscriptionLanguage": b64(""), "UpdaterScript": b64(workerUpdaterScript), "SupervisorToken": "", "SupervisorScript": "",
 	}); err != nil {
 		t.Fatal(err)
 	}

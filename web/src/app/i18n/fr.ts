@@ -1692,7 +1692,27 @@ export const fr: Messages = {
       lastPulse: "Dernier pouls",
       installation: "Installation",
       noRemote:
-        "Snitch ne peut pas redémarrer cette machine à distance : aucun superviseur local n’est connecté. Lancez les commandes ci-dessous sur la machine du Worker.",
+        "Snitch ne peut redémarrer cette machine qu’avec son superviseur local facultatif. Lancez les commandes ci-dessous sur la machine du Worker si le redémarrage géré est indisponible.",
+      managedTitle: "Redémarrage géré",
+      supervisorOnline:
+        "Le superviseur de la machine est connecté (dernier contact : {date}).",
+      supervisorOffline:
+        "Le superviseur de la machine est injoignable. Il fonctionne seulement si la machine et Docker tournent ; après un arrêt ou une veille, WSL2 doit être relancé manuellement.",
+      managedRestart: "Demander un redémarrage géré",
+      restartConfirmTitle: "Redémarrer ce Worker ?",
+      restartConfirmBody:
+        "Le Worker cessera de prendre de nouvelles tâches, terminera les tâches en cours puis redémarrera son conteneur nommé. Snitch ne l’affichera en ligne qu’après réception d’un nouveau pouls.",
+      restartReason: "Motif (obligatoire)",
+      restartHistory: "Demandes de redémarrage récentes",
+      restartState: {
+        requested: "demandé",
+        accepted: "accepté",
+        stopping: "arrêt en cours",
+        starting: "démarrage en cours",
+        online: "en ligne",
+        failed: "échec",
+        expired: "expiré",
+      },
       hints: "À vérifier",
       hint: {
         docker_daemon: "Le démon Docker ne tourne pas sur la machine.",
@@ -1936,6 +1956,9 @@ export const fr: Messages = {
       name: "Nom du Worker",
       nameHint:
         "1 à 64 caractères. Lettres, chiffres, espaces, points, tirets et soulignés.",
+      managedRestart: "Activer le redémarrage géré",
+      managedRestartHint:
+        "Installe un superviseur local facultatif. Un administrateur pourra demander le redémarrage de ce Worker depuis Snitch ; le service ne redémarre que son conteneur nommé.",
       snitch: "Adresse de Snitch",
       snitchHint:
         "Renseignée par Snitch depuis l’adresse avec laquelle vous l’avez ouvert.",

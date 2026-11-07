@@ -23,6 +23,10 @@ const workerInstallInviteLifetime = 15 * time.Minute
 // The invitation is single-use; the private local launcher it downloads resumes later installs.
 // It returns an empty command and a reason when Snitch refuses to generate one.
 func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token, image, apiURL string, allowInsecure bool, transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage string) (command, unavailable string, err error) {
+	return s.createWorkerInstallCommandWithSupervisor(ctx, workerID, token, "", image, apiURL, allowInsecure, transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage)
+}
+
+func (s *Server) createWorkerInstallCommandWithSupervisor(ctx context.Context, workerID, token, supervisorToken, image, apiURL string, allowInsecure bool, transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage string) (command, unavailable string, err error) {
 	origin, err := url.Parse(apiURL)
 	if err != nil || (origin.Scheme != "http" && origin.Scheme != "https") || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
 		return "", "invalid_origin", nil
@@ -35,7 +39,18 @@ func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token
 	if err != nil {
 		return "", "", err
 	}
-	_, err = s.Pool.Exec(ctx, `INSERT INTO worker_install_invites(code_hash,worker_id,encrypted_token,api_url,image,expires_at,transcription_mode,transcription_endpoint,transcription_model,transcription_language) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, auth.Hash(code), workerID, sealed, apiURL, image, time.Now().Add(workerInstallInviteLifetime), transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage)
+	sealedSupervisor := []byte(nil)
+	if supervisorToken != "" {
+		sealedSupervisor, err = auth.Seal(s.Config.MasterKey, "worker-supervisor-install:"+workerID, supervisorToken)
+		if err != nil {
+			return "", "", err
+		}
+	}
+	var sealedSupervisorArg any
+	if len(sealedSupervisor) > 0 {
+		sealedSupervisorArg = sealedSupervisor
+	}
+	_, err = s.Pool.Exec(ctx, `INSERT INTO worker_install_invites(code_hash,worker_id,encrypted_token,api_url,image,expires_at,transcription_mode,transcription_endpoint,transcription_model,transcription_language,encrypted_supervisor_token) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, auth.Hash(code), workerID, sealed, apiURL, image, time.Now().Add(workerInstallInviteLifetime), transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage, sealedSupervisorArg)
 	if err != nil {
 		return "", "", err
 	}
@@ -53,6 +68,9 @@ func (s *Server) createWorkerInstallCommand(ctx context.Context, workerID, token
 //
 //go:embed worker_updater.sh
 var workerUpdaterScript string
+
+//go:embed worker_supervisor.py
+var workerSupervisorScript string
 
 var workerInstallScript = template.Must(template.New("install").Parse(`#!/usr/bin/env bash
 # Snitch Worker launcher. Safe to rerun: identity, service, volume and models are reused.
@@ -121,6 +139,8 @@ docker info >/dev/null 2>&1 || fail docker_unavailable 'Start Docker and grant t
 api_url=$(printf '%s' '{{.APIURL}}' | base64 -d)
 seed_token=$(printf '%s' '{{.Token}}' | base64 -d)
 image=$(printf '%s' '{{.Image}}' | base64 -d)
+supervisor_token=''
+if [ -n '{{.SupervisorToken}}' ]; then supervisor_token=$(printf '%s' '{{.SupervisorToken}}' | base64 -d); fi
 transcription_endpoint=$(printf '%s' '{{.TranscriptionEndpoint}}' | base64 -d)
 transcription_model=$(printf '%s' '{{.TranscriptionModel}}' | base64 -d)
 transcription_language=$(printf '%s' '{{.TranscriptionLanguage}}' | base64 -d)
@@ -216,6 +236,29 @@ if ! start_service "$image"; then
  fail service_start_failed 'Could not start the Worker. Inspect Docker logs, then rerun.' 'Impossible de démarrer le Worker. Consultez les journaux Docker, puis relancez.'
 fi
 emit service succeeded
+# The optional host supervisor is a separate user service. It can control only this Worker name.
+if [ -n "$supervisor_token" ]; then
+ supervisor_script="$dir/supervisor.py"
+ if printf '%s' '{{.SupervisorScript}}' | base64 -d > "$supervisor_script.tmp" 2>/dev/null && [ -s "$supervisor_script.tmp" ]; then
+  chmod 700 "$supervisor_script.tmp"; mv "$supervisor_script.tmp" "$supervisor_script"
+  supervisor_env="$dir/supervisor.env"
+  printf 'SNITCH_API_URL=%s\nSNITCH_SUPERVISOR_TOKEN=%s\nSNITCH_WORKER_ID=%s\n' "$api_url" "$supervisor_token" "$worker_id" > "$supervisor_env.tmp"
+  chmod 600 "$supervisor_env.tmp"; mv "$supervisor_env.tmp" "$supervisor_env"
+  mkdir -p "$HOME/.config/systemd/user"
+  unit="$HOME/.config/systemd/user/snitch-worker-$worker_id-supervisor.service"
+  printf '[Unit]\nDescription=Snitch Worker supervisor %s\nAfter=network-online.target docker.service\n\n[Service]\nType=simple\nEnvironmentFile=%s\nExecStart=/usr/bin/python3 %s\nRestart=on-failure\nRestartSec=10\n\n[Install]\nWantedBy=default.target\n' "$worker_id" "$supervisor_env" "$supervisor_script" > "$unit"
+  chmod 600 "$unit"
+  if systemctl --user daemon-reload >/dev/null 2>&1 && systemctl --user enable --now "snitch-worker-$worker_id-supervisor.service" >/dev/null 2>&1; then
+   printf 'Managed restart supervisor enabled.\n'
+  else
+   printf 'Warning: user systemd is unavailable; managed restart will stay offline. Enable systemd --user and rerun the installer.\n' >&2
+  fi
+ else
+  rm -f "$supervisor_script.tmp"
+  printf 'Warning: could not install managed restart supervisor.\n' >&2
+ fi
+ unset supervisor_token
+fi
 # The local updater (ADR 0036) runs from cron every 10 minutes. Without cron, updates need this command to be rerun.
 # Never fatal: the Worker runs whether or not its updater could be installed.
 if printf '%s' '{{.UpdaterScript}}' | base64 -d > "$dir/updater.sh.tmp" 2>/dev/null && [ -s "$dir/updater.sh.tmp" ] && chmod 700 "$dir/updater.sh.tmp" && mv "$dir/updater.sh.tmp" "$dir/updater.sh"; then
@@ -244,9 +287,9 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 	}
 	defer tx.Rollback(r.Context())
 	var workerID, apiURL, image, transcriptionMode, transcriptionEndpoint, transcriptionModel, transcriptionLanguage string
-	var sealed []byte
+	var sealed, sealedSupervisor []byte
 	// Consumption is atomic: concurrent or repeated downloads of one invitation cannot both succeed.
-	err = tx.QueryRow(r.Context(), `UPDATE worker_install_invites i SET used_at=now() FROM workers w WHERE w.id=i.worker_id AND i.code_hash=$1 AND i.used_at IS NULL AND i.expires_at>now() AND w.revoked_at IS NULL RETURNING i.worker_id,i.encrypted_token,i.api_url,i.image,i.transcription_mode,i.transcription_endpoint,i.transcription_model,i.transcription_language`, auth.Hash(code)).Scan(&workerID, &sealed, &apiURL, &image, &transcriptionMode, &transcriptionEndpoint, &transcriptionModel, &transcriptionLanguage)
+	err = tx.QueryRow(r.Context(), `UPDATE worker_install_invites i SET used_at=now() FROM workers w WHERE w.id=i.worker_id AND i.code_hash=$1 AND i.used_at IS NULL AND i.expires_at>now() AND w.revoked_at IS NULL RETURNING i.worker_id,i.encrypted_token,i.api_url,i.image,i.transcription_mode,i.transcription_endpoint,i.transcription_model,i.transcription_language,i.encrypted_supervisor_token`, auth.Hash(code)).Scan(&workerID, &sealed, &apiURL, &image, &transcriptionMode, &transcriptionEndpoint, &transcriptionModel, &transcriptionLanguage, &sealedSupervisor)
 	if errors.Is(err, pgx.ErrNoRows) {
 		var used bool
 		// Same transaction: a second pool connection here deadlocks the pool when concurrent losers hold all of them.
@@ -266,6 +309,14 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	supervisor := ""
+	if len(sealedSupervisor) > 0 {
+		supervisor, err = auth.Open(s.Config.MasterKey, "worker-supervisor-install:"+workerID, sealedSupervisor)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
 	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -279,6 +330,8 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 		TranscriptionModel    string
 		TranscriptionLanguage string
 		UpdaterScript         string
+		SupervisorToken       string
+		SupervisorScript      string
 	}{
 		WorkerID:              workerID,
 		APIURL:                base64.StdEncoding.EncodeToString([]byte(apiURL)),
@@ -289,6 +342,8 @@ func (s *Server) serveWorkerInstall(w http.ResponseWriter, r *http.Request) {
 		TranscriptionModel:    base64.StdEncoding.EncodeToString([]byte(transcriptionModel)),
 		TranscriptionLanguage: base64.StdEncoding.EncodeToString([]byte(transcriptionLanguage)),
 		UpdaterScript:         base64.StdEncoding.EncodeToString([]byte(workerUpdaterScript)),
+		SupervisorToken:       base64.StdEncoding.EncodeToString([]byte(supervisor)),
+		SupervisorScript:      base64.StdEncoding.EncodeToString([]byte(workerSupervisorScript)),
 	}
 	var script bytes.Buffer
 	if err = workerInstallScript.Execute(&script, data); err != nil {

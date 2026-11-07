@@ -216,6 +216,18 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_revoke_reason:
     "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
+  invalid_restart_request: "La demande de redémarrage n’est pas valide.",
+  invalid_restart_result: "Le résultat du redémarrage n’est pas valide.",
+  invalid_restart_transition:
+    "Ce changement d’état du redémarrage n’est pas valide.",
+  managed_supervisor_unavailable:
+    "Les redémarrages supervisés ne sont pas disponibles sur ce Worker.",
+  restart_already_pending: "Un redémarrage est déjà en attente pour ce Worker.",
+  restart_command_expired: "Cette commande de redémarrage a expiré.",
+  restart_command_not_found: "Cette commande de redémarrage n’existe plus.",
+  supervisor_token_invalid: "L’identifiant du superviseur n’est pas valide.",
+  worker_pulse_not_confirmed:
+    "Le Worker n’a pas encore confirmé son redémarrage.",
   clip_delete_failed:
     "La vidéo ne peut pas être supprimée complètement. Vérifiez les fichiers et les permissions, puis réessayez.",
   super_administrator_required: "Seul le Super-administrateur peut faire cela.",

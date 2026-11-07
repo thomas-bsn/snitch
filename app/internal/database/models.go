@@ -929,17 +929,18 @@ type WorkerInstallEvent struct {
 }
 
 type WorkerInstallInvite struct {
-	CodeHash              []byte             `json:"code_hash"`
-	WorkerID              string             `json:"worker_id"`
-	EncryptedToken        []byte             `json:"encrypted_token"`
-	ApiUrl                string             `json:"api_url"`
-	Image                 string             `json:"image"`
-	ExpiresAt             pgtype.Timestamptz `json:"expires_at"`
-	TranscriptionMode     string             `json:"transcription_mode"`
-	TranscriptionEndpoint string             `json:"transcription_endpoint"`
-	TranscriptionModel    string             `json:"transcription_model"`
-	TranscriptionLanguage string             `json:"transcription_language"`
-	UsedAt                pgtype.Timestamptz `json:"used_at"`
+	CodeHash                 []byte             `json:"code_hash"`
+	WorkerID                 string             `json:"worker_id"`
+	EncryptedToken           []byte             `json:"encrypted_token"`
+	ApiUrl                   string             `json:"api_url"`
+	Image                    string             `json:"image"`
+	ExpiresAt                pgtype.Timestamptz `json:"expires_at"`
+	TranscriptionMode        string             `json:"transcription_mode"`
+	TranscriptionEndpoint    string             `json:"transcription_endpoint"`
+	TranscriptionModel       string             `json:"transcription_model"`
+	TranscriptionLanguage    string             `json:"transcription_language"`
+	UsedAt                   pgtype.Timestamptz `json:"used_at"`
+	EncryptedSupervisorToken []byte             `json:"encrypted_supervisor_token"`
 }
 
 type WorkerModelOrder struct {
@@ -971,6 +972,36 @@ type WorkerModelReplacement struct {
 	AuthorName    string             `json:"author_name"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkerRestartCommand struct {
+	ID             string             `json:"id"`
+	WorkerID       string             `json:"worker_id"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	ActorID        string             `json:"actor_id"`
+	Reason         string             `json:"reason"`
+	Status         string             `json:"status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Result         string             `json:"result"`
+}
+
+type WorkerRestartEvent struct {
+	ID         int64              `json:"id"`
+	CommandID  string             `json:"command_id"`
+	Actor      string             `json:"actor"`
+	Status     string             `json:"status"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	Result     string             `json:"result"`
+}
+
+type WorkerSupervisor struct {
+	WorkerID   string             `json:"worker_id"`
+	TokenHash  []byte             `json:"token_hash"`
+	EnrolledAt pgtype.Timestamptz `json:"enrolled_at"`
+	LastSeenAt pgtype.Timestamptz `json:"last_seen_at"`
+	RevokedAt  pgtype.Timestamptz `json:"revoked_at"`
 }
 
 type WorkerTranscriptionConfig struct {

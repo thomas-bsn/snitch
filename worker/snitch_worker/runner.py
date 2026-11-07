@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import json
 import os
 import re
 import signal
@@ -353,6 +354,7 @@ def _require_response(value: Any, operation: str) -> Any:
 
 # ADR 0029. Presence pulses from a dedicated thread, independently of jobs and leases.
 PRESENCE_INTERVAL = 10.0
+SUPERVISOR_HEALTH_PATH = "/tmp/snitch-worker-health.json"
 # ADR 0029. The lease renewal is what hears a refusal from the server (job reassigned, cancelled,
 # Worker revoked): renewing every 10 s cancels the job within 10 s. The server lease lasts 2
 # minutes, which leaves about a dozen renewals for a network error to be retried.
@@ -515,9 +517,22 @@ def _presence_loop(
 ) -> None:
     failures = 0
     delay = interval
+    last_success = 0.0
     while not stop.wait(delay):
         if guard is not None and guard.revoked.is_set():
             return
+        # This timestamp proves the presence loop itself is alive even when Snitch
+        # is temporarily unreachable. The host watchdog only repairs a stale loop.
+        loop_at = time.time()
+        try:
+            temporary = SUPERVISOR_HEALTH_PATH + ".tmp"
+            with open(temporary, "w", encoding="utf-8") as health_file:
+                json.dump({"loop_at": loop_at, "last_success": last_success}, health_file)
+                health_file.flush()
+                os.fsync(health_file.fileno())
+            os.replace(temporary, SUPERVISOR_HEALTH_PATH)
+        except OSError:
+            pass
         try:
             _send_pulse(client, capacity, reachability)
         except (httpx.HTTPError, RuntimeError):
@@ -535,6 +550,8 @@ def _presence_loop(
             log.emit(logging.INFO, "presence_reconnected", attempts=failures)
             failures = 0
         delay = interval
+        last_success = time.time()
+        # Health reporting is diagnostic only; it must never affect job processing.
 
 
 def sync_models_once(client: AuthenticatedClient) -> None:

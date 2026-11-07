@@ -1658,7 +1658,27 @@ export const en = {
       lastPulse: "Last pulse",
       installation: "Installation",
       noRemote:
-        "Snitch cannot restart this machine remotely: there is no local supervisor connected. Run the commands below on the Worker's machine.",
+        "Snitch cannot restart this machine remotely without its opted-in local supervisor. Run the commands below on the Worker's machine if managed restart is unavailable.",
+      managedTitle: "Managed restart",
+      supervisorOnline:
+        "The host supervisor is connected (last check-in {date}).",
+      supervisorOffline:
+        "The host supervisor is not currently reachable. It only works while the host and Docker are running; WSL2 must be resumed manually after shutdown or sleep.",
+      managedRestart: "Request a managed restart",
+      restartConfirmTitle: "Restart this Worker?",
+      restartConfirmBody:
+        "The Worker will stop accepting new tasks, drain active work, and restart its named container. Snitch will report it online only after a fresh pulse.",
+      restartReason: "Reason (required)",
+      restartHistory: "Recent restart requests",
+      restartState: {
+        requested: "requested",
+        accepted: "accepted",
+        stopping: "stopping",
+        starting: "starting",
+        online: "online",
+        failed: "failed",
+        expired: "expired",
+      },
       hints: "What to check",
       hint: {
         docker_daemon: "The Docker daemon is not running on the machine.",
@@ -1899,6 +1919,9 @@ export const en = {
       name: "Worker name",
       nameHint:
         "1 to 64 characters. Letters, digits, spaces, dots, dashes and underscores.",
+      managedRestart: "Enable managed restart",
+      managedRestartHint:
+        "Installs an optional local supervisor. An administrator can request a restart from Snitch; the service only restarts this named container.",
       snitch: "Snitch address",
       snitchHint: "Filled in by Snitch from the address you opened it with.",
       insecure:
