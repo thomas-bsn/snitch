@@ -139,8 +139,12 @@ export function WorkerCreateForm({
           onChange={(event) => setManagedRestart(event.target.checked)}
         />
         <span>
-          <span className="block font-medium">{t("workers.create.managedRestart")}</span>
-          <span className="block text-sm text-mute">{t("workers.create.managedRestartHint")}</span>
+          <span className="block font-medium">
+            {t("workers.create.managedRestart")}
+          </span>
+          <span className="block text-sm text-mute">
+            {t("workers.create.managedRestartHint")}
+          </span>
         </span>
       </label>
       <Field
