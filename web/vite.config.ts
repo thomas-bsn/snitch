@@ -19,5 +19,9 @@ export default defineConfig({
       },
     },
   },
-  server: { proxy: { "/api": "http://localhost:8080" } },
+  server: {
+    proxy: {
+      "/api": process.env.SNITCH_API_PROXY_TARGET ?? "http://localhost:8080",
+    },
+  },
 });

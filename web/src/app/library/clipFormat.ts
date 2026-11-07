@@ -9,6 +9,18 @@ export function formatTimecode(totalSeconds: number): string {
     : `${minutes}:${seconds}`;
 }
 
+/** A file size in the units of the interface language. */
+export function formatSize(bytes: number, language: string) {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let value = bytes;
+  let unit = 0;
+  while (value >= 1024 && unit < units.length - 1) {
+    value /= 1024;
+    unit += 1;
+  }
+  return `${new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(value)} ${units[unit]}`;
+}
+
 /** The moment kept in a clip's address (`?t=75`), or 0 when absent or not valid. */
 export function parseMoment(value: string | null): number {
   if (!value || !/^\d{1,7}(\.\d+)?$/.test(value)) return 0;

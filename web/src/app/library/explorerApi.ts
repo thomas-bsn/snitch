@@ -56,6 +56,8 @@ export type ExplorerEntry = {
   voices_pending: number;
   /** Folders of a filtered tree: the videos under it that match. */
   match_count?: number;
+  /** Active custom logo of a folder: the glyph requests that version. */
+  logo_version?: number;
 };
 
 export type ExplorerQuery = {
@@ -174,3 +176,34 @@ export async function requestIndex(
 
 /** The file name, the last segment of a relative path. */
 export const baseName = (path: string) => path.split("/").pop() ?? path;
+
+/** A person who owns at least one readable clip of an entry. */
+export type ExplorerOwner = { id: number; name: string; videos: number };
+
+/** What an explorer entry carries beyond its name: size, durations, owners and dates. */
+export type ExplorerProperties = {
+  path: string;
+  name: string;
+  directory: boolean;
+  size_bytes: number;
+  video_count: number;
+  folder_count: number;
+  indexed_count: number;
+  duration_seconds: number | null;
+  added_at: string | null;
+  recorded_at: string | null;
+  game: string;
+  state?: ExplorerState;
+  owners: ExplorerOwner[];
+};
+
+export async function fetchExplorerProperties(
+  path: string,
+): Promise<Result<ExplorerProperties>> {
+  const response = await fetch(
+    `/api/library/explorer/properties?path=${encodeURIComponent(path)}`,
+  );
+  const body = await response.json().catch(() => undefined);
+  if (!response.ok || !body) return failure(await errorOf(response));
+  return { ok: true, value: body as ExplorerProperties };
+}

@@ -1484,10 +1484,33 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise. */
+    /** @description Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise. */
     get: operations["getFolderLogo"];
-    put?: never;
+    /**
+     * Choisir un logo personnalisé pour un dossier (administrateur ; Super-administrateur pour un Dossier privé)
+     * @description Le corps est l'image elle-même (PNG ou JPEG, 2 Mo maximum). La nouvelle image devient le logo courant et entre dans l'historique de quatre versions.
+     */
+    put: operations["putFolderLogo"];
     post?: never;
+    /** Revenir au logo automatique d'un dossier sans effacer son historique */
+    delete: operations["clearFolderLogo"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library/folder-logo/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Logo personnalisé d'un dossier et ses trois versions précédentes (administrateur) */
+    get: operations["getFolderLogoHistory"];
+    put?: never;
+    /** Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur) */
+    post: operations["restoreFolderLogo"];
     delete?: never;
     options?: never;
     head?: never;
@@ -1522,6 +1545,26 @@ export interface paths {
     put?: never;
     /** Demander l'indexation d'une vidéo ouverte dans l'explorateur, sans analyse */
     post: operations["indexExplorerVideo"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/library/explorer/properties": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Propriétés agrégées d'un dossier ou d'une vidéo de l'explorateur (ADR 0032)
+     * @description Un dossier agrège tout son sous-arbre : taille sur disque, nombre de vidéos et de sous-dossiers, durée et propriétaires des seuls clips lisibles, date du plus ancien ajout. Une vidéo donne sa durée, son propriétaire et ses dates ; clip:<id> répond pour un clip sans fichier dans la Racine. Les Dossiers privés et les clips non lisibles ne sont jamais comptés pour qui ne peut pas les ouvrir.
+     */
+    get: operations["getExplorerProperties"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -3728,6 +3771,58 @@ export interface components {
       /** Format: int64 */
       clip_id?: number;
     };
+    FolderLogoVersion: {
+      version: number;
+      /** Format: date-time */
+      created_at: string;
+    };
+    FolderLogoState: {
+      path: string;
+      /** @description Faux : le logo automatique est affiché, les versions restent dans l'historique */
+      custom: boolean;
+      /** @description La plus récente d'abord, quatre au maximum */
+      versions: components["schemas"]["FolderLogoVersion"][];
+    };
+    FolderLogoRestore: {
+      path: string;
+      version: number;
+    };
+    ExplorerOwner: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+      videos: number;
+    };
+    ExplorerProperties: {
+      path: string;
+      name: string;
+      directory: boolean;
+      /** Format: int64 */
+      size_bytes: number;
+      video_count: number;
+      folder_count: number;
+      indexed_count: number;
+      /** @description Somme des durées des clips lisibles, nulle sans clip indexé */
+      duration_seconds?: number | null;
+      /**
+       * Format: date-time
+       * @description Dossier : date du plus ancien clip indexé lisible
+       */
+      added_at?: string | null;
+      /** Format: date-time */
+      recorded_at?: string | null;
+      game?: string;
+      /** @enum {string} */
+      state?:
+        | "not_indexed"
+        | "in_progress"
+        | "not_analyzed"
+        | "transcribed"
+        | "analyzed"
+        | "failed";
+      /** @description Propriétaires des clips lisibles, du plus de vidéos au moins */
+      owners: components["schemas"]["ExplorerOwner"][];
+    };
     ExplorerEntry: {
       name: string;
       /** @description Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine */
@@ -3761,6 +3856,8 @@ export interface components {
       voices_pending: number;
       /** @description Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant */
       match_count?: number;
+      /** @description Version du logo personnalisé actif d'un dossier, absente sans logo personnalisé */
+      logo_version?: number;
     };
     ExplorerListing: {
       /** Format: int64 */
@@ -10452,6 +10549,10 @@ export interface operations {
       query: {
         /** @description Nom du dossier */
         name: string;
+        /** @description Dossier relatif à la Racine vidéo : cherche d'abord son logo personnalisé */
+        path?: string;
+        /** @description Une image précise de l'historique (ignorée sans path) */
+        version?: number;
       };
       header?: never;
       path?: never;
@@ -10459,16 +10560,165 @@ export interface operations {
     };
     requestBody?: never;
     responses: {
-      /** @description Jaquette JPEG */
+      /** @description Logo PNG ou JPEG */
       200: {
         headers: {
           [name: string]: unknown;
         };
         content: {
+          "image/png": string;
           "image/jpeg": string;
         };
       };
-      /** @description Aucun jeu pour ce nom (404) ou erreur */
+      /** @description Aucun logo pour ce dossier (404), dossier privé refusé (403) ou erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putFolderLogo: {
+    parameters: {
+      query: {
+        /** @description Dossier relatif à la Racine vidéo */
+        path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "image/png": string;
+        "image/jpeg": string;
+      };
+    };
+    responses: {
+      /** @description Nouveau logo courant et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FolderLogoState"];
+        };
+      };
+      /** @description folder_logo_too_large */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Image invalide, droits insuffisants ou erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  clearFolderLogo: {
+    parameters: {
+      query: {
+        path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Logo automatique rétabli */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Droits insuffisants ou erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getFolderLogoHistory: {
+    parameters: {
+      query: {
+        path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Logo courant et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FolderLogoState"];
+        };
+      };
+      /** @description Droits insuffisants ou erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  restoreFolderLogo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["FolderLogoRestore"];
+      };
+    };
+    responses: {
+      /** @description Logo restauré et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["FolderLogoState"];
+        };
+      };
+      /** @description folder_logo_version_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Droits insuffisants ou erreur */
       default: {
         headers: {
           [name: string]: unknown;
@@ -10565,6 +10815,38 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ExplorerIndexResult"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getExplorerProperties: {
+    parameters: {
+      query: {
+        /** @description Chemin relatif, vide pour la Racine, ou clip:<id> */
+        path: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Propriétés */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ExplorerProperties"];
         };
       };
       /** @description Erreur */

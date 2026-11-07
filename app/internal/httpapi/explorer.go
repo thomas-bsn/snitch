@@ -62,6 +62,9 @@ type explorerEntry struct {
 	// MatchCount is set on the folders of a filtered tree: the videos under it that match, the viewer's
 	// own permissions applied (#282).
 	MatchCount *int `json:"match_count,omitempty"`
+	// LogoVersion is the active custom logo of a folder, absent without one: the glyph requests that
+	// version, so a changed logo is not hidden by the browser cache.
+	LogoVersion int64 `json:"logo_version,omitempty"`
 }
 
 // explorerRecord is what the database knows about one video path of the root.
@@ -651,6 +654,10 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			}
 			items = append(items, e)
 		}
+		if err := s.fillFolderLogoVersions(r.Context(), root.ID, items); err != nil {
+			s.internal(w, err)
+			return
+		}
 		reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": items, "total": len(out), "states": explorerStates})
 		return
 	}
@@ -718,7 +725,12 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	sortExplorerEntries(out)
-	reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": page.window(out), "total": len(out), "states": explorerStates})
+	window := page.window(out)
+	if err := s.fillFolderLogoVersions(r.Context(), root.ID, window); err != nil {
+		s.internal(w, err)
+		return
+	}
+	reply(w, 200, map[string]any{"source_id": root.ID, "root_configured": true, "items": window, "total": len(out), "states": explorerStates})
 }
 
 // fillExplorerEntry copies what the database knows about a video onto its entry.

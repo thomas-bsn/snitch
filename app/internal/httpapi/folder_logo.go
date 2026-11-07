@@ -175,6 +175,10 @@ func (s *Server) folderLogoOverride(name string) (int64, bool) {
 }
 
 func (s *Server) folderLogo(w http.ResponseWriter, r *http.Request) {
+	// A custom logo chosen for this folder wins over the automatic Steam cover.
+	if s.tryCustomFolderLogo(w, r) {
+		return
+	}
 	name := strings.TrimSpace(r.URL.Query().Get("name"))
 	key := folderLogoKey(name)
 	if !s.Config.FolderLogos || len(name) > 255 || len(key) < 3 || len(key) > 255 || folderLogoExcluded[key] {

@@ -16,6 +16,12 @@ import {
 
 const ROOT = process.env.SNITCH_TEST_EXPLORER_ROOT;
 
+// A 1x1 transparent PNG: the server only stores a complete PNG or JPEG image.
+const LOGO_PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+
 async function expectNoViolations(page: Page) {
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -376,6 +382,146 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     // so wait until the server has been asked instead of asserting on the spot.
     await cover.scrollIntoViewIfNeeded();
     await expect.poll(() => asked).toContain("league");
+  });
+
+  test("un clic droit ouvre le menu d'un dossier et d'une vidéo, en liste (#323)", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=league%2F2026");
+    await row(page, "sub").click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: "Analyse the unanalysed videos" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Change logo" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Properties" }),
+    ).toBeVisible();
+    await expectNoViolations(page);
+    await page.keyboard.press("Escape");
+    await expect(
+      page.getByRole("menuitem", { name: "Properties" }),
+    ).toHaveCount(0);
+
+    // A video offers its properties, and no folder-only action.
+    await row(page, "match.mp4").click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: "Properties" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Change logo" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("menuitem", { name: "Analyse the unanalysed videos" }),
+    ).toHaveCount(0);
+  });
+
+  test("en vue icônes, un clic droit ouvre le même menu (#323)", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=league%2F2026&view=icons");
+    const tiles = page.getByRole("list", { name: "Videos and folders" });
+    await tiles
+      .getByRole("button", { name: "sub", exact: true })
+      .click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: "Change logo" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Properties" }),
+    ).toBeVisible();
+    await expectNoViolations(page);
+    await page.keyboard.press("Escape");
+
+    await tiles
+      .getByRole("link", { name: /match\.mp4/ })
+      .click({ button: "right" });
+    await expect(
+      page.getByRole("menuitem", { name: "Properties" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("menuitem", { name: "Analyse the unanalysed videos" }),
+    ).toHaveCount(0);
+  });
+
+  test("les propriétés d'un dossier et d'une vidéo montrent taille, durée, propriétaire et dates (#323)", async ({
+    page,
+  }) => {
+    await page.goto("/library?folder=league%2F2026");
+    await row(page, "sub")
+      .getByRole("button", { name: "Actions for folder sub" })
+      .click();
+    await page.getByRole("menuitem", { name: "Properties" }).click();
+    const folderDialog = page.getByRole("dialog", {
+      name: "Properties of sub",
+    });
+    await expect(folderDialog).toBeVisible();
+    await expect(folderDialog).toContainText("Folder");
+    await expect(folderDialog).toContainText("Videos");
+    await expect(folderDialog).toContainText("Size");
+    await expect(folderDialog).toContainText("Added on");
+    await expectNoViolations(page);
+    await folderDialog.getByRole("button", { name: "Close" }).click();
+    await expect(folderDialog).toBeHidden();
+
+    await row(page, "match.mp4").click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Properties" }).click();
+    const videoDialog = page.getByRole("dialog", {
+      name: "Properties of match.mp4",
+    });
+    await expect(videoDialog).toBeVisible();
+    await expect(videoDialog).toContainText("Video");
+    await expect(videoDialog).toContainText("Not analysed");
+    await expect(videoDialog).toContainText("Size");
+  });
+
+  test("le logo d'un dossier s'importe, se réinitialise et se restaure (#323)", async ({
+    page,
+  }) => {
+    await page.goto("/library");
+    await row(page, "media").click({ button: "right" });
+    await page.getByRole("menuitem", { name: "Change logo" }).click();
+    const dialog = page.getByRole("dialog", { name: "Logo of media" });
+    await expect(dialog).toContainText("Automatic logo");
+    await expectNoViolations(page);
+
+    const input = dialog.locator('input[type="file"]');
+    await input.setInputFiles({
+      name: "logo.png",
+      mimeType: "image/png",
+      buffer: LOGO_PNG,
+    });
+    await expect(dialog).toContainText("The logo has been changed.");
+    await expect(dialog).toContainText("Custom logo");
+    const preview = dialog
+      .locator('img[src*="folder-logo?name=media"]')
+      .first();
+    await expect(preview).toHaveAttribute("src", /version=1/);
+
+    // A second image gives the history two versions; restoring the older one creates a new one.
+    await input.setInputFiles({
+      name: "logo.png",
+      mimeType: "image/png",
+      buffer: LOGO_PNG,
+    });
+    await expect(dialog).toContainText("Logo history");
+    const older = dialog.getByRole("button", { name: /^Use the logo of / });
+    await expect(older).toHaveCount(2);
+    await older.last().click();
+    await expect(dialog).toContainText(
+      "This logo is active again; it is now the latest version.",
+    );
+    await expect(older).toHaveCount(3);
+    await expect(preview).toHaveAttribute("src", /version=3/);
+
+    await dialog
+      .getByRole("button", { name: "Back to the automatic logo" })
+      .click();
+    await expect(dialog).toContainText(
+      "The automatic logo is back; the history is kept.",
+    );
+    await expect(dialog).toContainText("Automatic logo");
   });
 
   test("la pastille d'une vidéo en cours d'indexation s'anime puis se met à jour seule", async ({

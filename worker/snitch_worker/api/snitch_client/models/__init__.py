@@ -101,6 +101,9 @@ from .explorer_entry_state import ExplorerEntryState
 from .explorer_index_result import ExplorerIndexResult
 from .explorer_index_result_state import ExplorerIndexResultState
 from .explorer_listing import ExplorerListing
+from .explorer_owner import ExplorerOwner
+from .explorer_properties import ExplorerProperties
+from .explorer_properties_state import ExplorerPropertiesState
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
 from .fingerprint_transition import FingerprintTransition
@@ -108,6 +111,9 @@ from .fingerprint_transition_input import FingerprintTransitionInput
 from .fingerprint_transition_phase import FingerprintTransitionPhase
 from .fingerprint_transition_preview import FingerprintTransitionPreview
 from .fingerprint_transition_state import FingerprintTransitionState
+from .folder_logo_restore import FolderLogoRestore
+from .folder_logo_state import FolderLogoState
+from .folder_logo_version import FolderLogoVersion
 from .folder_privacy import FolderPrivacy
 from .get_clip_analysis_deletion_preview_response_200 import GetClipAnalysisDeletionPreviewResponse200
 from .get_embedding_index_status_response_200 import GetEmbeddingIndexStatusResponse200
@@ -612,6 +618,9 @@ __all__ = (
     "ExplorerIndexResult",
     "ExplorerIndexResultState",
     "ExplorerListing",
+    "ExplorerOwner",
+    "ExplorerProperties",
+    "ExplorerPropertiesState",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
     "FingerprintTransition",
@@ -619,6 +628,9 @@ __all__ = (
     "FingerprintTransitionPhase",
     "FingerprintTransitionPreview",
     "FingerprintTransitionState",
+    "FolderLogoRestore",
+    "FolderLogoState",
+    "FolderLogoVersion",
     "FolderPrivacy",
     "GetClipAnalysisDeletionPreviewResponse200",
     "GetEmbeddingIndexStatusResponse200",

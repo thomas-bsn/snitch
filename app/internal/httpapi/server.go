@@ -188,7 +188,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/admin/video-root", s.protected(true, http.HandlerFunc(s.videoRoot)))
 	mux.Handle("GET /api/admin/video-root/browse", s.protected(false, http.HandlerFunc(s.videoBrowse)))
 	mux.Handle("GET /api/library/folder-logo", s.protected(false, http.HandlerFunc(s.folderLogo)))
+	mux.Handle("PUT /api/library/folder-logo", s.protected(false, http.HandlerFunc(s.putFolderLogo)))
+	mux.Handle("DELETE /api/library/folder-logo", s.protected(false, http.HandlerFunc(s.clearFolderLogo)))
+	mux.Handle("GET /api/library/folder-logo/history", s.protected(false, http.HandlerFunc(s.folderLogoHistory)))
+	mux.Handle("POST /api/library/folder-logo/history", s.protected(false, http.HandlerFunc(s.restoreFolderLogo)))
 	mux.Handle("GET /api/library/explorer", s.protected(false, http.HandlerFunc(s.explorerList)))
+	mux.Handle("GET /api/library/explorer/properties", s.protected(false, http.HandlerFunc(s.explorerProperties)))
 	mux.Handle("POST /api/library/explorer/index", s.protected(false, http.HandlerFunc(s.explorerIndex)))
 	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
 	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
@@ -414,6 +419,9 @@ func (s *Server) Handler() http.Handler {
 		limit := int64(16 * 1024)
 		if r.Method == http.MethodPut && r.URL.Path == "/api/account/avatar" {
 			limit = 5 << 20
+		}
+		if r.Method == http.MethodPut && r.URL.Path == "/api/library/folder-logo" {
+			limit = folderLogoMaxBytes + 4096
 		}
 		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/uploads/") && strings.HasSuffix(r.URL.Path, "/chunks") {
 			limit = s.Config.UploadChunkBytes

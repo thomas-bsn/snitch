@@ -25,6 +25,9 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   video_root_unavailable:
     "Cette racine ne peut pas être utilisée. Vérifiez qu’elle est montée et accessible en écriture.",
   folder_logo_not_found: "Aucun logo de jeu pour ce dossier.",
+  invalid_folder_logo: "Choisissez une image PNG ou JPEG valide.",
+  folder_logo_too_large: "Cette image dépasse 2 Mo.",
+  folder_logo_version_not_found: "Cette version du logo n’existe plus.",
   video_root_unconfigured: "Configurez d’abord le dossier racine des vidéos.",
   video_root_busy:
     "Terminez ou annulez les envois en attente de publication avant de changer la racine.",
