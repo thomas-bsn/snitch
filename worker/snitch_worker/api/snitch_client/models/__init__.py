@@ -464,6 +464,7 @@ from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
 from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
+from .worker_audio_plan_task import WorkerAudioPlanTask
 from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
@@ -1008,6 +1009,7 @@ __all__ = (
     "VoiceVerificationCaseDecisionLevel",
     "VoiceVerificationCounts",
     "Worker",
+    "WorkerAudioPlanTask",
     "WorkerBundle",
     "WorkerClaim",
     "WorkerDetail",
