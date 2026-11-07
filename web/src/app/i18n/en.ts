@@ -2436,6 +2436,17 @@ export const en = {
       play: "Play from {time}",
       textCorrected: "Text corrected by {author}",
       textCorrectedAnon: "Text corrected",
+
+      sourcesSummary: "Captured on {count} tracks",
+
+      sourceTrack: "Track {track}",
+
+      sourceExact: "Identical signal proven: exact copy, from {from} to {to}",
+
+      sourceGain:
+        "Identical signal proven: constant gain ×{gain}, from {from} to {to}",
+
+      sourceRetained: "Kept passage: track {track}",
       unknownSpeaker: "Unknown voice",
     },
     speaker: {

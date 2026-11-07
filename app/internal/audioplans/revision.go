@@ -103,6 +103,9 @@ func CanonicalRevision(input Revision) (Revision, error) {
 		if err = canonicalSources(s.Sources, false); err != nil {
 			return r, err
 		}
+		if err = canonicalGrouping(s); err != nil {
+			return r, err
+		}
 		for j := range s.Words {
 			w := &s.Words[j]
 			w.Index = 0
@@ -224,4 +227,34 @@ func (s *Store) StageRevision(ctx context.Context, input Revision) (Revision, er
 	}
 	_, err = s.db.Exec(ctx, `INSERT INTO transcript_revisions(id,clip_id,plan_id,manifest) VALUES($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING`, r.Id, r.ClipId, *r.PlanId, raw)
 	return r, err
+}
+
+// canonicalGrouping orders the acoustic provenance of a grouped passage and refuses what
+// the adapter could not have proven: a source outside the passage, the identity source
+// (the lowest source never groups under itself), a disabled rule or a stale rule version.
+func canonicalGrouping(s *contract.TranscriptManifestSegment) error {
+	if s.Grouping == nil {
+		return nil
+	}
+	if len(*s.Grouping) == 0 {
+		s.Grouping = nil
+		return nil
+	}
+	members := map[SourceKey]bool{}
+	for _, source := range s.Sources[1:] {
+		members[keyOf(source)] = true
+	}
+	g := *s.Grouping
+	seen := map[SourceKey]bool{}
+	for i := range g {
+		k := keyOf(g[i].Source)
+		strategy := string(g[i].Strategy)
+		if g[i].Source.WordIndex != nil || !members[k] || seen[k] || enabledStrategies[strategy] != g[i].StrategyVersion || !validTimes(g[i].MatchedStart, g[i].MatchedEnd) || !finite(g[i].LagSeconds) || (g[i].Gain != nil && !finite(*g[i].Gain)) {
+			return ErrConflict
+		}
+		seen[k] = true
+	}
+	sort.Slice(g, func(i, j int) bool { return sourceLess(g[i].Source, g[j].Source) })
+	s.Grouping = &g
+	return nil
 }

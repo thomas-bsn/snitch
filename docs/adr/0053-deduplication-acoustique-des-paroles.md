@@ -1,0 +1,22 @@
+# 0053 — Déduplication acoustique des paroles multipistes
+
+Statut : accepté pour le ticket #343 du parent #274. Complète l'[ADR 0047](0047-plans-audio-et-revisions-compatibles.md) (manifeste et provenances) et l'[ADR 0050](0050-publication-atomique-des-revisions-audio.md) (publication). Méthode détaillée, mesures et limites : [docs/acoustic-dedup.md](../acoustic-dedup.md).
+
+## Contexte
+
+Une même parole peut être captée par plusieurs pistes (micro et mélange du jeu, copies d'enregistrement). Sans regroupement elle apparaît deux fois dans la transcription et la recherche. Le texte identique et la proximité temporelle ne prouvent rien : deux personnes peuvent dire les mêmes mots en même temps, et un même enregistrement peut être rejoué plus tard.
+
+## Décision
+
+- **Preuve = échantillons audio décodés.** Un adaptateur Worker (`worker/snitch_worker/acoustic_dedup.py`) compare des PCM16 mono décodés et renvoie un rapport JSON (`schema_version` 1) : pour chaque paire, `duplicate`, `distinct` ou `uncertain_keep`, avec règle, version de règle, plages prouvées dans le repère du clip, décalage, gain, métriques et codes de raison. Il ne lit ni texte, ni Locuteur, ni Personne, ne télécharge ni n'installe rien, et son rapport ne dépend pas de l'ordre des entrées. Il est testable sans l'orchestrateur ; son branchement dans un job (#339/#344) n'est pas fait ici.
+- **Seules les règles prouvées sont actives** (table `ENABLED_STRATEGIES`, miroir Go `enabledStrategies`, vérifiée par un test de contrat) : `exact_pcm` (échantillons identiques, y compris recodage sans perte ou autre conteneur) et `gain` (un gain positif constant, sans écrêtage, résidu <= 1 LSB par bloc de 10 ms, hors gain voisin de 1). Elles ont accepté tous les positifs et rejeté tous les négatifs difficiles des fixtures. Codec avec perte (AAC mesuré), mélange jeu + voix, polarité inversée, autre fréquence d'échantillonnage, canaux multiples, fichier illisible, signal absent ou trop court, budget dépassé : `uncertain_keep`, qui n'est jamais un succès de déduplication.
+- **Fusion déterministe côté serveur** (`audioplans.MergeAcoustic`). Seul un `duplicate` d'une règle active à sa version courante compte. Le représentant est toujours le segment de plus petit indice de piste réel (puis tâche, segment) : c'est l'identité des Corrections (première source), qui ne se déplacent donc jamais vers une autre source. Un segment est regroupé seulement si tout son intervalle est dans une plage prouvée contre une piste d'indice inférieur et si l'intervalle correspondant est couvert par des segments eux-mêmes conservés : preuve directe contre le représentant, jamais de chaîne A~B, B~C. Un segment partiellement prouvé reste entier (aucun texte découpé sur des fenêtres acoustiques). Chaque source rejoint exactement un passage conservé. Toutes les sources restent dans `sources` ; la preuve de chaque source regroupée est dans `grouping` (additif au manifeste). L'ordre d'arrivée des résultats ne change rien (tri canonique avant toute décision).
+- **Version d'entrée.** `audioplans.MergeVersion()` dérive des règles actives (`acoustic-dedup/1+exact_pcm@1+gain@1`) et s'inscrit dans `AudioPlanInput.MergeVersion` : activer, retirer ou changer une règle change le digest du Plan et suit la même confirmation de remplacement que toute réanalyse (#340). Les corrections d'une révision remplacée deviennent obsolètes, comme pour tout remplacement.
+- **Affichage et API.** `TranscriptSegment.sources` et `grouping` (OpenAPI) exposent les provenances et preuves ; le détail de clip les lit via le manifeste publié, sans migration. L'onglet transcription affiche « captée sur N pistes » et la preuve de chaque piste regroupée.
+- **Aucun effet sur les identités.** La déduplication ne fusionne ni Locuteurs locaux ni Personnes et ne crée aucun Échantillon vocal ; les voix sont toujours traitées par piste (ADR 0050).
+
+## Conséquences
+
+- Étendre à une famille de codec, à la polarité ou à un mélange exige de nouvelles fixtures positives et négatives, une nouvelle version de règle, puis son ajout aux deux tables ; sinon le cas reste conservé.
+- Le coût est borné : événements de 120 s au plus, 200 paires par appel, décalage résiduel <= 100 ms, fenêtres de 10 ms ; au-delà, `uncertain_keep` avec raison stable. Mesures dans docs/acoustic-dedup.md.
+- Les seuils sont des garde-fous de non-régression sur fixtures synthétiques, pas une garantie statistique sur de l'audio de jeu réel (benchmark de la phase 7 non autorisé).

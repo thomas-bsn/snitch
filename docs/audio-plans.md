@@ -63,3 +63,7 @@ La migration 00111 matérialise les manifestes historiques `legacy:<job_id>` et 
 ## Publication (#340)
 
 `Store.PreviewPublication(ctx, planID)` puis `Store.PublishRevision(ctx, revisionID, aperçu, confirmé)` publient atomiquement une révision complète. Erreurs : `ErrIncomplete`, `ErrPublicationChanged` (nouvel aperçu requis), `ErrConfirmationRequired`. Les lecteurs utilisent les vues `audio_visible_*`. Voir l'[ADR 0050](adr/0050-publication-atomique-des-revisions-audio.md).
+
+## Déduplication acoustique (#343)
+
+`audioplans.MergeAcoustic` regroupe les segments dont l'audio est prouvé identique par l'adaptateur Worker ; `audioplans.MergeVersion()` alimente `MergeVersion` du Plan. Le manifeste garde toutes les sources dans `sources` et la preuve de chaque source regroupée dans `grouping`. Voir l'[ADR 0053](adr/0053-deduplication-acoustique-des-paroles.md) et [acoustic-dedup.md](acoustic-dedup.md).

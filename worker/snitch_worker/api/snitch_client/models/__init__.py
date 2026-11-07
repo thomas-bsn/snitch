@@ -354,6 +354,8 @@ from .start_library_index_run_body_mode import StartLibraryIndexRunBodyMode
 from .status import Status
 from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
 from .test_embedding_settings_body import TestEmbeddingSettingsBody
+from .transcript_grouping import TranscriptGrouping
+from .transcript_grouping_strategy import TranscriptGroupingStrategy
 from .transcript_manifest_segment import TranscriptManifestSegment
 from .transcript_manifest_word import TranscriptManifestWord
 from .transcript_revision import TranscriptRevision
@@ -914,6 +916,8 @@ __all__ = (
     "Status",
     "StreamAnalysisQueueEventsDelta",
     "TestEmbeddingSettingsBody",
+    "TranscriptGrouping",
+    "TranscriptGroupingStrategy",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",

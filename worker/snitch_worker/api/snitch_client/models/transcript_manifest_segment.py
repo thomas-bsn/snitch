@@ -8,9 +8,11 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
+  from ..models.transcript_grouping import TranscriptGrouping
   from ..models.transcript_manifest_word import TranscriptManifestWord
   from ..models.transcript_source import TranscriptSource
 
@@ -31,6 +33,8 @@ class TranscriptManifestSegment:
             end (float):
             sources (list[TranscriptSource]):
             words (list[TranscriptManifestWord]):
+            grouping (list[TranscriptGrouping] | Unset): Sources regroupées sous ce passage avec leur preuve acoustique ;
+                absent si aucun regroupement. Elles figurent aussi dans `sources`.
      """
 
     index: int
@@ -38,12 +42,14 @@ class TranscriptManifestSegment:
     end: float
     sources: list[TranscriptSource]
     words: list[TranscriptManifestWord]
+    grouping: list[TranscriptGrouping] | Unset = UNSET
 
 
 
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.transcript_grouping import TranscriptGrouping # noqa: PLC0415
         from ..models.transcript_manifest_word import TranscriptManifestWord # noqa: PLC0415
         from ..models.transcript_source import TranscriptSource # noqa: PLC0415
         index = self.index
@@ -66,6 +72,15 @@ class TranscriptManifestSegment:
 
 
 
+        grouping: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.grouping, Unset):
+            grouping = []
+            for grouping_item_data in self.grouping:
+                grouping_item = grouping_item_data.to_dict()
+                grouping.append(grouping_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
 
@@ -76,6 +91,8 @@ class TranscriptManifestSegment:
             "sources": sources,
             "words": words,
         })
+        if grouping is not UNSET:
+            field_dict["grouping"] = grouping
 
         return field_dict
 
@@ -83,6 +100,7 @@ class TranscriptManifestSegment:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.transcript_grouping import TranscriptGrouping # noqa: PLC0415
         from ..models.transcript_manifest_word import TranscriptManifestWord # noqa: PLC0415
         from ..models.transcript_source import TranscriptSource # noqa: PLC0415
         d = dict(src_dict)
@@ -112,12 +130,25 @@ class TranscriptManifestSegment:
             words.append(words_item)
 
 
+        _grouping = d.pop("grouping", UNSET)
+        grouping: list[TranscriptGrouping] | Unset = UNSET
+        if _grouping is not UNSET:
+            grouping = []
+            for grouping_item_data in _grouping:
+                grouping_item = TranscriptGrouping.from_dict(grouping_item_data)
+
+
+
+                grouping.append(grouping_item)
+
+
         transcript_manifest_segment = cls(
             index=index,
             start=start,
             end=end,
             sources=sources,
             words=words,
+            grouping=grouping,
         )
 
         return transcript_manifest_segment
