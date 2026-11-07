@@ -5,6 +5,7 @@ import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
+  invalid_audio_diagnostic: "Ce résultat de diagnostic audio n’est pas valide.",
   audio_plan_not_found: "Ce plan audio n’existe pas pour ce clip.",
   invalid_profile:
     "Choisissez un pseudo affiché de 1 à 100 caractères et un identifiant de 3 à 64 caractères, sans espaces au début ni à la fin.",

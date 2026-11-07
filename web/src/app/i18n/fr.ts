@@ -628,6 +628,7 @@ export const fr: Messages = {
         diarization: "Diarisation",
         fingerprint: "Empreinte",
         separation: "Séparation",
+        vad: "Détecteur de parole",
       },
       absent: "Absent",
       separationUnsupported:

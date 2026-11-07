@@ -132,8 +132,8 @@ func testVoiceModelOrderCreation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("no order yet: %+v", orders)
 	}
 	cells := h.cells(workerID)
-	if len(cells) != 3 || cells["diarization"].State != "not_installed" || cells["fingerprint"].State != "not_installed" || cells["separation"].State != "not_installed" || cells["separation"].Supported {
-		t.Fatalf("a Worker shows its three types: %+v", cells)
+	if len(cells) != 4 || cells["vad"].State != "not_installed" || !cells["vad"].Supported || cells["diarization"].State != "not_installed" || cells["fingerprint"].State != "not_installed" || cells["separation"].State != "not_installed" || cells["separation"].Supported {
+		t.Fatalf("a Worker shows its four types (the speech detector included): %+v", cells)
 	}
 
 	o := h.order(workerID, secondID, "install-b-0001", http.StatusCreated)

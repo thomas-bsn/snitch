@@ -10656,7 +10656,8 @@
               "enum": [
                 "diarization",
                 "fingerprint",
-                "separation"
+                "separation",
+                "vad"
               ]
             }
           }
@@ -15484,6 +15485,61 @@
           }
         }
       }
+    },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}/diagnostics": {
+      "post": {
+        "operationId": "queueAudioPlanDiagnostics",
+        "tags": [
+          "analysis"
+        ],
+        "description": "Met en file un job audio.diagnostic.N distinct par piste retenue du plan, de façon idempotente. Aucun effet sur les transcriptions. Un Worker ne prend un job que s'il déclare audio.diagnostic.* et détient le détecteur épinglé installé explicitement.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du plan avec ses jobs de diagnostic (en file, en cours, nouvelle tentative, mort) et le dernier diagnostic de chaque piste.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -18851,6 +18907,54 @@
           },
           "voice": {
             "$ref": "#/components/schemas/WorkerVoiceInput"
+          },
+          "audio_diagnostic": {
+            "$ref": "#/components/schemas/WorkerAudioDiagnosticInput"
+          }
+        }
+      },
+      "WorkerAudioDiagnosticInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Identité immuable d'un job audio.diagnostic.N. start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur.",
+        "required": [
+          "plan_id",
+          "track_index",
+          "input_version",
+          "detector_version",
+          "detector_config_version",
+          "start_seconds",
+          "duration_seconds"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input_version": {
+            "type": "string",
+            "description": "Empreinte du plan, recopiée dans l'observation."
+          },
+          "detector_version": {
+            "type": "string"
+          },
+          "detector_config_version": {
+            "type": "string"
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "nullable": true
           }
         }
       },
@@ -19236,7 +19340,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "label": {
@@ -19339,7 +19444,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           }
         }
@@ -19388,7 +19494,8 @@
               "enum": [
                 "diarization",
                 "fingerprint",
-                "separation"
+                "separation",
+                "vad"
               ]
             }
           },
@@ -19460,7 +19567,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           }
         }
@@ -19719,7 +19827,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "action": {
@@ -19814,7 +19923,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "action": {
@@ -19922,7 +20032,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "supported": {
@@ -23534,6 +23645,19 @@
           },
           "channel_layout": {
             "type": "string"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Durée propre au flux ffprobe ; null si inconnue. Jamais la durée du conteneur."
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Décalage de départ propre au flux ffprobe ; null si inconnu."
           }
         }
       },

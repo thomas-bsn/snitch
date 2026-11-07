@@ -595,6 +595,8 @@ func TestFoundation(t *testing.T) {
 		testSegmentHistory(t, pool)
 	})
 	t.Run("audio plan children", func(t *testing.T) { reset(t); testAudioPlanChildren(t, pool) })
+	t.Run("audio diagnostics", func(t *testing.T) { reset(t); testAudioDiagnostics(t, pool) })
+	t.Run("audio diagnostic outcomes", func(t *testing.T) { reset(t); testAudioDiagnosticOutcomes(t, pool) })
 	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
 		reset(t)

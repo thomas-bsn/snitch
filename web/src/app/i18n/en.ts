@@ -612,6 +612,7 @@ export const en = {
         diarization: "Diarization",
         fingerprint: "Fingerprint",
         separation: "Separation",
+        vad: "Speech detector",
       },
       absent: "Absent",
       separationUnsupported:

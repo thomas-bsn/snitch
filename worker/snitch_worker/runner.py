@@ -35,7 +35,7 @@ from snitch_client.models.worker_transcription_reachability_input import WorkerT
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import cancellation, log, revocation
+from snitch_worker import audio_diagnostic, cancellation, log, revocation
 from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
@@ -491,10 +491,43 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
     return True
 
 
+def supported_steps() -> list[str]:
+    """The step families this Worker can read. A diagnostic is declared only where Torch can run the detector;
+    Snitch still dispatches one only after this Worker reports the pinned model ready (ADR 0048)."""
+    steps = ["fixture.*", "transcription.audio.*", "voice.*"]
+    if audio_diagnostic.available():
+        steps.append("audio.diagnostic.*")
+    return steps
+
+
+def run_audio_diagnostic(client: AuthenticatedClient, task_input: Any, lease_token: str, step: str, detector: Any = None) -> dict[str, Any]:
+    """Examine one real stream with the pinned offline detector and return an observation (ADR 0048).
+
+    The result keeps the detector identity of this Worker: a plan made for another detector or configuration is a
+    failure of the job, never a result recorded under a different identity."""
+    value = getattr(task_input, "audio_diagnostic", None)
+    plan = value.to_dict() if hasattr(value, "to_dict") else None
+    index = int(step.rsplit(".", 1)[1])
+    if not isinstance(plan, dict) or plan.get("track_index") != index:
+        raise ValueError("audio diagnostic input does not match the step")
+    if plan.get("detector_version") != audio_diagnostic.VERSION or plan.get("detector_config_version") != audio_diagnostic.CONFIG_VERSION:
+        raise ValueError("audio diagnostic detector version is not supported by this Worker")
+    with tempfile.TemporaryDirectory(prefix="snitch-diagnostic-") as temporary:
+        original = os.path.join(temporary, "original.media")
+        download_media(client, task_input, lease_token, original)
+        cancellation.check()
+        duration = plan.get("duration_seconds")
+        offset = plan.get("start_seconds")
+        return audio_diagnostic.diagnose(
+            original, index, offset=offset if isinstance(offset, (int, float)) else None,
+            expected_duration=duration if isinstance(duration, (int, float)) else None, detector=detector,
+        )
+
+
 def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
     body = WorkerPulseInput(
         capacity=capacity,
-        supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
+        supported_steps=supported_steps(),
         models=declared_models(os.environ, voice_models.active_repo()),
         machine=declared_machine(),
     )
@@ -740,6 +773,8 @@ def _run_claimed(
             )
             if job.step.startswith("fixture."):
                 result = fake_provider(job.step)
+            elif re.fullmatch(r"audio\.diagnostic\.\d+", job.step):
+                result = run_audio_diagnostic(client, task_input, lease_token, job.step)
             elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
                 with tempfile.TemporaryDirectory(
                     prefix="snitch-transcription-"

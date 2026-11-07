@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
+from typing import cast
 
 
 
@@ -32,6 +33,9 @@ class MediaTrack:
             height (int | Unset):
             channels (int | Unset):
             channel_layout (str | Unset):
+            duration_seconds (float | None | Unset): Durée propre au flux ffprobe ; null si inconnue. Jamais la durée du
+                conteneur.
+            start_seconds (float | None | Unset): Décalage de départ propre au flux ffprobe ; null si inconnu.
      """
 
     index: int
@@ -43,6 +47,8 @@ class MediaTrack:
     height: int | Unset = UNSET
     channels: int | Unset = UNSET
     channel_layout: str | Unset = UNSET
+    duration_seconds: float | None | Unset = UNSET
+    start_seconds: float | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -68,6 +74,18 @@ class MediaTrack:
 
         channel_layout = self.channel_layout
 
+        duration_seconds: float | None | Unset
+        if isinstance(self.duration_seconds, Unset):
+            duration_seconds = UNSET
+        else:
+            duration_seconds = self.duration_seconds
+
+        start_seconds: float | None | Unset
+        if isinstance(self.start_seconds, Unset):
+            start_seconds = UNSET
+        else:
+            start_seconds = self.start_seconds
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -88,6 +106,10 @@ class MediaTrack:
             field_dict["channels"] = channels
         if channel_layout is not UNSET:
             field_dict["channel_layout"] = channel_layout
+        if duration_seconds is not UNSET:
+            field_dict["duration_seconds"] = duration_seconds
+        if start_seconds is not UNSET:
+            field_dict["start_seconds"] = start_seconds
 
         return field_dict
 
@@ -114,6 +136,26 @@ class MediaTrack:
 
         channel_layout = d.pop("channel_layout", UNSET)
 
+        def _parse_duration_seconds(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        duration_seconds = _parse_duration_seconds(d.pop("duration_seconds", UNSET))
+
+
+        def _parse_start_seconds(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        start_seconds = _parse_start_seconds(d.pop("start_seconds", UNSET))
+
+
         media_track = cls(
             index=index,
             type_=type_,
@@ -124,6 +166,8 @@ class MediaTrack:
             height=height,
             channels=channels,
             channel_layout=channel_layout,
+            duration_seconds=duration_seconds,
+            start_seconds=start_seconds,
         )
 
 
