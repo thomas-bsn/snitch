@@ -300,7 +300,7 @@ func (s *Server) getClip(w http.ResponseWriter, r *http.Request) {
 	var transcript json.RawMessage
 	var transcriptJobID int64
 	var states map[int]segmentState
-	if selection.AudioStreamIndex != nil {
+	{
 		// Keep the last successful transcript visible while a newer input version
 		// is queued or running. A completed replacement naturally becomes newest.
 		visible, visibleStates, found, err := s.readVisibleTranscript(r.Context(), v.ID)

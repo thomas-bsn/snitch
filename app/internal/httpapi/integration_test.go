@@ -599,6 +599,7 @@ func TestFoundation(t *testing.T) {
 	t.Run("multitrack cancel", func(t *testing.T) { reset(t); testMultitrackCancel(t, pool) })
 	t.Run("multitrack diagnostic decisions", func(t *testing.T) { reset(t); testMultitrackDiagnosticDecisions(t, pool) })
 	t.Run("audio plan children", func(t *testing.T) { reset(t); testAudioPlanChildren(t, pool) })
+	t.Run("audio publication", func(t *testing.T) { reset(t); testAudioPublication(t, pool) })
 	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
 		reset(t)

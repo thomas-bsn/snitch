@@ -55,3 +55,7 @@ La migration 00111 matérialise les manifestes historiques `legacy:<job_id>` et 
 - `cd app && go test ./internal/audioplans` : identité canonique, provenance multiple, ordre temporel et ex æquo.
 - `bash scripts/test.sh ./internal/httpapi -run 'TestAudioPlansMigration|TestFoundation/(audio_plan|segment_|search_corrections|HTTP_contract)'` : PostgreSQL réel et données synthétiques, migration/rejeu/retour, contrats HTTP, compatibilité lecture/recherche/correction/export, diagnostic par tentative et complétion d'enfant via Worker.
 - `python3 scripts/check_generated.py` : reproductibilité des clients et du modèle SQL générés.
+
+## Publication (#340)
+
+`Store.PreviewPublication(ctx, planID)` puis `Store.PublishRevision(ctx, revisionID, aperçu, confirmé)` publient atomiquement une révision complète. Erreurs : `ErrIncomplete`, `ErrPublicationChanged` (nouvel aperçu requis), `ErrConfirmationRequired`. Les lecteurs utilisent les vues `audio_visible_*`. Voir l'[ADR 0050](adr/0050-publication-atomique-des-revisions-audio.md).

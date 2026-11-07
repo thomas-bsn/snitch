@@ -53,15 +53,18 @@ func (s *Server) reindexNext(ctx context.Context) error {
 		return err
 	}
 	// A correction of a transcription that is no longer the visible one is obsolete.
-	visible, ok, err := s.visibleTranscription(ctx, s.Pool, clipID)
+	var raw []byte
+	err = s.Pool.QueryRow(ctx, `SELECT seg FROM audio_visible_segments WHERE clip_id=$1 AND job_id=$2 AND idx=$3`, clipID, jobID, index).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return done()
+	}
 	if err != nil {
 		return s.reindexFailed(ctx, jobID, index, version, err)
 	}
-	var result indexResult
-	if !ok || visible.JobID != jobID || json.Unmarshal(visible.Result, &result) != nil || index >= len(result.Segments) {
-		return done()
+	var segment indexSegment
+	if err = json.Unmarshal(raw, &segment); err != nil {
+		return s.reindexFailed(ctx, jobID, index, version, err)
 	}
-	segment := result.Segments[index]
 	text := segment.Text
 	if corrected != nil {
 		text = *corrected

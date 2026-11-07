@@ -150,7 +150,7 @@ func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 		}
 		// Effective speakers before and after, for the history (id NULL = deduced).
 		var start, end float64
-		if err := tx.QueryRow(ctx, `SELECT COALESCE((result->'segments'->$2::int->>'start')::double precision,0),COALESCE((result->'segments'->$2::int->>'end')::double precision,(result->'segments'->$2::int->>'start')::double precision,0) FROM jobs WHERE id=$1`, ref.JobID, ref.Index).Scan(&start, &end); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT seg_start,seg_end FROM audio_visible_segments WHERE job_id=$1 AND idx=$2`, ref.JobID, ref.Index).Scan(&start, &end); err != nil {
 			return segmentChange{}, nil, err
 		}
 		deducedID, deducedLabel, deducedFound, err := deducedSpeaker(ctx, tx, ref.Clip.ID, ref.Stream, start, end)
@@ -173,7 +173,7 @@ func (s *Server) putSegmentSpeaker(w http.ResponseWriter, r *http.Request) {
 			Event: segmentEvent{Kind: eventSpeaker, OldText: text, NewText: text, OldCorrected: textCorrected, NewCorrected: textCorrected,
 				OldSpeakerID: oldOverride, OldSpeakerLabel: oldLabel, NewSpeakerID: target, NewSpeakerLabel: newLabel},
 			View: func(written segmentState) any {
-				view := segmentSpeakerView{TranscriptionJobID: ref.JobID, Index: ref.Index, Version: written.Version, Corrected: target != nil}
+				view := segmentSpeakerView{TranscriptionJobID: ref.JobID, Index: ref.VisibleIndex, Version: written.Version, Corrected: target != nil}
 				switch {
 				case target != nil:
 					view.LocalSpeakerID, view.LocalSpeakerLabel = target, &newLabel
