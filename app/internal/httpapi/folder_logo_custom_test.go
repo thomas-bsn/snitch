@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// testFolderLogoCustom covers #323: a folder logo chosen by an administrator, its four-image history, the
+// testFolderLogoCustom covers a folder logo chosen by an administrator, its four-image history, the
 // automatic fallback, restore as a new version, and the Dossier privé rule. The images are synthetic 2x2
 // PNGs; no real media is read.
 func testFolderLogoCustom(t *testing.T, pool *pgxpool.Pool) {

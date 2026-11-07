@@ -4,7 +4,7 @@ Statut : accepté. Complète l'[ADR 0032](0032-explorateur-du-disque-et-indexati
 
 ## Contexte
 
-L'explorateur de la Bibliothèque n'offrait ses actions que par un menu à trois points, dans la seule vue liste, et seulement sur les dossiers des administrateurs. La vue icônes n'avait aucun menu. Les colonnes Durée, Propriétaire et Ajouté le venaient du clip : elles restaient vides pour une vidéo jamais indexée, et la taille d'un dossier n'était pas calculée. L'utilisateur veut les mêmes actions dans les deux vues, un logo propre à chaque dossier et des propriétés pour les dossiers comme pour les vidéos (#323).
+L'explorateur de la Bibliothèque n'offrait ses actions que par un menu à trois points, dans la seule vue liste, et seulement sur les dossiers des administrateurs. La vue icônes n'avait aucun menu. Les colonnes Durée, Propriétaire et Ajouté le venaient du clip : elles restaient vides pour une vidéo jamais indexée, et la taille d'un dossier n'était pas calculée. L'utilisateur veut les mêmes actions dans les deux vues, un logo propre à chaque dossier et des propriétés pour les dossiers comme pour les vidéos.
 
 ## Décision
 

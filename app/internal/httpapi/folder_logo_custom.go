@@ -19,7 +19,7 @@ import (
 	"snitch/internal/library"
 )
 
-// A custom logo for a folder of the Racine vidéo (#323): an administrator uploads a PNG or JPEG, keeps the
+// A custom logo for a folder of the Racine vidéo: an administrator uploads a PNG or JPEG, keeps the
 // last four images, and may restore an older one or go back to the automatic Steam cover. The image is
 // identified by the source and the folder path, never by the folder name, and is served locally: no call
 // leaves the instance. Changing a logo of a Dossier privé is reserved to the Super-administrateur, like

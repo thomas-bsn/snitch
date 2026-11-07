@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// testExplorerProperties covers #323: the size, duration, owners and dates of a folder or a video, with the
+// testExplorerProperties covers the size, duration, owners and dates of a folder or a video, with the
 // same Dossiers privés and clip visibility rules as the listing. Fixtures are synthetic files.
 func testExplorerProperties(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 1)

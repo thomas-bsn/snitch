@@ -301,7 +301,7 @@ export function LibraryPage() {
   }
 
   // Entry dialogs: analysis of a folder's unanalysed videos (administrators), privacy
-  // (super-administrators), custom logo and properties (ADR 0032, #323).
+  // (super-administrators), custom logo and properties (ADR 0046).
   const [privacyTarget, setPrivacyTarget] = useState<ExplorerEntry | null>(
     null,
   );

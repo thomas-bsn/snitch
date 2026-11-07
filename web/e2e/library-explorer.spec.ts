@@ -384,7 +384,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect.poll(() => asked).toContain("league");
   });
 
-  test("un clic droit ouvre le menu d'un dossier et d'une vidéo, en liste (#323)", async ({
+  test("un clic droit ouvre le menu d'un dossier et d'une vidéo, en liste", async ({
     page,
   }) => {
     await page.goto("/library?folder=league%2F2026");
@@ -417,7 +417,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     ).toHaveCount(0);
   });
 
-  test("en vue icônes, un clic droit ouvre le même menu (#323)", async ({
+  test("en vue icônes, un clic droit ouvre le même menu", async ({
     page,
   }) => {
     await page.goto("/library?folder=league%2F2026&view=icons");
@@ -445,7 +445,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     ).toHaveCount(0);
   });
 
-  test("les propriétés d'un dossier et d'une vidéo montrent taille, durée, propriétaire et dates (#323)", async ({
+  test("les propriétés d'un dossier et d'une vidéo montrent taille, durée, propriétaire et dates", async ({
     page,
   }) => {
     await page.goto("/library?folder=league%2F2026");
@@ -476,7 +476,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(videoDialog).toContainText("Size");
   });
 
-  test("le logo d'un dossier s'importe, se réinitialise et se restaure (#323)", async ({
+  test("le logo d'un dossier s'importe, se réinitialise et se restaure", async ({
     page,
   }) => {
     await page.goto("/library");

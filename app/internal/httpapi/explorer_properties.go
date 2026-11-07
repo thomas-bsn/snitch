@@ -16,7 +16,7 @@ import (
 	"snitch/internal/library"
 )
 
-// The properties of an explorer entry (#323): the size on disk, the durations and owners the database
+// The properties of an explorer entry: the size on disk, the durations and owners the database
 // knows, and the dates of a folder or a video. A folder aggregates its whole subtree, bounded like the
 // listing; a clip the viewer may not read is never counted, so the numbers follow the same permissions as
 // the rows.

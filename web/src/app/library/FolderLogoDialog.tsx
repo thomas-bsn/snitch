@@ -17,7 +17,7 @@ import {
 const MAX_BYTES = 2 << 20;
 
 /**
- * The logo of a folder (#323): the automatic Steam cover, an uploaded image, and the last four versions.
+ * The logo of a folder: the automatic Steam cover, an uploaded image, and the last four versions.
  * Restoring an older image creates a new version, as Discord does; going back to the automatic cover keeps
  * the history.
  */

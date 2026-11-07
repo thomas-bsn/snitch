@@ -16,7 +16,7 @@ function formatDate(value: string, language: string) {
   }).format(new Date(value));
 }
 
-/** Size, duration, owners and dates of a folder or a video (#323). */
+/** Size, duration, owners and dates of a folder or a video. */
 export function ExplorerPropertiesDialog({
   entry,
   open,
