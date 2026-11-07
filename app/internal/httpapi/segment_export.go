@@ -21,17 +21,20 @@ const (
 // segmentExportItem is one corrected segment of the visible transcription of a clip:
 // the original worker text next to the current corrected text.
 type segmentExportItem struct {
-	ClipID             int64     `json:"clip_id"`
-	TranscriptionJobID int64     `json:"transcription_job_id"`
-	AudioStreamIndex   int       `json:"audio_stream_index"`
-	Index              int       `json:"index"`
-	Start              float64   `json:"start"`
-	End                float64   `json:"end"`
-	OriginalText       string    `json:"original_text"`
-	CorrectedText      string    `json:"corrected_text"`
-	Author             authorRef `json:"author"`
-	CorrectedAt        time.Time `json:"corrected_at"`
-	Version            int       `json:"version"`
+	RevisionID         string          `json:"revision_id"`
+	VisibleIndex       int             `json:"visible_index"`
+	Sources            json.RawMessage `json:"sources"`
+	ClipID             int64           `json:"clip_id"`
+	TranscriptionJobID int64           `json:"transcription_job_id"`
+	AudioStreamIndex   int             `json:"audio_stream_index"`
+	Index              int             `json:"index"`
+	Start              float64         `json:"start"`
+	End                float64         `json:"end"`
+	OriginalText       string          `json:"original_text"`
+	CorrectedText      string          `json:"corrected_text"`
+	Author             authorRef       `json:"author"`
+	CorrectedAt        time.Time       `json:"corrected_at"`
+	Version            int             `json:"version"`
 }
 
 // exportSegmentCorrections lists every currently corrected segment (a text correction
@@ -60,11 +63,11 @@ func (s *Server) exportSegmentCorrections(w http.ResponseWriter, r *http.Request
 		}
 	}
 	ctx := r.Context()
-	const selection = `SELECT clip_id,job_id,stream,idx,seg_start,seg_end,original_text,text,author_id,COALESCE(author_username,''),corrected_at,version FROM eff_segments WHERE corrected ORDER BY clip_id,stream,idx`
+	const selection = `SELECT revision_id,visible_index,seg->'sources',clip_id,job_id,stream,idx,seg_start,seg_end,original_text,text,author_id,COALESCE(author_username,''),corrected_at,version FROM eff_segments WHERE corrected ORDER BY clip_id,visible_index`
 	with := `WITH ` + visibleTranscriptsCTE("") + `, ` + effectiveSegmentsCTE() + ` `
 	scan := func(row interface{ Scan(...any) error }) (segmentExportItem, error) {
 		var item segmentExportItem
-		err := row.Scan(&item.ClipID, &item.TranscriptionJobID, &item.AudioStreamIndex, &item.Index, &item.Start, &item.End, &item.OriginalText, &item.CorrectedText, &item.Author.ID, &item.Author.Username, &item.CorrectedAt, &item.Version)
+		err := row.Scan(&item.RevisionID, &item.VisibleIndex, &item.Sources, &item.ClipID, &item.TranscriptionJobID, &item.AudioStreamIndex, &item.Index, &item.Start, &item.End, &item.OriginalText, &item.CorrectedText, &item.Author.ID, &item.Author.Username, &item.CorrectedAt, &item.Version)
 		return item, err
 	}
 

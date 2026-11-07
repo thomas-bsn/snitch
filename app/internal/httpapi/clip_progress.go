@@ -52,7 +52,7 @@ func (s *Server) clipProgress(ctx context.Context, clipID, visibleJobID int64, h
 		return progress, nil
 	}
 	var state string
-	err = s.Pool.QueryRow(ctx, `SELECT state FROM embedding_tasks WHERE profile_id=$1 AND transcription_job_id=$2`, *profileID, visibleJobID).Scan(&state)
+	err = s.Pool.QueryRow(ctx, `SELECT CASE WHEN count(*) FILTER(WHERE t.state='failed')>0 THEN 'failed' WHEN count(*) FILTER(WHERE t.state='leased')>0 THEN 'leased' WHEN count(*) FILTER(WHERE t.state IS NULL OR t.state<>'done')>0 THEN 'pending' ELSE 'done' END FROM (SELECT DISTINCT job_id FROM audio_visible_segments WHERE clip_id=$2) v LEFT JOIN embedding_tasks t ON t.transcription_job_id=v.job_id AND t.profile_id=$1`, *profileID, clipID).Scan(&state)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return progress, err
 	}
@@ -60,7 +60,7 @@ func (s *Server) clipProgress(ctx context.Context, clipID, visibleJobID int64, h
 	case "done":
 		progress.Indexing = "done"
 		var pending bool
-		if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM segment_corrections WHERE transcription_job_id=$1 AND reindex_pending AND stale_at IS NULL)`, visibleJobID).Scan(&pending); err != nil {
+		if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM segment_corrections WHERE transcription_job_id IN (SELECT job_id FROM audio_visible_segments WHERE clip_id=$1) AND reindex_pending AND stale_at IS NULL)`, clipID).Scan(&pending); err != nil {
 			return progress, err
 		}
 		if pending {

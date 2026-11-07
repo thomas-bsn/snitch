@@ -547,6 +547,11 @@ func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcri
 	if !ok {
 		return nil
 	}
+	if revision, ok := object["revision"].(map[string]any); ok {
+		if id, _ := revision["id"].(string); strings.HasPrefix(id, "plan:") {
+			return s.attachRevisionSpeakers(ctx, clipID, object, states)
+		}
+	}
 	index, indexOK := object["audio_stream_index"].(float64)
 	segments, isList := object["segments"].([]any)
 	if !indexOK || !isList || len(segments) == 0 {
