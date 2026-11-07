@@ -427,6 +427,9 @@ func revokeTx(ctx context.Context, tx pgx.Tx, id, reason string) error {
 	if _, err = tx.Exec(ctx, `UPDATE workers SET revoked_at=now(),revoke_reason=$2,reported_concurrency=0,supported_steps='{}',models='{}',machine='{}',remote_address='' WHERE id=$1`, id, reason); err != nil {
 		return fmt.Errorf("revoke worker: %w", err)
 	}
+	if _, err = tx.Exec(ctx, `UPDATE worker_supervisors SET revoked_at=now() WHERE worker_id=$1 AND revoked_at IS NULL`, id); err != nil {
+		return fmt.Errorf("revoke worker supervisor: %w", err)
+	}
 	// A revocation is not the task's fault: the interrupted attempt is not counted.
 	if _, err = tx.Exec(ctx, `WITH released AS (
 		UPDATE jobs SET status='pending',attempts=GREATEST(attempts-1,0),lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='worker_revoked',updated_at=now()

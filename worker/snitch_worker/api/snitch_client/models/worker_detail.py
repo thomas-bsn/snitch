@@ -50,6 +50,7 @@ class WorkerDetail:
                 d'abord.
             bundle (WorkerBundle): Compose et .env prêts à l'emploi, générés une seule fois avec le jeton ; jamais relus
                 ensuite. Le .env contient le jeton.
+            managed_restart (bool | Unset): Indique si un superviseur hôte de redémarrage est enrôlé.
             transcription_model (str | Unset): Nom facultatif du modèle propre au Worker.
             transcription_config (WorkerTranscriptionConfig | Unset): Statut de synchronisation de la configuration de
                 transcription pour un Worker.
@@ -81,6 +82,7 @@ class WorkerDetail:
     connected: bool
     recent_tasks: list[WorkerRecentTask]
     bundle: WorkerBundle
+    managed_restart: bool | Unset = UNSET
     transcription_model: str | Unset = UNSET
     transcription_config: WorkerTranscriptionConfig | Unset = UNSET
     transcription_reachability: WorkerTranscriptionReachability | Unset = UNSET
@@ -145,6 +147,8 @@ class WorkerDetail:
 
         bundle = self.bundle.to_dict()
 
+        managed_restart = self.managed_restart
+
         transcription_model = self.transcription_model
 
         transcription_config: dict[str, Any] | Unset = UNSET
@@ -190,6 +194,8 @@ class WorkerDetail:
             "recent_tasks": recent_tasks,
             "bundle": bundle,
         })
+        if managed_restart is not UNSET:
+            field_dict["managed_restart"] = managed_restart
         if transcription_model is not UNSET:
             field_dict["transcription_model"] = transcription_model
         if transcription_config is not UNSET:
@@ -309,6 +315,8 @@ class WorkerDetail:
 
 
 
+        managed_restart = d.pop("managed_restart", UNSET)
+
         transcription_model = d.pop("transcription_model", UNSET)
 
         _transcription_config = d.pop("transcription_config", UNSET)
@@ -380,6 +388,7 @@ class WorkerDetail:
             connected=connected,
             recent_tasks=recent_tasks,
             bundle=bundle,
+            managed_restart=managed_restart,
             transcription_model=transcription_model,
             transcription_config=transcription_config,
             transcription_reachability=transcription_reachability,

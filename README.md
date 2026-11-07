@@ -74,6 +74,8 @@ Les vérifications utilisent des fixtures et des répertoires temporaires synth�
 
 ### Logs structurés
 
+Un Worker Linux peut aussi être enrôlé avec un superviseur hôte facultatif pour demander un redémarrage explicite depuis sa fiche d’administration ; prérequis et limites WSL2 sont décrits dans [le guide Worker](docs/transcription-worker.md#redémarrage-géré-facultatif).
+
 Le serveur et le Worker écrivent des logs JSON de même schéma (`timestamp`, `level`, `service`, `event`, puis clip, job, cycle, tentative et Worker du claim). `LOG_LEVEL` (ERROR, WARN, INFO par défaut, DEBUG) règle chaque service ; INFO ne garde que les transitions, les heartbeats et claims vides passent en DEBUG. Jetons, en-têtes, cookies, transcriptions et empreintes ne sont jamais journalisés. Les trois fichiers compose bornent les logs Docker à 10 Mo × 5 fichiers. Voir l’[ADR 0023](docs/adr/0023-diagnostic-par-causes-d-echec-persistees.md) et le guide de diagnostic d'un clip entre le NAS et un Worker WSL2/GPU, avec le catalogue des causes d'échec : [docs/diagnostic-logs.md](docs/diagnostic-logs.md).
 
 ### File de tâches par clip

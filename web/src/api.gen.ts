@@ -3460,6 +3460,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/restart": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État du superviseur local et historique des redémarrages demandés. */
+    get: operations["getWorkerRestartHistory"];
+    put?: never;
+    /** @description Administrateurs uniquement. Demande un redémarrage explicite au superviseur hôte authentifié. */
+    post: operations["requestWorkerRestart"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/supervisor/restarts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Polling authentifié du superviseur hôte. */
+    get: operations["pollWorkerRestart"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/supervisor/restarts/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Mise à jour authentifiée de l’état de commande par le superviseur hôte. */
+    put: operations["updateWorkerRestart"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4177,6 +4229,11 @@ export interface components {
       id: string;
       name: string;
       max_concurrency: number;
+      /**
+       * @description Installe un superviseur local facultatif sur cette machine, permettant à un administrateur authentifié de redémarrer ce Worker géré.
+       * @default false
+       */
+      managed_restart: boolean;
       reported_concurrency: number;
       /** Format: date-time */
       last_seen_at: string | null;
@@ -4321,6 +4378,8 @@ export interface components {
       at: string;
     };
     WorkerDetail: {
+      /** @description Indique si un superviseur hôte de redémarrage est enrôlé. */
+      managed_restart?: boolean;
       /** @description Nom facultatif du modèle propre au Worker. */
       transcription_model?: string;
       /** @description Statut de synchronisation de la configuration de transcription pour ce Worker. */
@@ -6460,6 +6519,52 @@ export interface components {
       total: number;
       /** @description Vrai si la recherche sémantique n’a pas pu être utilisée et que le plein texte a pris le relais. */
       degraded?: boolean;
+    };
+    WorkerRestartInput: {
+      reason: string;
+      idempotency_key: string;
+    };
+    WorkerRestartCommand: {
+      id: string;
+      worker_id: string;
+      idempotency_key: string;
+      actor_id: string;
+      reason: string;
+      /** @enum {string} */
+      status:
+        | "requested"
+        | "accepted"
+        | "stopping"
+        | "starting"
+        | "online"
+        | "failed"
+        | "expired";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      expires_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      result: string;
+    };
+    WorkerRestartHistory: {
+      items: {
+        id: string;
+        worker_id: string;
+        actor_id: string;
+        actor: string;
+        reason: string;
+        status: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: date-time */
+        updated_at: string;
+        result: string;
+      }[];
+      supervisor_enrolled: boolean;
+      /** Format: date-time */
+      supervisor_last_seen_at: string | null;
+      supervisor_available: boolean;
     };
   };
   responses: never;
@@ -16055,6 +16160,147 @@ export interface operations {
         };
       };
       /** @description Error */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerRestartHistory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerRestartHistory"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  requestWorkerRestart: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerRestartInput"];
+      };
+    };
+    responses: {
+      /** @description Demande enregistrée */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerRestartCommand"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  pollWorkerRestart: {
+    parameters: {
+      query?: never;
+      header: {
+        Authorization: string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Commande éventuelle */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            command: components["schemas"]["WorkerRestartCommand"];
+          };
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateWorkerRestart: {
+    parameters: {
+      query?: never;
+      header: {
+        Authorization: string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @enum {string} */
+          status: "stopping" | "starting" | "online" | "failed";
+          result?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description État enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

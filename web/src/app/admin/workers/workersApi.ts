@@ -8,6 +8,8 @@ export type Worker = components["schemas"]["Worker"];
 export type WorkerDetail = components["schemas"]["WorkerDetail"];
 export type WorkerRegistration = components["schemas"]["WorkerRegistration"];
 export type WorkerBundle = components["schemas"]["WorkerBundle"];
+export type WorkerRestartHistory =
+  components["schemas"]["WorkerRestartHistory"];
 
 const failure = (error: unknown): { ok: false; code: string } => ({
   ok: false,
@@ -26,8 +28,18 @@ export async function fetchWorker(id: string): Promise<Result<WorkerDetail>> {
   return data ? { ok: true, value: data } : failure(error);
 }
 
+export async function fetchWorkerRestartHistory(
+  id: string,
+): Promise<Result<WorkerRestartHistory>> {
+  const { data, error } = await api.GET("/api/admin/workers/{id}/restart", {
+    params: { path: { id } },
+  });
+  return data ? { ok: true, value: data } : failure(error);
+}
+
 export type NewWorker = {
   name: string;
+  managedRestart?: boolean;
   allowInsecureInstall?: boolean;
 };
 
@@ -47,6 +59,7 @@ export function useWorkerActions() {
         body: {
           name: input.name,
           max_concurrency: 1,
+          managed_restart: input.managedRestart ?? false,
         },
       });
       return data ? { ok: true, value: data } : failure(error);
@@ -82,6 +95,16 @@ export function useWorkerActions() {
         body: reason.trim() ? { reason: reason.trim() } : undefined,
       });
       return error ? failure(error) : { ok: true, value: null };
+    },
+    async restart(id: string, reason: string): Promise<Result<unknown>> {
+      const { data, error } = await api.POST(
+        "/api/admin/workers/{id}/restart",
+        {
+          params: { path: { id }, header: mutation(csrf) },
+          body: { reason: reason.trim(), idempotency_key: crypto.randomUUID() },
+        },
+      );
+      return data ? { ok: true, value: data } : failure(error);
     },
   };
 }
