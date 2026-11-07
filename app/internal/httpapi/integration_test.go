@@ -1062,6 +1062,33 @@ func TestFoundation(t *testing.T) {
 		}
 		call(client, "GET", "/api/admin/workers", nil, "", 200)
 		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 200)
+		// Exercise restart contracts with a synthetic host supervisor, independently of the Worker token.
+		restartPath := "/api/admin/workers/" + contractWorker.ID + "/restart"
+		restartInput := map[string]any{"idempotency_key": "contract-restart-0001", "reason": "Contract fixture"}
+		call(anon, "GET", restartPath, nil, "", 401)
+		call(anon, "POST", restartPath, restartInput, me.CSRF, 401)
+		call(client, "GET", restartPath, nil, "", 200)
+		call(client, "POST", restartPath, restartInput, me.CSRF, 409) // no supervisor enrolled
+		workerToken = contractWorker.Token
+		call(anon, "GET", "/api/worker/supervisor/restarts", nil, "", 401)
+		call(anon, "PUT", "/api/worker/supervisor/restarts/unknown", map[string]any{"status": "failed"}, "", 401)
+		workerToken, e = enrollWorkerSupervisor(ctx, s, contractWorker.ID)
+		if e != nil {
+			t.Fatal(e)
+		}
+		call(anon, "GET", "/api/worker/supervisor/restarts", nil, "", 200) // records supervisor presence
+		var restart struct {
+			ID string `json:"id"`
+		}
+		restartBody := call(client, "POST", restartPath, restartInput, me.CSRF, 202)
+		if e = json.Unmarshal(restartBody, &restart); e != nil || restart.ID == "" {
+			t.Fatalf("contract restart request: %s %v", restartBody, e)
+		}
+		call(anon, "GET", "/api/worker/supervisor/restarts", nil, "", 200)
+		call(anon, "PUT", "/api/worker/supervisor/restarts/"+restart.ID, map[string]any{"status": "stopping"}, "", 204)
+		call(anon, "PUT", "/api/worker/supervisor/restarts/"+restart.ID, map[string]any{"status": "failed", "result": "synthetic_stop_failure"}, "", 204)
+		call(client, "GET", restartPath, nil, "", 200)
+		workerToken = ""
 		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", map[string]any{"endpoint_override": "ftp://not-http"}, me.CSRF, 400)
 		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", map[string]any{"endpoint_override": "http://127.0.0.1:9001"}, me.CSRF, 200)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/transcription/override", nil, me.CSRF, 200)
@@ -1215,6 +1242,8 @@ func TestFoundation(t *testing.T) {
 			CSRF string `json:"csrf_token"`
 		}
 		json.Unmarshal(call(user, "GET", "/api/auth/me", nil, "", 200), &playerSession)
+		call(user, "GET", restartPath, nil, "", 403)
+		call(user, "POST", restartPath, restartInput, playerSession.CSRF, 403)
 		for _, action := range []struct{ method, suffix string }{
 			{"POST", "/password"}, {"DELETE", "/sessions"}, {"DELETE", "/discord"},
 		} {

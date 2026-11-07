@@ -15338,7 +15338,11 @@
                   ],
                   "properties": {
                     "command": {
-                      "$ref": "#/components/schemas/WorkerRestartCommand",
+                      "allOf": [
+                        {
+                          "$ref": "#/components/schemas/WorkerRestartCommand"
+                        }
+                      ],
                       "nullable": true
                     }
                   }
