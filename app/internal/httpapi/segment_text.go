@@ -149,10 +149,21 @@ func overlaySegments(transcription any, jobID int64, states map[int]segmentState
 	}
 	object["transcription_job_id"] = jobID
 	segments, _ := object["segments"].([]any)
+	// Acoustic provenance (#343) lives in the published manifest; the visible rank is the
+	// position in both lists. Presentation only: no identity, text or time comes from it.
+	var manifest []any
+	if revision, isMap := object["revision"].(map[string]any); isMap {
+		manifest, _ = revision["segments"].([]any)
+	}
 	for i, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
 			continue
+		}
+		if i < len(manifest) {
+			if entry, isEntry := manifest[i].(map[string]any); isEntry && entry["grouping"] != nil {
+				segment["grouping"] = entry["grouping"]
+			}
 		}
 		original, _ := segment["text"].(string)
 		segment["index"], segment["original_text"], segment["corrected"], segment["correction_version"] = i, original, false, 0

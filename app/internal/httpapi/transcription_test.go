@@ -735,6 +735,11 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	// Keep all three result tiers in the same SQL response and assert their
 	// precedence independently of clip dates and identifiers.
+	// Revisions are immutable and what search reads is the captured manifest: drop the legacy
+	// revision so rewriting the job result captures a new one from the three segments below.
+	if _, err = pool.Exec(context.Background(), `DELETE FROM transcript_revisions WHERE clip_id=$1 AND legacy_job_id IS NOT NULL`, completed.ClipID); err != nil {
+		t.Fatal(err)
+	}
 	_, err = pool.Exec(context.Background(), `UPDATE jobs SET result=$1::jsonb WHERE clip_id=$2 AND status='done' AND step LIKE 'transcription.audio.%'`, `{"segments":[{"start":1,"text":"Jouee !","words":[{"word":"Jouee","start":1}]},{"start":2,"text":"On dit jouee ici","words":[{"word":"ici","start":2}]},{"start":3,"text":"Joues !","words":[{"word":"Joues","start":3}]}]}`, completed.ClipID)
 	if err != nil {
 		t.Fatal(err)

@@ -3619,6 +3619,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/audio-plans/{plan_id}/diagnostics": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Met en file un job audio.diagnostic.N distinct par piste retenue du plan, de façon idempotente. Aucun effet sur les transcriptions. Un Worker ne prend un job que s'il déclare audio.diagnostic.* et détient le détecteur épinglé installé explicitement. */
+    post: operations["queueAudioPlanDiagnostics"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4749,6 +4766,21 @@ export interface components {
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
       audio_plan?: components["schemas"]["WorkerAudioPlanTask"];
+      audio_diagnostic?: components["schemas"]["WorkerAudioDiagnosticInput"];
+    };
+    /** @description Identité immuable d'un job audio.diagnostic.N. start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur. */
+    WorkerAudioDiagnosticInput: {
+      /** Format: int64 */
+      plan_id: number;
+      track_index: number;
+      /** @description Empreinte du plan, recopiée dans l'observation. */
+      input_version: string;
+      detector_version: string;
+      detector_config_version: string;
+      /** Format: double */
+      start_seconds: number;
+      /** Format: double */
+      duration_seconds: number | null;
     };
     /** @description Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip. */
     WorkerAudioPlanTask: {
@@ -4870,7 +4902,7 @@ export interface components {
     VoiceModel: {
       id: string;
       /** @enum {string} */
-      kind: "diarization" | "fingerprint" | "separation";
+      kind: "diarization" | "fingerprint" | "separation" | "vad";
       label: string;
       /**
        * Format: int64
@@ -4906,7 +4938,7 @@ export interface components {
       /** @description Commit montré par l'inspection. */
       revision: string;
       /** @enum {string} */
-      kind: "diarization" | "fingerprint" | "separation";
+      kind: "diarization" | "fingerprint" | "separation" | "vad";
     };
     VoiceModelInspection: {
       repo: string;
@@ -4918,7 +4950,12 @@ export interface components {
       engine: string;
       /** @description Null quand les métadonnées ne tranchent pas : la personne choisit parmi les trois types. */
       proposed_kind: string | null;
-      compatible_kinds: ("diarization" | "fingerprint" | "separation")[];
+      compatible_kinds: (
+        | "diarization"
+        | "fingerprint"
+        | "separation"
+        | "vad"
+      )[];
       supported: boolean;
       unsupported_reason: string;
       /** @description Références du catalogue déjà créées pour ce dépôt. */
@@ -4936,7 +4973,7 @@ export interface components {
       role: "candidate" | "active" | "removal";
       retry: boolean;
       /** @enum {string} */
-      kind?: "diarization" | "fingerprint" | "separation";
+      kind?: "diarization" | "fingerprint" | "separation" | "vad";
     };
     WorkerVoiceModels: {
       worker_id: string;
@@ -4995,7 +5032,7 @@ export interface components {
       order_id: string;
       worker_id: string;
       /** @enum {string} */
-      kind: "diarization" | "fingerprint" | "separation";
+      kind: "diarization" | "fingerprint" | "separation" | "vad";
       /** @enum {string} */
       action: "install" | "remove";
       model_id: string;
@@ -5028,7 +5065,7 @@ export interface components {
     VoiceModelOrderHistoryItem: {
       order_id: string;
       /** @enum {string} */
-      kind: "diarization" | "fingerprint" | "separation";
+      kind: "diarization" | "fingerprint" | "separation" | "vad";
       /** @enum {string} */
       action: "install" | "remove";
       model_id: string;
@@ -5060,7 +5097,7 @@ export interface components {
     };
     WorkerModelCell: {
       /** @enum {string} */
-      kind: "diarization" | "fingerprint" | "separation";
+      kind: "diarization" | "fingerprint" | "separation" | "vad";
       supported: boolean;
       model_id: string;
       label: string;
@@ -6252,6 +6289,16 @@ export interface components {
       height?: number;
       channels?: number;
       channel_layout?: string;
+      /**
+       * Format: double
+       * @description Durée propre au flux ffprobe ; null si inconnue. Jamais la durée du conteneur.
+       */
+      duration_seconds?: number | null;
+      /**
+       * Format: double
+       * @description Décalage de départ propre au flux ffprobe ; null si inconnu.
+       */
+      start_seconds?: number | null;
     };
     Redirect: {
       /** Format: uri */
@@ -6413,6 +6460,10 @@ export interface components {
        * @description Date de la correction du texte, si corrigé.
        */
       corrected_at?: string;
+      /** @description Toutes les provenances du passage publié (piste réelle, tâche, segment) ; la première porte l'identité des corrections. Absent pour une ancienne transcription. */
+      sources?: components["schemas"]["TranscriptSource"][];
+      /** @description Sources regroupées par preuve acoustique sous ce passage, consultables ; absent sans regroupement. */
+      grouping?: components["schemas"]["TranscriptGrouping"][];
     };
     Transcription: {
       provider: string;
@@ -6990,6 +7041,33 @@ export interface components {
       children: components["schemas"]["AudioPlanChild"][];
       loss_preview?: components["schemas"]["AudioLossPreview"];
     };
+    /** @description Preuve acoustique pour laquelle une source a été regroupée sous le passage conservé. La source reste consultable ; son texte n'est pas publié en double. */
+    TranscriptGrouping: {
+      source: components["schemas"]["TranscriptSource"];
+      /**
+       * @description Règle acoustique activée qui a prouvé le doublon.
+       * @enum {string}
+       */
+      strategy: "exact_pcm" | "gain";
+      strategy_version: string;
+      /**
+       * Format: double
+       * @description Gain constant prouvé entre la source regroupée et le passage conservé (stratégie gain).
+       */
+      gain?: number;
+      /**
+       * Format: double
+       * @description Décalage résiduel mesuré entre les deux signaux, en secondes.
+       */
+      lag_seconds: number;
+      /**
+       * Format: double
+       * @description Début, dans le repère du clip, de la plage prouvée identique côté passage conservé.
+       */
+      matched_start: number;
+      /** Format: double */
+      matched_end: number;
+    };
     TranscriptSource: {
       /** @description Indice ffprobe réel ; -1 réservé à une ancienne transcription sans indice enregistré. */
       track_index: number;
@@ -7014,6 +7092,8 @@ export interface components {
       end: number;
       sources: components["schemas"]["TranscriptSource"][];
       words: components["schemas"]["TranscriptManifestWord"][];
+      /** @description Sources regroupées sous ce passage avec leur preuve acoustique ; absent si aucun regroupement. Elles figurent aussi dans `sources`. */
+      grouping?: components["schemas"]["TranscriptGrouping"][];
     };
     TranscriptRevision: {
       id: string;
@@ -14103,7 +14183,7 @@ export interface operations {
       };
       path: {
         id: string;
-        kind: "diarization" | "fingerprint" | "separation";
+        kind: "diarization" | "fingerprint" | "separation" | "vad";
       };
       cookie?: never;
     };
@@ -17232,6 +17312,57 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Plan immuable et état courant de ses enfants. Auto non activé par cette lecture. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPlanState"];
+        };
+      };
+      /** @description Identifiant invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Clip ou plan introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  queueAudioPlanDiagnostics: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        plan_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du plan avec ses jobs de diagnostic (en file, en cours, nouvelle tentative, mort) et le dernier diagnostic de chaque piste. */
       200: {
         headers: {
           [name: string]: unknown;

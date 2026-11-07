@@ -3,6 +3,7 @@
 
 export const errorsEn = {
   invalid_plan_id: "This audio plan identifier is not valid.",
+  invalid_audio_diagnostic: "This audio diagnostic result is not valid.",
   audio_plan_not_found: "This audio plan does not exist for this clip.",
   audio_plan_not_published:
     "This audio plan is not the published transcript of the clip: its voices cannot be analysed yet.",

@@ -13,6 +13,9 @@ _Avoid_ : Traitement (trop vague), tâche (qui désigne un job).
 **Plan audio** : Les pistes qu'une Analyse de clip doit examiner ou retenir, avec les choix explicites de l'utilisateur et les règles utilisées pour interpréter leur parole. Changer ces choix donne un autre Plan audio.
 _Avoid_ : Piste choisie (qui ne couvre qu'une piste), Analyse de clip (qui désigne l'exécution entière).
 
+**Diagnostic de piste** : L'observation, par un détecteur de parole versionné, de la présence de parole dans une piste audio réelle d'un Plan audio : parole détectée, aucune parole détectée, ambigu, échec ou non examiné, avec ses causes et intervalles. Une erreur, un modèle absent ou une faible certitude ne sont jamais une absence de parole ; le diagnostic n'exclut pas une piste à lui seul.
+_Avoid_ : Détection de piste jeu (le titre ou l'ordre d'une piste ne dit rien de son contenu).
+
 **Analyse complète automatique** : Le réglage qui fait démarrer une Analyse de clip complète, de la transcription jusqu'aux voix, dès qu'une vidéo est ajoutée. Il ne concerne que les nouveaux ajouts.
 
 **Suppression d'analyse** : Le retrait volontaire des résultats d'étapes choisies d'un clip, avec tout ce qui en dépend. Le clip, ses fichiers et les Personnes restent ; les Références perdent les échantillons qui venaient de ce clip.

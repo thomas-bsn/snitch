@@ -72,3 +72,7 @@ Après la publication, `Server.StartPlanVoice(ctx, planID, clipID, auteur, confi
 - `GET /api/clips/{id}/voice` ajoute `plan_id` et `tracks` quand la transcription visible est une révision de Plan, et liste les voix de toutes les pistes retenues ; chaque voix porte `audio_stream_index`. Sans révision de Plan, la lecture monopiste est inchangée.
 - Les transcriptions d'une révision de Plan exposent `speaker_coverage_by_track` : une voix détectée sans parole reste visible, même sur une piste sans segment.
 - Raccord avec #344 : appeler `StartPlanVoice` une fois la révision publiée ; relire `PlanVoiceState` pour l'état d'avancement. Voir l'[ADR 0052](adr/0052-voix-par-piste-d-un-plan-audio.md).
+
+## Déduplication acoustique (#343)
+
+`audioplans.MergeAcoustic` regroupe les segments dont l'audio est prouvé identique par l'adaptateur Worker ; `audioplans.MergeVersion()` alimente `MergeVersion` du Plan. Le manifeste garde toutes les sources dans `sources` et la preuve de chaque source regroupée dans `grouping`. Voir l'[ADR 0053](adr/0053-deduplication-acoustique-des-paroles.md) et [acoustic-dedup.md](acoustic-dedup.md).

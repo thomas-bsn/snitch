@@ -1,0 +1,586 @@
+{
+ "adapter_version": "1",
+ "comparisons": [
+  {
+   "coverage": {
+    "left": 0.999159,
+    "right": 0.999159
+   },
+   "decision": "duplicate",
+   "evidence_kind": "exact_pcm",
+   "gain": null,
+   "lag_seconds": 0.0,
+   "left": {
+    "end": 1.931625,
+    "id": "t2",
+    "job_id": 20,
+    "start": 0.0,
+    "track_index": 2
+   },
+   "matched": [
+    {
+     "left_end": 1.93,
+     "left_start": 0.0,
+     "right_end": 1.93,
+     "right_start": 0.0
+    }
+   ],
+   "metrics": {
+    "matched_seconds": 1.93
+   },
+   "reason_codes": [
+    "exact_pcm_samples_proven"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t7",
+    "job_id": 70,
+    "start": 0.0,
+    "track_index": 7
+   },
+   "strategy": "exact_pcm",
+   "strategy_version": "1"
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "distinct",
+   "evidence_kind": "none",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t2",
+    "job_id": 20,
+    "start": 0.0,
+    "track_index": 2
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 1282,
+    "gain_estimate": 0.014778,
+    "gain_median_residual_peak": 3314.133119,
+    "normalized_correlation": 0.079613,
+    "residual_to_signal_ratio": 2.850661
+   },
+   "reason_codes": [
+    "no_acoustic_match"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t9",
+    "job_id": 90,
+    "start": 0.0,
+    "track_index": 9
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.999159,
+    "right": 0.999159
+   },
+   "decision": "duplicate",
+   "evidence_kind": "gain",
+   "gain": 0.499998,
+   "lag_seconds": 0.0,
+   "left": {
+    "end": 1.931625,
+    "id": "t2",
+    "job_id": 20,
+    "start": 0.0,
+    "track_index": 2
+   },
+   "matched": [
+    {
+     "left_end": 1.93,
+     "left_start": 0.0,
+     "right_end": 1.93,
+     "right_start": 0.0
+    }
+   ],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.499998,
+    "gain_median_residual_peak": 0.505733,
+    "matched_seconds": 1.93,
+    "normalized_correlation": 1.0
+   },
+   "reason_codes": [
+    "gain_samples_proven"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t11",
+    "job_id": 110,
+    "start": 0.0,
+    "track_index": 11
+   },
+   "strategy": "gain",
+   "strategy_version": "1"
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "codec",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t2",
+    "job_id": 20,
+    "start": 0.0,
+    "track_index": 2
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.997108,
+    "normalized_correlation": 0.999314,
+    "residual_to_signal_ratio": 0.001374
+   },
+   "reason_codes": [
+    "codec_or_transform_candidate_not_validated",
+    "near_unity_gain_not_validated"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t12",
+    "job_id": 120,
+    "start": 0.0,
+    "track_index": 12
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "mixture",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t2",
+    "job_id": 20,
+    "start": 0.0,
+    "track_index": 2
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.993575,
+    "normalized_correlation": 0.70012,
+    "residual_to_signal_ratio": 1.052165
+   },
+   "reason_codes": [
+    "near_unity_gain_not_validated",
+    "partial_correlation_not_proof"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t13",
+    "job_id": 130,
+    "start": 0.0,
+    "track_index": 13
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "distinct",
+   "evidence_kind": "none",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t7",
+    "job_id": 70,
+    "start": 0.0,
+    "track_index": 7
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 1282,
+    "gain_estimate": 0.014778,
+    "gain_median_residual_peak": 3314.133119,
+    "normalized_correlation": 0.079613,
+    "residual_to_signal_ratio": 2.850661
+   },
+   "reason_codes": [
+    "no_acoustic_match"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t9",
+    "job_id": 90,
+    "start": 0.0,
+    "track_index": 9
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.999159,
+    "right": 0.999159
+   },
+   "decision": "duplicate",
+   "evidence_kind": "gain",
+   "gain": 0.499998,
+   "lag_seconds": 0.0,
+   "left": {
+    "end": 1.931625,
+    "id": "t7",
+    "job_id": 70,
+    "start": 0.0,
+    "track_index": 7
+   },
+   "matched": [
+    {
+     "left_end": 1.93,
+     "left_start": 0.0,
+     "right_end": 1.93,
+     "right_start": 0.0
+    }
+   ],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.499998,
+    "gain_median_residual_peak": 0.505733,
+    "matched_seconds": 1.93,
+    "normalized_correlation": 1.0
+   },
+   "reason_codes": [
+    "gain_samples_proven"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t11",
+    "job_id": 110,
+    "start": 0.0,
+    "track_index": 11
+   },
+   "strategy": "gain",
+   "strategy_version": "1"
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "codec",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t7",
+    "job_id": 70,
+    "start": 0.0,
+    "track_index": 7
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.997108,
+    "normalized_correlation": 0.999314,
+    "residual_to_signal_ratio": 0.001374
+   },
+   "reason_codes": [
+    "codec_or_transform_candidate_not_validated",
+    "near_unity_gain_not_validated"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t12",
+    "job_id": 120,
+    "start": 0.0,
+    "track_index": 12
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "mixture",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t7",
+    "job_id": 70,
+    "start": 0.0,
+    "track_index": 7
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.993575,
+    "normalized_correlation": 0.70012,
+    "residual_to_signal_ratio": 1.052165
+   },
+   "reason_codes": [
+    "near_unity_gain_not_validated",
+    "partial_correlation_not_proof"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t13",
+    "job_id": 130,
+    "start": 0.0,
+    "track_index": 13
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "distinct",
+   "evidence_kind": "none",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t9",
+    "job_id": 90,
+    "start": 0.0,
+    "track_index": 9
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": -1282,
+    "gain_estimate": 0.007675,
+    "gain_median_residual_peak": 1672.485793,
+    "normalized_correlation": 0.07796,
+    "residual_to_signal_ratio": 1.064972
+   },
+   "reason_codes": [
+    "no_acoustic_match"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t11",
+    "job_id": 110,
+    "start": 0.0,
+    "track_index": 11
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "distinct",
+   "evidence_kind": "none",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t9",
+    "job_id": 90,
+    "start": 0.0,
+    "track_index": 9
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": -1282,
+    "gain_estimate": 0.012755,
+    "gain_median_residual_peak": 3182.755104,
+    "normalized_correlation": 0.078079,
+    "residual_to_signal_ratio": 1.368246
+   },
+   "reason_codes": [
+    "no_acoustic_match"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t12",
+    "job_id": 120,
+    "start": 0.0,
+    "track_index": 12
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "distinct",
+   "evidence_kind": "none",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t9",
+    "job_id": 90,
+    "start": 0.0,
+    "track_index": 9
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": -1282,
+    "gain_estimate": 0.040497,
+    "gain_median_residual_peak": 3979.685632,
+    "normalized_correlation": 0.053046,
+    "residual_to_signal_ratio": 1.846984
+   },
+   "reason_codes": [
+    "no_acoustic_match"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t13",
+    "job_id": 130,
+    "start": 0.0,
+    "track_index": 13
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "codec",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t11",
+    "job_id": 110,
+    "start": 0.0,
+    "track_index": 11
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 1.994271,
+    "gain_median_residual_peak": 58.09993,
+    "normalized_correlation": 0.999314,
+    "residual_to_signal_ratio": 0.993921
+   },
+   "reason_codes": [
+    "codec_or_transform_candidate_not_validated"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t12",
+    "job_id": 120,
+    "start": 0.0,
+    "track_index": 12
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "mixture",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t11",
+    "job_id": 110,
+    "start": 0.0,
+    "track_index": 11
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 1.987109,
+    "gain_median_residual_peak": 2274.622537,
+    "normalized_correlation": 0.700126,
+    "residual_to_signal_ratio": 5.23308
+   },
+   "reason_codes": [
+    "partial_correlation_not_proof"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t13",
+    "job_id": 130,
+    "start": 0.0,
+    "track_index": 13
+   },
+   "strategy": null,
+   "strategy_version": null
+  },
+  {
+   "coverage": {
+    "left": 0.0,
+    "right": 0.0
+   },
+   "decision": "uncertain_keep",
+   "evidence_kind": "mixture",
+   "gain": null,
+   "lag_seconds": null,
+   "left": {
+    "end": 1.931625,
+    "id": "t12",
+    "job_id": 120,
+    "start": 0.0,
+    "track_index": 12
+   },
+   "matched": [],
+   "metrics": {
+    "correlation_lag_samples": 0,
+    "gain_estimate": 0.99267,
+    "normalized_correlation": 0.69946,
+    "residual_to_signal_ratio": 1.058766
+   },
+   "reason_codes": [
+    "near_unity_gain_not_validated",
+    "partial_correlation_not_proof"
+   ],
+   "right": {
+    "end": 1.931625,
+    "id": "t13",
+    "job_id": 130,
+    "start": 0.0,
+    "track_index": 13
+   },
+   "strategy": null,
+   "strategy_version": null
+  }
+ ],
+ "enabled_strategies": {
+  "exact_pcm": "1",
+  "gain": "1"
+ },
+ "evaluated_only": [
+  "codec",
+  "mixture"
+ ],
+ "schema_version": 1
+}

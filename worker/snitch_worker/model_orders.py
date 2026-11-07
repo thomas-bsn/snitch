@@ -32,7 +32,7 @@ _WORKER_ID = re.compile(r"^wk_[A-Za-z0-9_-]{20,60}$")
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{8,100}$")
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 # Engines an approved adapter exists for, by type (separation has none yet).
-ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"}}
+ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"}, "vad": {"silero-jit"}}
 STATE_NAME = "orders.json"
 # A download needs room for the whole model; this margin covers what the archive and the cache add on top.
 DISK_MARGIN = 1.1

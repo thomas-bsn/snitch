@@ -608,6 +608,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("audio plan voice human work", func(t *testing.T) { reset(t); testAudioPlanVoiceHumanWork(t, pool) })
 	t.Run("audio plan voice microphone", func(t *testing.T) { reset(t); testAudioPlanVoiceMicrophone(t, pool) })
 	t.Run("audio plan voice not published", func(t *testing.T) { reset(t); testAudioPlanVoiceNotPublished(t, pool) })
+	t.Run("audio dedup", func(t *testing.T) { reset(t); testAudioDedup(t, pool) })
+	t.Run("audio diagnostics", func(t *testing.T) { reset(t); testAudioDiagnostics(t, pool) })
+	t.Run("audio diagnostic outcomes", func(t *testing.T) { reset(t); testAudioDiagnosticOutcomes(t, pool) })
+	t.Run("multitrack worker diagnostics", func(t *testing.T) { reset(t); testMultitrackWorkerDiagnostics(t, pool) })
 	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
 		reset(t)
@@ -1257,6 +1261,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", audioPlanPath+"/voice", nil, "", 404)
 		call(user, "POST", audioPlanPath+"/voice", map[string]any{}, "", 403)
 		call(client, "POST", audioPlanPath+"/voice", map[string]any{}, me.CSRF, 404)
+		// Diagnostics queueing: behavior in the audio diagnostics suites.
+		call(client, "POST", audioPlanPath+"/diagnostics", map[string]any{}, me.CSRF, 404)
 		call(user, "GET", "/api/admin/settings", nil, "", 403)
 		call(user, "GET", "/api/admin/vocabulary", nil, "", 403)
 		call(user, "GET", "/api/admin/users", nil, "", 403)

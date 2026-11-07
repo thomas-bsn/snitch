@@ -628,6 +628,7 @@ export const fr: Messages = {
         diarization: "Diarisation",
         fingerprint: "Empreinte",
         separation: "Séparation",
+        vad: "Détecteur de parole",
       },
       absent: "Absent",
       separationUnsupported:
@@ -2480,6 +2481,17 @@ export const fr: Messages = {
       play: "Lire à partir de {time}",
       textCorrected: "Texte corrigé par {author}",
       textCorrectedAnon: "Texte corrigé",
+
+      sourcesSummary: "Captée sur {count} pistes",
+
+      sourceTrack: "Piste {track}",
+
+      sourceExact: "Signal identique prouvé : copie exacte, de {from} à {to}",
+
+      sourceGain:
+        "Signal identique prouvé : gain constant ×{gain}, de {from} à {to}",
+
+      sourceRetained: "Passage conservé : piste {track}",
       unknownSpeaker: "Voix inconnue",
     },
     speaker: {

@@ -278,6 +278,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/clips/{id}/audio-selection", s.protected(true, http.HandlerFunc(s.startAudioSelection)))
 	mux.Handle("GET /api/admin/clips/{id}/audio-plans/{plan_id}", s.protected(true, http.HandlerFunc(s.getAudioPlan)))
 	s.registerVoicePlanRoutes(mux)
+	mux.Handle("POST /api/admin/clips/{id}/audio-plans/{plan_id}/diagnostics", s.protected(true, http.HandlerFunc(s.queueAudioDiagnostics)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.getClipAnalysis)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis/history", s.protected(true, http.HandlerFunc(s.getClipAnalysisHistory)))
 	mux.Handle("POST /api/admin/clips/{id}/analysis/cancel", s.protected(true, http.HandlerFunc(s.cancelClipAnalysis)))
