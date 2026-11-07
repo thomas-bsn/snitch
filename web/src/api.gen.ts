@@ -3587,6 +3587,22 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/audio-plans/{plan_id}/voice": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getAudioPlanVoice"];
+    put?: never;
+    post: operations["startAudioPlanVoice"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/audio-plans/{plan_id}": {
     parameters: {
       query?: never;
@@ -6088,6 +6104,8 @@ export interface components {
       /** Format: int64 */
       id: number;
       label: string;
+      /** @description Piste audio réelle (indice ffprobe) sur laquelle la voix a été détectée : sa provenance. Deux pistes ne partagent jamais un Locuteur local. */
+      audio_stream_index: number;
       /**
        * @description microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le clip, aucune empreinte).
        * @enum {string}
@@ -6115,6 +6133,13 @@ export interface components {
       refused_persons?: components["schemas"]["PersonRef"][];
     };
     ClipVoice: {
+      /**
+       * Format: int64
+       * @description Plan audio dont la révision est la transcription visible ; présent seulement dans ce cas. Les étapes et les voix couvrent alors toutes ses pistes retenues.
+       */
+      plan_id?: number;
+      /** @description État vocal de chaque piste retenue du Plan (présent avec plan_id). */
+      tracks?: components["schemas"]["AudioPlanVoiceTrack"][];
       /** Format: int64 */
       clip_id: number;
       /** @enum {string} */
@@ -6456,6 +6481,13 @@ export interface components {
         /** Format: int64 */
         id: number;
         label: string;
+        /** @description Piste de la voix ; présent pour une révision de Plan (une liste pour toutes les pistes retenues). */
+        audio_stream_index?: number;
+      }[];
+      /** @description Révision de Plan seulement : la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une piste sans aucun segment. */
+      speaker_coverage_by_track?: {
+        audio_stream_index: number;
+        coverage: components["schemas"]["SpeakerCoverage"][];
       }[];
       /** @description Couverture des locuteurs détectés par la transcription de la piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation. */
       speaker_coverage?: components["schemas"]["SpeakerCoverage"][];
@@ -6935,6 +6967,73 @@ export interface components {
       replaced_track_indices: number[];
       invalidated_steps: string[];
       confirmation_required: boolean;
+    };
+    /** @description Travail humain qu'une diarisation des pistes concernées rendrait obsolète. Les anciennes voix restent protégées jusqu'à un nouveau résultat réussi. */
+    AudioPlanVoiceStake: {
+      validated_speakers: number;
+      voice_samples: number;
+      speaker_corrections: number;
+      /** @description Personnes dont la Référence perd un échantillon vocal ou une validation. */
+      affected_persons: number;
+      /** @description Pistes qui portent ce travail humain. */
+      audio_stream_indices: number[];
+    };
+    AudioPlanVoiceTrack: {
+      audio_stream_index: number;
+      /** @enum {string} */
+      status:
+        | "not_started"
+        | "queued"
+        | "running"
+        | "done"
+        | "failed"
+        | "cancelled"
+        | "not_applicable";
+      /** @description voice_worker_unavailable (en attente d'un Worker vocal prêt), microphone_direct_attribution, no_speakers, cancelled_by_admin, fingerprint_missing ou le code expurgé de l'étape en échec ; vide sinon. */
+      cause: string;
+      /** @description Vrai si la diarisation déjà faite avec le même modèle a été conservée : seuls les travaux manquants sont repris. */
+      reused: boolean;
+      /** @description Piste micro désignée : attribution directe, jamais diarisée, sans extension aux autres pistes. */
+      microphone: boolean;
+      diarization: components["schemas"]["VoiceStep"] | null;
+      fingerprint: components["schemas"]["VoiceStep"] | null;
+      speaker_count: number;
+      model: string;
+      /** @description Version épinglée au premier lancement du Plan. */
+      model_version: string;
+      stake: components["schemas"]["AudioPlanVoiceStake"];
+    };
+    /** @description Analyse des voix de toutes les pistes retenues d'un Plan publié. La transcription publiée n'est jamais retirée par une panne ou l'absence d'un Worker vocal. */
+    AudioPlanVoice: {
+      /** Format: int64 */
+      plan_id: number;
+      /** Format: int64 */
+      clip_id: number;
+      revision_id: string;
+      /** @description La révision du Plan est la transcription visible. Les étapes vocales ne démarrent qu'alors. */
+      published: boolean;
+      /** @enum {string} */
+      status:
+        | "not_published"
+        | "not_started"
+        | "queued"
+        | "running"
+        | "done"
+        | "failed";
+      cause: string;
+      /** @description Version du pipeline vocal épinglée par le Plan. */
+      pipeline_version: string;
+      tracks: components["schemas"]["AudioPlanVoiceTrack"][];
+      stake: components["schemas"]["AudioPlanVoiceStake"];
+    };
+    AudioPlanVoiceStart: {
+      /** @description Vrai pour confirmer le remplacement des validations, échantillons vocaux (Références) et corrections de locuteur des pistes recensées dans la confirmation 409. */
+      confirm_replace_validations?: boolean;
+    };
+    AudioPlanVoiceConfirmation: {
+      /** @enum {string} */
+      error: "voice_rediarization_confirmation_required";
+      stake: components["schemas"]["AudioPlanVoiceStake"];
     };
     AudioPlanState: {
       plan: components["schemas"]["AudioPlan"];
@@ -17079,6 +17178,124 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  getAudioPlanVoice: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        plan_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État vocal par piste du Plan, avec le travail humain qu'un lancement remplacerait. Sans effet. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPlanVoice"];
+        };
+      };
+      /** @description Identifiant invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Clip ou plan introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  startAudioPlanVoice: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        plan_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AudioPlanVoiceStart"];
+      };
+    };
+    responses: {
+      /** @description Voix planifiées pour les seules pistes retenues sans résultat : travaux faits conservés, échecs repris sur place. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPlanVoice"];
+        };
+      };
+      /** @description Identifiant invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Clip ou plan introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description audio_plan_not_published, audio_plan_superseded, voice_step_in_progress ou voice_rediarization_confirmation_required (avec le travail humain en jeu sur toutes les pistes remplacées) */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPlanVoiceConfirmation"];
+        };
       };
     };
   };

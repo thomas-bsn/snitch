@@ -685,8 +685,10 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 		return Job{}, fmt.Errorf("complete worker job: %w", err)
 	}
 	if newlyCompleted {
+		// Diagnostic and transcription children are published by their plan (#340). The voice
+		// children (#342) project into the local speakers like any voice job.
 		var audioChild bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audio_plan_children WHERE job_id=$1)`, job.ID).Scan(&audioChild); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT stage IN ('diagnostic','transcription') FROM audio_plan_children WHERE job_id=$1),false)`, job.ID).Scan(&audioChild); err != nil {
 			return Job{}, fmt.Errorf("read audio child binding: %w", err)
 		}
 		if !audioChild && strings.HasPrefix(job.Step, "transcription.audio.") {

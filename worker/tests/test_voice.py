@@ -77,5 +77,35 @@ class VoiceRunnerTests(unittest.TestCase):
         self.assertEqual(fail.call_args.kwargs["body"].error, "pyannote_model_missing")
 
 
+class PlanTracksVoiceTests(unittest.TestCase):
+    """Voice steps of the kept tracks of a plan (#342): one job per real stream index, nothing shared."""
+
+    def test_each_kept_track_reports_its_own_real_stream_index(self):
+        for stream in (2, 7):
+            result = voice.process_voice_step(f"voice.diarization.{stream}", {"config": CONFIG}, 4.0)
+            self.assertEqual(result["audio_stream_index"], stream)
+        diarization = {"job_id": 11, "speakers": [{"label": "SPEAKER_00", "turns": [{"index": 0, "start": 0.0, "end": 1.0}]}]}
+        fingerprints = voice.process_voice_step("voice.fingerprint.7", {"config": CONFIG, "diarization": diarization}, None)
+        self.assertEqual(fingerprints["audio_stream_index"], 7)
+        self.assertEqual(fingerprints["diarization_job_id"], 11)
+
+    def test_the_worker_keeps_stream_time_the_server_converts_the_offset_once(self):
+        # Track 7 starts 1.25 s into the clip; the server hands the turns back in stream time.
+        diarization = {"job_id": 12, "speakers": [{"label": "SPEAKER_00", "turns": [{"index": 0, "start": 0.0, "end": 1.0}]}]}
+        result = voice.process_voice_step("voice.fingerprint.7", {"config": CONFIG, "diarization": diarization}, None)
+        speaker = result["fingerprints"][0]
+        self.assertEqual((speaker["start"], speaker["end"]), (0.0, 1.0))
+
+    def test_a_failure_on_one_track_does_not_alter_the_other_and_a_retry_succeeds(self):
+        unavailable = {**CONFIG, "provider": "pyannote"}
+        with self.assertRaises(voice.VoiceProviderUnavailable):
+            voice.process_voice_step("voice.diarization.7", {"config": unavailable}, 4.0)
+        healthy = voice.process_voice_step("voice.diarization.2", {"config": CONFIG}, 4.0)
+        retried = voice.process_voice_step("voice.diarization.7", {"config": CONFIG}, 4.0)
+        self.assertEqual(healthy["audio_stream_index"], 2)
+        self.assertEqual(retried["audio_stream_index"], 7)
+        self.assertEqual(healthy["speakers"], retried["speakers"])  # same pinned pipeline, deterministic
+
+
 if __name__ == "__main__":
     unittest.main()

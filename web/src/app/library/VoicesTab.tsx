@@ -37,12 +37,56 @@ export function VoicesTab({
   coverage?: SpeakerCoverage[];
 }) {
   const { t } = useI18n();
-  if (!voice || voice.speakers.length === 0) {
+  const tracks = voice?.tracks ?? [];
+  if (!voice || (voice.speakers.length === 0 && tracks.length === 0)) {
     return <p className="p-4 text-mute">{t("clip.voices.empty")}</p>;
   }
   const todo = voice.speakers.filter(voiceToDecide).length;
+  // A voice only shows its track when the clip has several: provenance, never a merge of voices.
+  const showProvenance = tracks.length > 1;
   return (
     <div className="flex flex-col">
+      {tracks.length > 0 && (
+        <ul
+          aria-label={t("clip.voices.trackStatesLabel")}
+          className="m-0 flex list-none flex-col gap-1 border-b border-line p-0 px-4 py-3 text-sm"
+        >
+          {tracks.map((track) => (
+            <li
+              key={track.audio_stream_index}
+              data-testid="voice-track"
+              data-track={track.audio_stream_index}
+              data-status={track.status}
+              className="flex flex-wrap items-center gap-x-2"
+            >
+              <span className="font-medium">
+                {t("clip.voices.trackLine", {
+                  index: track.audio_stream_index,
+                })}
+              </span>
+              {track.microphone && (
+                <span className="rounded-full bg-side px-2 py-0.5 text-xs text-mute">
+                  {t("clip.voices.microphoneTrack")}
+                </span>
+              )}
+              <span
+                className={
+                  track.status === "failed" || track.cause
+                    ? "text-warn-fg"
+                    : "text-mute"
+                }
+              >
+                {t(`clip.voices.trackStatus.${track.status}`)}
+              </span>
+              {track.cause && (
+                <span className="text-xs text-mute">
+                  {trackCauseLabel(t, track.cause)}
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
       {todo > 0 && (
         <p className="m-0 flex items-center gap-2 border-b border-line bg-warn-bg px-4 py-2 text-sm text-warn-fg">
           <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
@@ -114,6 +158,17 @@ export function VoicesTab({
                 <span className="font-mono text-xs text-mute lowercase">
                   {speaker.label}
                 </span>
+                {showProvenance && (
+                  <span
+                    data-testid="voice-provenance"
+                    data-track={speaker.audio_stream_index}
+                    className="inline-flex w-fit rounded-full border border-line px-2 py-0.5 text-xs text-mute"
+                  >
+                    {t("clip.voices.fromTrack", {
+                      index: speaker.audio_stream_index,
+                    })}
+                  </span>
+                )}
                 {chip ? (
                   <span
                     className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${chip.className}`}
@@ -163,4 +218,22 @@ export function VoicesTab({
       </ul>
     </div>
   );
+}
+
+const KNOWN_CAUSES = [
+  "voice_worker_unavailable",
+  "microphone_direct_attribution",
+  "no_speakers",
+  "cancelled_by_admin",
+  "fingerprint_missing",
+] as const;
+
+/** A failed step carries a redacted code of its own: show the generic message, not the code. */
+function trackCauseLabel(
+  t: ReturnType<typeof useI18n>["t"],
+  cause: string,
+): string {
+  return (KNOWN_CAUSES as readonly string[]).includes(cause)
+    ? t(`clip.voices.trackCause.${cause as (typeof KNOWN_CAUSES)[number]}`)
+    : t("clip.voices.trackCause.step_failed");
 }

@@ -15593,6 +15593,148 @@
         }
       }
     },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}/voice": {
+      "get": {
+        "operationId": "getAudioPlanVoice",
+        "tags": [
+          "analysis"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État vocal par piste du Plan, avec le travail humain qu'un lancement remplacerait. Sans effet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanVoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startAudioPlanVoice",
+        "tags": [
+          "analysis"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Voix planifiées pour les seules pistes retenues sans résultat : travaux faits conservés, échecs repris sur place.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanVoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "409": {
+            "description": "audio_plan_not_published, audio_plan_superseded, voice_step_in_progress ou voice_rediarization_confirmation_required (avec le travail humain en jeu sur toutes les pistes remplacées)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanVoiceConfirmation"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioPlanVoiceStart"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/clips/{id}/audio-plans/{plan_id}": {
       "get": {
         "operationId": "getAudioPlan",
@@ -23283,6 +23425,7 @@
         "required": [
           "id",
           "label",
+          "audio_stream_index",
           "kind",
           "ordinal",
           "speaking_seconds",
@@ -23300,6 +23443,11 @@
           },
           "label": {
             "type": "string"
+          },
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Piste audio réelle (indice ffprobe) sur laquelle la voix a été détectée : sa provenance. Deux pistes ne partagent jamais un Locuteur local."
           },
           "kind": {
             "type": "string",
@@ -23380,6 +23528,18 @@
           "history"
         ],
         "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Plan audio dont la révision est la transcription visible ; présent seulement dans ce cas. Les étapes et les voix couvrent alors toutes ses pistes retenues."
+          },
+          "tracks": {
+            "type": "array",
+            "description": "État vocal de chaque piste retenue du Plan (présent avec plan_id).",
+            "items": {
+              "$ref": "#/components/schemas/AudioPlanVoiceTrack"
+            }
+          },
           "clip_id": {
             "type": "integer",
             "format": "int64"
@@ -24440,6 +24600,34 @@
                 },
                 "label": {
                   "type": "string"
+                },
+                "audio_stream_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Piste de la voix ; présent pour une révision de Plan (une liste pour toutes les pistes retenues)."
+                }
+              }
+            }
+          },
+          "speaker_coverage_by_track": {
+            "type": "array",
+            "description": "Révision de Plan seulement : la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une piste sans aucun segment.",
+            "items": {
+              "type": "object",
+              "required": [
+                "audio_stream_index",
+                "coverage"
+              ],
+              "properties": {
+                "audio_stream_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "coverage": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SpeakerCoverage"
+                  }
                 }
               }
             }
@@ -26182,6 +26370,200 @@
           },
           "confirmation_required": {
             "type": "boolean"
+          }
+        }
+      },
+      "AudioPlanVoiceStake": {
+        "type": "object",
+        "required": [
+          "validated_speakers",
+          "voice_samples",
+          "speaker_corrections",
+          "affected_persons",
+          "audio_stream_indices"
+        ],
+        "properties": {
+          "validated_speakers": {
+            "type": "integer"
+          },
+          "voice_samples": {
+            "type": "integer"
+          },
+          "speaker_corrections": {
+            "type": "integer"
+          },
+          "affected_persons": {
+            "type": "integer",
+            "description": "Personnes dont la Référence perd un échantillon vocal ou une validation."
+          },
+          "audio_stream_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Pistes qui portent ce travail humain."
+          }
+        },
+        "description": "Travail humain qu'une diarisation des pistes concernées rendrait obsolète. Les anciennes voix restent protégées jusqu'à un nouveau résultat réussi."
+      },
+      "AudioPlanVoiceTrack": {
+        "type": "object",
+        "required": [
+          "audio_stream_index",
+          "status",
+          "cause",
+          "reused",
+          "microphone",
+          "diarization",
+          "fingerprint",
+          "speaker_count",
+          "model",
+          "model_version",
+          "stake"
+        ],
+        "properties": {
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "cancelled",
+              "not_applicable"
+            ]
+          },
+          "cause": {
+            "type": "string",
+            "description": "voice_worker_unavailable (en attente d'un Worker vocal prêt), microphone_direct_attribution, no_speakers, cancelled_by_admin, fingerprint_missing ou le code expurgé de l'étape en échec ; vide sinon."
+          },
+          "reused": {
+            "type": "boolean",
+            "description": "Vrai si la diarisation déjà faite avec le même modèle a été conservée : seuls les travaux manquants sont repris."
+          },
+          "microphone": {
+            "type": "boolean",
+            "description": "Piste micro désignée : attribution directe, jamais diarisée, sans extension aux autres pistes."
+          },
+          "diarization": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceStep"
+              }
+            ],
+            "nullable": true
+          },
+          "fingerprint": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceStep"
+              }
+            ],
+            "nullable": true
+          },
+          "speaker_count": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string",
+            "description": "Version épinglée au premier lancement du Plan."
+          },
+          "stake": {
+            "$ref": "#/components/schemas/AudioPlanVoiceStake"
+          }
+        }
+      },
+      "AudioPlanVoice": {
+        "type": "object",
+        "required": [
+          "plan_id",
+          "clip_id",
+          "revision_id",
+          "published",
+          "status",
+          "cause",
+          "pipeline_version",
+          "tracks",
+          "stake"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revision_id": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean",
+            "description": "La révision du Plan est la transcription visible. Les étapes vocales ne démarrent qu'alors."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_published",
+              "not_started",
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "cause": {
+            "type": "string"
+          },
+          "pipeline_version": {
+            "type": "string",
+            "description": "Version du pipeline vocal épinglée par le Plan."
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioPlanVoiceTrack"
+            }
+          },
+          "stake": {
+            "$ref": "#/components/schemas/AudioPlanVoiceStake"
+          }
+        },
+        "description": "Analyse des voix de toutes les pistes retenues d'un Plan publié. La transcription publiée n'est jamais retirée par une panne ou l'absence d'un Worker vocal."
+      },
+      "AudioPlanVoiceStart": {
+        "type": "object",
+        "properties": {
+          "confirm_replace_validations": {
+            "type": "boolean",
+            "description": "Vrai pour confirmer le remplacement des validations, échantillons vocaux (Références) et corrections de locuteur des pistes recensées dans la confirmation 409."
+          }
+        }
+      },
+      "AudioPlanVoiceConfirmation": {
+        "type": "object",
+        "required": [
+          "error",
+          "stake"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "voice_rediarization_confirmation_required"
+            ]
+          },
+          "stake": {
+            "$ref": "#/components/schemas/AudioPlanVoiceStake"
           }
         }
       },

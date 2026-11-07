@@ -34,6 +34,8 @@ class LocalSpeaker:
         Attributes:
             id (int):
             label (str):
+            audio_stream_index (int): Piste audio réelle (indice ffprobe) sur laquelle la voix a été détectée : sa
+                provenance. Deux pistes ne partagent jamais un Locuteur local.
             kind (LocalSpeakerKind): microphone : piste micro désignée, attribuée sans diarisation (un seul tour couvrant le
                 clip, aucune empreinte).
             ordinal (int):
@@ -55,6 +57,7 @@ class LocalSpeaker:
 
     id: int
     label: str
+    audio_stream_index: int
     kind: LocalSpeakerKind
     ordinal: int
     speaking_seconds: float
@@ -79,6 +82,8 @@ class LocalSpeaker:
         id = self.id
 
         label = self.label
+
+        audio_stream_index = self.audio_stream_index
 
         kind = self.kind.value
 
@@ -131,6 +136,7 @@ class LocalSpeaker:
         field_dict.update({
             "id": id,
             "label": label,
+            "audio_stream_index": audio_stream_index,
             "kind": kind,
             "ordinal": ordinal,
             "speaking_seconds": speaking_seconds,
@@ -159,6 +165,8 @@ class LocalSpeaker:
         id = d.pop("id")
 
         label = d.pop("label")
+
+        audio_stream_index = d.pop("audio_stream_index")
 
         kind = LocalSpeakerKind(d.pop("kind"))
 
@@ -252,6 +260,7 @@ class LocalSpeaker:
         local_speaker = cls(
             id=id,
             label=label,
+            audio_stream_index=audio_stream_index,
             kind=kind,
             ordinal=ordinal,
             speaking_seconds=speaking_seconds,

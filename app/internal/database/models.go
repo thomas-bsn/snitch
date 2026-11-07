@@ -56,6 +56,16 @@ type AudioPlanTrack struct {
 	TrackIndex int32 `json:"track_index"`
 }
 
+type AudioPlanVoiceStart struct {
+	PlanID          int64              `json:"plan_id"`
+	PipelineVersion string             `json:"pipeline_version"`
+	StakeAt         pgtype.Timestamptz `json:"stake_at"`
+	Stake           []byte             `json:"stake"`
+	Confirmed       bool               `json:"confirmed"`
+	StartedBy       pgtype.Int8        `json:"started_by"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+}
+
 type AudioPublication struct {
 	ClipID      int64              `json:"clip_id"`
 	RevisionID  string             `json:"revision_id"`
