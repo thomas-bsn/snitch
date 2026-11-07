@@ -197,6 +197,16 @@ export const errorsEn = {
   invalid_revoke_reason:
     "The reason must be 200 characters or fewer, on a single line.",
   invalid_worker_models: "These worker models are not valid.",
+  invalid_restart_request: "The restart request is not valid.",
+  invalid_restart_result: "The restart result is not valid.",
+  invalid_restart_transition: "This restart state change is not valid.",
+  managed_supervisor_unavailable:
+    "Managed restarts are unavailable on this worker.",
+  restart_already_pending: "A restart is already pending for this worker.",
+  restart_command_expired: "This restart command has expired.",
+  restart_command_not_found: "This restart command no longer exists.",
+  supervisor_token_invalid: "The supervisor credential is not valid.",
+  worker_pulse_not_confirmed: "The worker has not confirmed its restart yet.",
   clip_delete_failed:
     "The video could not be deleted completely. Check its files and permissions, then retry.",
   super_administrator_required: "Only the Super-administrator can do this.",
