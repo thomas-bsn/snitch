@@ -2507,6 +2507,29 @@ export const fr: Messages = {
       track: "Piste de {label}",
       waveformLabel: "Forme d’onde par voix",
       tracksLabel: "Pistes du clip, une par voix",
+      fromTrack: "Piste {index}",
+      trackStatesLabel: "État des voix par piste retenue",
+      trackLine: "Piste {index}",
+      microphoneTrack: "micro",
+      trackStatus: {
+        not_started: "Pas encore lancée",
+        queued: "En attente",
+        running: "En cours",
+        done: "Terminée",
+        failed: "En échec",
+        cancelled: "Annulée",
+        not_applicable: "Sans objet",
+      },
+      trackCause: {
+        voice_worker_unavailable:
+          "Aucun Worker vocal prêt : la transcription publiée est conservée, les voix attendent.",
+        microphone_direct_attribution:
+          "Piste micro : attribuée directement, sans diarisation.",
+        no_speakers: "Aucune voix détectée sur cette piste.",
+        cancelled_by_admin: "Annulée par un administrateur.",
+        fingerprint_missing: "Empreintes à calculer.",
+        step_failed: "L’étape a échoué.",
+      },
     },
     history: {
       empty: "Aucun segment de ce clip n’a été corrigé.",

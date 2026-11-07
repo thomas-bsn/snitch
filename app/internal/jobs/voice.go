@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ErrStaleResult marks a voice result computed against a diarization that has
@@ -54,6 +56,30 @@ func (s *Service) voiceInput(ctx context.Context, input *Input) error {
 		if err != nil {
 			return fmt.Errorf("read diarization for fingerprints: %w", err)
 		}
+		if offset, offsetErr := PlanTrackOffset(ctx, s.pool, input.Job.ID); offsetErr != nil {
+			return fmt.Errorf("read plan track offset: %w", offsetErr)
+		} else if offset != 0 {
+			// Stored turns are in clip time; the worker reads the stream from its own origin.
+			var speakers []map[string]any
+			if err = json.Unmarshal(raw, &speakers); err != nil {
+				return fmt.Errorf("decode diarization for fingerprints: %w", err)
+			}
+			for _, speaker := range speakers {
+				turns, _ := speaker["turns"].([]any)
+				for _, turn := range turns {
+					if m, ok := turn.(map[string]any); ok {
+						for _, key := range []string{"start", "end"} {
+							if v, isNumber := m[key].(float64); isNumber {
+								m[key] = v - offset
+							}
+						}
+					}
+				}
+			}
+			if raw, err = json.Marshal(speakers); err != nil {
+				return err
+			}
+		}
 		diarization, _ := json.Marshal(map[string]any{"job_id": diarizationID, "speakers": json.RawMessage(raw)})
 		payload.Diarization = diarization
 	}
@@ -63,4 +89,21 @@ func (s *Service) voiceInput(ctx context.Context, input *Input) error {
 	}
 	input.Voice = encoded
 	return nil
+}
+
+// PlanTrackOffset is the start offset, in seconds, of the audio stream a plan child works on, as
+// the plan inventory recorded it. A worker measures a stream from its own first sample while the
+// transcript manifest of a plan is in clip time: voice times are converted exactly once, on
+// storage (add) and on the way back to a worker (subtract). A job that is not a bound child, or
+// a stream whose offset is unknown, has none.
+func PlanTrackOffset(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, jobID int64) (float64, error) {
+	var offset float64
+	err := q.QueryRow(ctx, `SELECT COALESCE((SELECT (t->>'start_seconds')::float8 FROM jsonb_array_elements(p.input->'inventory') t WHERE (t->>'index')::int=c.track_index),0)
+FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE c.job_id=$1`, jobID).Scan(&offset)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	return offset, err
 }

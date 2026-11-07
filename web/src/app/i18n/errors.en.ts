@@ -4,6 +4,12 @@
 export const errorsEn = {
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_not_found: "This audio plan does not exist for this clip.",
+  audio_plan_not_published:
+    "This audio plan is not the published transcript of the clip: its voices cannot be analysed yet.",
+  audio_plan_superseded:
+    "Another audio plan has been published since: refresh to see the current one.",
+  voice_step_in_progress:
+    "A voice step of this track is already running outside this plan. Wait for it to finish.",
   invalid_profile:
     "Choose a display name (1–100 characters) and a username (3–64 characters, without leading or trailing spaces).",
   invalid_password_format: "Choose a password between 12 and 256 characters.",

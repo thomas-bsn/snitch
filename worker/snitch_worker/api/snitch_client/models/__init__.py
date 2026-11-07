@@ -30,6 +30,14 @@ from .audio_plan_child_status import AudioPlanChildStatus
 from .audio_plan_input import AudioPlanInput
 from .audio_plan_input_mode import AudioPlanInputMode
 from .audio_plan_state import AudioPlanState
+from .audio_plan_voice import AudioPlanVoice
+from .audio_plan_voice_confirmation import AudioPlanVoiceConfirmation
+from .audio_plan_voice_confirmation_error import AudioPlanVoiceConfirmationError
+from .audio_plan_voice_stake import AudioPlanVoiceStake
+from .audio_plan_voice_start import AudioPlanVoiceStart
+from .audio_plan_voice_status import AudioPlanVoiceStatus
+from .audio_plan_voice_track import AudioPlanVoiceTrack
+from .audio_plan_voice_track_status import AudioPlanVoiceTrackStatus
 from .audio_speech_interval import AudioSpeechInterval
 from .audio_track_decision import AudioTrackDecision
 from .audio_track_decision_action import AudioTrackDecisionAction
@@ -360,6 +368,7 @@ from .transcription_settings_input_mode import TranscriptionSettingsInputMode
 from .transcription_settings_state import TranscriptionSettingsState
 from .transcription_settings_state_mode import TranscriptionSettingsStateMode
 from .transcription_settings_state_status import TranscriptionSettingsStateStatus
+from .transcription_speaker_coverage_by_track_item import TranscriptionSpeakerCoverageByTrackItem
 from .update_account_password_response_200 import UpdateAccountPasswordResponse200
 from .update_account_profile_response_200 import UpdateAccountProfileResponse200
 from .update_clip_body import UpdateClipBody
@@ -574,6 +583,14 @@ __all__ = (
     "AudioPlanInput",
     "AudioPlanInputMode",
     "AudioPlanState",
+    "AudioPlanVoice",
+    "AudioPlanVoiceConfirmation",
+    "AudioPlanVoiceConfirmationError",
+    "AudioPlanVoiceStake",
+    "AudioPlanVoiceStart",
+    "AudioPlanVoiceStatus",
+    "AudioPlanVoiceTrack",
+    "AudioPlanVoiceTrackStatus",
     "AudioSpeechInterval",
     "AudioTrackDecision",
     "AudioTrackDecisionAction",
@@ -897,6 +914,7 @@ __all__ = (
     "TranscriptionSettingsState",
     "TranscriptionSettingsStateMode",
     "TranscriptionSettingsStateStatus",
+    "TranscriptionSpeakerCoverageByTrackItem",
     "TranscriptManifestSegment",
     "TranscriptManifestWord",
     "TranscriptRevision",

@@ -28,6 +28,30 @@ func (s *Server) attachRevisionSpeakers(ctx context.Context, clipID int64, objec
 		}
 		groups[index] = append(groups[index], segment)
 	}
+	// A kept track whose voices carry no word has no segment: its voices stay listed, and its
+	// coverage says so, instead of vanishing with the words (#273, #342).
+	if revision, ok := object["revision"].(map[string]any); ok {
+		if plan, ok := revision["plan_id"].(float64); ok {
+			rows, err := s.Pool.Query(ctx, `SELECT track_index FROM audio_plan_tracks WHERE plan_id=$1`, int64(plan))
+			if err != nil {
+				return err
+			}
+			for rows.Next() {
+				var index int
+				if err = rows.Scan(&index); err != nil {
+					rows.Close()
+					return err
+				}
+				if _, present := groups[index]; !present {
+					groups[index] = []any{}
+				}
+			}
+			rows.Close()
+			if err = rows.Err(); err != nil {
+				return err
+			}
+		}
+	}
 	roster := []any{}
 	coverage := []any{}
 	// Inventory order keeps output deterministic without depending on map iteration.
@@ -38,7 +62,7 @@ func (s *Server) attachRevisionSpeakers(ctx context.Context, clipID int64, objec
 	sort.Ints(tracks)
 	for _, track := range tracks {
 		part := map[string]any{"audio_stream_index": float64(track), "segments": groups[track]}
-		if err := s.attachLocalSpeakers(ctx, clipID, part, groupedStates[track]); err != nil {
+		if err := s.attachTrackSpeakers(ctx, clipID, part, groupedStates[track], true); err != nil {
 			return err
 		}
 		if speakers, ok := part["local_speakers"].([]map[string]any); ok {

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
@@ -31,6 +32,10 @@ func (s *Server) postWorkerInstallEvents(w http.ResponseWriter, r *http.Request)
 
 // withInstallProgress attaches the installation progress to Workers.
 func (s *Server) withInstallProgress(r *http.Request, items []workers.Worker, withEvents bool) error {
+	return s.withInstallProgressCtx(r.Context(), items, withEvents)
+}
+
+func (s *Server) withInstallProgressCtx(ctx context.Context, items []workers.Worker, withEvents bool) error {
 	// A deleted Worker keeps no installation detail, only its minimal audit.
 	live := make([]workers.Worker, 0, len(items))
 	for _, item := range items {
@@ -38,7 +43,7 @@ func (s *Server) withInstallProgress(r *http.Request, items []workers.Worker, wi
 			live = append(live, item)
 		}
 	}
-	progress, err := s.Workers.InstallProgress(r.Context(), live, withEvents)
+	progress, err := s.Workers.InstallProgress(ctx, live, withEvents)
 	if err != nil {
 		return err
 	}

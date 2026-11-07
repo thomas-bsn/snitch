@@ -13,6 +13,7 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
+  from ..models.audio_plan_voice_track import AudioPlanVoiceTrack
   from ..models.local_speaker import LocalSpeaker
   from ..models.voice_history_entry import VoiceHistoryEntry
   from ..models.voice_step import VoiceStep
@@ -35,6 +36,9 @@ class ClipVoice:
             speakers (list[LocalSpeaker]):
             history (list[VoiceHistoryEntry]): Résultats de diarisation remplacés par une relance, du plus récent au plus
                 ancien ; le résultat visible n'est remplacé qu'après une relance réussie.
+            plan_id (int | Unset): Plan audio dont la révision est la transcription visible ; présent seulement dans ce cas.
+                Les étapes et les voix couvrent alors toutes ses pistes retenues.
+            tracks (list[AudioPlanVoiceTrack] | Unset): État vocal de chaque piste retenue du Plan (présent avec plan_id).
             audio_stream_index (int | None | Unset):
      """
 
@@ -43,6 +47,8 @@ class ClipVoice:
     steps: list[VoiceStep]
     speakers: list[LocalSpeaker]
     history: list[VoiceHistoryEntry]
+    plan_id: int | Unset = UNSET
+    tracks: list[AudioPlanVoiceTrack] | Unset = UNSET
     audio_stream_index: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -51,6 +57,7 @@ class ClipVoice:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.audio_plan_voice_track import AudioPlanVoiceTrack # noqa: PLC0415
         from ..models.local_speaker import LocalSpeaker # noqa: PLC0415
         from ..models.voice_history_entry import VoiceHistoryEntry # noqa: PLC0415
         from ..models.voice_step import VoiceStep # noqa: PLC0415
@@ -79,6 +86,17 @@ class ClipVoice:
 
 
 
+        plan_id = self.plan_id
+
+        tracks: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.tracks, Unset):
+            tracks = []
+            for tracks_item_data in self.tracks:
+                tracks_item = tracks_item_data.to_dict()
+                tracks.append(tracks_item)
+
+
+
         audio_stream_index: int | None | Unset
         if isinstance(self.audio_stream_index, Unset):
             audio_stream_index = UNSET
@@ -95,6 +113,10 @@ class ClipVoice:
             "speakers": speakers,
             "history": history,
         })
+        if plan_id is not UNSET:
+            field_dict["plan_id"] = plan_id
+        if tracks is not UNSET:
+            field_dict["tracks"] = tracks
         if audio_stream_index is not UNSET:
             field_dict["audio_stream_index"] = audio_stream_index
 
@@ -104,6 +126,7 @@ class ClipVoice:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.audio_plan_voice_track import AudioPlanVoiceTrack # noqa: PLC0415
         from ..models.local_speaker import LocalSpeaker # noqa: PLC0415
         from ..models.voice_history_entry import VoiceHistoryEntry # noqa: PLC0415
         from ..models.voice_step import VoiceStep # noqa: PLC0415
@@ -145,6 +168,20 @@ class ClipVoice:
             history.append(history_item)
 
 
+        plan_id = d.pop("plan_id", UNSET)
+
+        _tracks = d.pop("tracks", UNSET)
+        tracks: list[AudioPlanVoiceTrack] | Unset = UNSET
+        if _tracks is not UNSET:
+            tracks = []
+            for tracks_item_data in _tracks:
+                tracks_item = AudioPlanVoiceTrack.from_dict(tracks_item_data)
+
+
+
+                tracks.append(tracks_item)
+
+
         def _parse_audio_stream_index(data: object) -> int | None | Unset:
             if data is None:
                 return data
@@ -161,6 +198,8 @@ class ClipVoice:
             steps=steps,
             speakers=speakers,
             history=history,
+            plan_id=plan_id,
+            tracks=tracks,
             audio_stream_index=audio_stream_index,
         )
 

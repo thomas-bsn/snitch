@@ -2462,6 +2462,29 @@ export const en = {
       track: "Track of {label}",
       waveformLabel: "Waveform by voice",
       tracksLabel: "Tracks of the clip, one per voice",
+      fromTrack: "Track {index}",
+      trackStatesLabel: "Voice state per kept track",
+      trackLine: "Track {index}",
+      microphoneTrack: "microphone",
+      trackStatus: {
+        not_started: "Not started",
+        queued: "Waiting",
+        running: "Running",
+        done: "Done",
+        failed: "Failed",
+        cancelled: "Cancelled",
+        not_applicable: "Not applicable",
+      },
+      trackCause: {
+        voice_worker_unavailable:
+          "No voice Worker is ready: the published transcript is kept, the voices wait.",
+        microphone_direct_attribution:
+          "Microphone track: attributed directly, never diarized.",
+        no_speakers: "No voice detected on this track.",
+        cancelled_by_admin: "Cancelled by an administrator.",
+        fingerprint_missing: "Fingerprints still to compute.",
+        step_failed: "The step failed.",
+      },
     },
     history: {
       empty: "No segment of this clip was corrected.",

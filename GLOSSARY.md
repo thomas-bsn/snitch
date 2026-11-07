@@ -62,6 +62,8 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Couverture d'un Locuteur local** : Ce que la transcription retient d'un Locuteur local détecté : des paroles lui sont attribuées, il parle sous des paroles attribuées à d'autres Locuteurs locaux, ou aucune parole ne recouvre ses tours. Un Locuteur local détecté sans parole attribuée reste visible.
 
+**Provenance d'une voix** : La piste audio réelle sur laquelle un Locuteur local a été détecté. Deux pistes ne partagent jamais un Locuteur local, et fusionner des textes ne fusionne ni voix, ni Personnes, ni Échantillons vocaux validés (ADR 0052).
+
 **Voix ignorée** : Un Locuteur local déclaré par un utilisateur comme une fausse détection. Il ne compte pas : aucun locuteur n'est affiché pour ses paroles, et il n'est ni vérifié, ni groupé, ni rapproché d'une Personne. La décision est réversible.
 _Avoid_ : Bruit, voix supprimée.
 

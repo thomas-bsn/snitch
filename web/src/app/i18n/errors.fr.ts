@@ -6,6 +6,12 @@ import type { errorsEn } from "./errors.en";
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_not_found: "Ce plan audio n’existe pas pour ce clip.",
+  audio_plan_not_published:
+    "Ce plan audio n’est pas la transcription publiée du clip : ses voix ne peuvent pas encore être analysées.",
+  audio_plan_superseded:
+    "Un autre plan audio a été publié depuis : actualisez pour voir le plan courant.",
+  voice_step_in_progress:
+    "Une étape vocale de cette piste est déjà en cours hors de ce plan. Attendez qu’elle se termine.",
   invalid_profile:
     "Choisissez un pseudo affiché de 1 à 100 caractères et un identifiant de 3 à 64 caractères, sans espaces au début ni à la fin.",
   invalid_password_format: "Choisissez un mot de passe de 12 à 256 caractères.",

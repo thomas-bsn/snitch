@@ -59,3 +59,12 @@ La migration 00111 matérialise les manifestes historiques `legacy:<job_id>` et 
 ## Publication (#340)
 
 `Store.PreviewPublication(ctx, planID)` puis `Store.PublishRevision(ctx, revisionID, aperçu, confirmé)` publient atomiquement une révision complète. Erreurs : `ErrIncomplete`, `ErrPublicationChanged` (nouvel aperçu requis), `ErrConfirmationRequired`. Les lecteurs utilisent les vues `audio_visible_*`. Voir l'[ADR 0050](adr/0050-publication-atomique-des-revisions-audio.md).
+
+## Voix par piste (#342)
+
+Après la publication, `Server.StartPlanVoice(ctx, planID, clipID, auteur, confirmer)` (ou `POST /api/admin/clips/{id}/audio-plans/{plan_id}/voice`, corps `{"confirm_replace_validations": bool}`) crée, pour chaque piste retenue sauf la piste micro, une diarisation liée au Plan (`BindChild`, étape `diarization`) ; la projection du résultat crée l'étape `fingerprint` liée au même Plan. `GET .../voice` rend `AudioPlanVoice` : état et cause par piste (`not_started`, `queued`, `running`, `done`, `failed`, `cancelled`, `not_applicable`), travaux conservés (`reused`) et travail humain en jeu (`stake`). Erreurs : `audio_plan_not_published`, `audio_plan_superseded`, `voice_step_in_progress`, `voice_rediarization_confirmation_required`.
+
+- Les Workers font les travaux usuels (`voice.diarization.<i>`, `voice.fingerprint.<i>`) ; le décalage de la piste est géré côté serveur, une seule fois (stockage des tours en temps du clip, restitution en temps de la piste au Worker).
+- `GET /api/clips/{id}/voice` ajoute `plan_id` et `tracks` quand la transcription visible est une révision de Plan, et liste les voix de toutes les pistes retenues ; chaque voix porte `audio_stream_index`. Sans révision de Plan, la lecture monopiste est inchangée.
+- Les transcriptions d'une révision de Plan exposent `speaker_coverage_by_track` : une voix détectée sans parole reste visible, même sur une piste sans segment.
+- Raccord avec #344 : appeler `StartPlanVoice` une fois la révision publiée ; relire `PlanVoiceState` pour l'état d'avancement. Voir l'[ADR 0052](adr/0052-voix-par-piste-d-un-plan-audio.md).
