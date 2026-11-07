@@ -172,7 +172,9 @@ class FakeProviderTests(unittest.TestCase):
         pulse.assert_called_once()
         advertised = pulse.call_args.kwargs["body"].to_dict()
         self.assertEqual(
-            advertised["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"]
+            # The diagnostic family depends on whether Torch is installed (covered in test_audio_diagnostic).
+            [step for step in advertised["supported_steps"] if step != "audio.diagnostic.*"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
         )
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
@@ -540,7 +542,8 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(state["result"]["provider"], "fixture")
         self.assertEqual(state["result"]["step"], "fixture.echo")
         self.assertEqual(
-            state["pulse"]["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"]
+            [step for step in state["pulse"]["supported_steps"] if step != "audio.diagnostic.*"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
         )
 
 

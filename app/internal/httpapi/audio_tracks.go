@@ -21,12 +21,15 @@ type audioTrackRule struct {
 	FallbackAudioStreamIndex *int    `json:"fallback_audio_stream_index,omitempty"`
 }
 type audioTrack struct {
-	Index         int    `json:"index"`
-	Type          string `json:"type"`
-	Title         string `json:"title"`
-	Language      string `json:"language"`
-	Channels      int    `json:"channels"`
-	ChannelLayout string `json:"channel_layout"`
+	Codec           string   `json:"codec"`
+	DurationSeconds *float64 `json:"duration_seconds"`
+	StartSeconds    *float64 `json:"start_seconds"`
+	Index           int      `json:"index"`
+	Type            string   `json:"type"`
+	Title           string   `json:"title"`
+	Language        string   `json:"language"`
+	Channels        int      `json:"channels"`
+	ChannelLayout   string   `json:"channel_layout"`
 }
 type audioSelection struct {
 	Status           string `json:"status"`

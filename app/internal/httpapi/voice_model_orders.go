@@ -18,7 +18,7 @@ import (
 
 var idempotencyKeyFormat = regexp.MustCompile(`^[A-Za-z0-9._:-]{8,100}$`)
 
-var voiceModelKinds = []string{"diarization", "fingerprint", "separation"}
+var voiceModelKinds = []string{"diarization", "fingerprint", "separation", "vad"}
 
 // orderFailure is a refusal with its HTTP status and stable error code.
 type orderFailure struct {

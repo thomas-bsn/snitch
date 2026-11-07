@@ -19,6 +19,17 @@ import (
 type AudioDiagnostics interface {
 	DiagnoseAudio(context.Context, audioplans.Plan, contract.AudioTrackInventory) (AudioObservation, error)
 }
+
+// WorkerAudioDiagnostics is the production detector boundary when the examination runs on a Worker (#338,
+// ADR 0048): Reconcile queues one durable audio.diagnostic.N job per track (idempotent) and waits for the Worker's
+// terminal observation, which the completion transaction records. It never examines audio in the server process,
+// so DiagnoseAudio is not used. Wire the notification of a completed child to Reconcile like for transcription.
+type WorkerAudioDiagnostics struct{}
+
+func (WorkerAudioDiagnostics) DiagnoseAudio(context.Context, audioplans.Plan, contract.AudioTrackInventory) (AudioObservation, error) {
+	return AudioObservation{}, errors.New("diagnostic_runs_on_worker")
+}
+
 type AudioObservation struct {
 	Status    contract.AudioTrackDiagnosticStatus
 	Cause     string
@@ -167,6 +178,7 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 		_, e := tx.Exec(ctx, `UPDATE clip_analysis_steps SET status=$3,reason=$4,updated_at=now() WHERE run_id=$1 AND step=$2`, plan.RunId, step, status, cause)
 		return e
 	}
+	waitingOnWorker := false
 	for _, d := range state.Diagnostics {
 		// A diagnostic runs when never examined, or when an explicit Retry put its
 		// durable job back in the queue (the job keeps its identity, attempts grow).
@@ -179,6 +191,35 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 			}
 		}
 		if d.Status != "unexamined" && !retrying {
+			continue
+		}
+		if _, onWorker := s.diagnostics.(WorkerAudioDiagnostics); onWorker {
+			// Asynchronous: queue once, then wait. A job that died without any observation is a visible failure.
+			waitingOnWorker = true
+			var child *contract.AudioPlanChild
+			for i := range state.Children {
+				if state.Children[i].TrackIndex == d.TrackIndex && state.Children[i].Stage == "diagnostic" {
+					child = &state.Children[i]
+				}
+			}
+			if child == nil {
+				if _, err = store.QueueDiagnostics(ctx, id); err != nil {
+					return err
+				}
+			} else if child.Status == "dead" && d.Status == "unexamined" {
+				var cause string
+				if err = tx.QueryRow(ctx, `SELECT last_error FROM jobs WHERE id=$1`, child.JobId).Scan(&cause); err != nil {
+					return err
+				}
+				if cause == "" {
+					cause = "worker_job_failed"
+				}
+				d.Status, d.Cause, d.Intervals, d.JobId, d.Attempt = "failed", cause, nil, &child.JobId, child.Attempt
+				if err = store.RecordDiagnostic(ctx, d); err != nil {
+					return err
+				}
+				waitingOnWorker = false
+			}
 			continue
 		}
 		if s.diagnostics == nil {
@@ -229,6 +270,13 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 	state, err = store.GetPlan(ctx, id)
 	if err != nil {
 		return err
+	}
+	if waitingOnWorker {
+		// Every track must be examined before any decision or transcription: nothing is inferred meanwhile.
+		if err = set(StepPreparation, "running", "diagnostics_running"); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
 	}
 	retained := []int{}
 	for _, d := range state.Diagnostics {
@@ -401,7 +449,11 @@ func (s *AudioService) Retry(ctx context.Context, id int64, trackIndex int, stag
 	}
 	var jobID int64
 	var cycle int
-	err = tx.QueryRow(ctx, `SELECT j.id,j.cycle FROM audio_plan_children c JOIN jobs j ON j.id=c.job_id WHERE c.plan_id=$1 AND c.track_index=$2 AND c.stage=$3 AND j.status='dead' FOR UPDATE OF j`, id, trackIndex, stage).Scan(&jobID, &cycle)
+	// A diagnostic a Worker examined and reported as failed completes its job: it is retryable too, and its next
+	// attempt is the next claim (no attempt is skipped).
+	var failedOnWorker bool
+	err = tx.QueryRow(ctx, `SELECT j.id,j.cycle,j.status='done' FROM audio_plan_children c JOIN jobs j ON j.id=c.job_id WHERE c.plan_id=$1 AND c.track_index=$2 AND c.stage=$3
+ AND (j.status='dead' OR ($3='diagnostic' AND j.status='done' AND (SELECT d.payload->>'status' FROM audio_track_diagnostics d WHERE d.plan_id=c.plan_id AND d.track_index=c.track_index ORDER BY d.attempt DESC LIMIT 1)='failed')) FOR UPDATE OF j`, id, trackIndex, stage).Scan(&jobID, &cycle, &failedOnWorker)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrNotRetryableAudio
 	}
@@ -411,8 +463,10 @@ func (s *AudioService) Retry(ctx context.Context, id int64, trackIndex int, stag
 	// A transcription job restarts its own attempt counter, like an operator
 	// relaunch; a diagnostic keeps counting so every observation stays immutable.
 	attempts := "0"
-	if stage == "diagnostic" {
+	if stage == "diagnostic" && !failedOnWorker {
 		attempts = "attempts+1"
+	} else if stage == "diagnostic" {
+		attempts = "attempts"
 	}
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',attempts=`+attempts+`,cycle=cycle+1,next_attempt_at=now(),last_error='',updated_at=now() WHERE id=$1`, jobID); err != nil {
 		return err

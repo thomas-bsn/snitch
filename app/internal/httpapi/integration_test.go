@@ -602,6 +602,9 @@ func TestFoundation(t *testing.T) {
 	t.Run("audio selection", func(t *testing.T) { reset(t); testAudioSelection(t, pool) })
 	t.Run("audio publication", func(t *testing.T) { reset(t); testAudioPublication(t, pool) })
 	t.Run("audio dedup", func(t *testing.T) { reset(t); testAudioDedup(t, pool) })
+	t.Run("audio diagnostics", func(t *testing.T) { reset(t); testAudioDiagnostics(t, pool) })
+	t.Run("audio diagnostic outcomes", func(t *testing.T) { reset(t); testAudioDiagnosticOutcomes(t, pool) })
+	t.Run("multitrack worker diagnostics", func(t *testing.T) { reset(t); testMultitrackWorkerDiagnostics(t, pool) })
 	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
 		reset(t)
@@ -1246,6 +1249,8 @@ func TestFoundation(t *testing.T) {
 		call(anon, "GET", audioPlanPath, nil, "", 401)
 		call(user, "GET", audioPlanPath, nil, "", 403)
 		call(client, "GET", audioPlanPath, nil, "", 404)
+		// Diagnostics queueing: behavior in the audio diagnostics suites.
+		call(client, "POST", audioPlanPath+"/diagnostics", map[string]any{}, me.CSRF, 404)
 		call(user, "GET", "/api/admin/settings", nil, "", 403)
 		call(user, "GET", "/api/admin/vocabulary", nil, "", 403)
 		call(user, "GET", "/api/admin/users", nil, "", 403)

@@ -3,6 +3,7 @@
 
 export const errorsEn = {
   invalid_plan_id: "This audio plan identifier is not valid.",
+  invalid_audio_diagnostic: "This audio diagnostic result is not valid.",
   audio_plan_not_found: "This audio plan does not exist for this clip.",
   invalid_profile:
     "Choose a display name (1–100 characters) and a username (3–64 characters, without leading or trailing spaces).",
