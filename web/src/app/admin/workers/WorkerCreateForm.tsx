@@ -34,6 +34,7 @@ export function WorkerCreateForm({
   const [created, setCreated] = useState<WorkerRegistration>();
   const [copied, setCopied] = useState(false);
   const [allowInsecure, setAllowInsecure] = useState(false);
+  const [managedRestart, setManagedRestart] = useState(false);
 
   if (state.status === "loading")
     return <p role="status">{t("workers.loading")}</p>;
@@ -52,6 +53,7 @@ export function WorkerCreateForm({
     const result = await actions.create({
       name: (name ?? `worker-${page.items.length + 1}`).trim(),
       allowInsecureInstall: insecure && allowInsecure,
+      managedRestart,
     });
     setBusy(false);
     if (result.ok) setCreated(result.value);
@@ -129,6 +131,18 @@ export function WorkerCreateForm({
         maxLength={64}
         autoComplete="off"
       />
+      <label className="flex items-start gap-2 rounded-lg border border-line p-3">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={managedRestart}
+          onChange={(event) => setManagedRestart(event.target.checked)}
+        />
+        <span>
+          <span className="block font-medium">{t("workers.create.managedRestart")}</span>
+          <span className="block text-sm text-mute">{t("workers.create.managedRestartHint")}</span>
+        </span>
+      </label>
       <Field
         label={t("workers.create.snitch")}
         hint={t("workers.create.snitchHint")}

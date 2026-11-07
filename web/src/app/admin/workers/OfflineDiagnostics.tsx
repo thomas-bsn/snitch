@@ -1,9 +1,15 @@
 import { Check, Copy } from "lucide-react";
 import { useEffect, useId, useState } from "react";
 import { buttonClass } from "../../components/buttons";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { useI18n } from "../../i18n";
 import { useFormatDate } from "../format";
-import type { WorkerDetail } from "./workersApi";
+import {
+  fetchWorkerRestartHistory,
+  useWorkerActions,
+  type WorkerDetail,
+  type WorkerRestartHistory,
+} from "./workersApi";
 import { hasReturned, recoveryHints, restartCommands } from "./workerView";
 
 /**
@@ -12,13 +18,27 @@ import { hasReturned, recoveryHints, restartCommands } from "./workerView";
  * (a managed restart is #264).
  */
 export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
-  const { t } = useI18n();
+  const { t, error } = useI18n();
   const formatDate = useFormatDate();
+  const actions = useWorkerActions();
   const panelId = useId();
   const titleId = useId();
   const [open, setOpen] = useState(false);
   // The pulse seen when the panel opened: a return needs a newer one.
   const [baseline, setBaseline] = useState<string | null>(null);
+  const [restartHistory, setRestartHistory] = useState<WorkerRestartHistory>();
+  const [restartConfirm, setRestartConfirm] = useState(false);
+  const [restartReason, setRestartReason] = useState("");
+  const [restartBusy, setRestartBusy] = useState(false);
+  const [restartError, setRestartError] = useState<string>();
+
+  useEffect(() => {
+    if (!open || !worker.managed_restart) return;
+    void fetchWorkerRestartHistory(worker.id).then((result) => {
+      if (result.ok) setRestartHistory(result.value);
+      else setRestartError(result.code);
+    });
+  }, [open, worker.id, worker.managed_restart]);
 
   if (worker.revoked_at) return null;
   // Online yet no longer claiming (#321): presence is fine, the diagnosis is still needed.
@@ -27,6 +47,15 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
 
   const returned = open && hasReturned(worker, baseline);
   const commands = restartCommands(worker.id);
+  const restartStateLabel: Record<string, string> = {
+    requested: t("workers.diagnostics.restartState.requested"),
+    accepted: t("workers.diagnostics.restartState.accepted"),
+    stopping: t("workers.diagnostics.restartState.stopping"),
+    starting: t("workers.diagnostics.restartState.starting"),
+    online: t("workers.diagnostics.restartState.online"),
+    failed: t("workers.diagnostics.restartState.failed"),
+    expired: t("workers.diagnostics.restartState.expired"),
+  };
 
   function toggle() {
     if (!open) setBaseline(worker.last_seen_at);
@@ -83,6 +112,56 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
               </dd>
             </dl>
             <p className="text-mute">{t("workers.diagnostics.noRemote")}</p>
+            {worker.managed_restart && (
+              <section className="flex flex-col gap-2 rounded-lg border border-line p-3">
+                <h4 className="font-medium">
+                  {t("workers.diagnostics.managedTitle")}
+                </h4>
+                <p className="text-sm text-mute">
+                  {restartHistory?.supervisor_available
+                    ? t("workers.diagnostics.supervisorOnline", {
+                        date: restartHistory.supervisor_last_seen_at
+                          ? formatDate(restartHistory.supervisor_last_seen_at)
+                          : "",
+                      })
+                    : t("workers.diagnostics.supervisorOffline")}
+                </p>
+                {restartHistory?.supervisor_available && (
+                  <button
+                    type="button"
+                    className={buttonClass("secondary")}
+                    onClick={() => {
+                      setRestartReason("");
+                      setRestartError(undefined);
+                      setRestartConfirm(true);
+                    }}
+                  >
+                    {t("workers.diagnostics.managedRestart")}
+                  </button>
+                )}
+                {restartError && (
+                  <p role="alert" className="text-sm text-bad-fg">
+                    {error(restartError)}
+                  </p>
+                )}
+                {restartHistory && restartHistory.items.length > 0 && (
+                  <>
+                    <h5 className="font-medium">
+                      {t("workers.diagnostics.restartHistory")}
+                    </h5>
+                    <ul className="m-0 flex list-disc flex-col gap-1 pl-5 text-sm">
+                      {restartHistory.items.map((item) => (
+                        <li key={item.id}>
+                          {formatDate(item.created_at)} ·{" "}
+                          {restartStateLabel[item.status] ?? item.status} ·{" "}
+                          {item.actor}: {item.reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                )}
+              </section>
+            )}
             <h4 className="font-medium">{t("workers.diagnostics.hints")}</h4>
             <ul className="m-0 flex list-disc flex-col gap-1 pl-5">
               {recoveryHints(worker.install).map((hint) => (
@@ -125,6 +204,42 @@ export function OfflineDiagnostics({ worker }: { worker: WorkerDetail }) {
             })
           : t("workers.diagnostics.waiting")}
       </p>
+      <ConfirmDialog
+        open={restartConfirm}
+        onOpenChange={(value) => !value && setRestartConfirm(false)}
+        title={t("workers.diagnostics.restartConfirmTitle")}
+        cancelLabel={t("workers.dialog.cancel")}
+        confirmLabel={t("workers.diagnostics.managedRestart")}
+        confirmDisabled={!restartReason.trim()}
+        busy={restartBusy}
+        onConfirm={() => {
+          setRestartBusy(true);
+          void actions
+            .restart(worker.id, restartReason)
+            .then(async (result) => {
+              setRestartBusy(false);
+              if (!result.ok) {
+                setRestartError(result.code);
+                return;
+              }
+              setRestartConfirm(false);
+              setRestartReason("");
+              const history = await fetchWorkerRestartHistory(worker.id);
+              if (history.ok) setRestartHistory(history.value);
+            });
+        }}
+      >
+        <p>{t("workers.diagnostics.restartConfirmBody")}</p>
+        <label className="mt-2 flex flex-col gap-1 text-sm">
+          {t("workers.diagnostics.restartReason")}
+          <input
+            value={restartReason}
+            maxLength={500}
+            onChange={(event) => setRestartReason(event.target.value)}
+            className="rounded-lg border border-line-strong bg-side px-3 py-2 text-ink"
+          />
+        </label>
+      </ConfirmDialog>
     </section>
   );
 }

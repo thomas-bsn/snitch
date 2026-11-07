@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"snitch/internal/auth"
 	"strconv"
 	"strings"
 	"time"
@@ -131,6 +132,7 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Name             string `json:"name"`
 		MaxConcurrency   int    `json:"max_concurrency"`
+		ManagedRestart   bool   `json:"managed_restart"`
 		TranscriptionURL string `json:"transcription_url"`
 		Transcription    *struct {
 			Model    string `json:"model"`
@@ -213,6 +215,14 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	var supervisorToken string
+	if input.ManagedRestart {
+		supervisorToken, err = enrollWorkerSupervisor(r.Context(), s, registration.ID)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
 	// If not first worker or no profile provided, fetch centralized config for bundle
 	if bundleWhisperURL == "" {
 		var endpoint, version string
@@ -242,12 +252,25 @@ func (s *Server) registerWorker(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", installMode, installEndpoint, installModel, installLanguage)
+	if supervisorToken != "" {
+		registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommandWithSupervisor(r.Context(), registration.ID, registration.Token, supervisorToken, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", installMode, installEndpoint, installModel, installLanguage)
+	} else {
+		registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", installMode, installEndpoint, installModel, installLanguage)
+	}
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	reply(w, http.StatusCreated, registration)
+}
+
+func enrollWorkerSupervisor(ctx context.Context, s *Server, workerID string) (string, error) {
+	token := "rs_" + auth.Token()
+	_, err := s.Pool.Exec(ctx, `INSERT INTO worker_supervisors(worker_id,token_hash) VALUES($1,$2) ON CONFLICT(worker_id) DO UPDATE SET token_hash=EXCLUDED.token_hash,enrolled_at=now(),last_seen_at=NULL,revoked_at=NULL`, workerID, auth.Hash(token))
+	if err != nil {
+		return "", err
+	}
+	return token, nil
 }
 
 var errProfileAlreadySet = errors.New("transcription profile already set")
@@ -286,6 +309,11 @@ func (s *Server) workerDetail(r *http.Request, id string) (map[string]any, error
 		"last_seen_at": detail.LastSeenAt, "created_at": detail.CreatedAt, "revoked_at": detail.RevokedAt, "revoke_reason": detail.RevokeReason, "revocation_acknowledged_at": detail.RevocationAcknowledgedAt, "connected": detail.Connected, "claim_stalled": detail.ClaimStalled,
 		"models": detail.Models, "transcription_model": detail.TranscriptionModel, "machine": detail.Machine, "remote_address": detail.RemoteAddress, "install": detail.Install, "transcription_config_ready": detail.TranscriptionConfigReady, "recent_tasks": detail.RecentTasks, "bundle": bundle,
 	}
+	var supervisorEnrolled bool
+	if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM worker_supervisors WHERE worker_id=$1 AND revoked_at IS NULL)`, id).Scan(&supervisorEnrolled); err != nil {
+		return nil, err
+	}
+	result["managed_restart"] = supervisorEnrolled
 	if detail.TranscriptionConfig != nil {
 		result["transcription_config"] = detail.TranscriptionConfig
 	}
@@ -357,6 +385,11 @@ func (s *Server) putWorkerTranscriptionModel(w http.ResponseWriter, r *http.Requ
 }
 
 func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
+	var managedRestart bool
+	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM worker_supervisors WHERE worker_id=$1 AND revoked_at IS NULL)`, r.PathValue("id")).Scan(&managedRestart); err != nil {
+		s.internal(w, err)
+		return
+	}
 	registration, err := s.Workers.RenewToken(r.Context(), r.PathValue("id"))
 	if errors.Is(err, workers.ErrNotFound) {
 		fail(w, http.StatusNotFound, "worker_not_found")
@@ -389,7 +422,15 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 	if image == "" {
 		image = config.DefaultWorkerImage
 	}
-	registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", mode, endpoint, model, language)
+	if managedRestart {
+		var supervisorToken string
+		supervisorToken, err = enrollWorkerSupervisor(r.Context(), s, registration.ID)
+		if err == nil {
+			registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommandWithSupervisor(r.Context(), registration.ID, registration.Token, supervisorToken, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", mode, endpoint, model, language)
+		}
+	} else {
+		registration.InstallCommand, registration.InstallCommandUnavailable, err = s.createWorkerInstallCommand(r.Context(), registration.ID, registration.Token, image, s.publicOrigin(r), r.URL.Query().Get("allow_insecure_install") == "true", mode, endpoint, model, language)
+	}
 	if err != nil {
 		s.internal(w, err)
 		return
