@@ -48,6 +48,7 @@ const (
 // disk is enough. Transcription is independent of every voice model.
 func testVoiceModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
 	pyannote := map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5}
 	h.putPipeline(pyannote)

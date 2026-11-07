@@ -406,7 +406,7 @@ func testResumableUploads(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(err)
 		}
 		var jobsCount, runs int
-		pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.%'`, clipID).Scan(&jobsCount)
+		pool.QueryRow(context.Background(), `SELECT count(*) FROM jobs WHERE clip_id=$1 AND (step LIKE 'transcription.%' OR step LIKE 'audio.diagnostic.%')`, clipID).Scan(&jobsCount)
 		pool.QueryRow(context.Background(), `SELECT count(*) FROM clip_analysis_runs WHERE clip_id=$1`, clipID).Scan(&runs)
 		if jobsCount == 0 || runs == 0 {
 			var st, ec string

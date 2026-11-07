@@ -71,7 +71,7 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, "invalid_job")
 		return
 	}
-	if isTranscriptionStep(input.Step) && input.ClipID > 0 {
+	if isTranscriptionStep(input.Step) && input.ClipID > 0 && input.RequestedModelID == "" {
 		if tracks, trackErr := s.clipAudioTracks(r.Context(), input.ClipID); trackErr == nil && multitrackClip(tracks) {
 			fail(w, http.StatusConflict, "audio_plan_required")
 			return

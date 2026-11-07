@@ -626,7 +626,7 @@ func syntheticSingleAudioProbeFixture(t *testing.T) string {
 // tracks (or microphone designation), one audio track for the historical single-track journeys.
 func browserProbeFixture(t *testing.T, suite string) string {
 	switch suite {
-	case "admin-folders.spec.ts", "people.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts":
+	case "admin-folders.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts":
 		return syntheticProbeFixture(t)
 	}
 	return syntheticSingleAudioProbeFixture(t)

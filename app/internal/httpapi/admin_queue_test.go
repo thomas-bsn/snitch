@@ -43,6 +43,7 @@ func (h *voiceHarness) queue() queueView {
 
 func testAdminQueue(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.api.Events.Poll, h.api.Events.Heartbeat = 50*time.Millisecond, 300*time.Millisecond
 	ctx := t.Context()
 
@@ -138,6 +139,7 @@ func testAdminQueue(t *testing.T, pool *pgxpool.Pool) {
 
 func testAdminQueueHistory(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	ctx := t.Context()
 
 	// An isolated step is refused while an analysis is active on the clip, for every way
