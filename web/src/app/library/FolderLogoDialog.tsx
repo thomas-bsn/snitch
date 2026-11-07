@@ -17,9 +17,8 @@ import {
 const MAX_BYTES = 2 << 20;
 
 /**
- * The logo of a folder: the automatic Steam cover, an uploaded image, and the last four versions.
- * Restoring an older image creates a new version, as Discord does; going back to the automatic cover keeps
- * the history.
+ * The logo of a folder: the automatic Steam cover, an uploaded image, and the last four distinct logos.
+ * Selecting a retained logo reactivates it in place; going back to the automatic cover keeps the history.
  */
 export function FolderLogoDialog({
   entry,
@@ -100,7 +99,9 @@ export function FolderLogoDialog({
     );
   }
 
-  const current = state?.custom ? state.versions[0] : undefined;
+  const current = state?.custom
+    ? state.versions.find((version) => version.version === state.active_version)
+    : undefined;
   return (
     <Modal
       open={open}
@@ -191,7 +192,8 @@ export function FolderLogoDialog({
             ) : (
               <ul className="m-0 mt-2 grid list-none grid-cols-2 gap-2 p-0 sm:grid-cols-4">
                 {state.versions.map((version, index) => {
-                  const isCurrent = state.custom && index === 0;
+                  const isCurrent =
+                    state.custom && state.active_version === version.version;
                   const date = new Intl.DateTimeFormat(language, {
                     dateStyle: "medium",
                   }).format(new Date(version.created_at));

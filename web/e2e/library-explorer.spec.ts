@@ -417,9 +417,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     ).toHaveCount(0);
   });
 
-  test("en vue icônes, un clic droit ouvre le même menu", async ({
-    page,
-  }) => {
+  test("en vue icônes, un clic droit ouvre le même menu", async ({ page }) => {
     await page.goto("/library?folder=league%2F2026&view=icons");
     const tiles = page.getByRole("list", { name: "Videos and folders" });
     await tiles
@@ -499,21 +497,17 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       .first();
     await expect(preview).toHaveAttribute("src", /version=1/);
 
-    // A second image gives the history two versions; restoring the older one creates a new one.
+    // Reimporting the same image selects the retained version instead of duplicating it.
     await input.setInputFiles({
       name: "logo.png",
       mimeType: "image/png",
       buffer: LOGO_PNG,
     });
     await expect(dialog).toContainText("Logo history");
-    const older = dialog.getByRole("button", { name: /^Use the logo of / });
-    await expect(older).toHaveCount(2);
-    await older.last().click();
-    await expect(dialog).toContainText(
-      "This logo is active again; it is now the latest version.",
-    );
-    await expect(older).toHaveCount(3);
-    await expect(preview).toHaveAttribute("src", /version=3/);
+    const retained = dialog.getByRole("button", { name: /^Use the logo of / });
+    await expect(retained).toHaveCount(1);
+    await expect(retained).toBeDisabled();
+    await expect(preview).toHaveAttribute("src", /version=1/);
 
     await dialog
       .getByRole("button", { name: "Back to the automatic logo" })

@@ -9,6 +9,8 @@ export type FolderLogoState = {
   path: string;
   /** False: the automatic Steam cover is shown, the history is kept. */
   custom: boolean;
+  /** The selected version, which may be older than the newest retained image. */
+  active_version?: number;
   /** Four at most, newest first. */
   versions: FolderLogoVersion[];
 };

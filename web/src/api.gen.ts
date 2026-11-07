@@ -1509,7 +1509,7 @@ export interface paths {
     /** Logo personnalisé d'un dossier et ses trois versions précédentes (administrateur) */
     get: operations["getFolderLogoHistory"];
     put?: never;
-    /** Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur) */
+    /** Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur) */
     post: operations["restoreFolderLogo"];
     delete?: never;
     options?: never;
@@ -3780,6 +3780,8 @@ export interface components {
       path: string;
       /** @description Faux : le logo automatique est affiché, les versions restent dans l'historique */
       custom: boolean;
+      /** @description Version actuellement sélectionnée lorsque custom vaut true */
+      active_version?: number;
       /** @description La plus récente d'abord, quatre au maximum */
       versions: components["schemas"]["FolderLogoVersion"][];
     };
@@ -10700,7 +10702,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Logo restauré et historique */
+      /** @description Logo sélectionné et historique sans entrée dupliquée */
       200: {
         headers: {
           [name: string]: unknown;

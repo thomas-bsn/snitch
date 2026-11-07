@@ -241,10 +241,11 @@ type FolderLogo struct {
 }
 
 type FolderLogoChoice struct {
-	SourceID     int64              `json:"source_id"`
-	RelativePath string             `json:"relative_path"`
-	UseCustom    bool               `json:"use_custom"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	SourceID      int64              `json:"source_id"`
+	RelativePath  string             `json:"relative_path"`
+	UseCustom     bool               `json:"use_custom"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	ActiveVersion pgtype.Int4        `json:"active_version"`
 }
 
 type FolderLogoVersion struct {

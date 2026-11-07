@@ -79,7 +79,7 @@ def sync_detailed(
     body: FolderLogoRestore,
 
 ) -> Response[Error | FolderLogoState]:
-    """ Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur)
+    """ Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)
 
     Args:
         body (FolderLogoRestore):
@@ -110,7 +110,7 @@ def sync(
     body: FolderLogoRestore,
 
 ) -> Error | FolderLogoState | None:
-    """ Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur)
+    """ Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)
 
     Args:
         body (FolderLogoRestore):
@@ -136,7 +136,7 @@ async def asyncio_detailed(
     body: FolderLogoRestore,
 
 ) -> Response[Error | FolderLogoState]:
-    """ Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur)
+    """ Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)
 
     Args:
         body (FolderLogoRestore):
@@ -167,7 +167,7 @@ async def asyncio(
     body: FolderLogoRestore,
 
 ) -> Error | FolderLogoState | None:
-    """ Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur)
+    """ Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)
 
     Args:
         body (FolderLogoRestore):

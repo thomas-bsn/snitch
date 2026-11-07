@@ -5,6 +5,7 @@ package httpapi
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
@@ -18,7 +19,7 @@ import (
 )
 
 // testFolderLogoCustom covers a folder logo chosen by an administrator, its four-image history, the
-// automatic fallback, restore as a new version, and the Dossier privé rule. The images are synthetic 2x2
+// automatic fallback, stable selection between retained logos, and the Dossier privé rule. The images are synthetic 2x2
 // PNGs; no real media is read.
 func testFolderLogoCustom(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 1)
@@ -148,19 +149,29 @@ func testFolderLogoCustom(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("history is trimmed to the last four: %+v", state)
 	}
 
-	// Restoring version 4 copies it as version 6, exactly as Discord does.
+	// Restoring version 4 selects it in place; it does not duplicate it in history.
 	restored := folderLogoState{}
 	if err := json.Unmarshal(raw(logoAdmin, http.MethodPost, "/api/library/folder-logo/history", []byte(`{"path":"league","version":4}`), "application/json", http.StatusOK), &restored); err != nil {
 		t.Fatal(err)
 	}
-	if !restored.Custom || restored.Versions[0].Version != 6 {
-		t.Fatalf("restoring creates a new version: %+v", restored)
+	if !restored.Custom || restored.ActiveVersion != 4 || len(restored.Versions) != 4 {
+		t.Fatalf("restoring selects the retained version without growing history: %+v", restored)
 	}
 	if got := raw(logoAdmin, http.MethodGet, "/api/library/folder-logo?name=league&path=league", nil, "", http.StatusOK); !bytes.Equal(got, makePNG(80, 0, 0)) {
 		t.Fatalf("the restored image is the current one")
 	}
-	if got := logoVersion(member, "league"); got != 6 {
+	if got := logoVersion(member, "league"); got != 4 {
 		t.Fatalf("the restored version reaches the explorer: %d", got)
+	}
+	// Switching repeatedly between two retained logos does not append duplicate history entries.
+	for _, version := range []int64{5, 4, 5, 4} {
+		var switched folderLogoState
+		if err := json.Unmarshal(raw(logoAdmin, http.MethodPost, "/api/library/folder-logo/history", []byte(fmt.Sprintf(`{"path":"league","version":%d}`, version)), "application/json", http.StatusOK), &switched); err != nil {
+			t.Fatal(err)
+		}
+		if len(switched.Versions) != 4 || switched.ActiveVersion != version {
+			t.Fatalf("switching between retained logos does not grow history: %+v", switched)
+		}
 	}
 	raw(logoAdmin, http.MethodPost, "/api/library/folder-logo/history", []byte(`{"path":"league","version":99}`), "application/json", http.StatusNotFound)
 
@@ -175,15 +186,15 @@ func testFolderLogoCustom(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the automatic logo removes the version from the explorer: %d", got)
 	}
 
-	// A new upload after the reset is version 7 and makes the custom logo current again.
+	// A new upload after the reset is version 6 and makes the custom logo current again.
 	state = folderLogoState{}
 	if err := json.Unmarshal(raw(logoAdmin, http.MethodPut, "/api/library/folder-logo?path=league", first, "image/png", http.StatusOK), &state); err != nil {
 		t.Fatal(err)
 	}
-	if !state.Custom || state.Versions[0].Version != 7 {
+	if !state.Custom || state.ActiveVersion != 6 {
 		t.Fatalf("upload after reset: %+v", state)
 	}
-	if got := logoVersion(member, "league"); got != 7 {
+	if got := logoVersion(member, "league"); got != 6 {
 		t.Fatalf("upload after reset reaches the explorer: %d", got)
 	}
 

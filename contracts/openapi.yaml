@@ -4106,10 +4106,10 @@
       },
       "post": {
         "operationId": "restoreFolderLogo",
-        "summary": "Restaurer une ancienne version du logo d'un dossier en créant une nouvelle version (administrateur)",
+        "summary": "Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)",
         "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoRestore"}}}},
         "responses": {
-          "200": {"description": "Logo restauré et historique", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
+          "200": {"description": "Logo sélectionné et historique sans entrée dupliquée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
           "404": {"description": "folder_logo_version_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
           "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
         }
@@ -6638,6 +6638,7 @@
         "properties": {
           "path": {"type": "string"},
           "custom": {"type": "boolean", "description": "Faux : le logo automatique est affiché, les versions restent dans l'historique"},
+          "active_version": {"type": "integer", "minimum": 1, "description": "Version actuellement sélectionnée lorsque custom vaut true"},
           "versions": {"type": "array", "items": {"$ref": "#/components/schemas/FolderLogoVersion"}, "description": "La plus récente d'abord, quatre au maximum"}
         }
       },

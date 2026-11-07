@@ -2217,8 +2217,7 @@ export const fr: Messages = {
       logoHistory: "Historique des logos",
       logoEmpty: "Aucun logo personnalisé pour l’instant.",
       logoUseVersion: "Utiliser le logo du {date}",
-      logoRestored:
-        "Ce logo est de nouveau actif ; il devient la version la plus récente.",
+      logoRestored: "Ce logo est de nouveau actif.",
       logoChanged: "Le logo a été changé.",
       logoKept: "Le logo actuel et les trois précédents sont conservés.",
       logoTooLarge: "Cette image dépasse 2 Mo.",

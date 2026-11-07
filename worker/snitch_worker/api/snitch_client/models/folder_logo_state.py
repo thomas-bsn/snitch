@@ -7,7 +7,6 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
-
 from typing import cast
 
 if TYPE_CHECKING:
@@ -28,11 +27,13 @@ class FolderLogoState:
             path (str):
             custom (bool): Faux : le logo automatique est affiché, les versions restent dans l'historique
             versions (list[FolderLogoVersion]): La plus récente d'abord, quatre au maximum
+            active_version (int | Unset): Version actuellement sélectionnée lorsque custom vaut true
      """
 
     path: str
     custom: bool
     versions: list[FolderLogoVersion]
+    active_version: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -52,6 +53,8 @@ class FolderLogoState:
 
 
 
+        active_version = self.active_version
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +63,8 @@ class FolderLogoState:
             "custom": custom,
             "versions": versions,
         })
+        if active_version is not UNSET:
+            field_dict["active_version"] = active_version
 
         return field_dict
 
@@ -83,10 +88,13 @@ class FolderLogoState:
             versions.append(versions_item)
 
 
+        active_version = d.pop("active_version", UNSET)
+
         folder_logo_state = cls(
             path=path,
             custom=custom,
             versions=versions,
+            active_version=active_version,
         )
 
 

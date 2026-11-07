@@ -2173,7 +2173,7 @@ export const en = {
       logoHistory: "Logo history",
       logoEmpty: "No custom logo yet.",
       logoUseVersion: "Use the logo of {date}",
-      logoRestored: "This logo is active again; it is now the latest version.",
+      logoRestored: "This logo is active again.",
       logoChanged: "The logo has been changed.",
       logoKept: "The current logo and the three previous ones are kept.",
       logoTooLarge: "This image is larger than 2 MB.",

@@ -35,9 +35,10 @@ type folderLogoVersion struct {
 }
 
 type folderLogoState struct {
-	Path     string              `json:"path"`
-	Custom   bool                `json:"custom"`
-	Versions []folderLogoVersion `json:"versions"`
+	Path          string              `json:"path"`
+	Custom        bool                `json:"custom"`
+	ActiveVersion int64               `json:"active_version,omitempty"`
+	Versions      []folderLogoVersion `json:"versions"`
 }
 
 // normalizeFolderLogo checks that the bytes are a complete PNG or JPEG image and keeps them untouched, so
@@ -192,9 +193,8 @@ func (s *Server) currentFolderLogo(ctx context.Context, sourceID int64, relative
 	var contentType string
 	var imageBytes []byte
 	err := s.Pool.QueryRow(ctx, `SELECT v.content_type,v.image FROM folder_logo_choices c
-	  JOIN folder_logo_versions v ON v.source_id=c.source_id AND v.relative_path=c.relative_path
-	  WHERE c.source_id=$1 AND c.relative_path=$2 AND c.use_custom
-	  ORDER BY v.version DESC LIMIT 1`, sourceID, relative).Scan(&contentType, &imageBytes)
+	  JOIN folder_logo_versions v ON v.source_id=c.source_id AND v.relative_path=c.relative_path AND v.version=c.active_version
+	  WHERE c.source_id=$1 AND c.relative_path=$2 AND c.use_custom`, sourceID, relative).Scan(&contentType, &imageBytes)
 	return contentType, imageBytes, err
 }
 
@@ -253,7 +253,7 @@ func (s *Server) folderLogoHistory(w http.ResponseWriter, r *http.Request) {
 	s.replyFolderLogoState(w, r, root.ID, relative)
 }
 
-// restoreFolderLogo makes an older image the current one by copying it into a new version, as Discord does.
+// restoreFolderLogo selects a retained image as current without adding a duplicate history version.
 func (s *Server) restoreFolderLogo(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		Path    string `json:"path"`
@@ -270,16 +270,10 @@ func (s *Server) restoreFolderLogo(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	contentType, imageBytes, err := s.folderLogoVersionImage(r.Context(), root.ID, relative, input.Version)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if _, err := s.activateFolderLogoVersion(r.Context(), root.ID, relative, input.Version); errors.Is(err, pgx.ErrNoRows) {
 		fail(w, 404, "folder_logo_version_not_found")
 		return
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	if _, err = s.storeFolderLogo(r.Context(), root.ID, relative, imageBytes, contentType); err != nil {
+	} else if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -303,14 +297,29 @@ func (s *Server) storeFolderLogo(ctx context.Context, sourceID int64, relative s
 	}
 	defer tx.Rollback(ctx)
 	// The upsert locks the choice row, so two uploads of the same folder cannot produce the same version.
-	if _, err = tx.Exec(ctx, `INSERT INTO folder_logo_choices(source_id,relative_path,use_custom) VALUES($1,$2,true)
+	if _, err = tx.Exec(ctx, `INSERT INTO folder_logo_choices(source_id,relative_path,use_custom,active_version) VALUES($1,$2,true,NULL)
 	  ON CONFLICT(source_id,relative_path) DO UPDATE SET use_custom=true,updated_at=now()`, sourceID, relative); err != nil {
+		return 0, err
+	}
+	// Re-selecting any of the four retained logos changes the active choice without creating history noise.
+	var existingVersion int64
+	err = tx.QueryRow(ctx, `SELECT version FROM folder_logo_versions WHERE source_id=$1 AND relative_path=$2 AND image=$3 AND content_type=$4 ORDER BY version DESC LIMIT 1`, sourceID, relative, imageBytes, contentType).Scan(&existingVersion)
+	if err == nil {
+		if _, err = tx.Exec(ctx, `UPDATE folder_logo_choices SET active_version=$3,use_custom=true,updated_at=now() WHERE source_id=$1 AND relative_path=$2`, sourceID, relative, existingVersion); err != nil {
+			return 0, err
+		}
+		return existingVersion, tx.Commit(ctx)
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return 0, err
 	}
 	var version int64
 	if err = tx.QueryRow(ctx, `INSERT INTO folder_logo_versions(source_id,relative_path,version,image,content_type)
 	  SELECT $1,$2,COALESCE(MAX(version),0)+1,$3,$4 FROM folder_logo_versions WHERE source_id=$1 AND relative_path=$2
 	  RETURNING version`, sourceID, relative, imageBytes, contentType).Scan(&version); err != nil {
+		return 0, err
+	}
+	if _, err = tx.Exec(ctx, `UPDATE folder_logo_choices SET active_version=$3,use_custom=true,updated_at=now() WHERE source_id=$1 AND relative_path=$2`, sourceID, relative, version); err != nil {
 		return 0, err
 	}
 	if _, err = tx.Exec(ctx, `DELETE FROM folder_logo_versions WHERE source_id=$1 AND relative_path=$2 AND version NOT IN (
@@ -320,9 +329,36 @@ func (s *Server) storeFolderLogo(ctx context.Context, sourceID int64, relative s
 	return version, tx.Commit(ctx)
 }
 
+func (s *Server) activateFolderLogoVersion(ctx context.Context, sourceID int64, relative string, version int64) (int64, error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback(ctx)
+	var active int64
+	err = tx.QueryRow(ctx, `SELECT active_version FROM folder_logo_choices WHERE source_id=$1 AND relative_path=$2 FOR UPDATE`, sourceID, relative).Scan(&active)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, pgx.ErrNoRows
+	}
+	if err != nil {
+		return 0, err
+	}
+	var exists bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM folder_logo_versions WHERE source_id=$1 AND relative_path=$2 AND version=$3)`, sourceID, relative, version).Scan(&exists); err != nil {
+		return 0, err
+	}
+	if !exists {
+		return 0, pgx.ErrNoRows
+	}
+	if _, err = tx.Exec(ctx, `UPDATE folder_logo_choices SET use_custom=true,active_version=$3,updated_at=now() WHERE source_id=$1 AND relative_path=$2`, sourceID, relative, version); err != nil {
+		return 0, err
+	}
+	return version, tx.Commit(ctx)
+}
+
 func (s *Server) folderLogoState(ctx context.Context, sourceID int64, relative string) (folderLogoState, error) {
 	state := folderLogoState{Path: relative, Versions: []folderLogoVersion{}}
-	err := s.Pool.QueryRow(ctx, `SELECT use_custom FROM folder_logo_choices WHERE source_id=$1 AND relative_path=$2`, sourceID, relative).Scan(&state.Custom)
+	err := s.Pool.QueryRow(ctx, `SELECT use_custom,COALESCE(active_version,0) FROM folder_logo_choices WHERE source_id=$1 AND relative_path=$2`, sourceID, relative).Scan(&state.Custom, &state.ActiveVersion)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return state, err
 	}
@@ -353,10 +389,10 @@ func (s *Server) fillFolderLogoVersions(ctx context.Context, sourceID int64, ent
 	if len(paths) == 0 {
 		return nil
 	}
-	rows, err := s.Pool.Query(ctx, `SELECT c.relative_path,MAX(v.version) FROM folder_logo_choices c
-	  JOIN folder_logo_versions v ON v.source_id=c.source_id AND v.relative_path=c.relative_path
+	rows, err := s.Pool.Query(ctx, `SELECT c.relative_path,c.active_version FROM folder_logo_choices c
+	  JOIN folder_logo_versions v ON v.source_id=c.source_id AND v.relative_path=c.relative_path AND v.version=c.active_version
 	  WHERE c.source_id=$1 AND c.use_custom AND c.relative_path=ANY($2)
-	  GROUP BY c.relative_path`, sourceID, paths)
+	  GROUP BY c.relative_path,c.active_version`, sourceID, paths)
 	if err != nil {
 		return err
 	}
