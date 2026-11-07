@@ -599,6 +599,7 @@ func TestFoundation(t *testing.T) {
 	t.Run("multitrack cancel", func(t *testing.T) { reset(t); testMultitrackCancel(t, pool) })
 	t.Run("multitrack diagnostic decisions", func(t *testing.T) { reset(t); testMultitrackDiagnosticDecisions(t, pool) })
 	t.Run("audio plan children", func(t *testing.T) { reset(t); testAudioPlanChildren(t, pool) })
+	t.Run("audio selection", func(t *testing.T) { reset(t); testAudioSelection(t, pool) })
 	t.Run("audio publication", func(t *testing.T) { reset(t); testAudioPublication(t, pool) })
 	t.Run("audio plans", func(t *testing.T) { reset(t); testAudioPlans(t, pool) })
 	t.Run("segment export", func(t *testing.T) {
@@ -1454,7 +1455,7 @@ func TestFoundation(t *testing.T) {
 			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 			"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
+			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "clip-audio-selection.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
 			"library-explorer.spec.ts",
 			"import-server.spec.ts",
 		}
@@ -1505,6 +1506,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_CLIP_ANALYSIS") == "1" {
 			suites = []string{"clip-analysis.spec.ts", "clip-stepper-live.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_AUDIO_SELECTION") == "1" {
+			suites = []string{"clip-audio-selection.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_WORKERS") == "1" {
 			suites = []string{"admin-workers.spec.ts"}
@@ -1646,7 +1650,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-audio-selection.spec.ts" || suite == "clip-voices.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = syntheticProbeFixture(t)
 					config.UploadMaxBytes = 1 << 20
