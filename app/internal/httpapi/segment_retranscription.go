@@ -44,7 +44,7 @@ type correctionsAtStake struct {
 // apply to the visible transcription of each clip, without any clip filter.
 const activeCorrectionRows = `SELECT sc.clip_id,sc.transcription_job_id,sc.segment_index,sc.text,sc.speaker_override_id,
  sc.text_author_username,sc.speaker_author_username,GREATEST(sc.text_corrected_at,sc.speaker_corrected_at) corrected_at
- FROM segment_corrections sc JOIN transcript t ON t.job_id=sc.transcription_job_id
+ FROM segment_corrections sc JOIN audio_visible_segments v ON v.job_id=sc.transcription_job_id AND v.idx=sc.segment_index JOIN transcript t ON t.clip_id=v.clip_id
  WHERE sc.stale_at IS NULL AND (sc.text IS NOT NULL OR sc.speaker_override_id IS NOT NULL)`
 
 // clipCorrections returns the active corrections of the clip, ok=false when there are none.

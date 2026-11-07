@@ -59,3 +59,7 @@ La migration 00111 matérialise les manifestes historiques `legacy:<job_id>` et 
 ## Sélection depuis la préparation et la réanalyse (#341)
 
 `GET/POST /api/admin/clips/{id}/audio-selection[/preview]` valident le choix (Auto ou indices réels), les décisions et le forçage, renvoient un aperçu signé puis créent le Plan dans la transaction du démarrage. Le moteur durable est injecté par `Server.AudioSelection` (`AudioSelectionEngine`) ; absent, la production reste mono-piste. Voir l'[ADR 0051](adr/0051-selection-des-pistes-audio-et-apercu-des-pertes.md).
+
+## Publication (#340)
+
+`Store.PreviewPublication(ctx, planID)` puis `Store.PublishRevision(ctx, revisionID, aperçu, confirmé)` publient atomiquement une révision complète. Erreurs : `ErrIncomplete`, `ErrPublicationChanged` (nouvel aperçu requis), `ErrConfirmationRequired`. Les lecteurs utilisent les vues `audio_visible_*`. Voir l'[ADR 0050](adr/0050-publication-atomique-des-revisions-audio.md).

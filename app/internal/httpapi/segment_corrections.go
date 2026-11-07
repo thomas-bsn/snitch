@@ -65,7 +65,7 @@ type segmentCorrectionView struct {
 }
 
 func newSegmentCorrectionView(ref segmentRef, st *segmentState) segmentCorrectionView {
-	v := segmentCorrectionView{TranscriptionJobID: ref.JobID, Index: ref.Index, Text: ref.OriginalText, OriginalText: ref.OriginalText}
+	v := segmentCorrectionView{TranscriptionJobID: ref.JobID, Index: ref.VisibleIndex, Text: ref.OriginalText, OriginalText: ref.OriginalText}
 	if st == nil || st.StaleAt != nil {
 		return v
 	}
@@ -192,6 +192,19 @@ func (s *Server) correctSegment(w http.ResponseWriter, r *http.Request, clip cli
 		return
 	}
 	defer tx.Rollback(ctx)
+	if _, err = tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, clip.ID); err != nil {
+		s.internal(w, err)
+		return
+	}
+	var revision string
+	if err = tx.QueryRow(ctx, `SELECT id FROM audio_visible_revisions WHERE clip_id=$1`, clip.ID).Scan(&revision); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.internal(w, err)
+		return
+	}
+	if (env.RevisionID != nil && *env.RevisionID != revision) || (strings.HasPrefix(revision, "plan:") && env.RevisionID == nil) {
+		fail(w, http.StatusConflict, codeTranscriptionChanged)
+		return
+	}
 	ref, found, err := s.resolveSegment(ctx, tx, clip, index)
 	if err != nil {
 		s.internal(w, err)
@@ -348,7 +361,7 @@ func parseSegmentIndex(w http.ResponseWriter, r *http.Request) (int, bool) {
 // transcription (read outside the aborted transaction).
 func (s *Server) segmentConflict(w http.ResponseWriter, r *http.Request, ref segmentRef, code string) {
 	body := segmentConflictView{Error: code}
-	if visible, found, err := s.resolveSegment(r.Context(), s.Pool, ref.Clip, ref.Index); err == nil && found {
+	if visible, found, err := s.resolveSegment(r.Context(), s.Pool, ref.Clip, ref.VisibleIndex); err == nil && found {
 		body.Current = s.currentSegmentView(r.Context(), visible)
 	}
 	reply(w, http.StatusConflict, body)

@@ -19012,6 +19012,41 @@
           },
           "voice": {
             "$ref": "#/components/schemas/WorkerVoiceInput"
+          },
+          "audio_plan": {
+            "$ref": "#/components/schemas/WorkerAudioPlanTask"
+          }
+        }
+      },
+      "WorkerAudioPlanTask": {
+        "type": "object",
+        "description": "Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip.",
+        "required": [
+          "plan_id",
+          "input_version",
+          "track_index",
+          "start_seconds",
+          "intervals"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "track_index": {
+            "type": "integer"
+          },
+          "start_seconds": {
+            "type": "number"
+          },
+          "intervals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSpeechInterval"
+            }
           }
         }
       },
