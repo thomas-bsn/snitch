@@ -25,10 +25,10 @@ T = TypeVar("T", bound="PollWorkerRestartResponse200")
 class PollWorkerRestartResponse200:
     """
         Attributes:
-            command (WorkerRestartCommand):
+            command (None | WorkerRestartCommand):
      """
 
-    command: WorkerRestartCommand
+    command: None | WorkerRestartCommand
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -37,7 +37,11 @@ class PollWorkerRestartResponse200:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_restart_command import WorkerRestartCommand # noqa: PLC0415
-        command = self.command.to_dict()
+        command: dict[str, Any] | None
+        if isinstance(self.command, WorkerRestartCommand):
+            command = self.command.to_dict()
+        else:
+            command = self.command
 
 
         field_dict: dict[str, Any] = {}
@@ -54,9 +58,22 @@ class PollWorkerRestartResponse200:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker_restart_command import WorkerRestartCommand # noqa: PLC0415
         d = dict(src_dict)
-        command = WorkerRestartCommand.from_dict(d.pop("command"))
+        def _parse_command(data: object) -> None | WorkerRestartCommand:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                command_type_1 = WorkerRestartCommand.from_dict(data)
 
 
+
+                return command_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | WorkerRestartCommand, data)
+
+        command = _parse_command(d.pop("command"))
 
 
         poll_worker_restart_response_200 = cls(

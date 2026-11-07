@@ -16257,7 +16257,7 @@ export interface operations {
         };
         content: {
           "application/json": {
-            command: components["schemas"]["WorkerRestartCommand"];
+            command: components["schemas"]["WorkerRestartCommand"] | null;
           };
         };
       };
