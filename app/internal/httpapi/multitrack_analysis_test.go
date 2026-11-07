@@ -192,6 +192,7 @@ func (h *voiceHarness) claimAudio() claimedJob {
 	claim.Job.Lease = claim.LeaseToken
 	return *claim.Job
 }
+
 // completeDedup plays the Worker of the acoustic comparison: it claims the plan-level job and reports no evidence
 // (every source is kept), the safe answer.
 func (h *voiceHarness) completeDedup(planID int64) {
