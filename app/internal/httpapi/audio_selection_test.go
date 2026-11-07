@@ -58,6 +58,9 @@ func (f *selectionEngineFixture) Start(ctx context.Context, tx pgx.Tx, p audiopl
 }
 func testAudioSelection(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	// The routes' contract is tested on a double engine; the real engine has its own end-to-end suite
+	// (audio_activation_test.go). A nil engine is the disabled gate this test starts from.
+	h.api.AudioSelection = nil
 	path := fmt.Sprintf("/api/admin/clips/%d/audio-selection", h.clipID)
 	var current contract.AudioSelectionContext
 	load := func() {

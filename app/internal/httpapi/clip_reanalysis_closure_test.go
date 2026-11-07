@@ -16,6 +16,7 @@ import (
 // whatever scope the request named.
 func testClipReanalysisClosure(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)
 	type closedRun struct {
 		analysisRunView

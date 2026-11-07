@@ -32,6 +32,9 @@ type Result struct {
 	Plan   audioplans.Plan `json:"plan"`
 	Tracks []TrackResult   `json:"tracks"`
 	Empty  bool            `json:"empty"`
+	// Evidence is the Worker's acoustic comparison report (audioplans.ParseEvidence); nil when fewer than two
+	// tracks are kept. Without it nothing is grouped.
+	Evidence json.RawMessage `json:"evidence,omitempty"`
 }
 
 // ValidateOutput rejects legacy/local-time or foreign-plan results before they

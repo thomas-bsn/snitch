@@ -15843,6 +15843,127 @@
           }
         }
       }
+    },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}/publication": {
+      "get": {
+        "operationId": "getAudioPlanPublication",
+        "tags": [
+          "analysis"
+        ],
+        "description": "Pertes que causerait la publication du plan (corrections, validations vocales, révision remplacée) et empreinte (guard) de l'historique humain vu. La confirmation enregistrée n'est valable que si cette empreinte n'a pas changé depuis.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pertes de la publication du plan, telles qu'elles sont maintenant, et état de la confirmation enregistrée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPublicationPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          }
+        }
+      },
+      "post": {
+        "operationId": "confirmAudioPlanPublication",
+        "tags": [
+          "analysis"
+        ],
+        "description": "Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie ensuite. Refusé si l'historique humain a changé depuis l'aperçu (409 audio_preview_changed) ou si la confirmation manque alors qu'il y a des pertes (409 audio_confirmation_required).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioPublicationConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pertes de la publication du plan, telles qu'elles sont maintenant, et état de la confirmation enregistrée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPublicationPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "409": {
+            "description": "Aperçu périmé, confirmation manquante ou plan remplacé"
+          },
+          "400": {
+            "description": "Requête invalide"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -19216,6 +19337,9 @@
           },
           "audio_diagnostic": {
             "$ref": "#/components/schemas/WorkerAudioDiagnosticInput"
+          },
+          "audio_dedup": {
+            "$ref": "#/components/schemas/WorkerAudioDedupInput"
           }
         }
       },
@@ -19261,6 +19385,133 @@
             "format": "double",
             "minimum": 0,
             "nullable": true
+          }
+        }
+      },
+      "AudioPublicationPreview": {
+        "type": "object",
+        "description": "Pertes de la publication d'un plan et état de la confirmation de l'administrateur.",
+        "required": [
+          "plan_id",
+          "guard",
+          "losses",
+          "confirmed",
+          "confirmation_current"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "guard": {
+            "type": "string",
+            "description": "Empreinte de l'historique des corrections et validations vu par l'aperçu."
+          },
+          "losses": {
+            "$ref": "#/components/schemas/AudioLossPreview"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "Les pertes sont acceptées pour cette empreinte."
+          },
+          "confirmation_current": {
+            "type": "boolean",
+            "description": "La confirmation enregistrée porte sur l'empreinte et la révision actuelles."
+          }
+        }
+      },
+      "AudioPublicationConfirm": {
+        "type": "object",
+        "required": [
+          "guard",
+          "confirm_losses"
+        ],
+        "properties": {
+          "guard": {
+            "type": "string",
+            "description": "Empreinte (guard) de l'aperçu affiché."
+          },
+          "confirm_losses": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkerAudioDedupInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tâche d'un job audio.dedup.N (comparaison acoustique des pistes retenues d'un plan). Les segments sont dans le repère du clip ; start_seconds est le décalage du flux de la piste.",
+        "required": [
+          "plan_id",
+          "input_version",
+          "tracks"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerAudioDedupTrack"
+            }
+          }
+        }
+      },
+      "WorkerAudioDedupTrack": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_index",
+          "job_id",
+          "start_seconds",
+          "segments"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerAudioDedupSegment"
+            }
+          }
+        }
+      },
+      "WorkerAudioDedupSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start": {
+            "type": "number",
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "format": "double"
           }
         }
       },

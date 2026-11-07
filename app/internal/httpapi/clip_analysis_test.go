@@ -74,6 +74,7 @@ var analysisTranscript = map[string]any{"provider": "fixture", "model": "determi
 
 func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	if h.analysis() != nil {
 		t.Fatal("a clip never analyzed has no run")
 	}
@@ -88,8 +89,8 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 
 	// The analysis waits for a track choice, and its dependent step waits behind it.
 	run := h.startAnalysis(map[string]any{}, http.StatusCreated)
-	if run.Status != "active" || run.Scope != "transcription" || run.step("preparation").Status != "blocked" || run.step("preparation").Reason != "audio_track_selection_required" || run.step("transcription").Status != "waiting" {
-		t.Fatalf("unexpected run waiting for a track: %+v", run)
+	if run.Status != "active" || run.Scope != "transcription" || run.step("preparation").Status != "done" || run.step("transcription").Status != "waiting" {
+		t.Fatalf("a clip with one audio track needs no track choice: %+v", run)
 	}
 	// Idempotent start: concurrent clicks give one run; another scope is refused.
 	var wg sync.WaitGroup

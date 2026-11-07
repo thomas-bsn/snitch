@@ -26,6 +26,7 @@ type reanalysisRefusal struct {
 // until success, and the versions kept in the history.
 func testClipReanalysis(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	first, _ := h.diarizeClip()
 	// Human work: a corrected segment text, a validated voice.
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/clips/%d/segments/0/text", h.clipID), map[string]any{"text": "corrigé", "expected_version": 0}, http.StatusOK)

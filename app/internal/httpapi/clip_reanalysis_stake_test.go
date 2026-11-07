@@ -16,6 +16,7 @@ import (
 // touches what existed then.
 func testClipReanalysisStakeRace(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	first, second := h.diarizeClip()
 	text := func(index int, value string) {
 		t.Helper()

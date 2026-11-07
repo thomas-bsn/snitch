@@ -84,6 +84,7 @@ func (h *voiceHarness) openStream() (*http.Response, <-chan sseFrame) {
 
 func testClipAnalysisEvents(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.api.Events.Poll, h.api.Events.Heartbeat = 50*time.Millisecond, 300*time.Millisecond
 
 	// Anonymous viewers and unknown clips get no stream.
@@ -123,7 +124,7 @@ func testClipAnalysisEvents(t *testing.T, pool *pgxpool.Pool) {
 			if err := json.Unmarshal([]byte(f.Data), &got); err != nil {
 				t.Fatal(err)
 			}
-			if got.Snapshot.Run != nil && got.Snapshot.Run.step("preparation").Status == "blocked" {
+			if got.Snapshot.Run != nil && got.Snapshot.Run.step("preparation").Status == "done" {
 				break
 			}
 		}

@@ -161,6 +161,14 @@ func testMultitrackAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	if e := restarted.Reconcile(ctx, plan.Id); e != nil {
 		t.Fatal(e)
 	}
+	// Two kept tracks: the acoustic comparison runs before anything is published.
+	if waiting, e := restarted.State(ctx, plan.Id); e != nil || waiting.Cause != "audio_dedup" || len(publisher.results) != 0 {
+		t.Fatal("publication must wait for the acoustic evidence", waiting, e)
+	}
+	h.completeDedup(plan.Id)
+	if e := restarted.Reconcile(ctx, plan.Id); e != nil {
+		t.Fatal(e)
+	}
 	final, e := restarted.State(ctx, plan.Id)
 	if e != nil || final.Status != "done" || len(publisher.results) != 1 || len(publisher.results[0].Tracks) != 2 {
 		t.Fatal("complete aggregate", final, publisher, e)
@@ -184,6 +192,25 @@ func (h *voiceHarness) claimAudio() claimedJob {
 	claim.Job.Lease = claim.LeaseToken
 	return *claim.Job
 }
+// completeDedup plays the Worker of the acoustic comparison: it claims the plan-level job and reports no evidence
+// (every source is kept), the safe answer.
+func (h *voiceHarness) completeDedup(planID int64) {
+	h.t.Helper()
+	h.workerCall("POST", "/api/worker/pulse", map[string]any{"capacity": 2, "supported_steps": []string{"audio.dedup.*", multitrack.Capability}}, "", 200)
+	var claim struct {
+		Job        *claimedJob `json:"job"`
+		LeaseToken string      `json:"lease_token"`
+	}
+	if err := json.Unmarshal(h.workerCall("POST", "/api/worker/jobs/claim", nil, "", 200), &claim); err != nil || claim.Job == nil {
+		h.t.Fatal("missing acoustic comparison job", err)
+	}
+	if claim.Job.Step != fmt.Sprintf("audio.dedup.%d", planID) {
+		h.t.Fatalf("unexpected job %+v", claim.Job)
+	}
+	claim.Job.Lease = claim.LeaseToken
+	h.complete(*claim.Job, map[string]any{"schema_version": 1, "comparisons": []any{}}, 200)
+}
+
 func audioOutput(p audioplans.Plan, track int) map[string]any {
 	return map[string]any{"provider": "synthetic", "model": "synthetic-model", "version": "1", "audio_stream_index": track, "time_base": "clip", "audio_plan_id": p.Id, "audio_plan_version": p.InputVersion, "segments": []any{map[string]any{"start": 1.5, "end": 1.8, "text": "synthetic", "words": []any{map[string]any{"start": 1.5, "end": 1.8, "word": "synthetic"}}}}}
 }
@@ -241,6 +268,10 @@ func testMultitrackChildFailureAndRetry(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("retry created another job: %d vs %d", retry.ID, bad.ID)
 	}
 	h.complete(retry, audioOutput(plan, 7), 200)
+	if err = service.Reconcile(ctx, plan.Id); err != nil {
+		t.Fatal(err)
+	}
+	h.completeDedup(plan.Id)
 	for i := 0; i < 2; i++ {
 		if err = service.Reconcile(ctx, plan.Id); err != nil {
 			t.Fatal(err)

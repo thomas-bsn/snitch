@@ -30,6 +30,7 @@ type analysisViewT struct {
 func testClipAnalysisReadOnlyView(t *testing.T, pool *pgxpool.Pool) {
 	ctx := t.Context()
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.api.Events.Poll, h.api.Events.Heartbeat = 50*time.Millisecond, 300*time.Millisecond
 	alice := h.newUser("analysis-viewer")
 	path := fmt.Sprintf("/api/clips/%d/analysis", h.clipID)

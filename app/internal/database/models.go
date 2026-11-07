@@ -51,6 +51,15 @@ type AudioPlanChild struct {
 	InputVersion string `json:"input_version"`
 }
 
+type AudioPlanConfirmation struct {
+	PlanID             int64              `json:"plan_id"`
+	ExpectedRevisionID string             `json:"expected_revision_id"`
+	Guard              string             `json:"guard"`
+	Confirmed          bool               `json:"confirmed"`
+	ConfirmedBy        pgtype.Int8        `json:"confirmed_by"`
+	ConfirmedAt        pgtype.Timestamptz `json:"confirmed_at"`
+}
+
 type AudioPlanTrack struct {
 	PlanID     int64 `json:"plan_id"`
 	TrackIndex int32 `json:"track_index"`

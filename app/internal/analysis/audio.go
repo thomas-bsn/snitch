@@ -11,7 +11,9 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/audioplans"
 	"snitch/internal/httpapi/contract"
+	"snitch/internal/jobs"
 	"snitch/internal/multitrack"
+	"snitch/internal/workers"
 )
 
 // AudioDiagnostics is the injectable production detector boundary. Intervals
@@ -46,10 +48,25 @@ type AudioService struct {
 	pool        *pgxpool.Pool
 	diagnostics AudioDiagnostics
 	publisher   AudioPublisher
+	published   func(ctx context.Context, planID, clipID int64)
 }
 
 func NewAudio(pool *pgxpool.Pool, diagnostics AudioDiagnostics, publisher AudioPublisher) *AudioService {
-	return &AudioService{pool, diagnostics, publisher}
+	return &AudioService{pool: pool, diagnostics: diagnostics, publisher: publisher}
+}
+
+// OnPublished registers what follows a committed publication (the voice analysis of the published plan). It runs
+// after the Reconcile transaction ended, so it sees the publication; a failure there never undoes it.
+func (s *AudioService) OnPublished(fn func(ctx context.Context, planID, clipID int64)) {
+	s.published = fn
+}
+
+// DedupStep is the plan-level job that compares the retained tracks acoustically (#343, ADR 0054).
+func DedupStep(planID int64) string { return fmt.Sprintf("audio.dedup.%d", planID) }
+
+// DedupInputVersion names the dedup job of one plan: the plan digest pins the segments it compares.
+func DedupInputVersion(planID int64, digest string) string {
+	return fmt.Sprintf("%sdedup:%d:%s", multitrack.Prefix, planID, digest)
 }
 
 var ErrActiveAudio = errors.New("a different analysis is active for this clip")
@@ -273,7 +290,11 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 	}
 	if waitingOnWorker {
 		// Every track must be examined before any decision or transcription: nothing is inferred meanwhile.
-		if err = set(StepPreparation, "running", "diagnostics_running"); err != nil {
+		status, cause := "running", "diagnostics_running"
+		if wait := s.compatibleWorkerCause(ctx, tx); wait != "" {
+			status, cause = "waiting", wait
+		}
+		if err = set(StepPreparation, status, cause); err != nil {
 			return err
 		}
 		return tx.Commit(ctx)
@@ -360,14 +381,52 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 		}
 		result.Tracks = append(result.Tracks, multitrack.TrackResult{TrackIndex: child.TrackIndex, JobID: child.JobId, InputVersion: child.InputVersion, Output: output})
 	}
+	if complete && len(result.Tracks) > 1 {
+		// Two or more kept tracks: the same voice may have been captured twice. The acoustic comparison runs on a
+		// Worker (it needs the decoded audio); nothing is published before its evidence, nor suppressed without it.
+		var jobID int64
+		var jobStatus, lastError string
+		var raw []byte
+		step, version := DedupStep(id), DedupInputVersion(id, plan.InputVersion)
+		err = tx.QueryRow(ctx, `SELECT id,status,last_error,COALESCE(result,'null'::jsonb) FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 ORDER BY id DESC LIMIT 1`, plan.ClipId, step, version).Scan(&jobID, &jobStatus, &lastError, &raw)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if _, err = tx.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,max_attempts) VALUES($1,$2,$3,3)`, plan.ClipId, step, version); err != nil {
+				return err
+			}
+			jobStatus = "pending"
+		} else if err != nil {
+			return err
+		}
+		switch jobStatus {
+		case "done":
+			result.Evidence = raw
+		case "dead", "cancelled", "failed":
+			complete, aggregateStatus, aggregateCause = false, "failed", "audio_dedup_failed"
+		case "leased", "retry_wait":
+			complete, aggregateStatus, aggregateCause = false, "running", "audio_dedup"
+		default:
+			complete, aggregateStatus, aggregateCause = false, "waiting", "audio_dedup"
+		}
+	}
+	published := false
 	if complete {
 		if s.publisher == nil {
 			aggregateStatus = "blocked"
 			aggregateCause = "publication_unavailable"
 		} else {
 			if err = s.publisher.PublishAudio(ctx, tx, result); err != nil {
-				return err
+				var blocked *PublicationBlocked
+				if !errors.As(err, &blocked) {
+					return err
+				}
+				// The publication refused to proceed (human work changed, confirmation missing, incomplete
+				// result): the run stays active and visible with the cause, until an administrator acts.
+				aggregateStatus, aggregateCause = "blocked", blocked.Cause
+				complete = false
 			}
+		}
+		if complete && s.publisher != nil {
+			published = true
 			aggregateStatus = "done"
 			aggregateCause = "audio_plan_published"
 			if _, err = tx.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',finished_at=now(),updated_at=now() WHERE id=$1`, plan.RunId); err != nil {
@@ -375,11 +434,50 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 			}
 		}
 	}
+	if aggregateStatus == "waiting" {
+		if wait := s.compatibleWorkerCause(ctx, tx); wait != "" {
+			aggregateCause = wait
+		}
+	}
 	if err = set(StepTranscription, aggregateStatus, aggregateCause); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return err
+	}
+	if published && s.published != nil {
+		s.published(ctx, id, plan.ClipId)
+	}
+	return nil
 }
+
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
+// AudioWorkerCompatible tells whether a connected Worker reads the multitrack format. Plans started without one
+// wait, visibly, until one connects (ADR 0049).
+func AudioWorkerCompatible(ctx context.Context, q rowQuerier) (bool, error) {
+	cause, err := jobs.StepWaitCause(ctx, q, multitrack.Capability, workers.ConnectedWindow)
+	return cause != jobs.CauseNoCompatibleWorker, err
+}
+
+// compatibleWorkerCause is the stable reason a plan's pending work cannot start for lack of a Worker that reads
+// the multitrack format (an old Worker keeps waiting, ADR 0049), or "" when a compatible one is connected. A
+// failed check never changes the plan: it only loses the explanation.
+func (s *AudioService) compatibleWorkerCause(ctx context.Context, tx pgx.Tx) string {
+	cause, err := jobs.StepWaitCause(ctx, tx, multitrack.Capability, workers.ConnectedWindow)
+	if err != nil || cause != jobs.CauseNoCompatibleWorker {
+		return ""
+	}
+	return "awaiting_compatible_worker"
+}
+
+// PublicationBlocked is returned by a publisher whose guard refused the publication without it being a failure:
+// the run waits, with Cause as the visible reason (stable code the interface translates).
+type PublicationBlocked struct{ Cause string }
+
+func (e *PublicationBlocked) Error() string { return "audio publication blocked: " + e.Cause }
 
 // Cancel stops the plan's own children and prevents any later planning. Jobs of
 // other plans or legacy runs of the clip are untouched. It is idempotent.
@@ -414,14 +512,16 @@ type execer interface {
 // including leased ones (the Worker loses its lease and stops), and settles the
 // run's steps. The caller already marked the run cancelled.
 func cancelAudioChildren(ctx context.Context, q execer, runID int64) error {
+	// The plan's children and its plan-level acoustic comparison.
+	const owned = `(SELECT c.job_id FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE p.run_id=$1
+ UNION SELECT j.id FROM jobs j JOIN audio_plans p ON p.clip_id=j.clip_id WHERE p.run_id=$1 AND j.step='audio.dedup.'||p.id)`
 	if _, err := q.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
  SELECT j.id,'cancelled',j.cycle,CASE WHEN j.status='leased' AND j.attempts>0 THEN j.attempts END,'system','audio_plan_cancelled'
- FROM jobs j JOIN audio_plan_children c ON c.job_id=j.id JOIN audio_plans p ON p.id=c.plan_id
- WHERE p.run_id=$1 AND j.status IN ('pending','retry_wait','leased')`, runID); err != nil {
+ FROM jobs j WHERE j.id IN `+owned+` AND j.status IN ('pending','retry_wait','leased')`, runID); err != nil {
 		return err
 	}
 	if _, err := q.Exec(ctx, `UPDATE jobs SET status='cancelled',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,updated_at=now()
- WHERE status IN ('pending','retry_wait','leased') AND id IN (SELECT c.job_id FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE p.run_id=$1)`, runID); err != nil {
+ WHERE status IN ('pending','retry_wait','leased') AND id IN `+owned, runID); err != nil {
 		return err
 	}
 	_, err := q.Exec(ctx, `UPDATE clip_analysis_steps SET status='blocked',reason='run_cancelled',finished_at=COALESCE(finished_at,now()),updated_at=now()
@@ -429,10 +529,19 @@ func cancelAudioChildren(ctx context.Context, q execer, runID int64) error {
 	return err
 }
 
+// CancelAudioRun cancels, in the caller's transaction, an active run that carries an audio plan, with the plan's
+// unfinished children. It is how a newer automatic request supersedes an older one for the same clip.
+func CancelAudioRun(ctx context.Context, tx pgx.Tx, runID int64) error {
+	if _, err := tx.Exec(ctx, `UPDATE clip_analysis_runs SET status='cancelled',updated_at=now(),finished_at=now() WHERE id=$1 AND status='active'`, runID); err != nil {
+		return err
+	}
+	return cancelAudioChildren(ctx, tx, runID)
+}
+
 // Retry puts one failed child of the plan back in the queue. Successful siblings
 // keep their results; only the named track and stage are recomputed.
 func (s *AudioService) Retry(ctx context.Context, id int64, trackIndex int, stage string) error {
-	if stage != "transcription" && stage != "diagnostic" {
+	if stage != "transcription" && stage != "diagnostic" && stage != "dedup" {
 		return ErrNotRetryableAudio
 	}
 	tx, err := s.pool.Begin(ctx)
@@ -449,6 +558,26 @@ func (s *AudioService) Retry(ctx context.Context, id int64, trackIndex int, stag
 	}
 	var jobID int64
 	var cycle int
+	if stage == "dedup" {
+		// The acoustic comparison is plan level: no track; its dead job restarts like a transcription child.
+		err = tx.QueryRow(ctx, `SELECT j.id,j.cycle FROM jobs j JOIN audio_plans p ON p.clip_id=j.clip_id WHERE p.id=$1 AND j.step=$2 AND j.status IN ('dead','cancelled','failed') ORDER BY j.id DESC LIMIT 1 FOR UPDATE OF j`, id, DedupStep(id)).Scan(&jobID, &cycle)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotRetryableAudio
+		}
+		if err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',attempts=0,cycle=cycle+1,next_attempt_at=now(),last_error='',updated_at=now() WHERE id=$1`, jobID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,actor,error_code) VALUES($1,'admin_relaunched',$2,'system','audio_plan_retry')`, jobID, cycle+1); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE clip_analysis_steps SET status='waiting',reason='audio_retry',finished_at=NULL,updated_at=now() WHERE run_id=(SELECT run_id FROM audio_plans WHERE id=$1) AND step='transcription'`, id); err != nil {
+			return err
+		}
+		return tx.Commit(ctx)
+	}
 	// A diagnostic a Worker examined and reported as failed completes its job: it is retryable too, and its next
 	// attempt is the next claim (no attempt is skipped).
 	var failedOnWorker bool
@@ -481,3 +610,32 @@ func (s *AudioService) Retry(ctx context.Context, id int64, trackIndex int, stag
 }
 
 var ErrNotRetryableAudio = errors.New("audio child is not retryable")
+
+// retryFailedOfRun puts back in the queue every definitively failed piece of the run's plan: the dead transcription
+// or diagnostic children, a diagnostic a Worker reported as failed, and the dead acoustic comparison. Successful
+// siblings keep their results (nothing is recomputed for them).
+func (s *AudioService) retryFailedOfRun(ctx context.Context, runID int64) error {
+	var planID int64
+	if err := s.pool.QueryRow(ctx, `SELECT id FROM audio_plans WHERE run_id=$1 ORDER BY id DESC LIMIT 1`, runID).Scan(&planID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	state, err := audioplans.New(s.pool).GetPlan(ctx, planID)
+	if err != nil {
+		return err
+	}
+	for _, child := range state.Children {
+		if child.Stage != "transcription" && child.Stage != "diagnostic" {
+			continue
+		}
+		if e := s.Retry(ctx, planID, child.TrackIndex, string(child.Stage)); e != nil && !errors.Is(e, ErrNotRetryableAudio) {
+			return e
+		}
+	}
+	if e := s.Retry(ctx, planID, 0, "dedup"); e != nil && !errors.Is(e, ErrNotRetryableAudio) {
+		return e
+	}
+	return nil
+}

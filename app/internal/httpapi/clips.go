@@ -365,7 +365,7 @@ func (s *Server) scheduleClipTranscription(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	if s.refuseWhileAnalyzing(w, r, v.ID) {
+	if s.refuseWhileAnalyzingUnlessAutoPlan(w, r, v.ID) {
 		return
 	}
 
@@ -385,7 +385,7 @@ func (s *Server) scheduleClipTranscription(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	job, created, err := s.scheduleResolvedTranscription(r.Context(), v.ID, input.AudioStreamIndex, true)
+	job, created, err := s.scheduleResolvedTranscriptionAs(r.Context(), v.ID, input.AudioStreamIndex, true, audioStarter{Actor: sessionUserID(r), ConfirmLosses: input.ConfirmReplace})
 	if err != nil {
 		if err.Error() == "audio selection required" {
 			fail(w, http.StatusConflict, "audio_track_selection_required")

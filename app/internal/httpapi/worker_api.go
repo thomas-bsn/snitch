@@ -712,6 +712,15 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 		}
 		options = jobs.CompleteOptions{MaxResultBytes: maxAudioDiagnosticResultBytes, Project: audioDiagnosticProjection(result)}
 	}
+	if stepErr == nil && strings.HasPrefix(step, jobs.DedupStepPrefix) {
+		// The report is evidence, never a decision: a malformed or foreign one is refused here, so the plan
+		// never publishes (nor suppresses anything) from it.
+		if _, parseErr := audioplans.ParseEvidence(input.Result); parseErr != nil {
+			fail(w, http.StatusBadRequest, "invalid_audio_dedup")
+			return
+		}
+		options = jobs.CompleteOptions{MaxResultBytes: maxAudioDiagnosticResultBytes * 8}
+	}
 	if stepErr == nil && strings.HasPrefix(step, "transcription.audio.") {
 		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks, Project: waveformProjection(step, input.Result)}
 	}

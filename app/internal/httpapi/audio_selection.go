@@ -289,6 +289,8 @@ func (s *Server) mutateAudioSelection(w http.ResponseWriter, r *http.Request, st
 		s.internal(w, err)
 		return
 	}
+	// The run exists now: let its orchestrator queue the diagnostics' follow-up without waiting for the ticker.
+	s.reconcileAnalysis(r.Context(), clip.ID)
 	reply(w, 200, contract.AudioSelectionStarted{State: state, WorkerCompatible: effects.WorkerCompatible})
 }
 func (s *Server) signAudioReceipt(receipt audioReceipt) string {

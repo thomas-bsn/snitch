@@ -174,7 +174,7 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(
             # The diagnostic family depends on whether Torch is installed (covered in test_audio_diagnostic).
             [step for step in advertised["supported_steps"] if step != "audio.diagnostic.*"],
-            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"],
         )
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
@@ -543,7 +543,7 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(state["result"]["step"], "fixture.echo")
         self.assertEqual(
             [step for step in state["pulse"]["supported_steps"] if step != "audio.diagnostic.*"],
-            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"],
         )
 
 
