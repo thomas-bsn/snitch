@@ -18,9 +18,15 @@ def _get_kwargs(
     id: int,
     *,
     body: AudioSelectionStart,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    headers["Origin"] = origin
+
+    headers["X-CSRF-Token"] = x_csrf_token
+
 
 
 
@@ -81,11 +87,15 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AudioSelectionStart,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Response[Any | AudioSelectionStarted]:
     """
     Args:
         id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioSelectionStart):
 
     Raises:
@@ -100,6 +110,8 @@ def sync_detailed(
     kwargs = _get_kwargs(
         id=id,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )
 
@@ -114,11 +126,15 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: AudioSelectionStart,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Any | AudioSelectionStarted | None:
     """
     Args:
         id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioSelectionStart):
 
     Raises:
@@ -134,6 +150,8 @@ def sync(
         id=id,
 client=client,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     ).parsed
 
@@ -142,11 +160,15 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AudioSelectionStart,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Response[Any | AudioSelectionStarted]:
     """
     Args:
         id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioSelectionStart):
 
     Raises:
@@ -161,6 +183,8 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         id=id,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )
 
@@ -175,11 +199,15 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: AudioSelectionStart,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Any | AudioSelectionStarted | None:
     """
     Args:
         id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioSelectionStart):
 
     Raises:
@@ -195,5 +223,7 @@ async def asyncio(
         id=id,
 client=client,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )).parsed

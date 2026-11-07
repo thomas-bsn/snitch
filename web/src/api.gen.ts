@@ -16895,7 +16895,10 @@ export interface operations {
   startClipAudioSelection: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
       path: {
         id: number;
       };
@@ -16942,7 +16945,10 @@ export interface operations {
   previewClipAudioSelection: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
       path: {
         id: number;
       };

@@ -15431,135 +15431,167 @@
         }
       }
     },
-      "/api/admin/clips/{id}/audio-selection": {
-        "get": {
-          "operationId": "getClipAudioSelection",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int64"
-              }
+    "/api/admin/clips/{id}/audio-selection": {
+      "get": {
+        "operationId": "getClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
-          ],
-          "responses": {
-            "200": {
-              "description": "Selection state",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/AudioSelectionContext"
-                  }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionContext"
                 }
               }
-            },
-            "400": {
-              "description": "Invalid selection"
-            },
-            "409": {
-              "description": "Selection or confirmation is stale"
-            },
-            "503": {
-              "description": "Multitrack activation unavailable"
             }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
           }
         },
-        "post": {
-          "operationId": "startClipAudioSelection",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
               "schema": {
-                "type": "integer",
-                "format": "int64"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Selection state",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/AudioSelectionStarted"
-                  }
-                }
-              }
-            },
-            "400": {
-              "description": "Invalid selection"
-            },
-            "409": {
-              "description": "Selection or confirmation is stale"
-            },
-            "503": {
-              "description": "Multitrack activation unavailable"
-            }
-          },
-          "requestBody": {
-            "required": true,
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AudioSelectionStart"
-                }
+                "$ref": "#/components/schemas/AudioSelectionStart"
               }
             }
           }
         }
-      },
-      "/api/admin/clips/{id}/audio-selection/preview": {
-        "post": {
-          "operationId": "previewClipAudioSelection",
-          "parameters": [
-            {
-              "name": "id",
-              "in": "path",
-              "required": true,
-              "schema": {
-                "type": "integer",
-                "format": "int64"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Selection state",
-              "content": {
-                "application/json": {
-                  "schema": {
-                    "$ref": "#/components/schemas/AudioSelectionPreview"
-                  }
-                }
-              }
-            },
-            "400": {
-              "description": "Invalid selection"
-            },
-            "409": {
-              "description": "Selection or confirmation is stale"
-            },
-            "503": {
-              "description": "Multitrack activation unavailable"
+      }
+    },
+    "/api/admin/clips/{id}/audio-selection/preview": {
+      "post": {
+        "operationId": "previewClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
             }
           },
-          "requestBody": {
+          {
+            "in": "header",
+            "name": "Origin",
             "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/AudioSelectionRequest"
+                  "$ref": "#/components/schemas/AudioSelectionPreview"
                 }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioSelectionRequest"
               }
             }
           }
         }
-      },
+      }
+    },
     "/api/admin/clips/{id}/audio-plans/{plan_id}": {
       "get": {
         "operationId": "getAudioPlan",

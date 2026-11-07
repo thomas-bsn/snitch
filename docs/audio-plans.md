@@ -55,3 +55,7 @@ La migration 00111 matérialise les manifestes historiques `legacy:<job_id>` et 
 - `cd app && go test ./internal/audioplans` : identité canonique, provenance multiple, ordre temporel et ex æquo.
 - `bash scripts/test.sh ./internal/httpapi -run 'TestAudioPlansMigration|TestFoundation/(audio_plan|segment_|search_corrections|HTTP_contract)'` : PostgreSQL réel et données synthétiques, migration/rejeu/retour, contrats HTTP, compatibilité lecture/recherche/correction/export, diagnostic par tentative et complétion d'enfant via Worker.
 - `python3 scripts/check_generated.py` : reproductibilité des clients et du modèle SQL générés.
+
+## Sélection depuis la préparation et la réanalyse (#341)
+
+`GET/POST /api/admin/clips/{id}/audio-selection[/preview]` valident le choix (Auto ou indices réels), les décisions et le forçage, renvoient un aperçu signé puis créent le Plan dans la transaction du démarrage. Le moteur durable est injecté par `Server.AudioSelection` (`AudioSelectionEngine`) ; absent, la production reste mono-piste. Voir l'[ADR 0051](adr/0051-selection-des-pistes-audio-et-apercu-des-pertes.md).

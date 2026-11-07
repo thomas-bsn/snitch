@@ -6,6 +6,11 @@ import { buttonClass } from "../components/buttons";
 import { Modal } from "../components/Modal";
 import { useI18n } from "../i18n";
 import { useSession } from "../session";
+import {
+  AudioSelectionPreviewView,
+  AudioTrackChoice,
+  useAudioSelectionFlow,
+} from "./AudioSelection";
 
 type Run = components["schemas"]["ClipAnalysisRun"];
 type Stake = components["schemas"]["ClipReanalysisStake"];
@@ -87,6 +92,7 @@ export function ReanalyzeClip({
   open,
   onOpenChange,
   onStarted,
+  onSelectionStarted,
 }: {
   clipId: number;
   /** Whether the clip has a valid transcription: without it, it is a prerequisite. */
@@ -96,6 +102,8 @@ export function ReanalyzeClip({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onStarted: (run: Run | null) => void;
+  /** After a track-choice start: the caller reads the run the server created. */
+  onSelectionStarted?: () => void | Promise<void>;
 }) {
   const { t, error } = useI18n();
   const { session } = useSession();
@@ -120,7 +128,20 @@ export function ReanalyzeClip({
       ? closeSteps(scope, chosen, hasTranscription, hasVoices)
       : [];
 
+  // When the server offers the choice of audio tracks, it replaces the direct start: the
+  // choice is previewed, its losses confirmed, and only then does the analysis begin.
+  const flow = useAudioSelectionFlow({
+    clipId,
+    enabled: open,
+    analysis: { scope, mode, steps: chosen },
+    onStarted: async () => {
+      await onSelectionStarted?.();
+      close(false);
+    },
+  });
+
   function close(next: boolean) {
+    if (!next) flow.back();
     if (!next) {
       setStake(undefined);
       setStakeAt(undefined);
@@ -185,7 +206,9 @@ export function ReanalyzeClip({
       title={t("clip.reanalyze.title")}
       closeLabel={t("clip.reanalyze.close")}
     >
-      {stake ? (
+      {flow.shown ? (
+        <AudioSelectionPreviewView flow={flow} />
+      ) : stake ? (
         <div className="flex flex-col gap-3" role="group">
           <p className="m-0 text-sm font-medium">
             {t("clip.reanalyze.confirmIntro")}
@@ -235,39 +258,42 @@ export function ReanalyzeClip({
           className="flex flex-col gap-4"
           onSubmit={(e) => {
             e.preventDefault();
-            void submit(false);
+            if (flow.available) void flow.requestPreview();
+            else void submit(false);
           }}
         >
-          <div
-            role="group"
-            aria-label={t("clip.analysis.quick")}
-            className="flex flex-col gap-2"
-          >
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                void submit(false, { scope: "full", mode: "full", steps: [] })
-              }
-              className={buttonClass()}
+          {!flow.available && (
+            <div
+              role="group"
+              aria-label={t("clip.analysis.quick")}
+              className="flex flex-col gap-2"
             >
-              {t("clip.analysis.launchFull")}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() =>
-                void submit(false, {
-                  scope: "full",
-                  mode: "missing",
-                  steps: [],
-                })
-              }
-              className={buttonClass("secondary")}
-            >
-              {t("clip.analysis.launchMissing")}
-            </button>
-          </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void submit(false, { scope: "full", mode: "full", steps: [] })
+                }
+                className={buttonClass()}
+              >
+                {t("clip.analysis.launchFull")}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() =>
+                  void submit(false, {
+                    scope: "full",
+                    mode: "missing",
+                    steps: [],
+                  })
+                }
+                className={buttonClass("secondary")}
+              >
+                {t("clip.analysis.launchMissing")}
+              </button>
+            </div>
+          )}
           <fieldset className="m-0 flex flex-col gap-1 border-0 p-0">
             <legend className="mb-1 text-sm font-medium">
               {t("clip.reanalyze.scopeLabel")}
@@ -342,6 +368,7 @@ export function ReanalyzeClip({
               </div>
             )}
           </fieldset>
+          <AudioTrackChoice flow={flow} idPrefix="reanalyze" />
           <div className="flex flex-col gap-1 text-sm text-mute" role="note">
             {mode === "missing" && (
               <p className="m-0">{t("clip.reanalyze.noteMissing")}</p>
@@ -353,7 +380,9 @@ export function ReanalyzeClip({
               <p className="m-0">{t("clip.reanalyze.noteDiarization")}</p>
             )}
           </div>
-          {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+          {(failure || flow.failure) && (
+            <ErrorAlert>{error((failure ?? flow.failure)!)}</ErrorAlert>
+          )}
           <div className="flex justify-end gap-2">
             <button
               type="button"
@@ -364,10 +393,19 @@ export function ReanalyzeClip({
             </button>
             <button
               type="submit"
-              disabled={busy || invalid}
+              disabled={
+                busy ||
+                invalid ||
+                flow.busy ||
+                (flow.available && !!flow.built?.blocker)
+              }
               className={buttonClass()}
             >
-              {t("clip.reanalyze.start")}
+              {flow.available
+                ? flow.busy
+                  ? t("clip.audioSelection.previewing")
+                  : t("clip.audioSelection.preview")
+                : t("clip.reanalyze.start")}
             </button>
           </div>
         </form>
