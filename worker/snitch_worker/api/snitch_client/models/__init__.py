@@ -22,6 +22,9 @@ from .attribution_event import AttributionEvent
 from .attribution_history import AttributionHistory
 from .attribution_input import AttributionInput
 from .attribution_validation_state import AttributionValidationState
+from .audio_analysis_choice import AudioAnalysisChoice
+from .audio_analysis_choice_mode import AudioAnalysisChoiceMode
+from .audio_analysis_choice_scope import AudioAnalysisChoiceScope
 from .audio_loss_preview import AudioLossPreview
 from .audio_plan import AudioPlan
 from .audio_plan_child import AudioPlanChild
@@ -30,6 +33,18 @@ from .audio_plan_child_status import AudioPlanChildStatus
 from .audio_plan_input import AudioPlanInput
 from .audio_plan_input_mode import AudioPlanInputMode
 from .audio_plan_state import AudioPlanState
+from .audio_selection_context import AudioSelectionContext
+from .audio_selection_decision import AudioSelectionDecision
+from .audio_selection_decision_action import AudioSelectionDecisionAction
+from .audio_selection_diagnostic import AudioSelectionDiagnostic
+from .audio_selection_diagnostic_freshness import AudioSelectionDiagnosticFreshness
+from .audio_selection_diagnostic_status import AudioSelectionDiagnosticStatus
+from .audio_selection_effects import AudioSelectionEffects
+from .audio_selection_preview import AudioSelectionPreview
+from .audio_selection_request import AudioSelectionRequest
+from .audio_selection_request_mode import AudioSelectionRequestMode
+from .audio_selection_start import AudioSelectionStart
+from .audio_selection_started import AudioSelectionStarted
 from .audio_speech_interval import AudioSpeechInterval
 from .audio_track_decision import AudioTrackDecision
 from .audio_track_decision_action import AudioTrackDecisionAction
@@ -566,6 +581,9 @@ __all__ = (
     "AttributionHistory",
     "AttributionInput",
     "AttributionValidationState",
+    "AudioAnalysisChoice",
+    "AudioAnalysisChoiceMode",
+    "AudioAnalysisChoiceScope",
     "AudioLossPreview",
     "AudioPlan",
     "AudioPlanChild",
@@ -574,6 +592,18 @@ __all__ = (
     "AudioPlanInput",
     "AudioPlanInputMode",
     "AudioPlanState",
+    "AudioSelectionContext",
+    "AudioSelectionDecision",
+    "AudioSelectionDecisionAction",
+    "AudioSelectionDiagnostic",
+    "AudioSelectionDiagnosticFreshness",
+    "AudioSelectionDiagnosticStatus",
+    "AudioSelectionEffects",
+    "AudioSelectionPreview",
+    "AudioSelectionRequest",
+    "AudioSelectionRequestMode",
+    "AudioSelectionStart",
+    "AudioSelectionStarted",
     "AudioSpeechInterval",
     "AudioTrackDecision",
     "AudioTrackDecisionAction",
