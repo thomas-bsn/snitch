@@ -31,9 +31,11 @@ CREATE TABLE worker_restart_events (
   result text NOT NULL DEFAULT ''
 );
 CREATE INDEX worker_restart_events_command ON worker_restart_events(command_id,occurred_at);
+-- +goose StatementBegin
 CREATE FUNCTION prevent_worker_restart_event_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN RAISE EXCEPTION 'worker restart events are immutable'; END;
 $$;
+-- +goose StatementEnd
 CREATE TRIGGER worker_restart_events_immutable BEFORE UPDATE OR DELETE ON worker_restart_events FOR EACH ROW EXECUTE FUNCTION prevent_worker_restart_event_mutation();
 
 -- +goose Down
