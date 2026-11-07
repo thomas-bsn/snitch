@@ -89,7 +89,7 @@ func (h analysisHooks) Index(ctx context.Context, clipID int64) (analysis.StepRe
 		return analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_transcription"}, err
 	}
 	// A transcription that predates the indexing profile still needs its task.
-	if _, err = h.s.Pool.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT active_profile_id,$1 FROM embedding_index_state WHERE id=1 AND active_profile_id IS NOT NULL ON CONFLICT DO NOTHING`, visible.JobID); err != nil {
+	if _, err = h.s.Pool.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT st.active_profile_id,v.job_id FROM embedding_index_state st CROSS JOIN (SELECT DISTINCT job_id FROM audio_visible_segments WHERE clip_id=$1) v WHERE st.id=1 AND st.active_profile_id IS NOT NULL ON CONFLICT DO NOTHING`, clipID); err != nil {
 		return analysis.StepResult{}, err
 	}
 	progress, err := h.s.clipProgress(ctx, clipID, visible.JobID, true)
@@ -196,20 +196,20 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time,
 }
 
 func (h analysisHooks) Reindex(ctx context.Context, clipID int64) error {
-	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	_, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
 	if err != nil || !ok {
 		return err
 	}
-	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id=$1 AND state IN ('done','failed') AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, visible.JobID)
+	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id IN (SELECT job_id FROM audio_visible_segments WHERE clip_id=$1) AND state IN ('done','failed') AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, clipID)
 	return err
 }
 
 func (h analysisHooks) RetryIndex(ctx context.Context, clipID int64) error {
-	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	_, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
 	if err != nil || !ok {
 		return err
 	}
-	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id=$1 AND state='failed' AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, visible.JobID)
+	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id IN (SELECT job_id FROM audio_visible_segments WHERE clip_id=$1) AND state='failed' AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, clipID)
 	return err
 }
 
