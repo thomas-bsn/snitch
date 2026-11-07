@@ -3555,6 +3555,38 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/audio-selection": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get: operations["getClipAudioSelection"];
+    put?: never;
+    post: operations["startClipAudioSelection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/clips/{id}/audio-selection/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post: operations["previewClipAudioSelection"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/clips/{id}/audio-plans/{plan_id}": {
     parameters: {
       query?: never;
@@ -4717,6 +4749,7 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
+      audio_plan?: components["schemas"]["WorkerAudioPlanTask"];
       audio_diagnostic?: components["schemas"]["WorkerAudioDiagnosticInput"];
     };
     /** @description Identité immuable d'un job audio.diagnostic.N. start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur. */
@@ -4732,6 +4765,15 @@ export interface components {
       start_seconds: number;
       /** Format: double */
       duration_seconds: number | null;
+    };
+    /** @description Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip. */
+    WorkerAudioPlanTask: {
+      /** Format: int64 */
+      plan_id: number;
+      input_version: string;
+      track_index: number;
+      start_seconds: number;
+      intervals: components["schemas"]["AudioSpeechInterval"][];
     };
     TranscriptionSettingsInput: {
       /** @enum {string} */
@@ -6758,6 +6800,69 @@ export interface components {
       actor_id: number;
       /** Format: date-time */
       decided_at: string;
+    };
+    AudioSelectionDiagnostic: {
+      track_index: number;
+      /** @enum {string} */
+      status: "speech" | "no_speech" | "ambiguous" | "unexamined" | "failed";
+      /** @enum {string} */
+      freshness: "current" | "stale" | "missing";
+      cause: string;
+    };
+    AudioSelectionContext: {
+      enabled: boolean;
+      version: string;
+      state_version: string;
+      /** @description Pistes audio réelles du clip, avec leur indice ffprobe ; vide quand la sélection est désactivée. */
+      inventory: components["schemas"]["AudioTrackInventory"][];
+      input?: components["schemas"]["AudioPlanInput"];
+      diagnostics: components["schemas"]["AudioSelectionDiagnostic"][];
+    };
+    AudioSelectionDecision: {
+      track_index: number;
+      /** @enum {string} */
+      action: "include" | "exclude";
+      forced: boolean;
+      reason: string;
+    };
+    AudioAnalysisChoice: {
+      /** @enum {string} */
+      scope: "full" | "transcription" | "voice";
+      /** @enum {string} */
+      mode: "missing" | "full" | "steps";
+      steps: string[];
+    };
+    AudioSelectionRequest: {
+      version: string;
+      /** @enum {string} */
+      mode: "auto" | "manual";
+      track_indices: number[];
+      decisions: components["schemas"]["AudioSelectionDecision"][];
+      analysis: components["schemas"]["AudioAnalysisChoice"];
+    };
+    AudioSelectionEffects: {
+      added_steps: string[];
+      invalidated_steps: string[];
+      track_indices: number[];
+      losses: components["schemas"]["AudioLossPreview"];
+      worker_compatible: boolean;
+      stake_version: string;
+    };
+    AudioSelectionPreview: {
+      input: components["schemas"]["AudioPlanInput"];
+      effects: components["schemas"]["AudioSelectionEffects"];
+      preview_token: string;
+      /** Format: date-time */
+      expires_at: string;
+    };
+    AudioSelectionStart: {
+      selection: components["schemas"]["AudioSelectionRequest"];
+      preview_token: string;
+      confirm_losses: boolean;
+    };
+    AudioSelectionStarted: {
+      state: components["schemas"]["AudioPlanState"];
+      worker_compatible: boolean;
     };
     AudioPlanInput: {
       /** @enum {string} */
@@ -16798,6 +16903,149 @@ export interface operations {
         content: {
           "application/json": components["schemas"]["Error"];
         };
+      };
+    };
+  };
+  getClipAudioSelection: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Selection state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioSelectionContext"];
+        };
+      };
+      /** @description Invalid selection */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Selection or confirmation is stale */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Multitrack activation unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  startClipAudioSelection: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AudioSelectionStart"];
+      };
+    };
+    responses: {
+      /** @description Selection state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioSelectionStarted"];
+        };
+      };
+      /** @description Invalid selection */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Selection or confirmation is stale */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Multitrack activation unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  previewClipAudioSelection: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AudioSelectionRequest"];
+      };
+    };
+    responses: {
+      /** @description Selection state */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioSelectionPreview"];
+        };
+      };
+      /** @description Invalid selection */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Selection or confirmation is stale */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Multitrack activation unavailable */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
       };
     };
   };

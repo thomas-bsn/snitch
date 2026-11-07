@@ -15,6 +15,7 @@ if TYPE_CHECKING:
   from ..models.job import Job
   from ..models.transcription_pipeline import TranscriptionPipeline
   from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput
+  from ..models.worker_audio_plan_task import WorkerAudioPlanTask
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
   from ..models.worker_vocabulary_term import WorkerVocabularyTerm
   from ..models.worker_voice_input import WorkerVoiceInput
@@ -44,6 +45,9 @@ class WorkerJobInput:
             pipeline (TranscriptionPipeline | Unset):
             pipeline_version (str | Unset):
             voice (WorkerVoiceInput | Unset):
+            audio_plan (WorkerAudioPlanTask | Unset): Tâche d’un job de transcription épinglé à un plan audio (capacité
+                audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois
+                et rend des temps sur la ligne de temps du clip.
             audio_diagnostic (WorkerAudioDiagnosticInput | Unset): Identité immuable d'un job audio.diagnostic.N.
                 start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur.
      """
@@ -61,6 +65,7 @@ class WorkerJobInput:
     pipeline: TranscriptionPipeline | Unset = UNSET
     pipeline_version: str | Unset = UNSET
     voice: WorkerVoiceInput | Unset = UNSET
+    audio_plan: WorkerAudioPlanTask | Unset = UNSET
     audio_diagnostic: WorkerAudioDiagnosticInput | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -72,6 +77,7 @@ class WorkerJobInput:
         from ..models.job import Job # noqa: PLC0415
         from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
         from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput # noqa: PLC0415
+        from ..models.worker_audio_plan_task import WorkerAudioPlanTask # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
@@ -119,6 +125,10 @@ class WorkerJobInput:
         if not isinstance(self.voice, Unset):
             voice = self.voice.to_dict()
 
+        audio_plan: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.audio_plan, Unset):
+            audio_plan = self.audio_plan.to_dict()
+
         audio_diagnostic: dict[str, Any] | Unset = UNSET
         if not isinstance(self.audio_diagnostic, Unset):
             audio_diagnostic = self.audio_diagnostic.to_dict()
@@ -146,6 +156,8 @@ class WorkerJobInput:
             field_dict["pipeline_version"] = pipeline_version
         if voice is not UNSET:
             field_dict["voice"] = voice
+        if audio_plan is not UNSET:
+            field_dict["audio_plan"] = audio_plan
         if audio_diagnostic is not UNSET:
             field_dict["audio_diagnostic"] = audio_diagnostic
 
@@ -158,6 +170,7 @@ class WorkerJobInput:
         from ..models.job import Job # noqa: PLC0415
         from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
         from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput # noqa: PLC0415
+        from ..models.worker_audio_plan_task import WorkerAudioPlanTask # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
@@ -231,6 +244,16 @@ class WorkerJobInput:
 
 
 
+        _audio_plan = d.pop("audio_plan", UNSET)
+        audio_plan: WorkerAudioPlanTask | Unset
+        if isinstance(_audio_plan,  Unset):
+            audio_plan = UNSET
+        else:
+            audio_plan = WorkerAudioPlanTask.from_dict(_audio_plan)
+
+
+
+
         _audio_diagnostic = d.pop("audio_diagnostic", UNSET)
         audio_diagnostic: WorkerAudioDiagnosticInput | Unset
         if isinstance(_audio_diagnostic,  Unset):
@@ -255,6 +278,7 @@ class WorkerJobInput:
             pipeline=pipeline,
             pipeline_version=pipeline_version,
             voice=voice,
+            audio_plan=audio_plan,
             audio_diagnostic=audio_diagnostic,
         )
 

@@ -172,7 +172,9 @@ class FakeProviderTests(unittest.TestCase):
         pulse.assert_called_once()
         advertised = pulse.call_args.kwargs["body"].to_dict()
         self.assertEqual(
-            advertised["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*"]
+            # The diagnostic family depends on whether Torch is installed (covered in test_audio_diagnostic).
+            [step for step in advertised["supported_steps"] if step != "audio.diagnostic.*"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
         )
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
@@ -312,6 +314,80 @@ class FakeProviderTests(unittest.TestCase):
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["audio_stream_index"], 2)
         self.assertEqual(result["segments"], [])
+
+    def test_audio_plan_child_returns_clip_time_for_vad_spans_and_stream_offset(self):
+        media_request = SimpleNamespace(raise_for_status=lambda: None, iter_bytes=lambda: [b"synthetic"])
+
+        class MediaStream:
+            def __enter__(self):
+                return media_request
+
+            def __exit__(self, *_args):
+                return False
+
+        http_client = SimpleNamespace(stream=Mock(return_value=MediaStream()))
+        client = SimpleNamespace(_base_url="https://snitch.example", get_httpx_client=lambda: http_client)
+        task = SimpleNamespace(id=91, step="transcription.audio.7", input_version="mt1:5:plan-v1")
+        claim = SimpleNamespace(job=task, lease_token="lt_fixture-lease")
+        plan = {
+            "plan_id": 5,
+            "input_version": "plan-v1",
+            "track_index": 7,
+            "start_seconds": 1.25,
+            "intervals": [{"start": 1.0, "end": 1.5}, {"start": 3.0, "end": 3.4}],
+        }
+        chunk_lengths = []
+
+        def transcribe(wav, vocabulary=None):
+            with wave.open(wav, "rb") as chunk:
+                chunk_lengths.append(round(chunk.getnframes() / chunk.getframerate(), 2))
+            return {
+                "provider": "fixture", "model": "deterministic-v1", "version": "deterministic-v1", "language": "fr",
+                "segments": [{"start": 0.1, "end": 0.3, "text": "bonjour", "words": [{"start": 0.1, "end": 0.3, "word": "bonjour"}]}],
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            wav = str(Path(directory) / "prepared.wav")
+            with wave.open(wav, "wb") as audio:
+                audio.setnchannels(1)
+                audio.setsampwidth(2)
+                audio.setframerate(16000)
+                audio.writeframes(b"\0\0" * 16000 * 5)
+
+            def prepare(_media, destination, _stream):
+                Path(destination).write_bytes(Path(wav).read_bytes())
+
+            with (
+                patch.object(runner, "pulse", return_value=object()),
+                patch.object(runner, "claim_job", return_value=claim),
+                patch.object(runner, "heartbeat_job", return_value=object()),
+                patch.object(runner, "get_job_input", return_value=SimpleNamespace(
+                    media_url="/api/worker/jobs/91/media", vocabulary=[],
+                    pipeline={"model": "m", "language": "fr", "vad": {"mode": "off"}},
+                    audio_plan=SimpleNamespace(to_dict=lambda: plan),
+                )),
+                patch.object(runner, "prepare_audio", side_effect=prepare) as prepared,
+                patch.object(runner, "attach_peaks") as peaks,
+                patch.object(runner, "complete_job", return_value=object()) as complete,
+            ):
+                self.assertTrue(runner.run_once(client, transcriber=SimpleNamespace(transcribe=transcribe)))
+        self.assertEqual(prepared.call_args.args[2], 7)
+        self.assertEqual(chunk_lengths, [0.5, 0.4])
+        peaks.assert_not_called()
+        result = complete.call_args.kwargs["body"].result.to_dict()
+        self.assertEqual(result["time_base"], "clip")
+        self.assertEqual((result["audio_plan_id"], result["audio_plan_version"], result["audio_stream_index"]), (5, "plan-v1", 7))
+        # span start + stream start are added once, to segments and to their words.
+        self.assertEqual([round(x["start"], 2) for x in result["segments"]], [2.35, 4.35])
+        self.assertEqual([round(x["words"][0]["end"], 2) for x in result["segments"]], [2.55, 4.55])
+
+    def test_pulse_declares_the_multitrack_capability_beside_legacy_transcription(self):
+        with (patch.object(runner, "pulse", return_value=object()) as pulse,
+              patch.object(runner, "claim_job", return_value=SimpleNamespace(job=None))):
+            runner.run_once(object(), capacity=1)
+        steps = pulse.call_args.kwargs["body"].to_dict()["supported_steps"]
+        self.assertIn("audio.multitrack.v1", steps)
+        self.assertIn("transcription.audio.*", steps)
 
     def test_provider_requires_explicit_endpoint_and_model(self):
         with self.assertRaises(ValueError):
@@ -466,7 +542,8 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(state["result"]["provider"], "fixture")
         self.assertEqual(state["result"]["step"], "fixture.echo")
         self.assertEqual(
-            state["pulse"]["supported_steps"], ["fixture.*", "transcription.audio.*", "voice.*"]
+            [step for step in state["pulse"]["supported_steps"] if step != "audio.diagnostic.*"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"],
         )
 
 

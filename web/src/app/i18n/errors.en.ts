@@ -130,6 +130,23 @@ export const errorsEn = {
   invalid_analysis_step: "This analysis step is not valid.",
   analysis_deletion_confirmation_required:
     "Deleting these steps loses human work or a transcript: confirm the losses shown.",
+  audio_selection_stale:
+    "The audio tracks or their diagnostics changed since you opened this choice. Review it again.",
+  invalid_audio_selection:
+    "This audio track choice is not valid: pick existing tracks and a valid analysis.",
+  audio_decision_required:
+    "Decide whether to include or exclude each ambiguous track.",
+  audio_force_required:
+    "A track without speech needs an explicit “use despite the diagnostic”.",
+  audio_preview_expired:
+    "This preview expired. Preview the effects again before starting.",
+  audio_preview_changed:
+    "The choice or the work it affects changed since the preview. Preview it again.",
+  audio_confirmation_required:
+    "Confirm the consequences shown before the analysis starts.",
+  audio_selection_disabled:
+    "Choosing audio tracks is not available for this clip yet.",
+  analysis_already_active: "An analysis is already running on this clip.",
   invalid_reanalysis: "This reanalysis choice is not valid.",
   reanalysis_confirmation_required:
     "Confirm the consequences of this reanalysis before it starts.",

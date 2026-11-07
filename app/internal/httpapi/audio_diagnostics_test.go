@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"snitch/internal/analysis"
 	"snitch/internal/audioplans"
 	"testing"
 )
@@ -191,5 +192,80 @@ func testAudioDiagnosticOutcomes(t *testing.T, pool *pgxpool.Pool) {
 		if d.Status == "no_speech" {
 			t.Fatalf("converted to absence: %s", raw)
 		}
+	}
+}
+
+// The production boundary of the multitrack orchestration: diagnostics run on a Worker, are awaited without
+// inference, and a failed observation is retried as the next attempt before any transcription starts.
+func testMultitrackWorkerDiagnostics(t *testing.T, pool *pgxpool.Pool) {
+	ctx := context.Background()
+	h := newVoiceHarness(t, pool)
+	service := analysis.NewAudio(pool, analysis.WorkerAudioDiagnostics{}, &collectedAudio{})
+	plan, err := service.Start(ctx, h.clipID, audioInput(t, pool, "auto", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 { // replaying the reconciliation never duplicates a job
+		if err = service.Reconcile(ctx, plan.Id); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got := childStatuses(t, pool, plan.Id)
+	if len(got) != 2 || got["diagnostic:2"] != "pending" || got["diagnostic:7"] != "pending" {
+		t.Fatalf("every inventoried track is examined first, no ASR yet: %v", got)
+	}
+	h.workerCall("POST", "/api/worker/pulse", map[string]any{"capacity": 2, "supported_steps": []string{"audio.diagnostic.*"}}, "", 200)
+	order := h.order(h.fixtureWorkerID(), "silero-vad-v6.2.1", "diagnostic-install-03", 201)
+	h.workerCall("POST", "/api/worker/voice-model-orders/"+order.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
+	h.workerCall("POST", "/api/worker/voice-models/status", map[string]any{"order_id": order.OrderID, "model_id": order.ModelID, "revision": order.Revision, "state": "ready", "cause_code": "", "bytes_received": 1, "bytes_total": 1, "occupied_bytes": 1}, "", 204)
+	claim := func() claimedJob {
+		var c struct {
+			Job   *claimedJob `json:"job"`
+			Lease string      `json:"lease_token"`
+		}
+		_ = json.Unmarshal(h.workerCall("POST", "/api/worker/jobs/claim", nil, "", 200), &c)
+		if c.Job == nil {
+			t.Fatalf("diagnostic not claimable: %v", childStatuses(t, pool, plan.Id))
+		}
+		job := *c.Job
+		job.Lease = c.Lease
+		return job
+	}
+	observation := func(status, cause string, intervals []map[string]any) map[string]any {
+		return map[string]any{"status": status, "cause": cause, "intervals": intervals, "detector_version": "vad-v1", "detector_config_version": "cfg-v1"}
+	}
+	for range 2 {
+		job := claim()
+		if job.Step == "audio.diagnostic.2" {
+			h.complete(job, observation("speech", "neural_speech", []map[string]any{{"start": 0.5, "end": 1.5}}), 200)
+		} else {
+			h.complete(job, observation("failed", "decode_failed", nil), 200)
+		}
+	}
+	if err = service.Reconcile(ctx, plan.Id); err != nil {
+		t.Fatal(err)
+	}
+	state, _ := service.State(ctx, plan.Id)
+	if state.Cause != "diagnostic_failed" || state.Tracks[1].Status != "failed" || state.Tracks[1].Cause != "decode_failed" {
+		t.Fatalf("a failed examination is visible and blocks, never 'no speech': %+v", state)
+	}
+	if got = childStatuses(t, pool, plan.Id); got["transcription:2"] != "" {
+		t.Fatalf("no ASR before every diagnostic is settled: %v", got)
+	}
+	if err = service.Retry(ctx, plan.Id, 7, "diagnostic"); err != nil {
+		t.Fatal(err)
+	}
+	retried := claim()
+	var attempt int
+	_ = pool.QueryRow(ctx, `SELECT attempts FROM jobs WHERE id=$1`, retried.ID).Scan(&attempt)
+	if retried.Step != "audio.diagnostic.7" || attempt != 2 {
+		t.Fatalf("retry is the next attempt of the same durable job: %+v attempt %d", retried, attempt)
+	}
+	h.complete(retried, observation("speech", "neural_speech", []map[string]any{{"start": 0.1, "end": 0.9}}), 200)
+	if err = service.Reconcile(ctx, plan.Id); err != nil {
+		t.Fatal(err)
+	}
+	if got = childStatuses(t, pool, plan.Id); got["transcription:2"] != "pending" || got["transcription:7"] != "pending" || len(got) != 4 {
+		t.Fatalf("transcription follows complete, successful diagnostics: %v", got)
 	}
 }

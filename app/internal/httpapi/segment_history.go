@@ -79,7 +79,7 @@ func (s *Server) getSegmentHistory(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, segmentHistoryView{TranscriptionJobID: ref.JobID, Index: ref.Index, OriginalText: ref.OriginalText, Current: *s.currentSegmentView(ctx, ref), Items: items})
+	reply(w, http.StatusOK, segmentHistoryView{TranscriptionJobID: ref.JobID, Index: ref.VisibleIndex, OriginalText: ref.OriginalText, Current: *s.currentSegmentView(ctx, ref), Items: items})
 }
 
 // obsoleteCorrection is a segment whose correction was replaced by a retranscription:

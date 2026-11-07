@@ -56,6 +56,12 @@ type AudioPlanTrack struct {
 	TrackIndex int32 `json:"track_index"`
 }
 
+type AudioPublication struct {
+	ClipID      int64              `json:"clip_id"`
+	RevisionID  string             `json:"revision_id"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+}
+
 type AudioTrackDiagnostic struct {
 	PlanID     int64  `json:"plan_id"`
 	TrackIndex int32  `json:"track_index"`
@@ -64,6 +70,35 @@ type AudioTrackDiagnostic struct {
 }
 
 type AudioVisibleLegacyTranscript struct {
+	ClipID    int64              `json:"clip_id"`
+	ID        int64              `json:"id"`
+	Result    interface{}        `json:"result"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AudioVisibleRevision struct {
+	ID          string             `json:"id"`
+	ClipID      int64              `json:"clip_id"`
+	PlanID      pgtype.Int8        `json:"plan_id"`
+	LegacyJobID pgtype.Int8        `json:"legacy_job_id"`
+	Manifest    []byte             `json:"manifest"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	VisibleAt   pgtype.Timestamptz `json:"visible_at"`
+}
+
+type AudioVisibleSegment struct {
+	ClipID       int64       `json:"clip_id"`
+	RevisionID   string      `json:"revision_id"`
+	VisibleIndex int32       `json:"visible_index"`
+	JobID        int64       `json:"job_id"`
+	Idx          int32       `json:"idx"`
+	Stream       int32       `json:"stream"`
+	SegStart     float64     `json:"seg_start"`
+	SegEnd       float64     `json:"seg_end"`
+	Seg          interface{} `json:"seg"`
+}
+
+type AudioVisibleTranscript struct {
 	ClipID    int64              `json:"clip_id"`
 	ID        int64              `json:"id"`
 	Result    interface{}        `json:"result"`
