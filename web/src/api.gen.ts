@@ -4700,6 +4700,16 @@ export interface components {
       pipeline?: components["schemas"]["TranscriptionPipeline"];
       pipeline_version?: string;
       voice?: components["schemas"]["WorkerVoiceInput"];
+      audio_plan?: components["schemas"]["WorkerAudioPlanTask"];
+    };
+    /** @description Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip. */
+    WorkerAudioPlanTask: {
+      /** Format: int64 */
+      plan_id: number;
+      input_version: string;
+      track_index: number;
+      start_seconds: number;
+      intervals: components["schemas"]["AudioSpeechInterval"][];
     };
     TranscriptionSettingsInput: {
       /** @enum {string} */
