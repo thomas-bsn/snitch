@@ -89,8 +89,8 @@ func testAdminQueue(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatal(err)
 		}
 		if len(got.Snapshot.Active) == 1 {
-			if got.Snapshot.Active[0].step("preparation").Status != "blocked" {
-				t.Fatalf("the card shows the blocked preparation: %+v", got.Snapshot.Active[0])
+			if got.Snapshot.Active[0].step("transcription").Reason != "awaiting_compatible_worker" {
+				t.Fatalf("the card shows the wait for a Worker: %+v", got.Snapshot.Active[0])
 			}
 			break
 		}
