@@ -17,6 +17,7 @@ import (
 // the transcription is scheduled and no analysis run is created.
 func testAutomaticFullAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 2)
+	h.useSingleAudioTrack()
 	ctx := context.Background()
 	var other int64
 	if err := pool.QueryRow(ctx, `SELECT id FROM clips WHERE id<>$1 ORDER BY id LIMIT 1`, h.clipID).Scan(&other); err != nil {
@@ -52,6 +53,7 @@ func testAutomaticFullAnalysis(t *testing.T, pool *pgxpool.Pool) {
 // default, changed by an Administrator, and stored under analysis_auto_full.
 func testAutomaticAnalysisSetting(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 1)
+	h.useSingleAudioTrack()
 	read := func() bool {
 		var got struct {
 			Enabled bool `json:"enabled"`

@@ -75,6 +75,7 @@ func testSegmentReviewFixes(t *testing.T, pool *pgxpool.Pool, reset func(*testin
 	t.Run("corrections replaced by a retranscription stay readable and obsolete", func(t *testing.T) {
 		reset(t)
 		h := newVoiceHarness(t, pool)
+		h.useSingleAudioTrack()
 		h.transcribe()
 		admin := h.adminUser()
 		bob := h.newUser("bob")

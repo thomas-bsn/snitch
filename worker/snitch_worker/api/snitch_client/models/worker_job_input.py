@@ -14,6 +14,7 @@ from typing import cast
 if TYPE_CHECKING:
   from ..models.job import Job
   from ..models.transcription_pipeline import TranscriptionPipeline
+  from ..models.worker_audio_dedup_input import WorkerAudioDedupInput
   from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput
   from ..models.worker_audio_plan_task import WorkerAudioPlanTask
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
@@ -50,6 +51,9 @@ class WorkerJobInput:
                 et rend des temps sur la ligne de temps du clip.
             audio_diagnostic (WorkerAudioDiagnosticInput | Unset): Identité immuable d'un job audio.diagnostic.N.
                 start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur.
+            audio_dedup (WorkerAudioDedupInput | Unset): Tâche d'un job audio.dedup.N (comparaison acoustique des pistes
+                retenues d'un plan). Les segments sont dans le repère du clip ; start_seconds est le décalage du flux de la
+                piste.
      """
 
     job: Job
@@ -67,6 +71,7 @@ class WorkerJobInput:
     voice: WorkerVoiceInput | Unset = UNSET
     audio_plan: WorkerAudioPlanTask | Unset = UNSET
     audio_diagnostic: WorkerAudioDiagnosticInput | Unset = UNSET
+    audio_dedup: WorkerAudioDedupInput | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -76,6 +81,7 @@ class WorkerJobInput:
     def to_dict(self) -> dict[str, Any]:
         from ..models.job import Job # noqa: PLC0415
         from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
+        from ..models.worker_audio_dedup_input import WorkerAudioDedupInput # noqa: PLC0415
         from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput # noqa: PLC0415
         from ..models.worker_audio_plan_task import WorkerAudioPlanTask # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
@@ -133,6 +139,10 @@ class WorkerJobInput:
         if not isinstance(self.audio_diagnostic, Unset):
             audio_diagnostic = self.audio_diagnostic.to_dict()
 
+        audio_dedup: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.audio_dedup, Unset):
+            audio_dedup = self.audio_dedup.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -160,6 +170,8 @@ class WorkerJobInput:
             field_dict["audio_plan"] = audio_plan
         if audio_diagnostic is not UNSET:
             field_dict["audio_diagnostic"] = audio_diagnostic
+        if audio_dedup is not UNSET:
+            field_dict["audio_dedup"] = audio_dedup
 
         return field_dict
 
@@ -169,6 +181,7 @@ class WorkerJobInput:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.job import Job # noqa: PLC0415
         from ..models.transcription_pipeline import TranscriptionPipeline # noqa: PLC0415
+        from ..models.worker_audio_dedup_input import WorkerAudioDedupInput # noqa: PLC0415
         from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput # noqa: PLC0415
         from ..models.worker_audio_plan_task import WorkerAudioPlanTask # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
@@ -264,6 +277,16 @@ class WorkerJobInput:
 
 
 
+        _audio_dedup = d.pop("audio_dedup", UNSET)
+        audio_dedup: WorkerAudioDedupInput | Unset
+        if isinstance(_audio_dedup,  Unset):
+            audio_dedup = UNSET
+        else:
+            audio_dedup = WorkerAudioDedupInput.from_dict(_audio_dedup)
+
+
+
+
         worker_job_input = cls(
             job=job,
             original_name=original_name,
@@ -280,6 +303,7 @@ class WorkerJobInput:
             voice=voice,
             audio_plan=audio_plan,
             audio_diagnostic=audio_diagnostic,
+            audio_dedup=audio_dedup,
         )
 
 

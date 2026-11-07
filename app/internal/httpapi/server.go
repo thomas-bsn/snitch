@@ -51,6 +51,7 @@ type Server struct {
 	thumbnailFails        sync.Map // clip id -> time of the last failed thumbnail
 	Jobs                  *jobs.Service
 	Analysis              *analysis.Service
+	Audio                 *analysis.AudioService
 	Events                *events.Service
 	Uploads               *uploads.Service
 	Workers               *workers.Service
@@ -104,6 +105,7 @@ func New(p *pgxpool.Pool, c config.Config, logger *slog.Logger) *Server {
 	}
 	s := &Server{Pool: p, Config: c, Log: logger, Client: &http.Client{Timeout: 10 * time.Second}, Store: settings.Store{Pool: p, Key: c.MasterKey}, Library: library.New(p, library.Config{Roots: c.ClipRoots, ProbePath: c.ProbePath, Stability: c.StabilityWindow, ReconcileEvery: c.ReconcileInterval, Exclude: c.ClipExcludePatterns}, logger), Jobs: jobs.NewWithLog(p, logger), Uploads: uploads.New(p, uploads.Config{Root: c.UploadRoot, ProbePath: c.ProbePath, MaxBytes: c.UploadMaxBytes, ChunkSize: c.UploadChunkBytes, TTL: c.UploadSessionTTL}), Workers: workers.New(p), passwordSlots: make(chan struct{}, 2), dummyPassword: auth.Password(auth.Token())}
 	s.Analysis = analysis.New(p, analysisHooks{s}, logger)
+	s.installAudio()
 	s.Events = events.New(p, logger)
 	return s
 }
@@ -134,6 +136,8 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() { defer s.backgroundWG.Done(); s.serveWorkerPresence(s.backgroundContext) }()
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.Analysis.Serve(s.backgroundContext, analysisInterval) }()
+	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.serveAudioVoices(s.backgroundContext, time.Minute) }()
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveIncidents(s.backgroundContext, analysisInterval) }()
 	s.backgroundWG.Add(1)
@@ -277,6 +281,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/admin/clips/{id}/audio-selection/preview", s.protected(true, http.HandlerFunc(s.previewAudioSelection)))
 	mux.Handle("POST /api/admin/clips/{id}/audio-selection", s.protected(true, http.HandlerFunc(s.startAudioSelection)))
 	mux.Handle("GET /api/admin/clips/{id}/audio-plans/{plan_id}", s.protected(true, http.HandlerFunc(s.getAudioPlan)))
+	mux.Handle("GET /api/admin/clips/{id}/audio-plans/{plan_id}/publication", s.protected(true, http.HandlerFunc(s.getAudioPublication)))
+	mux.Handle("POST /api/admin/clips/{id}/audio-plans/{plan_id}/publication", s.protected(true, http.HandlerFunc(s.confirmAudioPublication)))
 	s.registerVoicePlanRoutes(mux)
 	mux.Handle("POST /api/admin/clips/{id}/audio-plans/{plan_id}/diagnostics", s.protected(true, http.HandlerFunc(s.queueAudioDiagnostics)))
 	mux.Handle("GET /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.getClipAnalysis)))

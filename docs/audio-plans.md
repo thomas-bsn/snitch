@@ -76,3 +76,21 @@ Après la publication, `Server.StartPlanVoice(ctx, planID, clipID, auteur, confi
 ## Déduplication acoustique (#343)
 
 `audioplans.MergeAcoustic` regroupe les segments dont l'audio est prouvé identique par l'adaptateur Worker ; `audioplans.MergeVersion()` alimente `MergeVersion` du Plan. Le manifeste garde toutes les sources dans `sources` et la preuve de chaque source regroupée dans `grouping`. Voir l'[ADR 0053](adr/0053-deduplication-acoustique-des-paroles.md) et [acoustic-dedup.md](acoustic-dedup.md).
+
+## Performance des vues audio_visible_*
+
+Mesure (PostgreSQL 18, `TestFoundation/transcription_pipeline`, données synthétiques) : 5,35 s sur main, 27 s sur l'intégration #274. Les requêtes elles-mêmes sont rapides (aucune instruction SQL > 2 ms en exécution) : `auto_explain` montre que les vues empilent des `jsonb_array_elements` latéraux dont le coût estimé atteint 10^8 à 10^9, très au-dessus de `jit_above_cost` ; PostgreSQL compilait donc chaque lecteur (recherche, texte des segments, embeddings) en JIT, soit 1 à 1,4 s par requête (`JIT: Timing ... Total 991 ms`).
+
+Correctif : migration 00118 (`ALTER DATABASE ... SET jit = off`, annulée par `RESET jit`) ; le JIT n'a pas d'intérêt pour une charge de requêtes courtes. Après correction : `transcription_pipeline` 2,55 s (contre 5,35 s sur main, les lecteurs de révisions ne coûtent plus rien de notable).
+
+Volume synthétique de 3 000 clips et 36 000 segments (`TestAudioViewsPerformance`, bornes en échec si le JIT revient ou si un lecteur dépasse 0,5 à 15 s) : segments d'un clip 5 à 7 ms, transcription visible d'un clip 4 ms, segments effectifs 6 ms, jointure par job (recherche sémantique) 12 ms, balayage de tous les segments visibles 17 ms. Limite connue : la jointure par `job_id` sur la vue ne peut pas être poussée dans le jsonb et parcourt les révisions de tous les clips (temps linéaire, 12 ms pour 3 000 clips) ; un index d'expression ou une table de segments matérialisée serait l'étape suivante si la bibliothèque dépasse largement ce volume.
+
+Test `837882fd` (suppression de la révision legacy avant `UPDATE jobs.result`) : légitime. La révision legacy est capturée à la complétion par un trigger `ON CONFLICT DO NOTHING` et est immuable par conception ; seul ce test réécrit en place le résultat d'un job terminé, ce que la production ne fait jamais (un nouveau résultat est un nouveau job). Aucun lecteur legacy n'est masqué.
+
+## Bilan #344
+
+Réalisé : activation de bout en bout (ADR 0054) : rappel de l'orchestrateur après chaque enfant et au ticker, diagnostics Worker réels hors transaction, publieur unique relié à la garde de publication (migration 00117, confirmation du jeton d'aperçu ou des confirmations du Run, route `GET|POST …/audio-plans/{id}/publication`), tâche Worker `audio.dedup.<plan>` alimentant `MergeAcoustic`, voix lancées après publication, entrées historiques routées vers le Plan, JIT désactivé (migration 00118), composant « Publication suspendue », tests PostgreSQL (`audio_activation_*`) et navigateur sur la vraie chaîne (`clip-audio-activation.spec.ts`), tests acoustiques réels du détecteur (43 tests, aucun sauté, `SNITCH_REQUIRE_NUMPY=1`).
+
+Restant : décision sur piste ambiguë = annuler puis relancer ; étapes indexation/voix d'un Run à Plan marquées `not_applicable` dans l'analyse du clip ; comparaison bornée à 1 000 paires ; pas de réutilisation d'un diagnostic entre Plans ; qualité du détecteur et du dédoublonnage non revendiquée hors fixtures synthétiques ; le diarisation examine aussi les pistes que le détecteur a écartées (choix de #342).
+
+Écarts : les tests monopistes historiques utilisent un clip à une piste audio (`useSingleAudioTrack`, sonde navigateur à une piste) ou une fixture de résultat historique ; la transcription d'un clip multipiste n'est plus « choix requis ».

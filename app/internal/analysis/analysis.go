@@ -268,6 +268,8 @@ type Run struct {
 	// PendingVoices counts the voices of the clip still unknown or ambiguous (the Verification
 	// list): a completed run with some left is only partially identified. It is read live, not stored.
 	PendingVoices int `json:"pending_voices"`
+	// AudioPlanID is the audio plan of a multitrack analysis; nil for a single-track one.
+	AudioPlanID *int64 `json:"audio_plan_id"`
 }
 
 // PublicStep is a step as every user who can open the clip sees it: its state and the stable
@@ -339,6 +341,9 @@ type Hooks interface {
 	RetryIndex(ctx context.Context, clipID int64) error
 	// Match matches the fingerprints of the clip with the existing references.
 	Match(ctx context.Context, clipID int64) error
+	// AttachAudio gives a run that needs a transcription of a multitrack clip its audio plan (ADR 0054): the
+	// legacy single-track scheduler never transcribes such a clip. It reports whether the run now carries a plan.
+	AttachAudio(ctx context.Context, run Run) (bool, error)
 }
 
 // StepResult is the state a hook reports for a step. Job is the job it follows, if any.
@@ -360,7 +365,12 @@ type Service struct {
 	pool  *pgxpool.Pool
 	hooks Hooks
 	log   *slog.Logger
+	audio *AudioService
 }
+
+// SetAudio gives the service the durable scheduler of the runs that carry an audio plan. Without it such a run
+// is not advanced (the legacy path never schedules a single-track transcription on its behalf).
+func (s *Service) SetAudio(audio *AudioService) { s.audio = audio }
 
 func New(pool *pgxpool.Pool, hooks Hooks, log *slog.Logger) *Service {
 	return &Service{pool: pool, hooks: hooks, log: log}
@@ -509,6 +519,9 @@ func (s *Service) Latest(ctx context.Context, clipID int64) (*Run, error) {
 
 // loadSteps fills the steps of a run with the versions of the job each one followed.
 func (s *Service) loadSteps(ctx context.Context, run *Run) error {
+	if err := s.pool.QueryRow(ctx, `SELECT (SELECT max(id) FROM audio_plans WHERE run_id=$1)`, run.ID).Scan(&run.AudioPlanID); err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(ctx, `SELECT st.step,st.status,st.reason,st.job_id,st.attempt,j.input_version,st.started_at,st.finished_at,st.updated_at FROM clip_analysis_steps st LEFT JOIN jobs j ON j.id=st.job_id WHERE st.run_id=$1 ORDER BY array_position($2::text[],st.step)`, run.ID, stepOrder)
 	if err != nil {
 		return err
@@ -653,12 +666,29 @@ type stepState struct {
 func (s *Service) advance(ctx context.Context, run Run) error {
 	// Explicit audio plans have their own durable scheduler. The legacy ticker
 	// must never schedule a singleton transcription on their behalf.
-	var audioPlan bool
-	if err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audio_plans WHERE run_id=$1)`, run.ID).Scan(&audioPlan); err != nil {
+	var planID int64
+	err := s.pool.QueryRow(ctx, `SELECT id FROM audio_plans WHERE run_id=$1 ORDER BY id DESC LIMIT 1`, run.ID).Scan(&planID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return err
 	}
-	if audioPlan {
-		return nil
+	if err == nil {
+		// The durable scheduler of the plan: every ticker pass, restart and child completion converges here.
+		if s.audio == nil {
+			return nil
+		}
+		return s.audio.Reconcile(ctx, planID)
+	}
+	if s.audio != nil {
+		attached, attachErr := s.hooks.AttachAudio(ctx, run)
+		if attachErr != nil {
+			return attachErr
+		}
+		if attached {
+			if err = s.pool.QueryRow(ctx, `SELECT id FROM audio_plans WHERE run_id=$1 ORDER BY id DESC LIMIT 1`, run.ID).Scan(&planID); err != nil {
+				return err
+			}
+			return s.audio.Reconcile(ctx, planID)
+		}
 	}
 	prep, err := s.hooks.Prepare(ctx, run.ClipID)
 	if err != nil {
@@ -949,7 +979,9 @@ func (s *Service) Retry(ctx context.Context, clipID int64, step string) (*Run, e
 	if run.Status != RunActive && run.Status != RunFailed {
 		return nil, ErrNotRetryable
 	}
-	tag, err := tx.Exec(ctx, `UPDATE clip_analysis_steps SET status='waiting',reason='awaiting_previous_step',attempt=0,job_id=NULL,retry_since=now(),finished_at=NULL,updated_at=now() WHERE run_id=$1 AND step=$2 AND status='failed'`, run.ID, step)
+	// A run with an audio plan also retries a step that waits on a failed diagnostic or dedup (blocked).
+	tag, err := tx.Exec(ctx, `UPDATE clip_analysis_steps SET status='waiting',reason='awaiting_previous_step',attempt=0,job_id=NULL,retry_since=now(),finished_at=NULL,updated_at=now()
+ WHERE run_id=$1 AND step=$2 AND (status='failed' OR (status='blocked' AND reason IN ('diagnostic_failed','audio_dedup_failed') AND EXISTS(SELECT 1 FROM audio_plans WHERE run_id=$1)))`, run.ID, step)
 	if err != nil {
 		return nil, err
 	}
@@ -968,6 +1000,11 @@ func (s *Service) Retry(ctx context.Context, clipID int64, step string) (*Run, e
 		}
 	}
 	run.Status = RunActive
+	if s.audio != nil {
+		if err = s.audio.retryFailedOfRun(ctx, run.ID); err != nil {
+			return nil, err
+		}
+	}
 	if err = s.advance(ctx, run); err != nil {
 		s.log.Warn("advance retried analysis run", "run", run.ID, "error", err)
 	}

@@ -131,6 +131,8 @@ type Input struct {
 	AudioPlan *multitrack.Task `json:"audio_plan,omitempty"`
 	// AudioDiagnostic is the immutable plan identity of an audio.diagnostic.N step (ADR 0048).
 	AudioDiagnostic json.RawMessage `json:"audio_diagnostic,omitempty"`
+	// AudioDedup is the acoustic comparison task of an audio.dedup.N step (ADR 0054).
+	AudioDedup json.RawMessage `json:"audio_dedup,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -603,6 +605,11 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 	}
 	if strings.HasPrefix(input.Job.Step, "audio.diagnostic.") {
 		if err = s.audioDiagnosticInput(ctx, &input); err != nil {
+			return Input{}, err
+		}
+	}
+	if strings.HasPrefix(input.Job.Step, DedupStepPrefix) {
+		if err = s.audioDedupInput(ctx, &input); err != nil {
 			return Input{}, err
 		}
 	}

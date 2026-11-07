@@ -88,9 +88,7 @@ test("analyser un clip jusqu'à sa transcription, durablement", async ({
   await expect(dialog.getByRole("alert")).toContainText("transcribed first");
   await dialog.getByLabel("Transcription only").check();
   await dialog.getByRole("button", { name: "Start reanalysis" }).click();
-  await expect(analysis).toContainText("Choose the audio track to transcribe.");
-  await analysis.getByLabel("Audio track").selectOption({ index: 1 });
-  await analysis.getByRole("button", { name: "Confirm track" }).click();
+  // One audio track: no choice is asked (several tracks are examined by the audio plan, see clip-audio-activation).
   await expect(analysis).toContainText(
     "Waiting for a compatible Worker: none is connected.",
   );
@@ -249,8 +247,6 @@ test("l'administrateur lit la cause d'échec d'une étape, pas l'utilisateur ord
   const dialog = page.getByRole("dialog", { name: "Launch analysis" });
   await dialog.getByLabel("Transcription only").check();
   await dialog.getByRole("button", { name: "Start reanalysis" }).click();
-  await analysis.getByLabel("Audio track").selectOption({ index: 1 });
-  await analysis.getByRole("button", { name: "Confirm track" }).click();
   await failQueuedTranscription("invalid_input");
   // The pill and the panel change without a reload.
   await expect(pill(page)).toContainText("Failed: Transcription", {

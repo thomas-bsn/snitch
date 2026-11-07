@@ -3636,6 +3636,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/clips/{id}/audio-plans/{plan_id}/publication": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Pertes que causerait la publication du plan (corrections, validations vocales, révision remplacée) et empreinte (guard) de l'historique humain vu. La confirmation enregistrée n'est valable que si cette empreinte n'a pas changé depuis. */
+    get: operations["getAudioPlanPublication"];
+    put?: never;
+    /** @description Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie ensuite. Refusé si l'historique humain a changé depuis l'aperçu (409 audio_preview_changed) ou si la confirmation manque alors qu'il y a des pertes (409 audio_confirmation_required). */
+    post: operations["confirmAudioPlanPublication"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3729,6 +3747,11 @@ export interface components {
       confirmed_stake_at: string | null;
       /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée. */
       pending_voices: number;
+      /**
+       * Format: int64
+       * @description Plan audio de l'analyse d'un clip à plusieurs pistes (absent pour une analyse monopiste). Sert à lire et confirmer les pertes d'une publication en attente.
+       */
+      audio_plan_id?: number | null;
       steps: components["schemas"]["ClipAnalysisStep"][];
     };
     /** @description Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur. */
@@ -4767,6 +4790,7 @@ export interface components {
       voice?: components["schemas"]["WorkerVoiceInput"];
       audio_plan?: components["schemas"]["WorkerAudioPlanTask"];
       audio_diagnostic?: components["schemas"]["WorkerAudioDiagnosticInput"];
+      audio_dedup?: components["schemas"]["WorkerAudioDedupInput"];
     };
     /** @description Identité immuable d'un job audio.diagnostic.N. start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur. */
     WorkerAudioDiagnosticInput: {
@@ -4781,6 +4805,45 @@ export interface components {
       start_seconds: number;
       /** Format: double */
       duration_seconds: number | null;
+    };
+    /** @description Pertes de la publication d'un plan et état de la confirmation de l'administrateur. */
+    AudioPublicationPreview: {
+      /** Format: int64 */
+      plan_id: number;
+      /** @description Empreinte de l'historique des corrections et validations vu par l'aperçu. */
+      guard: string;
+      losses: components["schemas"]["AudioLossPreview"];
+      /** @description Les pertes sont acceptées pour cette empreinte. */
+      confirmed: boolean;
+      /** @description La confirmation enregistrée porte sur l'empreinte et la révision actuelles. */
+      confirmation_current: boolean;
+    };
+    AudioPublicationConfirm: {
+      /** @description Empreinte (guard) de l'aperçu affiché. */
+      guard: string;
+      confirm_losses: boolean;
+    };
+    /** @description Tâche d'un job audio.dedup.N (comparaison acoustique des pistes retenues d'un plan). Les segments sont dans le repère du clip ; start_seconds est le décalage du flux de la piste. */
+    WorkerAudioDedupInput: {
+      /** Format: int64 */
+      plan_id: number;
+      input_version: string;
+      tracks: components["schemas"]["WorkerAudioDedupTrack"][];
+    };
+    WorkerAudioDedupTrack: {
+      track_index: number;
+      /** Format: int64 */
+      job_id: number;
+      /** Format: double */
+      start_seconds: number;
+      segments: components["schemas"]["WorkerAudioDedupSegment"][];
+    };
+    WorkerAudioDedupSegment: {
+      index: number;
+      /** Format: double */
+      start: number;
+      /** Format: double */
+      end: number;
     };
     /** @description Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip. */
     WorkerAudioPlanTask: {
@@ -17394,6 +17457,122 @@ export interface operations {
       };
       /** @description Clip ou plan introuvable */
       404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  getAudioPlanPublication: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+        plan_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Pertes de la publication du plan, telles qu'elles sont maintenant, et état de la confirmation enregistrée. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPublicationPreview"];
+        };
+      };
+      /** @description Identifiant invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Clip ou plan introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  confirmAudioPlanPublication: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+        plan_id: number;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AudioPublicationConfirm"];
+      };
+    };
+    responses: {
+      /** @description Pertes de la publication du plan, telles qu'elles sont maintenant, et état de la confirmation enregistrée. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AudioPublicationPreview"];
+        };
+      };
+      /** @description Requête invalide */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Authentification ou privilège requis */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Clip ou plan introuvable */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Aperçu périmé, confirmation manquante ou plan remplacé */
+      409: {
         headers: {
           [name: string]: unknown;
         };

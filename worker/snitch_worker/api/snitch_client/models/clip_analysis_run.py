@@ -12,6 +12,7 @@ from ..models.clip_analysis_run_forced_steps_item import ClipAnalysisRunForcedSt
 from ..models.clip_analysis_run_mode import ClipAnalysisRunMode
 from ..models.clip_analysis_run_scope import ClipAnalysisRunScope
 from ..models.clip_analysis_run_status import ClipAnalysisRunStatus
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -47,6 +48,8 @@ class ClipAnalysisRun:
             pending_voices (int): Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une
                 analyse terminée qui en laisse est seulement partiellement identifiée.
             steps (list[ClipAnalysisStep]):
+            audio_plan_id (int | None | Unset): Plan audio de l'analyse d'un clip à plusieurs pistes (absent pour une
+                analyse monopiste). Sert à lire et confirmer les pertes d'une publication en attente.
      """
 
     id: int
@@ -64,6 +67,7 @@ class ClipAnalysisRun:
     confirmed_stake_at: datetime.datetime | None
     pending_voices: int
     steps: list[ClipAnalysisStep]
+    audio_plan_id: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -121,6 +125,12 @@ class ClipAnalysisRun:
 
 
 
+        audio_plan_id: int | None | Unset
+        if isinstance(self.audio_plan_id, Unset):
+            audio_plan_id = UNSET
+        else:
+            audio_plan_id = self.audio_plan_id
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -141,6 +151,8 @@ class ClipAnalysisRun:
             "pending_voices": pending_voices,
             "steps": steps,
         })
+        if audio_plan_id is not UNSET:
+            field_dict["audio_plan_id"] = audio_plan_id
 
         return field_dict
 
@@ -249,6 +261,16 @@ class ClipAnalysisRun:
             steps.append(steps_item)
 
 
+        def _parse_audio_plan_id(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        audio_plan_id = _parse_audio_plan_id(d.pop("audio_plan_id", UNSET))
+
+
         clip_analysis_run = cls(
             id=id,
             clip_id=clip_id,
@@ -265,6 +287,7 @@ class ClipAnalysisRun:
             confirmed_stake_at=confirmed_stake_at,
             pending_voices=pending_voices,
             steps=steps,
+            audio_plan_id=audio_plan_id,
         )
 
 

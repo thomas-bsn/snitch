@@ -103,7 +103,11 @@ func (s *Server) audioSelectionContext(ctx context.Context, tx pgx.Tx, id int64)
 	if current.Diagnostics == nil {
 		current.Diagnostics = []contract.AudioSelectionDiagnostic{}
 	}
-	current.Enabled = true
+	// A clip with a single audio track keeps the historical single-track flow: nothing to choose.
+	current.Enabled = len(current.Inventory) > 1
+	if !current.Enabled {
+		current.Inventory, current.Diagnostics = []contract.AudioTrackInventory{}, []contract.AudioSelectionDiagnostic{}
+	}
 	current.Version = ""
 	b, _ := json.Marshal(struct {
 		Context contract.AudioSelectionContext
@@ -230,6 +234,10 @@ func (s *Server) mutateAudioSelection(w http.ResponseWriter, r *http.Request, st
 		s.internal(w, err)
 		return
 	}
+	if !current.Enabled {
+		fail(w, 503, "audio_selection_disabled")
+		return
+	}
 	input, err := selectionInput(current, request, actor, at)
 	if err != nil {
 		status := 400
@@ -289,6 +297,8 @@ func (s *Server) mutateAudioSelection(w http.ResponseWriter, r *http.Request, st
 		s.internal(w, err)
 		return
 	}
+	// The run exists now: let its orchestrator queue the diagnostics' follow-up without waiting for the ticker.
+	s.reconcileAnalysis(r.Context(), clip.ID)
 	reply(w, 200, contract.AudioSelectionStarted{State: state, WorkerCompatible: effects.WorkerCompatible})
 }
 func (s *Server) signAudioReceipt(receipt audioReceipt) string {

@@ -152,7 +152,7 @@ func (s *Server) putClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	_, _, _ = s.scheduleResolvedTranscription(r.Context(), id, &input.AudioStreamIndex, false)
+	_, _, _ = s.scheduleResolvedTranscriptionAs(r.Context(), id, &input.AudioStreamIndex, false, audioStarter{Actor: sessionUserID(r), ConfirmLosses: true})
 	s.reconcileAnalysis(r.Context(), id)
 	reply(w, 200, map[string]any{"audio_stream_index": input.AudioStreamIndex})
 }
@@ -169,7 +169,7 @@ func (s *Server) deleteClipAudioTrack(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	_, _, _ = s.scheduleResolvedTranscription(r.Context(), id, nil, false)
+	_, _, _ = s.scheduleResolvedTranscriptionAs(r.Context(), id, nil, false, audioStarter{Actor: sessionUserID(r), ConfirmLosses: true})
 	s.reconcileAnalysis(r.Context(), id)
 	reply(w, 200, map[string]string{"status": "removed"})
 }
@@ -238,6 +238,40 @@ func (s *Server) audioSelection(ctx context.Context, id int64, tracks []audioTra
 	return audioSelection{Status: "selected", AudioStreamIndex: &n, Source: "single_audio_track"}, nil
 }
 func (s *Server) scheduleResolvedTranscription(ctx context.Context, id int64, explicit *int, requireReady bool) (jobs.Job, bool, error) {
+	return s.scheduleResolvedTranscriptionAs(ctx, id, explicit, requireReady, audioStarter{})
+}
+
+// audioStarter is who asked for a transcription and what they confirmed. An automatic caller (managed scan,
+// source rule change) confirms nothing: a plan that would replace human work then waits for an administrator.
+type audioStarter struct {
+	Actor         int64
+	ConfirmLosses bool
+}
+
+// scheduleResolvedTranscriptionAs is the one door of the legacy "transcribe this clip" requests (manual action,
+// track override, source rule, batch, managed scan). A clip with several audio tracks is planned by the audio plan
+// pipeline (ADR 0054); a clip with one audio track keeps the single-track job.
+func (s *Server) scheduleResolvedTranscriptionAs(ctx context.Context, id int64, explicit *int, requireReady bool, by audioStarter) (jobs.Job, bool, error) {
+	tracks, err := s.clipAudioTracks(ctx, id)
+	if err != nil {
+		return jobs.Job{}, false, err
+	}
+	if multitrackClip(tracks) {
+		if explicit != nil && !hasAudioTrack(tracks, *explicit) {
+			return jobs.Job{}, false, errors.New("audio stream not found")
+		}
+		var ready bool
+		if err = s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM uploaded_media WHERE clip_id=$1) OR EXISTS(SELECT 1 FROM source_files WHERE clip_id=$1 AND status='ready')`, id).Scan(&ready); err != nil {
+			return jobs.Job{}, false, err
+		}
+		if requireReady && !ready {
+			return jobs.Job{}, false, errors.New("clip not ready")
+		}
+		if !ready {
+			return jobs.Job{}, false, nil
+		}
+		return s.scheduleMultitrack(ctx, id, explicit, by.Actor, by.ConfirmLosses)
+	}
 	plan, err := s.planTranscription(ctx, id, explicit, requireReady)
 	if err != nil || !plan.ready {
 		return jobs.Job{}, false, err
@@ -363,4 +397,12 @@ func tracksFromClip(value any) []audioTrack {
 	var tracks []audioTrack
 	_ = json.Unmarshal(raw, &tracks)
 	return tracks
+}
+
+// sessionUserID is the administrator behind a request, 0 when there is none.
+func sessionUserID(r *http.Request) int64 {
+	if ss, ok := r.Context().Value(sessionKey{}).(session); ok {
+		return ss.User.ID
+	}
+	return 0
 }

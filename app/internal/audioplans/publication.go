@@ -29,14 +29,20 @@ type PublicationPreview struct {
 // PreviewPublication is independent of run mode: changing tracks in missing mode
 // replaces the same human work as a forced retranscription.
 func (s *Store) PreviewPublication(ctx context.Context, planID int64) (PublicationPreview, error) {
+	var clip int64
+	if err := s.db.QueryRow(ctx, `SELECT clip_id FROM audio_plans WHERE id=$1`, planID).Scan(&clip); err != nil {
+		return PublicationPreview{PlanID: planID}, err
+	}
+	return s.PreviewClipPublication(ctx, clip, planID)
+}
+
+// PreviewClipPublication is PreviewPublication for a clip, before any plan exists (the selection preview). planID
+// only labels the result: the losses depend on the clip's visible revision and human work alone.
+func (s *Store) PreviewClipPublication(ctx context.Context, clip, planID int64) (PublicationPreview, error) {
 	var out PublicationPreview
 	out.PlanID = planID
 	out.InvalidatedSteps = []string{"transcription", "indexing", "diarization", "fingerprints", "matching"}
 	out.ReplacedTrackIndices = []int{}
-	var clip int64
-	if err := s.db.QueryRow(ctx, `SELECT clip_id FROM audio_plans WHERE id=$1`, planID).Scan(&clip); err != nil {
-		return out, err
-	}
 	// A single statement sees one snapshot, including restorations (event identity).
 	var raw []byte
 	err := s.db.QueryRow(ctx, `SELECT COALESCE((SELECT id FROM audio_visible_revisions WHERE clip_id=$1),''),clock_timestamp(),
@@ -209,4 +215,36 @@ func (s *Store) PublishRevision(ctx context.Context, id string, preview Publicat
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+// Confirmation is the administrator's decision on the losses of one plan, as previewed.
+type Confirmation struct {
+	PlanID             int64
+	ExpectedRevisionID string
+	Guard              string
+	Confirmed          bool
+	ConfirmedBy        int64
+}
+
+// RecordConfirmation stores (or replaces) the confirmation of a plan: the preview it covers and whether the
+// administrator accepted the losses. Publication then uses it as-is; it never confirms anything by itself.
+func (s *Store) RecordConfirmation(ctx context.Context, c Confirmation) error {
+	var actor *int64
+	if c.ConfirmedBy > 0 {
+		actor = &c.ConfirmedBy
+	}
+	_, err := s.db.Exec(ctx, `INSERT INTO audio_plan_confirmations(plan_id,expected_revision_id,guard,confirmed,confirmed_by) VALUES($1,$2,$3,$4,$5)
+ ON CONFLICT(plan_id) DO UPDATE SET expected_revision_id=EXCLUDED.expected_revision_id,guard=EXCLUDED.guard,confirmed=EXCLUDED.confirmed,confirmed_by=EXCLUDED.confirmed_by,confirmed_at=clock_timestamp()`, c.PlanID, c.ExpectedRevisionID, c.Guard, c.Confirmed, actor)
+	return err
+}
+
+// GetConfirmation returns the stored confirmation; pgx.ErrNoRows when the plan has none.
+func (s *Store) GetConfirmation(ctx context.Context, planID int64) (Confirmation, error) {
+	c := Confirmation{PlanID: planID}
+	var actor *int64
+	err := s.db.QueryRow(ctx, `SELECT expected_revision_id,guard,confirmed,confirmed_by FROM audio_plan_confirmations WHERE plan_id=$1`, planID).Scan(&c.ExpectedRevisionID, &c.Guard, &c.Confirmed, &actor)
+	if actor != nil {
+		c.ConfirmedBy = *actor
+	}
+	return c, err
 }

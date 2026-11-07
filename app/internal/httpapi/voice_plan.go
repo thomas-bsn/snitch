@@ -130,7 +130,12 @@ func (s *Server) startAudioPlanVoice(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	state, err := s.StartPlanVoice(r.Context(), planID, clip.ID, s.authorOf(r), input.ConfirmReplaceValidations)
+	s.replyPlanVoice(w, r, planID, clip.ID, input.ConfirmReplaceValidations)
+}
+
+// replyPlanVoice starts the voice analysis of a published plan and answers with its state, or the stable error.
+func (s *Server) replyPlanVoice(w http.ResponseWriter, r *http.Request, planID, clipID int64, confirm bool) {
+	state, err := s.StartPlanVoice(r.Context(), planID, clipID, s.authorOf(r), confirm)
 	var confirmation *voiceConfirmationError
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):

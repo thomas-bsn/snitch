@@ -143,6 +143,14 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 	if s.refuseWhileAnalyzing(w, r, id) {
 		return
 	}
+	// The visible transcription is a published audio plan: its voices belong to the plan, track by track.
+	if planID, published, planErr := s.visiblePlanOf(r.Context(), id); planErr != nil {
+		s.internal(w, planErr)
+		return
+	} else if published {
+		s.replyPlanVoice(w, r, planID, id, input.ConfirmReplaceValidations)
+		return
+	}
 	tracks, err := s.clipAudioTracks(r.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "clip_not_found")

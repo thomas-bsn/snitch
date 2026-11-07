@@ -2627,6 +2627,51 @@ export const en = {
         awaiting_fingerprints: "Waiting for the voice fingerprints.",
         matching_failed: "Voice matching failed.",
         upstream_failed: "Not run: a previous step failed.",
+        audio_plan:
+          "The audio tracks of this clip are being examined, then the ones with speech are transcribed.",
+        diagnostics_running:
+          "Examining every audio track to find the ones with speech.",
+        diagnostics_complete: "Every audio track was examined.",
+        audio_children:
+          "Waiting for the transcription of the tracks with speech.",
+        audio_dedup:
+          "Comparing the transcribed tracks to recognize a voice captured twice.",
+        audio_dedup_failed:
+          "The comparison of the tracks failed. Retry it: nothing is published without it.",
+        audio_child_failed:
+          "The transcription of a track failed. Retry: only that track is transcribed again.",
+        audio_retry: "A failed task of the analysis was put back in the queue.",
+        audio_plan_published:
+          "The transcription of the audio tracks is published.",
+        diagnostic_ambiguous:
+          "A track could not be classified. Cancel the analysis, then run it again and choose to include or exclude that track.",
+        diagnostic_no_speech:
+          "No speech was found on a track you chose. Cancel the analysis, then run it again and force that track if you want it transcribed.",
+        diagnostic_failed:
+          "The examination of a track failed. Retry it, or cancel and choose the tracks yourself.",
+        audio_confirmation_required:
+          "Publication is held: it would replace human work that is not confirmed yet. The current transcription stays visible.",
+        audio_publication_changed:
+          "Publication is held: corrections or voice validations changed since you confirmed. Review and confirm again; the current transcription stays visible.",
+        audio_publication_incomplete:
+          "Publication is held: the result does not cover every expected track.",
+        audio_transcription_empty:
+          "A track with speech returned no text. Retry it, or run the analysis again without that track.",
+        invalid_audio_evidence:
+          "The comparison report is not valid. Retry the comparison.",
+        invalid_audio_result:
+          "A track returned a result that does not belong to this analysis.",
+        publication_unavailable: "Publication is not available.",
+      },
+      publication: {
+        title: "Publication on hold",
+        losses:
+          "Publishing replaces {corrections} correction(s) and {validations} validated voice(s) of the current transcription.",
+        none: "Publishing replaces no human work.",
+        tracks: "Tracks replaced: {tracks}.",
+        confirm: "Replace and publish",
+        confirmed: "Losses confirmed.",
+        loading: "Reading what publication would replace…",
       },
       track: "Audio track",
       trackPlaceholder: "Choose a track…",

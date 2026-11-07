@@ -39,7 +39,7 @@ test("la file montre une carte par analyse, en direct", async ({ browser }) => {
   // Branches and the diagnosis of each step are visible, a blocked step says why.
   await expect(cardA).toContainText("Search branch");
   await expect(cardA).toContainText("Voice branch");
-  await expect(cardA).toContainText("Choose the audio track to transcribe.");
+  await expect(cardA).toContainText("Waiting for a compatible Worker");
 
   // Choosing the track elsewhere moves the card on, without reloading the page.
   expect(
@@ -53,7 +53,7 @@ test("la file montre une carte par analyse, en direct", async ({ browser }) => {
   await expect(cardA).toContainText("Waiting for a compatible Worker", {
     timeout: 15000,
   });
-  await expect(cardB).toContainText("Choose the audio track to transcribe.");
+  await expect(cardB).toContainText("Waiting for a compatible Worker");
   await expect(page.getByRole("button", { name: /refresh/i })).toHaveCount(0);
   await expect(page.getByText("Other tasks")).toHaveCount(0);
 

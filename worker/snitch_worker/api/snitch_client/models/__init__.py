@@ -41,6 +41,8 @@ from .audio_plan_voice_start import AudioPlanVoiceStart
 from .audio_plan_voice_status import AudioPlanVoiceStatus
 from .audio_plan_voice_track import AudioPlanVoiceTrack
 from .audio_plan_voice_track_status import AudioPlanVoiceTrackStatus
+from .audio_publication_confirm import AudioPublicationConfirm
+from .audio_publication_preview import AudioPublicationPreview
 from .audio_selection_context import AudioSelectionContext
 from .audio_selection_decision import AudioSelectionDecision
 from .audio_selection_decision_action import AudioSelectionDecisionAction
@@ -490,6 +492,9 @@ from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
 from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
+from .worker_audio_dedup_input import WorkerAudioDedupInput
+from .worker_audio_dedup_segment import WorkerAudioDedupSegment
+from .worker_audio_dedup_track import WorkerAudioDedupTrack
 from .worker_audio_diagnostic_input import WorkerAudioDiagnosticInput
 from .worker_audio_plan_task import WorkerAudioPlanTask
 from .worker_bundle import WorkerBundle
@@ -613,6 +618,8 @@ __all__ = (
     "AudioPlanVoiceStatus",
     "AudioPlanVoiceTrack",
     "AudioPlanVoiceTrackStatus",
+    "AudioPublicationConfirm",
+    "AudioPublicationPreview",
     "AudioSelectionContext",
     "AudioSelectionDecision",
     "AudioSelectionDecisionAction",
@@ -1062,6 +1069,9 @@ __all__ = (
     "VoiceVerificationCaseDecisionLevel",
     "VoiceVerificationCounts",
     "Worker",
+    "WorkerAudioDedupInput",
+    "WorkerAudioDedupSegment",
+    "WorkerAudioDedupTrack",
     "WorkerAudioDiagnosticInput",
     "WorkerAudioPlanTask",
     "WorkerBundle",

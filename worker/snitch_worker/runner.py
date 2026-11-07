@@ -35,7 +35,7 @@ from snitch_client.models.worker_transcription_reachability_input import WorkerT
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import audio_diagnostic, cancellation, log, revocation
+from snitch_worker import acoustic_dedup, audio_diagnostic, cancellation, log, revocation
 from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
@@ -513,10 +513,52 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
 def supported_steps() -> list[str]:
     """The step families this Worker can read. A diagnostic is declared only where Torch can run the detector;
     Snitch still dispatches one only after this Worker reports the pinned model ready (ADR 0048)."""
-    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1"]
+    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"]
     if audio_diagnostic.available():
         steps.append("audio.diagnostic.*")
     return steps
+
+
+# Pairs the acoustic comparison may examine in one job: beyond it the remaining pairs are kept whole
+# (pair_budget_exceeded), never guessed. A pair costs about 20 to 110 ms (docs/acoustic-dedup.md).
+DEDUP_MAX_PAIRS = 1000
+
+
+def run_audio_dedup(client: AuthenticatedClient, task_input: Any, lease_token: str) -> dict[str, Any]:
+    """Acoustic comparison of the retained tracks of a plan (ADR 0053/0054): decode each track once to 16 kHz
+    mono PCM, then compare the overlapping segments of different tracks. The report is evidence only."""
+    value = getattr(task_input, "audio_dedup", None)
+    task = value.to_dict() if hasattr(value, "to_dict") else None
+    if not task or not task.get("tracks"):
+        raise ValueError("audio dedup task missing")
+    with tempfile.TemporaryDirectory(prefix="snitch-dedup-") as temporary:
+        original = os.path.join(temporary, "original.media")
+        download_media(client, task_input, lease_token, original)
+        events: list[dict[str, Any]] = []
+        for track in task["tracks"]:
+            cancellation.check()
+            index = int(track["track_index"])
+            wav_path = os.path.join(temporary, f"track-{index}.wav")
+            prepare_audio(original, wav_path, index)
+            for segment in track["segments"]:
+                if not float(segment["end"]) > float(segment["start"]) >= 0:
+                    continue
+                events.append(
+                    {
+                        "id": f"{index}:{track['job_id']}:{segment['index']}",
+                        "track_index": index,
+                        "job_id": int(track["job_id"]),
+                        "path": wav_path,
+                        "clip_offset": float(track["start_seconds"]),
+                        "start": float(segment["start"]),
+                        "end": float(segment["end"]),
+                    }
+                )
+        cancellation.check()
+        return acoustic_dedup.run(
+            {"schema_version": acoustic_dedup.SCHEMA_VERSION, "config": {"max_pairs": DEDUP_MAX_PAIRS}, "events": events},
+            cancel=cancellation.check,
+        )
 
 
 def run_audio_diagnostic(client: AuthenticatedClient, task_input: Any, lease_token: str, step: str, detector: Any = None) -> dict[str, Any]:
@@ -792,6 +834,8 @@ def _run_claimed(
             )
             if job.step.startswith("fixture."):
                 result = fake_provider(job.step)
+            elif re.fullmatch(r"audio\.dedup\.\d+", job.step):
+                result = run_audio_dedup(client, task_input, lease_token)
             elif re.fullmatch(r"audio\.diagnostic\.\d+", job.step):
                 result = run_audio_diagnostic(client, task_input, lease_token, job.step)
             elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
