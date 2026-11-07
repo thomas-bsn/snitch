@@ -15924,6 +15924,22 @@
               "format": "int64",
               "minimum": 1
             }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -16241,6 +16257,12 @@
             "type": "integer",
             "minimum": 0,
             "description": "Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée."
+          },
+          "audio_plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Plan audio de l'analyse d'un clip à plusieurs pistes (absent pour une analyse monopiste). Sert à lire et confirmer les pertes d'une publication en attente."
           },
           "steps": {
             "type": "array",

@@ -3,6 +3,9 @@
 
 export const errorsEn = {
   invalid_plan_id: "This audio plan identifier is not valid.",
+  audio_plan_required:
+    "A clip with several audio tracks is transcribed by an analysis, not by a single task.",
+  invalid_audio_dedup: "This audio comparison result is not valid.",
   invalid_audio_diagnostic: "This audio diagnostic result is not valid.",
   audio_plan_not_found: "This audio plan does not exist for this clip.",
   audio_plan_not_published:

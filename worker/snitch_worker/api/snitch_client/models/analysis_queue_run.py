@@ -12,6 +12,7 @@ from ..models.clip_analysis_run_forced_steps_item import ClipAnalysisRunForcedSt
 from ..models.clip_analysis_run_mode import ClipAnalysisRunMode
 from ..models.clip_analysis_run_scope import ClipAnalysisRunScope
 from ..models.clip_analysis_run_status import ClipAnalysisRunStatus
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -51,6 +52,8 @@ class AnalysisQueueRun:
             clip_name (str):
             locations (list[ClipLocation]): Fichiers vidéo d'origine indexés du clip (hors fichiers introuvables), avec leur
                 source et leur chemin complet persisté ; jamais un fichier de travail du Worker. Vide : chemin indisponible.
+            audio_plan_id (int | None | Unset): Plan audio de l'analyse d'un clip à plusieurs pistes (absent pour une
+                analyse monopiste). Sert à lire et confirmer les pertes d'une publication en attente.
      """
 
     id: int
@@ -70,6 +73,7 @@ class AnalysisQueueRun:
     steps: list[ClipAnalysisStep]
     clip_name: str
     locations: list[ClipLocation]
+    audio_plan_id: int | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -137,6 +141,12 @@ class AnalysisQueueRun:
 
 
 
+        audio_plan_id: int | None | Unset
+        if isinstance(self.audio_plan_id, Unset):
+            audio_plan_id = UNSET
+        else:
+            audio_plan_id = self.audio_plan_id
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -159,6 +169,8 @@ class AnalysisQueueRun:
             "clip_name": clip_name,
             "locations": locations,
         })
+        if audio_plan_id is not UNSET:
+            field_dict["audio_plan_id"] = audio_plan_id
 
         return field_dict
 
@@ -280,6 +292,16 @@ class AnalysisQueueRun:
             locations.append(locations_item)
 
 
+        def _parse_audio_plan_id(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        audio_plan_id = _parse_audio_plan_id(d.pop("audio_plan_id", UNSET))
+
+
         analysis_queue_run = cls(
             id=id,
             clip_id=clip_id,
@@ -298,6 +320,7 @@ class AnalysisQueueRun:
             steps=steps,
             clip_name=clip_name,
             locations=locations,
+            audio_plan_id=audio_plan_id,
         )
 
 

@@ -3747,6 +3747,11 @@ export interface components {
       confirmed_stake_at: string | null;
       /** @description Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée. */
       pending_voices: number;
+      /**
+       * Format: int64
+       * @description Plan audio de l'analyse d'un clip à plusieurs pistes (absent pour une analyse monopiste). Sert à lire et confirmer les pertes d'une publication en attente.
+       */
+      audio_plan_id?: number | null;
       steps: components["schemas"]["ClipAnalysisStep"][];
     };
     /** @description Vue en lecture seule pour tout utilisateur qui peut ouvrir le clip : état et code de raison stable de chaque étape, sans job, Worker ni détail d'erreur. */
@@ -17513,7 +17518,10 @@ export interface operations {
   confirmAudioPlanPublication: {
     parameters: {
       query?: never;
-      header?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
       path: {
         id: number;
         plan_id: number;

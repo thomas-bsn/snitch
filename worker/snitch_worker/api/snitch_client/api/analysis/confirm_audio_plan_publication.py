@@ -19,9 +19,15 @@ def _get_kwargs(
     plan_id: int,
     *,
     body: AudioPublicationConfirm,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
+    headers["Origin"] = origin
+
+    headers["X-CSRF-Token"] = x_csrf_token
+
 
 
 
@@ -91,6 +97,8 @@ def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AudioPublicationConfirm,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Response[Any | AudioPublicationPreview]:
     """  Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie
@@ -100,6 +108,8 @@ def sync_detailed(
     Args:
         id (int):
         plan_id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioPublicationConfirm):
 
     Raises:
@@ -115,6 +125,8 @@ def sync_detailed(
         id=id,
 plan_id=plan_id,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )
 
@@ -130,6 +142,8 @@ def sync(
     *,
     client: AuthenticatedClient | Client,
     body: AudioPublicationConfirm,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Any | AudioPublicationPreview | None:
     """  Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie
@@ -139,6 +153,8 @@ def sync(
     Args:
         id (int):
         plan_id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioPublicationConfirm):
 
     Raises:
@@ -155,6 +171,8 @@ def sync(
 plan_id=plan_id,
 client=client,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     ).parsed
 
@@ -164,6 +182,8 @@ async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
     body: AudioPublicationConfirm,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Response[Any | AudioPublicationPreview]:
     """  Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie
@@ -173,6 +193,8 @@ async def asyncio_detailed(
     Args:
         id (int):
         plan_id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioPublicationConfirm):
 
     Raises:
@@ -188,6 +210,8 @@ async def asyncio_detailed(
         id=id,
 plan_id=plan_id,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )
 
@@ -203,6 +227,8 @@ async def asyncio(
     *,
     client: AuthenticatedClient | Client,
     body: AudioPublicationConfirm,
+    origin: str,
+    x_csrf_token: str,
 
 ) -> Any | AudioPublicationPreview | None:
     """  Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie
@@ -212,6 +238,8 @@ async def asyncio(
     Args:
         id (int):
         plan_id (int):
+        origin (str):
+        x_csrf_token (str):
         body (AudioPublicationConfirm):
 
     Raises:
@@ -228,5 +256,7 @@ async def asyncio(
 plan_id=plan_id,
 client=client,
 body=body,
+origin=origin,
+x_csrf_token=x_csrf_token,
 
     )).parsed

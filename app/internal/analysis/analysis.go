@@ -268,6 +268,8 @@ type Run struct {
 	// PendingVoices counts the voices of the clip still unknown or ambiguous (the Verification
 	// list): a completed run with some left is only partially identified. It is read live, not stored.
 	PendingVoices int `json:"pending_voices"`
+	// AudioPlanID is the audio plan of a multitrack analysis; nil for a single-track one.
+	AudioPlanID *int64 `json:"audio_plan_id"`
 }
 
 // PublicStep is a step as every user who can open the clip sees it: its state and the stable
@@ -517,6 +519,9 @@ func (s *Service) Latest(ctx context.Context, clipID int64) (*Run, error) {
 
 // loadSteps fills the steps of a run with the versions of the job each one followed.
 func (s *Service) loadSteps(ctx context.Context, run *Run) error {
+	if err := s.pool.QueryRow(ctx, `SELECT (SELECT max(id) FROM audio_plans WHERE run_id=$1)`, run.ID).Scan(&run.AudioPlanID); err != nil {
+		return err
+	}
 	rows, err := s.pool.Query(ctx, `SELECT st.step,st.status,st.reason,st.job_id,st.attempt,j.input_version,st.started_at,st.finished_at,st.updated_at FROM clip_analysis_steps st LEFT JOIN jobs j ON j.id=st.job_id WHERE st.run_id=$1 ORDER BY array_position($2::text[],st.step)`, run.ID, stepOrder)
 	if err != nil {
 		return err

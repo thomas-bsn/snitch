@@ -2675,6 +2675,51 @@ export const fr: Messages = {
         awaiting_fingerprints: "En attente des empreintes vocales.",
         matching_failed: "La comparaison des voix a échoué.",
         upstream_failed: "Non exécutée : une étape précédente a échoué.",
+        audio_plan:
+          "Les pistes audio du clip sont examinées, puis celles qui contiennent de la parole sont transcrites.",
+        diagnostics_running:
+          "Examen de chaque piste audio pour repérer celles qui contiennent de la parole.",
+        diagnostics_complete: "Toutes les pistes audio ont été examinées.",
+        audio_children:
+          "En attente de la transcription des pistes qui contiennent de la parole.",
+        audio_dedup:
+          "Comparaison des pistes transcrites pour reconnaître une voix captée deux fois.",
+        audio_dedup_failed:
+          "La comparaison des pistes a échoué. Relancez-la : rien n’est publié sans elle.",
+        audio_child_failed:
+          "La transcription d’une piste a échoué. Relancez : seule cette piste est transcrite de nouveau.",
+        audio_retry:
+          "Une tâche en échec de l’analyse a été remise dans la file.",
+        audio_plan_published: "La transcription des pistes audio est publiée.",
+        diagnostic_ambiguous:
+          "Une piste n’a pas pu être classée. Annulez l’analyse, relancez-la et choisissez d’inclure ou d’écarter cette piste.",
+        diagnostic_no_speech:
+          "Aucune parole n’a été trouvée sur une piste que vous avez choisie. Annulez l’analyse, relancez-la et forcez cette piste pour la transcrire.",
+        diagnostic_failed:
+          "L’examen d’une piste a échoué. Relancez-le, ou annulez et choisissez vous-même les pistes.",
+        audio_confirmation_required:
+          "Publication suspendue : elle remplacerait un travail humain non confirmé. La transcription actuelle reste visible.",
+        audio_publication_changed:
+          "Publication suspendue : des corrections ou validations de voix ont changé depuis votre confirmation. Relisez et confirmez de nouveau ; la transcription actuelle reste visible.",
+        audio_publication_incomplete:
+          "Publication suspendue : le résultat ne couvre pas toutes les pistes attendues.",
+        audio_transcription_empty:
+          "Une piste avec parole n’a rendu aucun texte. Relancez-la, ou relancez l’analyse sans cette piste.",
+        invalid_audio_evidence:
+          "Le rapport de comparaison n’est pas valide. Relancez la comparaison.",
+        invalid_audio_result:
+          "Une piste a rendu un résultat qui n’appartient pas à cette analyse.",
+        publication_unavailable: "La publication n’est pas disponible.",
+      },
+      publication: {
+        title: "Publication suspendue",
+        losses:
+          "La publication remplace {corrections} correction(s) et {validations} voix validée(s) de la transcription actuelle.",
+        none: "La publication ne remplace aucun travail humain.",
+        tracks: "Pistes remplacées : {tracks}.",
+        confirm: "Remplacer et publier",
+        confirmed: "Pertes confirmées.",
+        loading: "Lecture de ce que la publication remplacerait…",
       },
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",

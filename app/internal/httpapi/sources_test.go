@@ -607,6 +607,31 @@ func syntheticProbeScript() string {
 	return probeScript
 }
 
+// syntheticSingleAudioProbeFixture is syntheticProbeFixture with only the audio stream 2: the clips it describes
+// have one audio track, so the browser journeys of the historical single-track pipeline keep their meaning (a clip
+// with several audio tracks is planned by an audio plan, covered by the activation suites).
+func syntheticSingleAudioProbeFixture(t *testing.T) string {
+	t.Helper()
+	probe := filepath.Join(t.TempDir(), "ffprobe-single-audio-fixture")
+	const metadata = `{"format":{"duration":"4.25","tags":{"creation_time":"2025-01-02T03:04:05Z"}},"streams":[{"index":0,"codec_type":"video","codec_name":"h264","width":640,"height":360,"tags":{"title":"Game"}},{"index":2,"codec_type":"audio","codec_name":"aac","channels":2,"channel_layout":"stereo","tags":{"language":"fra","title":"Voix"}}]}`
+	const noVideo = `{"format":{"duration":"2"},"streams":[{"codec_type":"audio","codec_name":"aac"}]}`
+	script := "#!/bin/sh\nfor input do :; done\ncase \"$input\" in *broken.mp4) exit 1;; *no-video.mp4) printf '%s\\n' '" + noVideo + "';; *) printf '%s\\n' '" + metadata + "';; esac\n"
+	if err := os.WriteFile(probe, []byte(script), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return probe
+}
+
+// browserProbeFixture picks the probe of a browser suite: two audio tracks where the suite is about several
+// tracks (or microphone designation), one audio track for the historical single-track journeys.
+func browserProbeFixture(t *testing.T, suite string) string {
+	switch suite {
+	case "admin-folders.spec.ts", "people.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts":
+		return syntheticProbeFixture(t)
+	}
+	return syntheticSingleAudioProbeFixture(t)
+}
+
 func syntheticConcurrentProbeFixture(t *testing.T) string {
 	t.Helper()
 	gate := t.TempDir()

@@ -23,6 +23,7 @@ import {
   AudioTrackChoice,
   useAudioSelectionFlow,
 } from "./AudioSelection";
+import { AudioPublicationHold } from "./AudioPublicationHold";
 import { AnalysisPill, type PillState } from "./AnalysisPill";
 import { DeleteAnalysis } from "./DeleteAnalysis";
 import { JobLogsPanel } from "./JobLogs";
@@ -35,6 +36,16 @@ type View = components["schemas"]["ClipAnalysisView"];
 export type Run = AdminRun | View;
 type MediaTrack = components["schemas"]["MediaTrack"];
 type Step = AdminRun["steps"][number];
+
+/** A failed step, or an audio plan held by a failed examination or comparison, can be retried. */
+function retryable(step: Step | Run["steps"][number]): boolean {
+  return (
+    step.status === "failed" ||
+    (step.status === "blocked" &&
+      (step.reason === "diagnostic_failed" ||
+        step.reason === "audio_dedup_failed"))
+  );
+}
 
 /** What a run is worth showing: its status and each step's state. Timestamps are left out. */
 export function runSignature(run: Run | null): string {
@@ -331,7 +342,7 @@ export function AnalyzeClip({
                       <JobLogsPanel jobId={step.job_id} />
                     )}
                   {"job_id" in step &&
-                    (step.job_id !== null || step.status === "failed") && (
+                    (step.job_id !== null || retryable(step)) && (
                       <span className="mt-1 flex flex-wrap gap-2">
                         {step.job_id !== null && (
                           <Link
@@ -342,7 +353,7 @@ export function AnalyzeClip({
                           </Link>
                         )}
                         {admin &&
-                          step.status === "failed" &&
+                          retryable(step) &&
                           run.status !== "cancelled" && (
                             <button
                               type="button"
@@ -361,6 +372,24 @@ export function AnalyzeClip({
               ))}
             </ol>
           )}
+          {admin &&
+            run &&
+            "audio_plan_id" in run &&
+            typeof run.audio_plan_id === "number" &&
+            run.status === "active" &&
+            run.steps.some(
+              (step) =>
+                step.step === "transcription" &&
+                step.status === "blocked" &&
+                (step.reason === "audio_confirmation_required" ||
+                  step.reason === "audio_publication_changed"),
+            ) && (
+              <AudioPublicationHold
+                clipId={clipId}
+                planId={run.audio_plan_id}
+                onConfirmed={() => void refresh()}
+              />
+            )}
           {run && <IdentificationBadge run={run} />}
           {run?.status === "cancelled" && (
             <p className="m-0 text-sm text-mute">
