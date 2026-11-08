@@ -1,0 +1,12 @@
+from enum import StrEnum
+
+class WorkerEngineHistoryEntryState(StrEnum):
+    DOWNLOADING_RUNTIME = "downloading_runtime"
+    FAILED = "failed"
+    INSTALLING = "installing"
+    READY = "ready"
+    REQUESTED = "requested"
+    VERIFYING = "verifying"
+
+    def __str__(self) -> str:
+        return str(self.value)

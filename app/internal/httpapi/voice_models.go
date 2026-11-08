@@ -17,6 +17,7 @@ import (
 
 func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	s.registerVoiceEngineRoutes(mux)
+	s.registerVoiceEngineOrderRoutes(mux)
 	s.registerVoiceModelAddRoutes(mux)
 	s.registerFingerprintTransitionRoutes(mux)
 	mux.Handle("GET /api/admin/voice-models", s.protected(true, http.HandlerFunc(s.listVoiceModels)))
@@ -534,16 +535,23 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	engineOrders, err := s.pendingEngineOrders(r.Context(), worker.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	out := struct {
 		Models []workerVoiceModel    `json:"models"`
 		Remove []workerVoiceModel    `json:"remove"`
 		Orders []voiceModelOrderView `json:"orders"`
+		// EngineOrders install approved runtimes; an older Worker ignores this list.
+		EngineOrders []engineOrderView `json:"engine_orders"`
 		// WorkerID is the identity Snitch gives this Worker: it pins it on its volume and checks every order against it.
 		WorkerID string `json:"worker_id"`
 		// Held are the models Snitch already knows as ready on this Worker: a model the Worker holds on its volume
 		// and that is not listed here (installed before orders existed) is reported by the Worker once proven.
 		Held []string `json:"held"`
-	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders}
+	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders, EngineOrders: engineOrders}
 	add := func(list *[]workerVoiceModel, id, role string) {
 		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
 			err = lookupErr

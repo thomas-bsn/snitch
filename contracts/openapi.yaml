@@ -16344,6 +16344,210 @@
           }
         }
       }
+    },
+    "/api/admin/voice-engine-orders": {
+      "post": {
+        "operationId": "createVoiceEngineOrders",
+        "description": "Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable).",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceEngineOrderInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Résultat par Worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEngineOrderResults"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/workers": {
+      "get": {
+        "operationId": "listEnginesByWorker",
+        "description": "Administrateur : pour chaque Worker, les versions d'engine commandées ou présentes avec leur état réel, la progression, la cause et l'historique (rapports tardifs ignorés inclus).",
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerEnginesView"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engine-orders/{id}/ack": {
+      "post": {
+        "operationId": "ackWorkerEngineOrder",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker accuse réception d'un ordre d'engine après ses contrôles, ou le refuse avec la cause invalid_order. Rejouer l'accusé est sans effet.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerModelOrderAck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accusé enregistré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/status": {
+      "post": {
+        "operationId": "postWorkerEngineStatus",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker rapporte l'état réel d'une version d'engine en réponse à un ordre. Un rapport tardif (génération plus ancienne, ordre annulé ou terminé, étape déjà dépassée) est ignoré et journalisé sans reculer l'état.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerEngineStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Rapport traité ou ignoré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/inventory": {
+      "post": {
+        "operationId": "postWorkerEngineInventory",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Réconciliation : le Worker liste les runtimes qu'il prouve détenir. Un runtime prêt qui a disparu perd son état prêt. N'ordonne et ne télécharge jamais rien.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerEngineInventory"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Inventaire réconcilié"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20763,6 +20967,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/WorkerModelOrder"
+            }
+          },
+          "engine_orders": {
+            "type": "array",
+            "description": "Ordres d'installation de runtimes ; un Worker plus ancien ignore cette liste.",
+            "items": {
+              "$ref": "#/components/schemas/EngineOrder"
             }
           }
         }
@@ -27809,6 +28020,410 @@
           },
           "signature": {
             "type": "string"
+          }
+        }
+      },
+      "VoiceEngineOrderInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "digest",
+          "intent",
+          "orders"
+        ],
+        "properties": {
+          "digest": {
+            "type": "string",
+            "description": "Identité signée de la version approuvée (empreinte du registre)."
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "install"
+            ]
+          },
+          "orders": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "worker_id",
+                "idempotency_key"
+              ],
+              "properties": {
+                "worker_id": {
+                  "type": "string"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 100
+                }
+              }
+            }
+          }
+        }
+      },
+      "EngineOrder": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "worker_id",
+          "digest",
+          "engine",
+          "version",
+          "intent",
+          "generation",
+          "idempotency_key",
+          "status",
+          "runtime",
+          "created_at"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "worker_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Identité signée du manifeste approuvé."
+          },
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "install"
+            ]
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Par Worker et par engine, strictement croissante : un rapport d'une génération plus ancienne est ignoré."
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "acknowledged"
+            ]
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/VoiceEngineManifest"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceEngineOrderResult": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "status"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "replayed",
+              "refused"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "description": "Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, idempotency_key_reused, worker_not_found, invalid_idempotency_key)."
+          },
+          "order": {
+            "$ref": "#/components/schemas/EngineOrder"
+          }
+        }
+      },
+      "VoiceEngineOrderResults": {
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEngineOrderResult"
+            }
+          }
+        }
+      },
+      "WorkerEngineHistoryEntry": {
+        "type": "object",
+        "required": [
+          "state",
+          "cause_code",
+          "generation",
+          "ignored",
+          "reason",
+          "created_at"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "runtime_missing"
+            ]
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "Rapport tardif ignoré et journalisé."
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkerEngine": {
+        "type": "object",
+        "required": [
+          "digest",
+          "engine",
+          "version",
+          "kind",
+          "state",
+          "cause_code",
+          "bytes_received",
+          "bytes_total",
+          "order_id",
+          "generation",
+          "revoked",
+          "author_name",
+          "updated_at",
+          "history"
+        ],
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "runtime_missing"
+            ]
+          },
+          "bytes_received": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bytes_total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerEngineHistoryEntry"
+            }
+          }
+        }
+      },
+      "WorkerEnginesRow": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "name",
+          "connected",
+          "engines"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "engines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerEngine"
+            }
+          }
+        }
+      },
+      "WorkerEnginesView": {
+        "type": "object",
+        "required": [
+          "workers"
+        ],
+        "properties": {
+          "workers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerEnginesRow"
+            }
+          }
+        }
+      },
+      "WorkerEngineStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "digest",
+          "state",
+          "cause_code"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order"
+            ]
+          },
+          "bytes_received": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "bytes_total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "local_identity": {
+            "type": "string",
+            "description": "Identité canonique locale du runtime sur le volume du Worker (obligatoire pour ready) ; distincte de l'identité signée."
+          }
+        }
+      },
+      "WorkerEngineInventory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtimes"
+        ],
+        "properties": {
+          "runtimes": {
+            "type": "array",
+            "maxItems": 512,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "engine",
+                "local_identity"
+              ],
+              "properties": {
+                "engine": {
+                  "type": "string"
+                },
+                "local_identity": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }

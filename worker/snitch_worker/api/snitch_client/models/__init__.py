@@ -134,6 +134,9 @@ from .discord_bot_status import DiscordBotStatus
 from .discord_bot_status_status import DiscordBotStatusStatus
 from .embedding_settings import EmbeddingSettings
 from .embedding_validation import EmbeddingValidation
+from .engine_order import EngineOrder
+from .engine_order_intent import EngineOrderIntent
+from .engine_order_status import EngineOrderStatus
 from .error import Error
 from .explorer_entry import ExplorerEntry
 from .explorer_entry_state import ExplorerEntryState
@@ -428,6 +431,12 @@ from .voice_disposition_view import VoiceDispositionView
 from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
 from .voice_engine_import import VoiceEngineImport
 from .voice_engine_manifest import VoiceEngineManifest
+from .voice_engine_order_input import VoiceEngineOrderInput
+from .voice_engine_order_input_intent import VoiceEngineOrderInputIntent
+from .voice_engine_order_input_orders_item import VoiceEngineOrderInputOrdersItem
+from .voice_engine_order_result import VoiceEngineOrderResult
+from .voice_engine_order_result_status import VoiceEngineOrderResultStatus
+from .voice_engine_order_results import VoiceEngineOrderResults
 from .voice_engine_registry import VoiceEngineRegistry
 from .voice_engine_release import VoiceEngineRelease
 from .voice_engine_wheel import VoiceEngineWheel
@@ -506,6 +515,19 @@ from .worker_audio_plan_task import WorkerAudioPlanTask
 from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
+from .worker_engine import WorkerEngine
+from .worker_engine_cause_code import WorkerEngineCauseCode
+from .worker_engine_history_entry import WorkerEngineHistoryEntry
+from .worker_engine_history_entry_cause_code import WorkerEngineHistoryEntryCauseCode
+from .worker_engine_history_entry_state import WorkerEngineHistoryEntryState
+from .worker_engine_inventory import WorkerEngineInventory
+from .worker_engine_inventory_runtimes_item import WorkerEngineInventoryRuntimesItem
+from .worker_engine_state import WorkerEngineState
+from .worker_engine_status import WorkerEngineStatus
+from .worker_engine_status_cause_code import WorkerEngineStatusCauseCode
+from .worker_engine_status_state import WorkerEngineStatusState
+from .worker_engines_row import WorkerEnginesRow
+from .worker_engines_view import WorkerEnginesView
 from .worker_failure_input import WorkerFailureInput
 from .worker_hf_token import WorkerHFToken
 from .worker_hf_token_ack import WorkerHFTokenAck
@@ -720,6 +742,9 @@ __all__ = (
     "DiscordBotStatusStatus",
     "EmbeddingSettings",
     "EmbeddingValidation",
+    "EngineOrder",
+    "EngineOrderIntent",
+    "EngineOrderStatus",
     "Error",
     "ExplorerEntry",
     "ExplorerEntryState",
@@ -1014,6 +1039,12 @@ __all__ = (
     "VoiceDispositionViewDisposition",
     "VoiceEngineImport",
     "VoiceEngineManifest",
+    "VoiceEngineOrderInput",
+    "VoiceEngineOrderInputIntent",
+    "VoiceEngineOrderInputOrdersItem",
+    "VoiceEngineOrderResult",
+    "VoiceEngineOrderResults",
+    "VoiceEngineOrderResultStatus",
     "VoiceEngineRegistry",
     "VoiceEngineRelease",
     "VoiceEngineWheel",
@@ -1092,6 +1123,19 @@ __all__ = (
     "WorkerBundle",
     "WorkerClaim",
     "WorkerDetail",
+    "WorkerEngine",
+    "WorkerEngineCauseCode",
+    "WorkerEngineHistoryEntry",
+    "WorkerEngineHistoryEntryCauseCode",
+    "WorkerEngineHistoryEntryState",
+    "WorkerEngineInventory",
+    "WorkerEngineInventoryRuntimesItem",
+    "WorkerEnginesRow",
+    "WorkerEngineState",
+    "WorkerEngineStatus",
+    "WorkerEngineStatusCauseCode",
+    "WorkerEngineStatusState",
+    "WorkerEnginesView",
     "WorkerFailureInput",
     "WorkerHFToken",
     "WorkerHFTokenAck",
