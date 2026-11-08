@@ -180,8 +180,9 @@ func (s *Store) PublishRevision(ctx context.Context, id string, preview Publicat
 		if err = tx.QueryRow(ctx, `SELECT jsonb_array_length(result->'segments') FROM jobs WHERE id=$1 AND status='done'`, job).Scan(&count); err != nil {
 			return ErrIncomplete
 		}
-		// Empty ASR is not an explicit no-speech diagnosis.
-		if count == 0 {
+		// A wordless retained track can accompany other text, but empty ASR
+		// alone cannot authorize an empty publication as no-speech.
+		if count == 0 && len(r.Segments) == 0 {
 			return ErrIncomplete
 		}
 		for i := 0; i < count; i++ {

@@ -313,6 +313,12 @@ class Assembly(Base):
         self.assertEqual(3, first["stats"]["pairs"])
         self.assertEqual(1, first["stats"]["decisions"]["duplicate"])
 
+    def test_explicit_pairs_are_deduplicated_by_id_before_loading_events(self):
+        events = [event("a", fixture("voice-a.wav"), 2), event("b", fixture("voice-a.wav"), 7)]
+        out = dedup.run(self.payload(events, pairs=[["a", "b"], ["b", "a"]]))
+        self.assertEqual(1, out["stats"]["pairs"])
+        self.assertEqual("duplicate", out["comparisons"][0]["decision"])
+
     def test_pair_budget_keeps_what_it_did_not_compare(self):
         events = [event(n, fixture("voice-a.wav"), t) for n, t in (("a", 2), ("b", 3), ("c", 4))]
         out = dedup.run(self.payload(events, config={"max_pairs": 1}))

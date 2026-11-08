@@ -143,7 +143,7 @@ func (p piece) offset() float64 { return p.low[0] - p.high[0] }
 //   - the representative is always the segment of the lowest real track index (then job,
 //     segment), the one whose identity already carries corrections: a correction is never
 //     moved to another source, and the result does not depend on arrival order;
-//   - a segment is grouped only if its whole interval lies inside one proven range against
+//   - a segment is grouped only if its whole interval is covered by direct proven ranges against
 //     a track of lower index and the matching interval is covered by segments that are
 //     themselves retained: there is direct evidence against the retained representative,
 //     never a transitive chain A~B, B~C;
@@ -203,19 +203,37 @@ func MergeAcoustic(segments []SourceSegment, report EvidenceReport) (MergeResult
 		sort.Ints(tracks)
 		for _, track := range tracks {
 			key := [2]int{track, s.Source.TrackIndex}
-			for _, p := range pieces[key] {
-				if p.high[0]-BoundaryTolerance > s.Start || p.high[1]+BoundaryTolerance < s.End {
+			proofs := append([]piece(nil), pieces[key]...)
+			sort.SliceStable(proofs, func(i, j int) bool { return proofs[i].high[0] < proofs[j].high[0] })
+			cursor := s.Start
+			var representative *group
+			var proof contract.TranscriptGrouping
+			bestOverlap := 0.0
+			for _, p := range proofs {
+				if p.high[1] <= cursor || p.high[0] > cursor+BoundaryTolerance {
 					continue
 				}
-				image := [2]float64{math.Max(p.low[0], s.Start+p.offset()), math.Min(p.low[1], s.End+p.offset())}
+				from, to := math.Max(s.Start, p.high[0]), math.Min(s.End, p.high[1])
+				if to <= from {
+					continue
+				}
+				image := [2]float64{math.Max(p.low[0], from+p.offset()), math.Min(p.low[1], to+p.offset())}
 				best, ok := coverImage(byTrack[track], image)
 				if !ok {
 					continue
 				}
-				target, grouping = best, p.info
+				if overlap := image[1] - image[0]; overlap > bestOverlap {
+					representative, proof, bestOverlap = best, p.info, overlap
+					proof.MatchedStart, proof.MatchedEnd = image[0], image[1]
+				}
+				cursor = math.Max(cursor, to)
+				if cursor >= s.End-BoundaryTolerance {
+					break
+				}
+			}
+			if representative != nil && cursor >= s.End-BoundaryTolerance {
+				target, grouping = representative, proof
 				grouping.Source = s.Source
-				grouping.MatchedStart, grouping.MatchedEnd = image[0], image[1]
-				break
 			}
 			if target != nil {
 				break

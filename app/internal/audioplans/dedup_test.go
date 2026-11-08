@@ -283,3 +283,18 @@ func TestStrategyChangeChangesThePlanInputVersion(t *testing.T) {
 		t.Fatal(audioplans.MergeVersion())
 	}
 }
+
+func TestSplitEvidenceCoversWholeDuplicate(t *testing.T) {
+	strategy, version := "exact_pcm", "1"
+	r := audioplans.EvidenceReport{SchemaVersion: 1}
+	for _, b := range [][2]float64{{0, 1}, {1, 2}} {
+		r.Comparisons = append(r.Comparisons, audioplans.Comparison{Left: audioplans.EvidenceEvent{TrackIndex: 2, Start: b[0], End: b[1]}, Right: audioplans.EvidenceEvent{TrackIndex: 7, Start: 0, End: 2}, Decision: "duplicate", Strategy: &strategy, StrategyVersion: &version, Matched: []audioplans.EvidenceRange{{LeftStart: b[0], LeftEnd: b[1], RightStart: b[0], RightEnd: b[1]}}})
+	}
+	got, err := audioplans.MergeAcoustic(all(speech(2, 0, 1, 2), speech(7, 0, 2)), r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Segments) != 2 {
+		t.Fatalf("fully proven duplicate retained: segments=%d suppressed=%d; want 2 segments, 1 suppressed", len(got.Segments), len(got.Suppressed))
+	}
+}

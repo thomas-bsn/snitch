@@ -19400,7 +19400,8 @@
           },
           "start_seconds": {
             "type": "number",
-            "format": "double"
+            "format": "double",
+            "nullable": true
           },
           "duration_seconds": {
             "type": "number",

@@ -71,7 +71,8 @@ func DedupInputVersion(planID int64, digest string) string {
 
 var ErrActiveAudio = errors.New("a different analysis is active for this clip")
 
-// Start is an explicit opt-in seam. Legacy starts never create audio plans.
+// Start creates an immutable audio plan for an explicit selection. Legacy entry points
+// attach a plan through AttachAudio when a clip has multiple audio tracks.
 // The clip lock and partial unique index also exclude legacy concurrent starts.
 func (s *AudioService) Start(ctx context.Context, clipID int64, input audioplans.Input) (audioplans.Plan, error) {
 	canonical, err := audioplans.CanonicalInput(input)
@@ -191,6 +192,15 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 		return err
 	}
 	plan := state.Plan
+	// A published transcript is final for this plan. The parent service follows the
+	// remaining indexing/voice branches; never republish while those jobs advance.
+	var publishedAlready bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audio_publications ap JOIN transcript_revisions tr ON tr.id=ap.revision_id WHERE tr.plan_id=$1)`, id).Scan(&publishedAlready); err != nil {
+		return err
+	}
+	if publishedAlready {
+		return nil
+	}
 	set := func(step, status, cause string) error {
 		_, e := tx.Exec(ctx, `UPDATE clip_analysis_steps SET status=$3,reason=$4,updated_at=now() WHERE run_id=$1 AND step=$2`, plan.RunId, step, status, cause)
 		return e
@@ -429,7 +439,7 @@ func (s *AudioService) Reconcile(ctx context.Context, id int64) error {
 			published = true
 			aggregateStatus = "done"
 			aggregateCause = "audio_plan_published"
-			if _, err = tx.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',finished_at=now(),updated_at=now() WHERE id=$1`, plan.RunId); err != nil {
+			if _, err = tx.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',finished_at=now(),updated_at=now() WHERE id=$1 AND scope='transcription'`, plan.RunId); err != nil {
 				return err
 			}
 		}
@@ -514,7 +524,9 @@ type execer interface {
 func cancelAudioChildren(ctx context.Context, q execer, runID int64) error {
 	// The plan's children and its plan-level acoustic comparison.
 	const owned = `(SELECT c.job_id FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE p.run_id=$1
- UNION SELECT j.id FROM jobs j JOIN audio_plans p ON p.clip_id=j.clip_id WHERE p.run_id=$1 AND j.step='audio.dedup.'||p.id)`
+ UNION SELECT j.id FROM jobs j JOIN audio_plans p ON p.clip_id=j.clip_id WHERE p.run_id=$1 AND j.step='audio.dedup.'||p.id
+ UNION SELECT c.job_id FROM clip_analysis_runs r JOIN audio_publications ap ON ap.clip_id=r.clip_id JOIN transcript_revisions tr ON tr.id=ap.revision_id JOIN audio_plan_children c ON c.plan_id=tr.plan_id JOIN jobs j ON j.id=c.job_id
+ WHERE r.id=$1 AND c.stage IN ('diarization','fingerprint') AND j.updated_at>=r.created_at AND NOT EXISTS(SELECT 1 FROM audio_plans p WHERE p.run_id=r.id))`
 	if _, err := q.Exec(ctx, `INSERT INTO job_events(job_id,event,cycle,attempt,actor,error_code)
  SELECT j.id,'cancelled',j.cycle,CASE WHEN j.status='leased' AND j.attempts>0 THEN j.attempts END,'system','audio_plan_cancelled'
  FROM jobs j WHERE j.id IN `+owned+` AND j.status IN ('pending','retry_wait','leased')`, runID); err != nil {

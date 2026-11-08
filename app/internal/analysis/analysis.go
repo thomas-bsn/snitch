@@ -676,9 +676,19 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 		if s.audio == nil {
 			return nil
 		}
-		return s.audio.Reconcile(ctx, planID)
+		if err = s.audio.Reconcile(ctx, planID); err != nil {
+			return err
+		}
+		var published bool
+		if err = s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM audio_publications ap JOIN transcript_revisions tr ON tr.id=ap.revision_id WHERE tr.plan_id=$1)`, planID).Scan(&published); err != nil {
+			return err
+		}
+		if !published || run.Scope == ScopeTranscription {
+			return nil
+		}
+
 	}
-	if s.audio != nil {
+	if s.audio != nil && planID == 0 {
 		attached, attachErr := s.hooks.AttachAudio(ctx, run)
 		if attachErr != nil {
 			return attachErr
@@ -729,6 +739,8 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 		}
 	}
 	switch {
+	case planID != 0:
+		states[StepTranscription] = stepState{status: StatusDone, reason: "audio_published"}
 	case run.Scope == ScopeVoice:
 		has, hasErr := s.hooks.HasTranscription(ctx, run.ClipID)
 		if hasErr != nil {

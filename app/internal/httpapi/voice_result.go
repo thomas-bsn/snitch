@@ -322,6 +322,17 @@ DELETE FROM speaker_turns st USING archived WHERE st.local_speaker_id=archived.i
 	if len(*result.Speakers) == 0 {
 		return nil
 	}
+	// A rerun keeps its plan-owned child identity. Resume that fingerprint after
+	// replacing the speakers, rather than leaving a stale done child in the plan.
+	var boundFingerprint int64
+	err = tx.QueryRow(ctx, `SELECT fp.job_id FROM audio_plan_children d JOIN audio_plan_children fp ON fp.plan_id=d.plan_id AND fp.track_index=d.track_index AND fp.stage='fingerprint' WHERE d.job_id=$1 AND d.stage='diarization'`, job.ID).Scan(&boundFingerprint)
+	if err == nil {
+		_, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',attempts=0,cycle=cycle+1,next_attempt_at=now(),last_error='',result=NULL,lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,updated_at=now() WHERE id=$1`, boundFingerprint)
+		return err
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
 	var fingerprintID int64
 	if err := tx.QueryRow(ctx, `WITH inserted AS (INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,0,3) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id)
 SELECT COALESCE((SELECT id FROM inserted),(SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND requested_model_id IS NULL AND status IN ('pending','leased','retry_wait') ORDER BY id DESC LIMIT 1))`, job.ClipID, step, version).Scan(&fingerprintID); err != nil {

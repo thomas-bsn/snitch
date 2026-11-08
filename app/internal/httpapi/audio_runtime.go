@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -47,10 +48,14 @@ func audioInventoryOf(tracks []audioTrack) []contract.AudioTrackInventory {
 			continue
 		}
 		start := 0.0
+		evidence := []string{}
+		if t.StartSeconds == nil {
+			evidence = append(evidence, "timeline_unknown")
+		}
 		if t.StartSeconds != nil {
 			start = *t.StartSeconds
 		}
-		out = append(out, contract.AudioTrackInventory{Index: t.Index, Title: t.Title, Codec: t.Codec, Channels: t.Channels, ChannelLayout: t.ChannelLayout, Language: t.Language, DurationSeconds: t.DurationSeconds, StartSeconds: start, Evidence: []string{}})
+		out = append(out, contract.AudioTrackInventory{Index: t.Index, Title: t.Title, Codec: t.Codec, Channels: t.Channels, ChannelLayout: t.ChannelLayout, Language: t.Language, DurationSeconds: t.DurationSeconds, StartSeconds: start, Evidence: evidence})
 	}
 	return out
 }
@@ -145,9 +150,13 @@ func (s *Server) startAudioPlanTx(ctx context.Context, tx pgx.Tx, runID, clipID 
 	if _, err = store.QueueDiagnostics(ctx, plan.Id); err != nil {
 		return plan, err
 	}
+	var scope string
+	if err := tx.QueryRow(ctx, `SELECT scope FROM clip_analysis_runs WHERE id=$1`, runID).Scan(&scope); err != nil {
+		return plan, err
+	}
 	for _, step := range []string{analysis.StepPreparation, analysis.StepTranscription, analysis.StepIndexing, analysis.StepDiarization, analysis.StepFingerprints, analysis.StepMatching} {
 		status, reason := "not_applicable", "audio_plan"
-		if step == analysis.StepPreparation || step == analysis.StepTranscription {
+		if step == analysis.StepPreparation || step == analysis.StepTranscription || scope == analysis.ScopeFull || scope == analysis.ScopeVoice && step != analysis.StepIndexing {
 			status = "waiting"
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO clip_analysis_steps(run_id,step,status,reason,finished_at) VALUES($1,$2,$3,$4,CASE WHEN $3='not_applicable' THEN now() END)
@@ -304,10 +313,6 @@ func (p audioPublisher) PublishAudio(ctx context.Context, tx pgx.Tx, r multitrac
 		if err := json.Unmarshal(track.Output, &output); err != nil {
 			return &analysis.PublicationBlocked{Cause: "invalid_audio_result"}
 		}
-		if len(output.Segments) == 0 {
-			// A track diagnosed as speech whose recognition found nothing is neither a no-speech diagnosis nor a result.
-			return &analysis.PublicationBlocked{Cause: "audio_transcription_empty"}
-		}
 		for i, segment := range output.Segments {
 			source := audioplans.SourceSegment{Source: contract.TranscriptSource{TrackIndex: track.TrackIndex, JobId: track.JobID, SegmentIndex: i}, Start: segment.Start, End: segment.End}
 			for j, word := range segment.Words {
@@ -319,6 +324,11 @@ func (p audioPublisher) PublishAudio(ctx context.Context, tx pgx.Tx, r multitrac
 			}
 			sources = append(sources, source)
 		}
+	}
+	// A retained track with no words still participates in voice analysis. It
+	// cannot, by itself, justify publishing a no-speech revision.
+	if len(sources) == 0 && !r.Empty {
+		return &analysis.PublicationBlocked{Cause: "audio_transcription_empty"}
 	}
 	if len(r.Evidence) > 0 {
 		report, err := audioplans.ParseEvidence(r.Evidence)
@@ -372,10 +382,8 @@ func (s *Server) afterAudioPublication(ctx context.Context, planID, clipID int64
 	if scope == analysis.ScopeTranscription {
 		return
 	}
-	confirmation, err := audioplans.New(s.Pool).GetConfirmation(ctx, planID)
-	confirmed := err == nil && confirmation.Confirmed
 	author := authorRef{ID: starter, Username: "analysis"}
-	if _, err = s.StartPlanVoice(ctx, planID, clipID, author, confirmed); err != nil {
+	if _, err := s.startAnalysisPlanVoice(ctx, planID, clipID, author); err != nil {
 		var needs *voiceConfirmationError
 		if errors.As(err, &needs) {
 			s.Log.Info("voice analysis of a published audio plan waits for confirmation", "plan", planID, "clip", clipID)
@@ -390,9 +398,9 @@ func (s *Server) afterAudioPublication(ctx context.Context, planID, clipID int64
 func (s *Server) resumeAudioVoices(ctx context.Context) {
 	rows, err := s.Pool.Query(ctx, `SELECT p.id,p.clip_id FROM audio_plans p JOIN clip_analysis_runs r ON r.id=p.run_id
  JOIN audio_publications ap ON ap.clip_id=p.clip_id JOIN transcript_revisions tr ON tr.id=ap.revision_id AND tr.plan_id=p.id
- WHERE r.status='completed' AND r.scope<>'transcription' AND NOT EXISTS(SELECT 1 FROM audio_plan_voice_starts v WHERE v.plan_id=p.id)
+ WHERE r.status IN ('active','completed') AND r.scope<>'transcription' AND NOT EXISTS(SELECT 1 FROM audio_plan_voice_starts v WHERE v.plan_id=p.id)
  AND NOT EXISTS(SELECT 1 FROM audio_plan_children c WHERE c.plan_id=p.id AND c.stage IN ('diarization','fingerprint'))
- AND r.finished_at > now() - interval '1 day' LIMIT 20`)
+ ORDER BY r.finished_at,p.id`)
 	if err != nil {
 		s.Log.Warn("list published audio plans without voices", "error", err)
 		return
@@ -492,22 +500,91 @@ func inventoryEntry(inventory []contract.AudioTrackInventory, index int) (contra
 	return contract.AudioTrackInventory{}, false
 }
 
+// ReusablePlan keeps a limited run on the already published immutable selection.
+func (e audioEngine) ReusablePlan(ctx context.Context, tx pgx.Tx, clipID int64, input audioplans.Input, choice contract.AudioAnalysisChoice) (int64, error) {
+	var id int64
+	err := tx.QueryRow(ctx, `SELECT COALESCE(r.plan_id,0) FROM audio_publications p JOIN transcript_revisions r ON r.id=p.revision_id WHERE p.clip_id=$1`, clipID).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	if err != nil || id == 0 {
+		return 0, err
+	}
+	state, err := audioplans.New(tx).GetPlan(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	old := state.Plan.Input
+	// Decisions retain their audit identity on the published plan; only their meaning matters here.
+	normalize := func(in audioplans.Input) audioplans.Input {
+		for i := range in.Decisions {
+			in.Decisions[i].ActorId = 0
+			in.Decisions[i].DecidedAt = time.Time{}
+			in.Decisions[i].Reason = ""
+		}
+		return in
+	}
+	old.Decisions = append([]contract.AudioTrackDecision{}, old.Decisions...)
+	input.Decisions = append([]contract.AudioTrackDecision{}, input.Decisions...)
+	a, _ := json.Marshal(normalize(old))
+	b, _ := json.Marshal(normalize(input))
+	if !bytes.Equal(a, b) {
+		return 0, nil
+	}
+	resolved, err := analysis.Resolve(string(choice.Scope), analysis.Options{Mode: string(choice.Mode), Steps: choice.Steps}, analysis.Existing{Transcription: true, Voices: true})
+	if err != nil {
+		return 0, err
+	}
+	if slices.Contains(resolved.Forced, analysis.StepTranscription) {
+		return 0, nil
+	}
+	return id, nil
+}
+
 func (e audioEngine) Preview(ctx context.Context, tx pgx.Tx, clipID int64, input audioplans.Input, choice contract.AudioAnalysisChoice) (contract.AudioSelectionEffects, error) {
 	preview, err := audioplans.New(tx).PreviewClipPublication(ctx, clipID, 0)
 	if err != nil {
 		return contract.AudioSelectionEffects{}, err
 	}
+	reuse, err := e.ReusablePlan(ctx, tx, clipID, input, choice)
+	if err != nil {
+		return contract.AudioSelectionEffects{}, err
+	}
+	if choice.Scope == analysis.ScopeVoice && reuse == 0 {
+		return contract.AudioSelectionEffects{}, analysis.ErrTranscriptionRequired
+	}
+	resolved, err := analysis.Resolve(string(choice.Scope), analysis.Options{Mode: string(choice.Mode), Steps: choice.Steps}, analysis.Existing{Transcription: reuse != 0, Voices: true})
+	if err != nil {
+		return contract.AudioSelectionEffects{}, err
+	}
 	added := []string{}
 	for _, i := range input.TrackIndices {
+		if reuse != 0 {
+			break
+		}
 		added = append(added, fmt.Sprintf("audio.diagnostic.%d", i), fmt.Sprintf("transcription.audio.%d", i))
 	}
-	if len(input.TrackIndices) > 1 {
+	if reuse == 0 && len(input.TrackIndices) > 1 {
 		added = append(added, "audio.dedup")
 	}
-	if choice.Scope != "transcription" {
+	if resolved.Scope != "transcription" {
 		for _, i := range input.TrackIndices {
 			added = append(added, fmt.Sprintf("voice.diarization.%d", i), fmt.Sprintf("voice.fingerprint.%d", i))
 		}
+	}
+	if reuse != 0 {
+		preview.CorrectionCount = 0
+		preview.ReplacedTrackIndices = []int{}
+		preview.InvalidatedSteps = []string{}
+		if !slices.Contains(resolved.Forced, analysis.StepDiarization) {
+			preview.ValidatedVoiceCount = 0
+		} else {
+			preview.InvalidatedSteps = append(preview.InvalidatedSteps, "diarization", "fingerprints", "matching")
+		}
+		if resolved.Scope == analysis.ScopeFull {
+			added = append(added, "indexing")
+		}
+		preview.ConfirmationRequired = preview.ValidatedVoiceCount > 0
 	}
 	compatible, err := analysis.AudioWorkerCompatible(ctx, tx)
 	if err != nil {
@@ -531,9 +608,13 @@ func (e audioEngine) Start(ctx context.Context, tx pgx.Tx, plan audioplans.Plan,
 	if _, err := store.QueueDiagnostics(ctx, plan.Id); err != nil {
 		return err
 	}
+	var scope string
+	if err := tx.QueryRow(ctx, `SELECT scope FROM clip_analysis_runs WHERE id=$1`, plan.RunId).Scan(&scope); err != nil {
+		return err
+	}
 	for _, step := range []string{analysis.StepPreparation, analysis.StepTranscription, analysis.StepIndexing, analysis.StepDiarization, analysis.StepFingerprints, analysis.StepMatching} {
 		status, reason := "not_applicable", "audio_plan"
-		if step == analysis.StepPreparation || step == analysis.StepTranscription {
+		if step == analysis.StepPreparation || step == analysis.StepTranscription || scope == analysis.ScopeFull || scope == analysis.ScopeVoice && step != analysis.StepIndexing {
 			status = "waiting"
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO clip_analysis_steps(run_id,step,status,reason,finished_at) VALUES($1,$2,$3,$4,CASE WHEN $3='not_applicable' THEN now() END)

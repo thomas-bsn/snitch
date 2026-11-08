@@ -30,7 +30,7 @@ class WorkerAudioDiagnosticInput:
             input_version (str): Empreinte du plan, recopiée dans l'observation.
             detector_version (str):
             detector_config_version (str):
-            start_seconds (float):
+            start_seconds (float | None):
             duration_seconds (float | None):
      """
 
@@ -39,7 +39,7 @@ class WorkerAudioDiagnosticInput:
     input_version: str
     detector_version: str
     detector_config_version: str
-    start_seconds: float
+    start_seconds: float | None
     duration_seconds: float | None
 
 
@@ -57,6 +57,7 @@ class WorkerAudioDiagnosticInput:
 
         detector_config_version = self.detector_config_version
 
+        start_seconds: float | None
         start_seconds = self.start_seconds
 
         duration_seconds: float | None
@@ -92,7 +93,13 @@ class WorkerAudioDiagnosticInput:
 
         detector_config_version = d.pop("detector_config_version")
 
-        start_seconds = d.pop("start_seconds")
+        def _parse_start_seconds(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        start_seconds = _parse_start_seconds(d.pop("start_seconds"))
+
 
         def _parse_duration_seconds(data: object) -> float | None:
             if data is None:

@@ -41,9 +41,6 @@ func (h *voiceHarness) publishVoicePlan(tracks []int, words map[int]string) vote
 	raw["track_indices"] = tracks
 	decisions := []map[string]any{}
 	for _, track := range tracks {
-		if words[track] == "" {
-			continue // a silent track: only its diagnostic decides, no decision forces it in
-		}
 		decisions = append(decisions, map[string]any{"track_index": track, "action": "include", "forced": true, "actor_id": 1, "reason": "fixture", "decided_at": time.Now().UTC().Format(time.RFC3339Nano)})
 	}
 	raw["decisions"] = decisions
@@ -59,23 +56,7 @@ func (h *voiceHarness) publishVoicePlan(tracks []int, words map[int]string) vote
 	}
 	revision := audioplans.Revision{ClipId: h.clipID, PlanId: &plan.Id, TimeBase: "clip"}
 	for _, track := range tracks {
-		if words[track] == "" {
-			var job int64
-			version := fmt.Sprintf("voice-diagnostic-%d-%d", plan.Id, track)
-			if err = h.pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version) VALUES($1,$2,$3) RETURNING id`, h.clipID, fmt.Sprintf("audio.diagnostic.%d", track), version).Scan(&job); err != nil {
-				h.t.Fatal(err)
-			}
-			if err = store.BindChild(ctx, audioplans.Child{PlanId: plan.Id, TrackIndex: track, Stage: "diagnostic", JobId: job, InputVersion: version}); err != nil {
-				h.t.Fatal(err)
-			}
-			if _, err = h.pool.Exec(ctx, `UPDATE jobs SET status='done',attempts=1 WHERE id=$1`, job); err != nil {
-				h.t.Fatal(err)
-			}
-			if err = store.RecordDiagnostic(ctx, audioplans.Diagnostic{PlanId: plan.Id, TrackIndex: track, Attempt: 1, Cause: "no_speech", DetectorVersion: input.DetectorVersion, DetectorConfigVersion: input.DetectorConfigVersion, InputVersion: plan.InputVersion, JobId: &job, Status: "no_speech", Intervals: []contract.AudioSpeechInterval{}}); err != nil {
-				h.t.Fatal(err)
-			}
-			continue
-		}
+
 		var job int64
 		version := fmt.Sprintf("voice-plan-%d-%d", plan.Id, track)
 		if err = h.pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version) VALUES($1,$2,$3) RETURNING id`, h.clipID, fmt.Sprintf("transcription.audio.%d", track), version).Scan(&job); err != nil {
@@ -85,8 +66,11 @@ func (h *voiceHarness) publishVoicePlan(tracks []int, words map[int]string) vote
 			h.t.Fatal(err)
 		}
 		segments := []map[string]any{{"start": 1, "end": 2, "text": words[track]}}
-		{
+		if words[track] != "" {
 			revision.Segments = append(revision.Segments, contract.TranscriptManifestSegment{Start: 1, End: 2, Sources: []contract.TranscriptSource{{TrackIndex: track, JobId: job, SegmentIndex: 0}}})
+		}
+		if words[track] == "" {
+			segments = []map[string]any{}
 		}
 		encodedSegments, _ := json.Marshal(segments)
 		if _, err = h.pool.Exec(ctx, `UPDATE jobs SET status='done',result=jsonb_build_object('audio_stream_index',$2::int,'segments',$3::jsonb) WHERE id=$1`, job, track, encodedSegments); err != nil {
@@ -102,6 +86,10 @@ func (h *voiceHarness) publishVoicePlan(tracks []int, words map[int]string) vote
 		h.t.Fatal(err)
 	}
 	if err = store.PublishRevision(ctx, staged.Id, preview, true); err != nil {
+		h.t.Fatal(err)
+	}
+	// These tests drive voice work explicitly, outside the analysis scheduler.
+	if _, err = h.pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',finished_at=now() WHERE id=$1`, run); err != nil {
 		h.t.Fatal(err)
 	}
 	return votedPlan{ID: plan.Id, Revision: staged.Id}
@@ -368,7 +356,7 @@ func testAudioPlanVoiceTwoTracks(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-// A voice detected on a kept track whose diagnostic found no speech keeps a visible diagnostic, and a
+// A voice detected on a kept speech track whose recognizer found no words keeps a visible diagnostic, and a
 // voice that is always outweighed under another one says so.
 func testAudioPlanVoiceWithoutWords(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
@@ -427,6 +415,14 @@ func testAudioPlanVoiceFailureAndResume(t *testing.T, pool *pgxpool.Pool) {
 	}
 	doneJobs := h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.%' AND status='done'`, h.clipID)
 	failedJob := failed.track(7).Diar.JobID
+
+	// Automatic reconciliation leaves a terminal failure visible until an explicit retry.
+	if _, err := h.api.startAnalysisPlanVoice(context.Background(), plan.ID, h.clipID, authorRef{Username: "analysis"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.planVoice(plan); got.track(7).Status != "failed" {
+		t.Fatalf("automatic reconciliation resumed a terminal failure: %+v", got)
+	}
 
 	// Resume: same job, new cycle, nothing else is created or redone.
 	h.startPlanVoice(plan, false, http.StatusOK)
@@ -658,5 +654,67 @@ func testAudioPlanVoiceNotPublished(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if _, has := legacy["tracks"]; has {
 		t.Fatal("the legacy voice view is unchanged")
+	}
+}
+
+// A restart after several days must still catch a missed post-publication hook.
+func testAudioVoiceDelayedResume(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	plan := h.publishVoicePlan([]int{2}, map[int]string{2: "synthetic delayed voice"})
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed',finished_at=now()-interval '3 days' WHERE id=(SELECT run_id FROM audio_plans WHERE id=$1)`, plan.ID); err != nil {
+		t.Fatal(err)
+	}
+	h.api.resumeAudioVoices(ctx)
+	if n := h.count(`SELECT count(*) FROM audio_plan_voice_starts WHERE plan_id=$1`, plan.ID); n != 1 {
+		t.Fatalf("delayed voice start: %d", n)
+	}
+	h.api.resumeAudioVoices(ctx)
+	if n := h.count(`SELECT count(*) FROM audio_plan_voice_starts WHERE plan_id=$1`, plan.ID); n != 1 {
+		t.Fatalf("repeated recovery duplicated the start: %d", n)
+	}
+}
+
+// Forced diarization reuses durable child identities but recomputes their fingerprints.
+func testAudioPlanVoiceForcedRun(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	h.putPipeline(fakePipeline(2))
+	plan := h.publishVoicePlan([]int{2}, map[int]string{2: "voix deux"})
+	h.startPlanVoice(plan, false, http.StatusOK)
+	diar, ok := h.claim()
+	if !ok {
+		t.Fatal("diarization not claimable")
+	}
+	h.complete(diar, trackDiarization(2, map[string][][2]float64{"OLD": {{0.9, 2.1}}}, "OLD"), http.StatusOK)
+	fp, ok := h.claim()
+	if !ok {
+		t.Fatal("fingerprint not claimable")
+	}
+	h.complete(fp, trackFingerprints(2, diar.ID, map[string][2]float64{"OLD": {0.9, 2.1}}, "OLD"), http.StatusOK)
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,mode,forced_steps,status) VALUES($1,'voice','steps',ARRAY['diarization'],'active')`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := h.api.startAnalysisPlanVoice(ctx, plan.ID, h.clipID, authorRef{Username: "analysis"}); err != nil {
+		t.Fatal(err)
+	}
+	rerun, ok := h.claim()
+	if !ok || rerun.ID != diar.ID {
+		t.Fatalf("durable diarization not resumed: %+v", rerun)
+	}
+	h.complete(rerun, trackDiarization(2, map[string][][2]float64{"NEW": {{1.0, 2.0}}}, "NEW"), http.StatusOK)
+	renewed, ok := h.claim()
+	if !ok || renewed.ID != fp.ID {
+		t.Fatalf("plan fingerprint not resumed: %+v", renewed)
+	}
+	if got := h.planVoice(plan); got.track(2).Status == "done" {
+		t.Fatal("stale fingerprint reported done")
+	}
+	h.complete(renewed, trackFingerprints(2, diar.ID, map[string][2]float64{"NEW": {1.0, 2.0}}, "NEW"), http.StatusOK)
+	if got := h.planVoice(plan); got.Status != "done" {
+		t.Fatalf("rerun incomplete: %+v", got)
+	}
+	if h.count(`SELECT count(*) FROM voice_fingerprints f JOIN local_speakers s ON s.id=f.local_speaker_id WHERE s.clip_id=$1 AND s.label='NEW'`, h.clipID) == 0 {
+		t.Fatal("new speakers have no fingerprint")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -16,7 +17,7 @@ type audioDiagnosticInputPayload struct {
 	InputVersion          string   `json:"input_version"`
 	DetectorVersion       string   `json:"detector_version"`
 	DetectorConfigVersion string   `json:"detector_config_version"`
-	StartSeconds          float64  `json:"start_seconds"`
+	StartSeconds          *float64 `json:"start_seconds"`
 	DurationSeconds       *float64 `json:"duration_seconds"`
 }
 
@@ -37,6 +38,7 @@ func (s *Service) audioDiagnosticInput(ctx context.Context, input *Input) error 
 		DetectorConfigVersion string `json:"detector_config_version"`
 		Inventory             []struct {
 			Index           int      `json:"index"`
+			Evidence        []string `json:"evidence"`
 			StartSeconds    float64  `json:"start_seconds"`
 			DurationSeconds *float64 `json:"duration_seconds"`
 		} `json:"inventory"`
@@ -47,7 +49,10 @@ func (s *Service) audioDiagnosticInput(ctx context.Context, input *Input) error 
 	payload.DetectorVersion, payload.DetectorConfigVersion = plan.DetectorVersion, plan.DetectorConfigVersion
 	for _, track := range plan.Inventory {
 		if track.Index == index {
-			payload.StartSeconds, payload.DurationSeconds = track.StartSeconds, track.DurationSeconds
+			payload.DurationSeconds = track.DurationSeconds
+			if !slices.Contains(track.Evidence, "timeline_unknown") {
+				payload.StartSeconds = &track.StartSeconds
+			}
 		}
 	}
 	encoded, err := json.Marshal(payload)

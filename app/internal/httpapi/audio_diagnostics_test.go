@@ -97,6 +97,39 @@ func testAudioDiagnostics(t *testing.T, pool *pgxpool.Pool) {
 	if state.Diagnostics[0].Status != "speech" || state.Diagnostics[1].Status != "speech" || state.Diagnostics[1].JobId == nil {
 		t.Fatalf("persisted diagnostics: %s", raw)
 	}
+
+	// Identical inputs in a new run reuse reliable evidence without sharing jobs.
+	newPlan := func(in audioplans.Input) audioplans.Plan {
+		t.Helper()
+		var otherRun int64
+		if err := pool.QueryRow(ctx, `INSERT INTO clip_analysis_runs(clip_id,scope,status) VALUES($1,'full','completed') RETURNING id`, h.clipID).Scan(&otherRun); err != nil {
+			t.Fatal(err)
+		}
+		p, err := audioplans.New(pool).CreatePlan(ctx, otherRun, in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := audioplans.New(pool).QueueDiagnostics(ctx, p.Id); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	reused := newPlan(input)
+	cached, err := audioplans.New(pool).GetPlan(ctx, reused.Id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i, child := range cached.Children {
+		if child.Status != "done" || child.JobId == state.Children[i].JobId || cached.Diagnostics[i].PlanId != reused.Id || *cached.Diagnostics[i].JobId != child.JobId {
+			t.Fatalf("reused evidence must own its provenance: %+v", cached)
+		}
+	}
+	changed := input
+	changed.DetectorConfigVersion += "-changed"
+	invalidated := newPlan(changed)
+	if n := h.count(`SELECT count(*) FROM audio_plan_children c JOIN jobs j ON j.id=c.job_id WHERE c.plan_id=$1 AND j.status='pending'`, invalidated.Id); n != 2 {
+		t.Fatalf("changed inputs reused stale diagnostics: %d", n)
+	}
 	if got := h.clipTranscript(h.adminUser()); got.Transcription.Segments[0].Text != "premier" {
 		t.Fatal("diagnostic changed transcript")
 	}

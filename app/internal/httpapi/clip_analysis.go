@@ -712,7 +712,7 @@ func (s *Server) clipAnalysisViewEvents(w http.ResponseWriter, r *http.Request) 
 // run carries (force): without it the step is blocked with the stable code, never started.
 func (h analysisHooks) planVoice(ctx context.Context, planID, clipID int64, force bool) (analysis.VoiceSteps, error) {
 	after := analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_previous_step"}
-	state, err := h.s.StartPlanVoice(ctx, planID, clipID, authorRef{Username: "analysis"}, force)
+	state, err := h.s.startAnalysisPlanVoice(ctx, planID, clipID, authorRef{Username: "analysis"})
 	var needs *voiceConfirmationError
 	if errors.As(err, &needs) {
 		blocked := analysis.StepResult{Status: analysis.StatusBlocked, Reason: "voice_rediarization_confirmation_required"}

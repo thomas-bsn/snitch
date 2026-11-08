@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -717,7 +718,7 @@ func testAudioActivationVoices(t *testing.T, pool *pgxpool.Pool) {
 	if n := h.count(`SELECT count(*) FROM audio_publications WHERE clip_id=$1`, h.clipID); n != 1 {
 		t.Fatal("not published")
 	}
-	if n := h.count(`SELECT count(*) FROM jobs j JOIN audio_plan_children c ON c.job_id=j.id WHERE j.clip_id=$1 AND c.stage='diarization' AND j.step LIKE 'voice.diarization.%'`, h.clipID); n != 2 {
+	if n := h.count(`SELECT count(*) FROM jobs j JOIN audio_plan_children c ON c.job_id=j.id WHERE j.clip_id=$1 AND c.stage='diarization' AND j.step LIKE 'voice.diarization.%'`, h.clipID); n != 1 {
 		t.Fatalf("the voice analysis must start after the publication, bound to the plan: %d", n)
 	}
 	if hasStep(script.handled, "transcription.audio.1") {
@@ -736,10 +737,76 @@ func testAudioActivationVoices(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(h.adminCall("GET", fmt.Sprintf("/api/admin/clips/%d/audio-plans/%d/voice", h.clipID, planID), nil, 200), &voice); err != nil {
 		t.Fatal(err)
 	}
-	if len(voice.Tracks) != 2 || voice.Tracks[0].Status != "queued" || voice.Tracks[1].Status != "queued" {
+	if len(voice.Tracks) != 1 || voice.Tracks[0].AudioStreamIndex != 2 || voice.Tracks[0].Status != "queued" {
 		t.Fatalf("per-track voice state: %+v", voice)
 	}
-	if run := h.analysis(); run == nil || run.Status != "completed" {
+	if run := h.analysis(); run == nil || run.Status != "active" {
 		t.Fatalf("run: %+v", run)
+	}
+	h.adminCall("POST", fmt.Sprintf("/api/admin/clips/%d/analysis/cancel", h.clipID), map[string]any{}, 200)
+	if n := h.count(`SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'voice.%' AND status IN ('pending','leased','retry_wait')`, h.clipID); n != 0 {
+		t.Fatalf("cancel must stop published plan voice children: %d", n)
+	}
+}
+
+// A limited selection reuses the published revision and does not consume human text edits.
+func testAudioSelectionLimitedRun(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	h.readyAudioWorker()
+	path := fmt.Sprintf("/api/admin/clips/%d/audio-selection", h.clipID)
+	choose := func(scope, mode string, steps []string) contract.AudioSelectionRequest {
+		var current contract.AudioSelectionContext
+		if err := json.Unmarshal(h.adminCall("GET", path, nil, 200), &current); err != nil {
+			t.Fatal(err)
+		}
+		return contract.AudioSelectionRequest{Version: current.Version, Mode: "auto", TrackIndices: []int{}, Decisions: []contract.AudioSelectionDecision{}, Analysis: contract.AudioAnalysisChoice{Scope: contract.AudioAnalysisChoiceScope(scope), Mode: contract.AudioAnalysisChoiceMode(mode), Steps: steps}}
+	}
+	h.adminCall("POST", path+"/preview", choose("voice", "missing", []string{}), 409)
+	h.startMultitrackAnalysis()
+	h.driveAudio(&audioScript{words: map[int][]scriptSegment{1: {{1, 2, "first voice"}}, 2: {{1, 2, "second voice"}}}})
+	before := h.count(`SELECT count(*) FROM audio_plans WHERE clip_id=$1`, h.clipID)
+	var publishedRevision string
+	if err := pool.QueryRow(context.Background(), `SELECT revision_id FROM audio_publications WHERE clip_id=$1`, h.clipID).Scan(&publishedRevision); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall("PUT", segmentTextPath(h.clipID, 0), map[string]any{"text": "human edit", "expected_version": 0, "expected_revision_id": publishedRevision}, 200)
+	for _, c := range []contract.AudioSelectionRequest{choose("transcription", "missing", []string{}), choose("full", "steps", []string{"indexing"})} {
+		// Refresh the receipt version after the preceding run.
+		c = choose(string(c.Analysis.Scope), string(c.Analysis.Mode), c.Analysis.Steps)
+		var preview contract.AudioSelectionPreview
+		if err := json.Unmarshal(h.adminCall("POST", path+"/preview", c, 200), &preview); err != nil {
+			t.Fatal(err)
+		}
+		if preview.Effects.Losses.CorrectionCount != 0 || hasStep(preview.Effects.AddedSteps, "transcription.audio.") {
+			t.Fatalf("limited preview: %+v", preview.Effects)
+		}
+		h.adminCall("POST", path, contract.AudioSelectionStart{Selection: c, PreviewToken: preview.PreviewToken}, 200)
+		if h.count(`SELECT count(*) FROM audio_plans WHERE clip_id=$1`, h.clipID) != before {
+			t.Fatal("limited run created another transcription plan")
+		}
+		if h.count(`SELECT count(*) FROM segment_corrections WHERE clip_id=$1`, h.clipID) != 1 {
+			t.Fatal("limited run removed human edit")
+		}
+		if run := h.analysis(); run != nil && run.Status == "active" {
+			h.analysisAction("/cancel", 200)
+		}
+	}
+}
+
+func testAudioVoiceReceiptCutoff(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	first, _ := h.diarizeClip()
+	plan := h.publishVoicePlan([]int{2, 7}, map[int]string{2: "two", 7: "seven"})
+	if _, err := pool.Exec(context.Background(), `UPDATE clip_analysis_runs SET confirmed_replace_validations=true,confirmed_stake_at=clock_timestamp() WHERE id=(SELECT run_id FROM audio_plans WHERE id=$1)`, plan.ID); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall("POST", fmt.Sprintf("/api/local-speakers/%d/validation", first), map[string]any{"new_person_name": "Later validation"}, 201)
+	_, err := h.api.startAnalysisPlanVoice(context.Background(), plan.ID, h.clipID, authorRef{Username: "analysis"})
+	var confirmation *voiceConfirmationError
+	if !errors.As(err, &confirmation) {
+		t.Fatalf("stale confirmation must refuse later validation: %v", err)
+	}
+	if h.count(`SELECT count(*) FROM audio_plan_children WHERE plan_id=$1 AND stage IN ('diarization','fingerprint')`, plan.ID) != 0 {
+		t.Fatal("stale confirmation queued voice work")
 	}
 }

@@ -55,8 +55,8 @@ func TestAudioViewsPerformance(t *testing.T) {
 		}
 	}
 	var jit string
-	if err = pool.QueryRow(ctx, `SHOW jit`).Scan(&jit); err != nil || jit != "off" {
-		t.Fatalf("JIT must be disabled by migration 00118 (got %q, err %v)", jit, err)
+	if err = pool.QueryRow(ctx, `SHOW jit`).Scan(&jit); err != nil || jit != "on" {
+		t.Fatalf("Migration must preserve the default JIT policy (got %q, err %v)", jit, err)
 	}
 	const clips, segments = 3000, 12
 	exec(`INSERT INTO users(username,role,approved) VALUES('perf','admin',true)`)
@@ -76,6 +76,9 @@ func TestAudioViewsPerformance(t *testing.T) {
 			n++
 		}
 		rows.Close()
+		if err := rows.Err(); err != nil {
+			t.Fatal(name, err)
+		}
 		d := time.Since(start)
 		t.Logf("%-28s %6d rows %8.1f ms", name, n, float64(d.Microseconds())/1000)
 		if d > budget {

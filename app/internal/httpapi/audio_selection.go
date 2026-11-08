@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"snitch/internal/analysis"
 	"snitch/internal/audioplans"
 	"snitch/internal/httpapi/contract"
 )
@@ -74,10 +75,7 @@ func (s *Server) audioSelectionContext(ctx context.Context, tx pgx.Tx, id int64)
 	if err != nil {
 		return current, err
 	}
-	var tracks []struct {
-		contract.AudioTrackInventory
-		Type string `json:"type"`
-	}
+	var tracks []audioTrack
 	if err = json.Unmarshal(raw, &tracks); err != nil {
 		return current, err
 	}
@@ -90,14 +88,9 @@ func (s *Server) audioSelectionContext(ctx context.Context, tx pgx.Tx, id int64)
 	current.Input.TrackIndices = []int{}
 	current.Input.Decisions = []contract.AudioTrackDecision{}
 	current.Input.Mode = "auto"
-	for _, t := range tracks {
-		if t.Type == "audio" {
-			if t.Evidence == nil {
-				t.Evidence = []string{}
-			}
-			current.Input.Inventory = append(current.Input.Inventory, t.AudioTrackInventory)
-			current.Input.TrackIndices = append(current.Input.TrackIndices, t.Index)
-		}
+	current.Input.Inventory = audioInventoryOf(tracks)
+	for _, t := range current.Input.Inventory {
+		current.Input.TrackIndices = append(current.Input.TrackIndices, t.Index)
 	}
 	current.Inventory = current.Input.Inventory
 	if current.Diagnostics == nil {
@@ -249,6 +242,10 @@ func (s *Server) mutateAudioSelection(w http.ResponseWriter, r *http.Request, st
 	}
 	effects, err := s.AudioSelection.Preview(r.Context(), tx, clip.ID, input, request.Analysis)
 	if err != nil {
+		if errors.Is(err, analysis.ErrTranscriptionRequired) {
+			fail(w, 409, "transcription_required")
+			return
+		}
 		s.internal(w, err)
 		return
 	}
@@ -270,8 +267,23 @@ func (s *Server) mutateAudioSelection(w http.ResponseWriter, r *http.Request, st
 		fail(w, 409, "audio_confirmation_required")
 		return
 	}
+	var reuse int64
+	if engine, ok := s.AudioSelection.(interface {
+		ReusablePlan(context.Context, pgx.Tx, int64, audioplans.Input, contract.AudioAnalysisChoice) (int64, error)
+	}); ok {
+		reuse, err = engine.ReusablePlan(r.Context(), tx, clip.ID, input, request.Analysis)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
+	resolved, err := analysis.Resolve(string(request.Analysis.Scope), analysis.Options{Mode: string(request.Analysis.Mode), Steps: request.Analysis.Steps}, analysis.Existing{Transcription: reuse != 0, Voices: true})
+	if err != nil {
+		fail(w, 400, "invalid_audio_selection")
+		return
+	}
 	var runID int64
-	err = tx.QueryRow(r.Context(), `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations,confirmed_stake_at) VALUES($1,$2,$3,$4,$5,$6,$6,$7) RETURNING id`, clip.ID, request.Analysis.Scope, actor, request.Analysis.Mode, request.Analysis.Steps, confirmed, at).Scan(&runID)
+	err = tx.QueryRow(r.Context(), `INSERT INTO clip_analysis_runs(clip_id,scope,started_by,mode,forced_steps,confirmed_replace_corrections,confirmed_replace_validations,confirmed_stake_at) VALUES($1,$2,$3,$4,$5,$6,$6,$7) RETURNING id`, clip.ID, resolved.Scope, actor, request.Analysis.Mode, resolved.Forced, confirmed, at).Scan(&runID)
 	var pgerr *pgconn.PgError
 	if errors.As(err, &pgerr) && pgerr.Code == "23505" {
 		fail(w, 409, "analysis_already_active")
@@ -281,21 +293,42 @@ func (s *Server) mutateAudioSelection(w http.ResponseWriter, r *http.Request, st
 		s.internal(w, err)
 		return
 	}
-	plan, err := audioplans.New(tx).CreatePlan(r.Context(), runID, input)
-	if err == nil {
-		err = s.AudioSelection.Start(r.Context(), tx, plan, request.Analysis, effects)
+	var state contract.AudioPlanState
+	if reuse != 0 {
+		for _, step := range []string{analysis.StepPreparation, analysis.StepTranscription, analysis.StepIndexing, analysis.StepDiarization, analysis.StepFingerprints, analysis.StepMatching} {
+			status, reason := "waiting", "awaiting_previous_step"
+			if (step == analysis.StepIndexing && resolved.Scope != analysis.ScopeFull) || ((step == analysis.StepDiarization || step == analysis.StepFingerprints || step == analysis.StepMatching) && resolved.Scope == analysis.ScopeTranscription) {
+				status, reason = "not_applicable", "outside_scope"
+			}
+			_, err = tx.Exec(r.Context(), `INSERT INTO clip_analysis_steps(run_id,step,status,reason,finished_at) VALUES($1,$2,$3,$4,CASE WHEN $3='not_applicable' THEN now() END)`, runID, step, status, reason)
+			if err != nil {
+				s.internal(w, err)
+				return
+			}
+		}
+		state, err = audioplans.New(tx).GetPlan(r.Context(), reuse)
+	} else {
+		var plan audioplans.Plan
+		plan, err = audioplans.New(tx).CreatePlan(r.Context(), runID, input)
+		if err == nil {
+			err = s.AudioSelection.Start(r.Context(), tx, plan, request.Analysis, effects)
+		}
+		if err == nil {
+			state, err = audioplans.New(tx).GetPlan(r.Context(), plan.Id)
+		}
 	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	state, err := audioplans.New(tx).GetPlan(r.Context(), plan.Id)
 	if err == nil {
 		err = tx.Commit(r.Context())
 	}
 	if err != nil {
 		s.internal(w, err)
 		return
+	}
+	if reuse != 0 && slices.Contains(resolved.Forced, analysis.StepIndexing) {
+		if err := (analysisHooks{s}).Reindex(r.Context(), clip.ID); err != nil {
+			s.internal(w, err)
+			return
+		}
 	}
 	// The run exists now: let its orchestrator queue the diagnostics' follow-up without waiting for the ticker.
 	s.reconcileAnalysis(r.Context(), clip.ID)

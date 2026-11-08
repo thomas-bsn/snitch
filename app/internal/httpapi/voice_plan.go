@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/audioplans"
@@ -162,7 +163,8 @@ func (e *voiceConfirmationError) Error() string { return "voice reanalysis needs
 
 // planVoiceTrackIndices lists the kept tracks of the plan, ordered.
 func planVoiceTrackIndices(ctx context.Context, q querier, planID int64) ([]int, error) {
-	rows, err := q.Query(ctx, `SELECT track_index FROM audio_plan_tracks WHERE plan_id=$1 ORDER BY track_index`, planID)
+	rows, err := q.Query(ctx, `SELECT t.track_index FROM audio_plan_tracks t
+ WHERE t.plan_id=$1 AND EXISTS(SELECT 1 FROM audio_plan_children c WHERE c.plan_id=t.plan_id AND c.track_index=t.track_index AND c.stage='transcription' AND EXISTS(SELECT 1 FROM jobs j WHERE j.id=c.job_id AND j.status='done')) ORDER BY t.track_index`, planID)
 	if err != nil {
 		return nil, err
 	}
@@ -475,6 +477,21 @@ func (s *Server) planVoiceState(ctx context.Context, q querier, planID, clipID i
 // returns a *voiceConfirmationError unless confirm is true; old voices stay until a new result
 // succeeds, and a validation made after the confirmed instant still locks them.
 func (s *Server) StartPlanVoice(ctx context.Context, planID, clipID int64, author authorRef, confirm bool) (voicePlanState, error) {
+	return s.startPlanVoice(ctx, planID, clipID, author, confirm, nil, nil, nil)
+}
+
+// Automatic starts retain the receipt's cutoff through queueing and result projection.
+func (s *Server) startAnalysisPlanVoice(ctx context.Context, planID, clipID int64, author authorRef) (voicePlanState, error) {
+	var cutoff, forceSince, automaticSince *time.Time
+	var confirmed bool
+	err := s.Pool.QueryRow(ctx, `SELECT confirmed_stake_at,confirmed_replace_validations,CASE WHEN 'diarization'=ANY(forced_steps) THEN created_at END,GREATEST(created_at,(SELECT max(retry_since) FROM clip_analysis_steps WHERE run_id=r.id AND step IN ('diarization','fingerprints'))) FROM clip_analysis_runs r WHERE clip_id=$1 AND (status='active' OR id=(SELECT run_id FROM audio_plans WHERE id=$2)) ORDER BY (status='active') DESC,id DESC LIMIT 1`, clipID, planID).Scan(&cutoff, &confirmed, &forceSince, &automaticSince)
+	if err != nil {
+		return voicePlanState{}, err
+	}
+	return s.startPlanVoice(ctx, planID, clipID, author, confirmed && cutoff != nil, cutoff, forceSince, automaticSince)
+}
+
+func (s *Server) startPlanVoice(ctx context.Context, planID, clipID int64, author authorRef, confirm bool, cutoff, forceSince, automaticSince *time.Time) (voicePlanState, error) {
 	var owner int64
 	if err := s.Pool.QueryRow(ctx, `SELECT clip_id FROM audio_plans WHERE id=$1`, planID).Scan(&owner); err != nil {
 		return voicePlanState{}, err
@@ -509,6 +526,53 @@ func (s *Server) StartPlanVoice(ctx context.Context, planID, clipID int64, autho
 	if err != nil {
 		return voicePlanState{}, err
 	}
+	if cutoff != nil {
+		var newer bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM local_speakers ls WHERE ls.clip_id=$1 AND ls.kind='diarized' AND
+ (EXISTS(SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='validated' AND a.decided_at>$2)
+ OR EXISTS(SELECT 1 FROM segment_corrections sc WHERE sc.speaker_override_id=ls.id AND sc.speaker_corrected_at>$2)))`, clipID, cutoff).Scan(&newer); err != nil {
+			return voicePlanState{}, err
+		}
+		if newer {
+			return voicePlanState{}, &voiceConfirmationError{Stake: state.Stake}
+		}
+	}
+	if forceSince != nil {
+		// Reset only a result that predates this run. Completion updates updated_at,
+		// so subsequent reconciliation reuses the newly completed result.
+		for i := range state.Tracks {
+			track := &state.Tracks[i]
+			if track.Microphone || track.Diarization == nil || track.Diarization.Status != "done" {
+				continue
+			}
+			changed, e := tx.Exec(ctx, `UPDATE jobs SET status='cancelled',updated_at=now() WHERE id=$1 AND status='done' AND updated_at<$2`, track.Diarization.JobID, forceSince)
+			if e != nil {
+				return voicePlanState{}, e
+			}
+			if changed.RowsAffected() > 0 {
+				// An older fingerprint must not complete against the rerun's new speakers.
+				if track.Fingerprint != nil {
+					if _, err = tx.Exec(ctx, `UPDATE jobs SET status='cancelled',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,updated_at=now() WHERE id=$1`, track.Fingerprint.JobID); err != nil {
+						return voicePlanState{}, err
+					}
+				}
+				track.needsDiarizing = true
+				track.Diarization.Status = "cancelled"
+			}
+		}
+	}
+	if forceSince != nil {
+		indices := []int{}
+		for _, track := range state.Tracks {
+			if track.needsDiarizing && !track.Microphone {
+				indices = append(indices, track.AudioStreamIndex)
+			}
+		}
+		state.Stake, err = voiceStakeOf(ctx, tx, clipID, indices)
+		if err != nil {
+			return voicePlanState{}, err
+		}
+	}
 	// Only a track with no live diarization gets new work; a live one is already covered by the
 	// confirmation of the start that created it, whose instant keeps protecting its voices.
 	fresh := false
@@ -522,8 +586,8 @@ func (s *Server) StartPlanVoice(ctx context.Context, planID, clipID int64, autho
 	}
 	stakeJSON, _ := json.Marshal(state.Stake)
 	if fresh {
-		if _, err = tx.Exec(ctx, `INSERT INTO audio_plan_voice_starts(plan_id,pipeline_version,stake_at,stake,confirmed,started_by) VALUES($1,$2,clock_timestamp(),$3::jsonb,$4,$5)
-ON CONFLICT(plan_id) DO UPDATE SET stake_at=excluded.stake_at,stake=excluded.stake,confirmed=excluded.confirmed OR audio_plan_voice_starts.confirmed,started_by=excluded.started_by`, planID, state.PipelineVersion, stakeJSON, !state.Stake.empty(), author.ID); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO audio_plan_voice_starts(plan_id,pipeline_version,stake_at,stake,confirmed,started_by) VALUES($1,$2,COALESCE($6,clock_timestamp()),$3::jsonb,$4,$5)
+ON CONFLICT(plan_id) DO UPDATE SET stake_at=excluded.stake_at,stake=excluded.stake,confirmed=excluded.confirmed OR audio_plan_voice_starts.confirmed,started_by=excluded.started_by`, planID, state.PipelineVersion, stakeJSON, !state.Stake.empty(), author.ID, cutoff); err != nil {
 			return voicePlanState{}, err
 		}
 	}
@@ -541,7 +605,7 @@ ON CONFLICT(plan_id) DO UPDATE SET stake_at=excluded.stake_at,stake=excluded.sta
 			if track.Diarization != nil {
 				version = track.Diarization.InputVersion
 			}
-			if err = s.ensurePlanVoiceJob(ctx, tx, store, planID, clipID, track.AudioStreamIndex, "diarization", diarStep, version, author); err != nil {
+			if err = s.ensurePlanVoiceJob(ctx, tx, store, planID, clipID, track.AudioStreamIndex, "diarization", diarStep, version, author, automaticSince); err != nil {
 				return voicePlanState{}, err
 			}
 			continue
@@ -552,7 +616,7 @@ ON CONFLICT(plan_id) DO UPDATE SET stake_at=excluded.stake_at,stake=excluded.sta
 		if !ok || track.Cause == "no_speakers" {
 			continue
 		}
-		if err = s.ensurePlanVoiceJob(ctx, tx, store, planID, clipID, track.AudioStreamIndex, "fingerprint", fmt.Sprintf("voice.fingerprint.%d", track.AudioStreamIndex), version, author); err != nil {
+		if err = s.ensurePlanVoiceJob(ctx, tx, store, planID, clipID, track.AudioStreamIndex, "fingerprint", fmt.Sprintf("voice.fingerprint.%d", track.AudioStreamIndex), version, author, automaticSince); err != nil {
 			return voicePlanState{}, err
 		}
 	}
@@ -568,14 +632,15 @@ ON CONFLICT(plan_id) DO UPDATE SET stake_at=excluded.stake_at,stake=excluded.sta
 
 // ensurePlanVoiceJob guarantees one live job for the step, bound to the plan before any Worker can
 // claim it: it creates it, or resumes a failed, dead or cancelled one in place (same job, new cycle).
-func (s *Server) ensurePlanVoiceJob(ctx context.Context, tx pgx.Tx, store *audioplans.Store, planID, clipID int64, track int, stage, step, version string, author authorRef) error {
+func (s *Server) ensurePlanVoiceJob(ctx context.Context, tx pgx.Tx, store *audioplans.Store, planID, clipID int64, track int, stage, step, version string, author authorRef, automaticSince *time.Time) error {
 	if _, err := tx.Exec(ctx, `UPDATE jobs SET status='failed',lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error='input_version_superseded',updated_at=now() WHERE clip_id=$1 AND step=$2 AND input_version<>$3 AND requested_model_id IS NULL AND status IN ('pending','leased','retry_wait') AND id NOT IN (SELECT job_id FROM audio_plan_children WHERE plan_id=$4)`, clipID, step, version, planID); err != nil {
 		return err
 	}
 	var jobID int64
 	var status string
 	var bound bool
-	err := tx.QueryRow(ctx, `SELECT j.id,j.status,EXISTS(SELECT 1 FROM audio_plan_children c WHERE c.job_id=j.id AND c.plan_id=$4) FROM jobs j WHERE j.clip_id=$1 AND j.step=$2 AND j.input_version=$3 AND j.requested_model_id IS NULL ORDER BY j.id DESC LIMIT 1`, clipID, step, version, planID).Scan(&jobID, &status, &bound)
+	var updated time.Time
+	err := tx.QueryRow(ctx, `SELECT j.id,j.status,j.updated_at,EXISTS(SELECT 1 FROM audio_plan_children c WHERE c.job_id=j.id AND c.plan_id=$4) FROM jobs j WHERE j.clip_id=$1 AND j.step=$2 AND j.input_version=$3 AND j.requested_model_id IS NULL ORDER BY j.id DESC LIMIT 1`, clipID, step, version, planID).Scan(&jobID, &status, &updated, &bound)
 	switch {
 	case errors.Is(err, pgx.ErrNoRows):
 		if err = tx.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,0,3) RETURNING id`, clipID, step, version).Scan(&jobID); err != nil {
@@ -584,6 +649,11 @@ func (s *Server) ensurePlanVoiceJob(ctx context.Context, tx pgx.Tx, store *audio
 		status = "pending"
 	case err != nil:
 		return err
+	}
+	// A ticker must not turn a terminal failure into an unlimited retry loop.
+	// Explicit starts/retries or a newer analysis can resume it.
+	if automaticSince != nil && (status == "dead" || status == "failed") && !updated.Before(*automaticSince) {
+		return nil
 	}
 	switch status {
 	case "done":

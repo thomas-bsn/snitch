@@ -391,7 +391,8 @@ def run(payload: dict[str, Any], *, cancel: Callable[[], None] | None = None) ->
             raise ValueError(f"invalid event range: {event['id']}")
     by_id = {event["id"]: event for event in events}
     if payload.get("pairs") is not None:
-        pairs = sorted({tuple(sorted((by_id[a], by_id[b]), key=_event_key)) for a, b in payload["pairs"]}, key=lambda p: (_event_key(p[0]), _event_key(p[1])))
+        pair_ids = {tuple(sorted((a, b))) for a, b in payload["pairs"]}
+        pairs = sorted((tuple(sorted((by_id[a], by_id[b]), key=_event_key)) for a, b in pair_ids), key=lambda p: (_event_key(p[0]), _event_key(p[1])))
     else:
         pairs = [
             (a, b)

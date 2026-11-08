@@ -4802,7 +4802,7 @@ export interface components {
       detector_version: string;
       detector_config_version: string;
       /** Format: double */
-      start_seconds: number;
+      start_seconds: number | null;
       /** Format: double */
       duration_seconds: number | null;
     };
