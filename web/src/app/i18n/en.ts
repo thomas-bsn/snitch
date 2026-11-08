@@ -63,6 +63,26 @@ export const en = {
         "The Worker's CUDA version does not match this engine.",
       insufficient_ram: "Not enough memory (RAM) on the Worker.",
       insufficient_vram: "Not enough video memory (VRAM) on the Worker.",
+      cancelled: "The installation was cancelled.",
+    },
+    action: {
+      retry: "Retry",
+      replace: "Replace",
+      cancel: "Cancel",
+      cleanup: "Clean up",
+      retryLabel: "Retry the installation of {engine}",
+      replaceLabel: "Replace {engine} with another release",
+      cancelLabel: "Cancel the installation of {engine}",
+      cleanupLabel: "Remove the incomplete files of {engine}",
+      cancelling:
+        "Cancellation requested: the Worker stops at its next safe point.",
+      cleanupRequested:
+        "Cleanup requested: delivered when the Worker reconnects.",
+      cleanupDone: "Incomplete files removed.",
+      keepsPrevious: "A working release stays in service.",
+      replaceLead:
+        "Compatible releases of {engine}. A failed release never prevents this choice.",
+      failed: "The action was refused:",
     },
     refusal: {
       engine_release_unavailable: "release revoked",

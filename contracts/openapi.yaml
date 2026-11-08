@@ -16584,6 +16584,251 @@
           }
         }
       }
+    },
+    "/api/admin/workers/{id}/voice-engines/{digest}/retry": {
+      "post": {
+        "operationId": "retryWorkerEngineInstall",
+        "description": "Administrateur : recommande la même version sur ce Worker, uniquement depuis l'état failed. Nouvelle génération, idempotente sous sa clé ; refusée tant qu'un ordre est ouvert.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineRetryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordre déjà enregistré sous cette clé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineOrder"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Nouvel ordre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineOrder"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/voice-engines/{digest}/cancel": {
+      "post": {
+        "operationId": "cancelWorkerEngineInstall",
+        "description": "Administrateur : annule une installation. Un ordre non acquitté est annulé aussitôt (cancelled) ; un ordre en cours est marqué, livré au prochain relevé et confirmé par le Worker à son prochain point sûr (cancelling). Répéter la demande est sans effet.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineRecoveryResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/voice-engines/{digest}/cleanup": {
+      "post": {
+        "operationId": "cleanupWorkerEngineInstall",
+        "description": "Administrateur : demande explicitement au Worker de supprimer les fichiers incomplets d'une installation échouée ou annulée de cette version. Refusée pour une version prête ou un ordre ouvert ; ne supprime ni modèle ni runtime validé.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat (requested ou done)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineRecoveryResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/cleanup": {
+      "post": {
+        "operationId": "postWorkerEngineCleanup",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker confirme qu'il a exécuté un nettoyage demandé (fichiers supprimés ou rien à supprimer). Rejouer la confirmation est sans effet ; une confirmation non demandée est refusée.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineCleanupReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Confirmation enregistrée"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -21010,6 +21255,13 @@
             "description": "Ordres d'installation de runtimes ; un Worker plus ancien ignore cette liste.",
             "items": {
               "$ref": "#/components/schemas/EngineOrder"
+            }
+          },
+          "engine_cleanups": {
+            "type": "array",
+            "description": "Nettoyages explicitement demandés des fichiers incomplets d'une installation échouée ou annulée ; un Worker plus ancien ignore cette liste.",
+            "items": {
+              "$ref": "#/components/schemas/EngineCleanup"
             }
           }
         }
@@ -28190,6 +28442,10 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "cancel_requested": {
+            "type": "boolean",
+            "description": "Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme par un rapport failed/cancelled."
           }
         }
       },
@@ -28268,7 +28524,8 @@
               "platform_incompatible",
               "cuda_incompatible",
               "insufficient_ram",
-              "insufficient_vram"
+              "insufficient_vram",
+              "cancelled"
             ]
           },
           "generation": {
@@ -28304,7 +28561,9 @@
           "revoked",
           "author_name",
           "updated_at",
-          "history"
+          "history",
+          "cancel_requested",
+          "cleanup"
         ],
         "properties": {
           "digest": {
@@ -28342,7 +28601,8 @@
               "platform_incompatible",
               "cuda_incompatible",
               "insufficient_ram",
-              "insufficient_vram"
+              "insufficient_vram",
+              "cancelled"
             ]
           },
           "bytes_received": {
@@ -28375,6 +28635,19 @@
             "items": {
               "$ref": "#/components/schemas/WorkerEngineHistoryEntry"
             }
+          },
+          "cancel_requested": {
+            "type": "boolean",
+            "description": "Annulation demandée, pas encore confirmée par le Worker."
+          },
+          "cleanup": {
+            "type": "string",
+            "enum": [
+              "",
+              "requested",
+              "done"
+            ],
+            "description": "Nettoyage explicite des fichiers incomplets : non demandé, demandé ou confirmé."
           }
         }
       },
@@ -28553,7 +28826,8 @@
               "platform_incompatible",
               "cuda_incompatible",
               "insufficient_ram",
-              "insufficient_vram"
+              "insufficient_vram",
+              "cancelled"
             ]
           },
           "bytes_received": {
@@ -28598,6 +28872,77 @@
                 }
               }
             }
+          }
+        }
+      },
+      "EngineRetryInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idempotency_key"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100
+          }
+        }
+      },
+      "EngineRecoveryResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "cancelled",
+              "cancelling",
+              "requested",
+              "done"
+            ]
+          }
+        }
+      },
+      "EngineCleanupReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "digest",
+          "removed"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "removed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EngineCleanup": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "digest",
+          "runtime"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/VoiceEngineManifest"
           }
         }
       }

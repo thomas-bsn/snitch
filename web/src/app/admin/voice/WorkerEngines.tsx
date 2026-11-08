@@ -69,6 +69,8 @@ export function WorkerEngines() {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
   const [outcome, setOutcome] = useState<string[]>([]);
+  const [replacing, setReplacing] = useState<EngineEntry>();
+  const [notice, setNotice] = useState<string>();
   const workers = view.state.status === "ready" ? view.state.value : [];
   const releases =
     registry.state.status === "ready" ? registry.state.value : [];
@@ -166,6 +168,60 @@ export function WorkerEngines() {
     }
   }
 
+  /** Retry, cancel and clean up are explicit requests; the server decides from the real state and answers the same way when repeated. */
+  async function recover(
+    entry: EngineEntry,
+    verb: "retry" | "cancel" | "cleanup",
+  ) {
+    if (!current) return;
+    setBusy(true);
+    setFailure(undefined);
+    setNotice(undefined);
+    const path = {
+      id: current.worker_id,
+      digest: entry.digest,
+    };
+    const header = mutation(session?.csrf_token);
+    try {
+      const result =
+        verb === "retry"
+          ? await api.POST(
+              "/api/admin/workers/{id}/voice-engines/{digest}/retry",
+              {
+                params: { path, header },
+                body: { idempotency_key: crypto.randomUUID() },
+              },
+            )
+          : verb === "cancel"
+            ? await api.POST(
+                "/api/admin/workers/{id}/voice-engines/{digest}/cancel",
+                { params: { path, header } },
+              )
+            : await api.POST(
+                "/api/admin/workers/{id}/voice-engines/{digest}/cleanup",
+                { params: { path, header } },
+              );
+      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else if (verb === "cancel")
+        setNotice(
+          "status" in result.data && result.data.status === "cancelling"
+            ? t("workerEngines.action.cancelling")
+            : t("workerEngines.cause.cancelled"),
+        );
+      else if (verb === "cleanup")
+        setNotice(
+          "status" in result.data && result.data.status === "done"
+            ? t("workerEngines.action.cleanupDone")
+            : t("workerEngines.action.cleanupRequested"),
+        );
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+      reloadView();
+    }
+  }
+
   const refusalText = (r: Refusal) => t(`workerEngines.refusal.${r}`);
   const planSummary = (
     <div className="engine-plan" aria-live="polite">
@@ -195,6 +251,7 @@ export function WorkerEngines() {
         <ErrorAlert>{error(view.state.code)}</ErrorAlert>
       )}
       {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
+      {notice && <p role="status">{notice}</p>}
       {outcome.length > 0 && (
         <ErrorAlert>
           {t("workerEngines.someRefused")}
@@ -345,6 +402,17 @@ export function WorkerEngines() {
                         entry={e}
                         checked={picked.includes(e.digest)}
                         selectable={e.state === "failed"}
+                        busy={busy}
+                        keepsPrevious={current.engines.some(
+                          (o) =>
+                            o.engine === e.engine &&
+                            o.digest !== e.digest &&
+                            o.state === "ready",
+                        )}
+                        onRetry={() => void recover(e, "retry")}
+                        onCancel={() => void recover(e, "cancel")}
+                        onCleanup={() => void recover(e, "cleanup")}
+                        onReplace={() => setReplacing(e)}
                         onCheck={(on) =>
                           setPicked((p) =>
                             on
@@ -394,8 +462,9 @@ export function WorkerEngines() {
           </section>
         </div>
       )}
-      {adding && current && (
+      {(adding || replacing) && current && (
         <WorkerEngineAdd
+          replacing={replacing}
           worker={current}
           workers={workers}
           checked={checked}
@@ -404,10 +473,14 @@ export function WorkerEngines() {
             registry.state.status === "failed" ? registry.state.code : undefined
           }
           busy={busy}
-          onClose={() => setAdding(false)}
+          onClose={() => {
+            setAdding(false);
+            setReplacing(undefined);
+          }}
           onOrder={async (items) => {
             await order(items);
             setAdding(false);
+            setReplacing(undefined);
           }}
         />
       )}
@@ -420,23 +493,34 @@ function EngineRow({
   checked,
   selectable,
   onCheck,
+  busy,
+  keepsPrevious,
+  onRetry,
+  onCancel,
+  onCleanup,
+  onReplace,
 }: {
   entry: EngineEntry;
   checked: boolean;
   selectable: boolean;
   onCheck: (on: boolean) => void;
+  busy: boolean;
+  keepsPrevious: boolean;
+  onRetry: () => void;
+  onCancel: () => void;
+  onCleanup: () => void;
+  onReplace: () => void;
 }) {
   const { t } = useI18n();
   const step = engineSteps.indexOf(entry.state as (typeof engineSteps)[number]);
+  const name = `${entry.engine} ${entry.version}`;
   return (
     <div className="engine-row">
       <input
         type="checkbox"
         checked={checked}
         disabled={!selectable}
-        aria-label={t("workerEngines.select", {
-          engine: `${entry.engine} ${entry.version}`,
-        })}
+        aria-label={t("workerEngines.select", { engine: name })}
         onChange={(e) => onCheck(e.target.checked)}
       />
       <div>
@@ -495,6 +579,82 @@ function EngineRow({
             {t(`workerEngines.cause.${entry.cause_code}`)}
           </span>
         )}
+        {entry.state === "failed" && keepsPrevious && (
+          <span className="engine-sub">
+            {t("workerEngines.action.keepsPrevious")}
+          </span>
+        )}
+        {entry.cancel_requested && (
+          <span className="engine-sub">
+            {t("workerEngines.action.cancelling")}
+          </span>
+        )}
+        {entry.cleanup === "requested" && (
+          <span className="engine-sub">
+            {t("workerEngines.action.cleanupRequested")}
+          </span>
+        )}
+        {entry.cleanup === "done" && (
+          <span className="engine-sub">
+            {t("workerEngines.action.cleanupDone")}
+          </span>
+        )}
+        <div className="engine-actions">
+          {inProgress(entry) && !entry.cancel_requested && (
+            <button
+              type="button"
+              className="voice-btn"
+              disabled={busy}
+              aria-label={t("workerEngines.action.cancelLabel", {
+                engine: name,
+              })}
+              onClick={onCancel}
+            >
+              {t("workerEngines.action.cancel")}
+            </button>
+          )}
+          {entry.state === "failed" && (
+            <>
+              {!entry.revoked && (
+                <button
+                  type="button"
+                  className="voice-btn"
+                  disabled={busy}
+                  aria-label={t("workerEngines.action.retryLabel", {
+                    engine: name,
+                  })}
+                  onClick={onRetry}
+                >
+                  {t("workerEngines.action.retry")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="voice-btn"
+                disabled={busy}
+                aria-label={t("workerEngines.action.replaceLabel", {
+                  engine: name,
+                })}
+                onClick={onReplace}
+              >
+                {t("workerEngines.action.replace")}
+              </button>
+              {entry.cleanup === "" && (
+                <button
+                  type="button"
+                  className="voice-btn"
+                  disabled={busy}
+                  aria-label={t("workerEngines.action.cleanupLabel", {
+                    engine: name,
+                  })}
+                  onClick={onCleanup}
+                >
+                  {t("workerEngines.action.cleanup")}
+                </button>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </div>
   );

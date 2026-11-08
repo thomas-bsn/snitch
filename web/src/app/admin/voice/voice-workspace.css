@@ -1106,3 +1106,9 @@
   color: var(--mute);
   font-size: 13px;
 }
+.engine-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}

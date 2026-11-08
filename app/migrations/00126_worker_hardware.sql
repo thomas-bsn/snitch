@@ -18,15 +18,15 @@ CREATE TABLE worker_hardware (
 
 -- Stable causes of a resource failure reported by a Worker.
 ALTER TABLE worker_engine_orders DROP CONSTRAINT worker_engine_orders_cause_code_check;
-ALTER TABLE worker_engine_orders ADD CONSTRAINT worker_engine_orders_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing','platform_incompatible','cuda_incompatible','insufficient_ram','insufficient_vram'));
+ALTER TABLE worker_engine_orders ADD CONSTRAINT worker_engine_orders_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing','cancelled','platform_incompatible','cuda_incompatible','insufficient_ram','insufficient_vram'));
 ALTER TABLE worker_engine_inventory DROP CONSTRAINT worker_engine_inventory_cause_code_check;
-ALTER TABLE worker_engine_inventory ADD CONSTRAINT worker_engine_inventory_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing','platform_incompatible','cuda_incompatible','insufficient_ram','insufficient_vram'));
+ALTER TABLE worker_engine_inventory ADD CONSTRAINT worker_engine_inventory_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing','cancelled','platform_incompatible','cuda_incompatible','insufficient_ram','insufficient_vram'));
 
 -- +goose Down
 UPDATE worker_engine_orders SET cause_code='runtime_incompatible' WHERE cause_code IN ('platform_incompatible','cuda_incompatible','insufficient_ram','insufficient_vram');
 UPDATE worker_engine_inventory SET cause_code='runtime_incompatible' WHERE cause_code IN ('platform_incompatible','cuda_incompatible','insufficient_ram','insufficient_vram');
 ALTER TABLE worker_engine_inventory DROP CONSTRAINT worker_engine_inventory_cause_code_check;
-ALTER TABLE worker_engine_inventory ADD CONSTRAINT worker_engine_inventory_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing'));
+ALTER TABLE worker_engine_inventory ADD CONSTRAINT worker_engine_inventory_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing','cancelled'));
 ALTER TABLE worker_engine_orders DROP CONSTRAINT worker_engine_orders_cause_code_check;
-ALTER TABLE worker_engine_orders ADD CONSTRAINT worker_engine_orders_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing'));
+ALTER TABLE worker_engine_orders ADD CONSTRAINT worker_engine_orders_cause_code_check CHECK (cause_code IN ('','disk_full','runtime_incompatible','hf_network','invalid_order','runtime_missing','cancelled'));
 DROP TABLE worker_hardware;

@@ -34,6 +34,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ce Worker n’a pas assez de mémoire vidéo (VRAM) pour cet engine.",
   insufficient_disk:
     "Ce Worker n’a pas assez de disque libre, ordres en cours compris.",
+  engine_not_failed:
+    "Cette installation d’engine n’est pas en échec : elle ne peut être ni relancée ni nettoyée.",
+  engine_order_not_cancellable:
+    "Cette installation d’engine est déjà terminée : elle ne peut plus être annulée.",
+  engine_order_not_found:
+    "Aucune installation de cette version n’est enregistrée sur ce Worker.",
 
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_required:

@@ -3791,6 +3791,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/voice-engines/{digest}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : recommande la même version sur ce Worker, uniquement depuis l'état failed. Nouvelle génération, idempotente sous sa clé ; refusée tant qu'un ordre est ouvert. */
+    post: operations["retryWorkerEngineInstall"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-engines/{digest}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : annule une installation. Un ordre non acquitté est annulé aussitôt (cancelled) ; un ordre en cours est marqué, livré au prochain relevé et confirmé par le Worker à son prochain point sûr (cancelling). Répéter la demande est sans effet. */
+    post: operations["cancelWorkerEngineInstall"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-engines/{digest}/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : demande explicitement au Worker de supprimer les fichiers incomplets d'une installation échouée ou annulée de cette version. Refusée pour une version prête ou un ordre ouvert ; ne supprime ni modèle ni runtime validé. */
+    post: operations["cleanupWorkerEngineInstall"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-engines/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker confirme qu'il a exécuté un nettoyage demandé (fichiers supprimés ou rien à supprimer). Rejouer la confirmation est sans effet ; une confirmation non demandée est refusée. */
+    post: operations["postWorkerEngineCleanup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5187,6 +5255,8 @@ export interface components {
       orders: components["schemas"]["WorkerModelOrder"][];
       /** @description Ordres d'installation de runtimes ; un Worker plus ancien ignore cette liste. */
       engine_orders?: components["schemas"]["EngineOrder"][];
+      /** @description Nettoyages explicitement demandés des fichiers incomplets d'une installation échouée ou annulée ; un Worker plus ancien ignore cette liste. */
+      engine_cleanups?: components["schemas"]["EngineCleanup"][];
     };
     FingerprintTransitionInput: {
       to_model_id: string;
@@ -7410,6 +7480,8 @@ export interface components {
       runtime: components["schemas"]["VoiceEngineManifest"];
       /** Format: date-time */
       created_at: string;
+      /** @description Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme par un rapport failed/cancelled. */
+      cancel_requested?: boolean;
     };
     VoiceEngineOrderResult: {
       worker_id: string;
@@ -7442,7 +7514,8 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "cancelled";
       /** Format: int64 */
       generation: number;
       /** @description Rapport tardif ignoré et journalisé. */
@@ -7475,7 +7548,8 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "cancelled";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -7488,6 +7562,13 @@ export interface components {
       /** Format: date-time */
       updated_at: string;
       history: components["schemas"]["WorkerEngineHistoryEntry"][];
+      /** @description Annulation demandée, pas encore confirmée par le Worker. */
+      cancel_requested: boolean;
+      /**
+       * @description Nettoyage explicite des fichiers incomplets : non demandé, demandé ou confirmé.
+       * @enum {string}
+       */
+      cleanup: "" | "requested" | "done";
     };
     WorkerEnginesRow: {
       worker_id: string;
@@ -7554,7 +7635,8 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "cancelled";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */
@@ -7567,6 +7649,23 @@ export interface components {
         engine: string;
         local_identity: string;
       }[];
+    };
+    EngineRetryInput: {
+      idempotency_key: string;
+    };
+    EngineRecoveryResult: {
+      /** @enum {string} */
+      status: "cancelled" | "cancelling" | "requested" | "done";
+    };
+    EngineCleanupReport: {
+      order_id: string;
+      digest: string;
+      removed: boolean;
+    };
+    EngineCleanup: {
+      order_id: string;
+      digest: string;
+      runtime: components["schemas"]["VoiceEngineManifest"];
     };
   };
   responses: never;
@@ -18255,6 +18354,158 @@ export interface operations {
     };
     responses: {
       /** @description Inventaire réconcilié */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryWorkerEngineInstall: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EngineRetryInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineOrder"];
+        };
+      };
+      /** @description Nouvel ordre */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineOrder"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelWorkerEngineInstall: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineRecoveryResult"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cleanupWorkerEngineInstall: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat (requested ou done) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineRecoveryResult"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerEngineCleanup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EngineCleanupReport"];
+      };
+    };
+    responses: {
+      /** @description Confirmation enregistrée */
       204: {
         headers: {
           [name: string]: unknown;

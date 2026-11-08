@@ -1,6 +1,7 @@
 from enum import StrEnum
 
 class WorkerEngineStatusCauseCode(StrEnum):
+    CANCELLED = "cancelled"
     CUDA_INCOMPATIBLE = "cuda_incompatible"
     DISK_FULL = "disk_full"
     HF_NETWORK = "hf_network"

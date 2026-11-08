@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.worker_engine_cause_code import WorkerEngineCauseCode
+from ..models.worker_engine_cleanup import WorkerEngineCleanup
 from ..models.worker_engine_state import WorkerEngineState
 from typing import cast
 import datetime
@@ -42,6 +43,8 @@ class WorkerEngine:
             author_name (str):
             updated_at (datetime.datetime):
             history (list[WorkerEngineHistoryEntry]):
+            cancel_requested (bool): Annulation demandée, pas encore confirmée par le Worker.
+            cleanup (WorkerEngineCleanup): Nettoyage explicite des fichiers incomplets : non demandé, demandé ou confirmé.
      """
 
     digest: str
@@ -58,6 +61,8 @@ class WorkerEngine:
     author_name: str
     updated_at: datetime.datetime
     history: list[WorkerEngineHistoryEntry]
+    cancel_requested: bool
+    cleanup: WorkerEngineCleanup
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -99,6 +104,10 @@ class WorkerEngine:
 
 
 
+        cancel_requested = self.cancel_requested
+
+        cleanup = self.cleanup.value
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -117,6 +126,8 @@ class WorkerEngine:
             "author_name": author_name,
             "updated_at": updated_at,
             "history": history,
+            "cancel_requested": cancel_requested,
+            "cleanup": cleanup,
         })
 
         return field_dict
@@ -172,6 +183,13 @@ class WorkerEngine:
             history.append(history_item)
 
 
+        cancel_requested = d.pop("cancel_requested")
+
+        cleanup = WorkerEngineCleanup(d.pop("cleanup"))
+
+
+
+
         worker_engine = cls(
             digest=digest,
             engine=engine,
@@ -187,6 +205,8 @@ class WorkerEngine:
             author_name=author_name,
             updated_at=updated_at,
             history=history,
+            cancel_requested=cancel_requested,
+            cleanup=cleanup,
         )
 
 
