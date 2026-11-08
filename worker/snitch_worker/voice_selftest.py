@@ -63,7 +63,8 @@ def embed_synthetic(provider: Any) -> None:
             audio = provider._audio_opener()(path)
             seconds = audio.num_samples / audio.sample_rate
             vector = audio(0.0, min(2.0, seconds))
-            other = audio(seconds / 3, seconds)
+            end = (audio.num_samples - 1) / audio.sample_rate
+            other = audio(seconds / 3, end)
         except VoiceProviderUnavailable:
             raise
         except Exception:  # noqa: BLE001 - a library message never travels
