@@ -12,9 +12,13 @@ import (
 // requestedModelClaimGuard is the Claim condition for the requested model of a job (ADR 0038, benchmark). It is
 // the Worker $4 that must hold the requested model, in the real state it reported (ready, not being removed),
 // whatever it declares. A job without a requested model is not concerned here: the active model rule applies.
-const requestedModelClaimGuard = `(j.requested_model_id IS NULL OR EXISTS (
-		      SELECT 1 FROM worker_voice_models wm
-		      WHERE wm.worker_id=$4::text AND wm.model_id=j.requested_model_id AND wm.state='ready' AND NOT wm.removal_requested))`
+//
+// Since #350 the model also needs its pinned revision and, for an engine that needs one, its approved runtime
+// ready on that same Worker (RuntimeReadyClause).
+var requestedModelClaimGuard = `(j.requested_model_id IS NULL OR EXISTS (
+		      SELECT 1 FROM worker_voice_models wm JOIN voice_model_catalog rm ON rm.id=wm.model_id
+		      WHERE wm.worker_id=$4::text AND wm.model_id=j.requested_model_id AND wm.state='ready' AND NOT wm.removal_requested
+		        AND ` + RuntimeReadyClause("wm", "rm") + `))`
 
 // checkRequestedModel accepts a request only for a fingerprint step and a supported, enabled catalogue model of
 // that kind. Another kind could replace the production result of the clip (a diarization replaces the local
