@@ -286,6 +286,7 @@ test("une colonne très chargée n'affiche d'abord qu'une fenêtre de cartes et 
   });
   const queue = {
     active: Array.from({ length: 130 }, (_, i) => run(i + 1)),
+    awaiting_review: [],
     completed: [],
     tasks: [],
     summary: {
@@ -600,6 +601,7 @@ test("toutes les colonnes, une étape inconnue et une tâche non suivie restent 
         step("sorcery", "waiting", { reason: "mystery" }),
       ]),
     ],
+    awaiting_review: [],
     completed: [
       run(9007, "completed", [done("preparation"), done("transcription")]),
     ],

@@ -232,7 +232,10 @@ func testAdminQueueHistory(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPost, "/api/admin/jobs", map[string]any{"clip_id": h.clipID, "step": "transcription.audio.1", "input_version": "v1"}, http.StatusCreated)
 }
 
-// The "voices to check" badge follows the voices the clip really has left, not the run status.
+// A finished clip with voices still to decide is awaiting human review, not completed: it leaves
+// "completed" for "awaiting_review" while the run status stays 'completed', and comes back as soon
+// as no voice is left (validated, attributed automatically, ignored or random). Suggestions,
+// ambiguous and unknown voices all count.
 func testAdminQueuePendingVoices(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	ctx := t.Context()
@@ -240,38 +243,86 @@ func testAdminQueuePendingVoices(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(ctx, `UPDATE clip_analysis_runs SET status='completed', finished_at=now() WHERE clip_id=$1`, h.clipID); err != nil {
 		t.Fatal(err)
 	}
-	pending := func() int {
+	type run struct {
+		ClipID        int64  `json:"clip_id"`
+		Status        string `json:"status"`
+		PendingVoices int    `json:"pending_voices"`
+	}
+	buckets := func() (completed, awaiting []run) {
 		var q struct {
-			Completed []struct {
-				PendingVoices int `json:"pending_voices"`
-			} `json:"completed"`
+			Completed      []run `json:"completed"`
+			AwaitingReview []run `json:"awaiting_review"`
 		}
-		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/queue", nil, http.StatusOK), &q); err != nil || len(q.Completed) != 1 {
-			t.Fatalf("%v %+v", err, q)
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/analysis/queue", nil, http.StatusOK), &q); err != nil {
+			t.Fatal(err)
 		}
-		if run := h.analysis(); run == nil || run.PendingVoices != q.Completed[0].PendingVoices {
-			t.Fatalf("the clip page and the queue must agree on the voices to check: %+v vs %d", run, q.Completed[0].PendingVoices)
-		}
-		return q.Completed[0].PendingVoices
+		return q.Completed, q.AwaitingReview
 	}
-	if got := pending(); got != 0 {
-		t.Fatalf("no voice left, fully identified: %d", got)
+	expect := func(label string, wantCompleted, wantAwaiting, pendingVoices int) {
+		t.Helper()
+		completed, awaiting := buckets()
+		if len(completed) != wantCompleted || len(awaiting) != wantAwaiting {
+			t.Fatalf("%s: completed=%+v awaiting_review=%+v", label, completed, awaiting)
+		}
+		var got run
+		if len(awaiting) == 1 {
+			got = awaiting[0]
+		} else {
+			got = completed[0]
+		}
+		if got.Status != "completed" || got.PendingVoices != pendingVoices {
+			t.Fatalf("%s: the run keeps its status and counts its voices: %+v", label, got)
+		}
+		if view := h.analysis(); view == nil || view.PendingVoices != pendingVoices {
+			t.Fatalf("%s: the clip page and the queue must agree on the voices to check: %+v", label, view)
+		}
 	}
-	var job, speaker int64
+	expect("no voice", 1, 0, 0)
+
+	var job int64
 	if err := pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,status) VALUES($1,'voice.diarization.2','pv','done') RETURNING id`, h.clipID).Scan(&job); err != nil {
 		t.Fatal(err)
 	}
-	if err := pool.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) VALUES($1,2,$2,'SPEAKER_00',0,2,1) RETURNING id`, h.clipID, job).Scan(&speaker); err != nil {
+	speaker := func(ordinal int) int64 {
+		var id int64
+		if err := pool.QueryRow(ctx, `INSERT INTO local_speakers(clip_id,audio_stream_index,diarization_job_id,label,ordinal,speaking_seconds,turn_count) VALUES($1,2,$2,'SPEAKER_0'||$3::int::text,$3::int,2,1) RETURNING id`, h.clipID, job, ordinal).Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	var person int64
+	if err := pool.QueryRow(ctx, `INSERT INTO persons(display_name) VALUES('Synthetic') RETURNING id`).Scan(&person); err != nil {
 		t.Fatal(err)
 	}
-	if got := pending(); got != 1 {
-		t.Fatalf("an unknown voice leaves the run partially identified: %d", got)
+	attribute := func(speaker int64, level string) {
+		var personID any
+		if level == "suggestion" || level == "automatic" {
+			personID = person
+		}
+		if _, err := pool.Exec(ctx, `INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,origin) VALUES($1,$2,$3,'unvalidated','test')`, speaker, personID, level); err != nil {
+			t.Fatal(err)
+		}
 	}
-	// An automatic attribution settles the voice, as in the Verification list.
-	if _, err := pool.Exec(ctx, `WITH p AS (INSERT INTO persons(display_name) VALUES('Synthetic') RETURNING id) INSERT INTO speaker_attributions(local_speaker_id,person_id,decision_level,validation_state,origin) SELECT $1,id,'automatic','unvalidated','test' FROM p`, speaker); err != nil {
+
+	unknown, ambiguous, suggested := speaker(0), speaker(1), speaker(2)
+	attribute(ambiguous, "ambiguous")
+	attribute(suggested, "suggestion")
+	expect("unknown, ambiguous and suggested voices", 0, 1, 3)
+
+	if _, err := pool.Exec(ctx, `UPDATE speaker_attributions SET person_id=$2,decision_level='automatic' WHERE local_speaker_id=$1`, suggested, person); err != nil {
 		t.Fatal(err)
 	}
-	if got := pending(); got != 0 {
-		t.Fatalf("an attributed voice is no longer pending: %d", got)
+	expect("a suggestion attributed automatically", 0, 1, 2)
+	if _, err := pool.Exec(ctx, `INSERT INTO local_speaker_dispositions(local_speaker_id,disposition) VALUES($1,'ignored')`, ambiguous); err != nil {
+		t.Fatal(err)
 	}
+	expect("an ignored voice", 0, 1, 1)
+	attribute(unknown, "automatic")
+	expect("the last voice decided", 1, 0, 0)
+
+	// Re-matching that brings a suggestion back reopens the review without a new analysis.
+	if _, err := pool.Exec(ctx, `UPDATE speaker_attributions SET decision_level='suggestion' WHERE local_speaker_id=$1`, unknown); err != nil {
+		t.Fatal(err)
+	}
+	expect("a re-matched suggestion", 0, 1, 1)
 }

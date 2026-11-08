@@ -191,6 +191,8 @@ export const fr: Messages = {
       branchVoices: "Branche voix",
       voicesToCheck: "Voix à vérifier ({n})",
       partiallyIdentified: "Partiellement identifié",
+      awaitingReview: "En attente de revue",
+      reviewVoices: "Vérifier les voix",
       identified: "Voix identifiées",
       timeline: {
         label: "Événements de l’étape {step}",
@@ -1614,7 +1616,10 @@ export const fr: Messages = {
       image_pull_failed: "L’image n’a pas pu être téléchargée.",
       digest_unknown:
         "L’empreinte de l’image est inconnue ; elle n’a pas été lancée.",
-      target_mismatch: "La cible n’est pas une image du dépôt de ce Worker.",
+      target_mismatch:
+        "La cible n’est pas une image du dépôt de ce Worker. Si le dépôt est correct, ce Worker exécute un updater obsolète : générez une nouvelle commande d’installation et lancez-la une fois sur la machine du Worker (modèles et jeton conservés).",
+      updater_update_failed:
+        "L’updater n’a pas pu se mettre à jour ; il continue avec sa version actuelle.",
       unhealthy:
         "La nouvelle version a redémarré ou s’est arrêtée ; la précédente a été restaurée.",
       rollback_failed:
@@ -2298,7 +2303,11 @@ export const fr: Messages = {
       analysisQueued: "{count} analyses demandées.",
       analysisPending:
         "{count} analyses demandées, {pending} vidéos sont encore en cours d'indexation : réessayez dans un instant.",
+      analysisPendingPartial:
+        "{count} analyses demandées, {failed} refusées, {pending} vidéos sont encore en cours d'indexation : réessayez dans un instant.",
       analysisPartial: "{count} analyses demandées, {failed} refusées.",
+      analysisAborted:
+        "Analyse interrompue : le serveur a refusé la demande ({code}). {count} analyses demandées avant l’arrêt ; relancez après correction, sans doublon.",
     },
     deletedOwner: "Utilisateur supprimé",
     count: "{count} clips",

@@ -367,6 +367,7 @@ def _require_response(value: Any, operation: str) -> Any:
         raise WorkerUnauthorized(f"worker API {operation} refused the token")
     if value is None or isinstance(value, Error):
         code = value.error if isinstance(value, Error) and isinstance(value.error, str) else ""
+        log.emit(logging.ERROR, "worker_api_rejected", operation=operation, api_code=code or "empty_response")
         raise ApiError(operation, code)
     return value
 

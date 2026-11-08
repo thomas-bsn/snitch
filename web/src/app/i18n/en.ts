@@ -184,6 +184,8 @@ export const en = {
       branchVoices: "Voice branch",
       voicesToCheck: "Voices to check ({n})",
       partiallyIdentified: "Partially identified",
+      awaitingReview: "Awaiting review",
+      reviewVoices: "Review voices",
       identified: "Voices identified",
       timeline: {
         label: "Events of the step {step}",
@@ -1581,7 +1583,9 @@ export const en = {
       image_pull_failed: "The image could not be downloaded.",
       digest_unknown: "The image digest is unknown; it was not run.",
       target_mismatch:
-        "The target is not an image of this Worker's repository.",
+        "The target is not an image of this Worker's repository. If the repository is correct, this Worker runs an outdated updater: generate a new install command and run it once on the Worker machine (models and token are kept).",
+      updater_update_failed:
+        "The updater could not refresh itself; it keeps running its current version.",
       unhealthy:
         "The new version restarted or stopped; the previous one was restored.",
       rollback_failed:
@@ -2254,7 +2258,11 @@ export const en = {
       analysisQueued: "{count} analyses requested.",
       analysisPending:
         "{count} analyses requested, {pending} videos are still being indexed: try again in a moment.",
+      analysisPendingPartial:
+        "{count} analyses requested, {failed} refused, {pending} videos are still being indexed: try again in a moment.",
       analysisPartial: "{count} analyses requested, {failed} refused.",
+      analysisAborted:
+        "Analysis stopped: the server refused the request ({code}). {count} analyses were requested before the stop; run it again once fixed, nothing is duplicated.",
     },
     deletedOwner: "Deleted user",
     count: "{count} clips",

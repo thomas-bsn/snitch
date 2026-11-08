@@ -60,8 +60,10 @@ func (s *Server) createWorkerInstallCommandWithSupervisor(ctx context.Context, w
 	if origin.Scheme == "http" {
 		proto = "=http,https"
 	}
-	// The launcher is kept only once downloaded: rerunning the command reuses it, a failed download needs a new invitation.
-	return fmt.Sprintf(`bash -c 'set -euo pipefail; d="%s"; mkdir -p "$d"; chmod 700 "$d"; if [ ! -s "$d/install.sh" ]; then umask 077; curl -fsS --proto "%s" --tlsv1.2 %q -o "$d/install.sh.tmp"; mv "$d/install.sh.tmp" "$d/install.sh"; fi; bash "$d/install.sh"'`, dir, proto, endpoint), "", nil
+	// A new invitation always fetches the current launcher, which embeds the current updater: a kept launcher from an old
+	// install would otherwise reinstall the old updater. The invitation is single-use, so a rerun of the same command
+	// fails to download (410) and falls back to the launcher kept by the first run.
+	return fmt.Sprintf(`bash -c 'set -euo pipefail; d="%s"; mkdir -p "$d"; chmod 700 "$d"; umask 077; if curl -fsS --proto "%s" --tlsv1.2 %q -o "$d/install.sh.tmp"; then mv "$d/install.sh.tmp" "$d/install.sh"; else rm -f "$d/install.sh.tmp"; [ -s "$d/install.sh" ]; fi; bash "$d/install.sh"'`, dir, proto, endpoint), "", nil
 }
 
 // workerUpdaterScript is the local updater the launcher installs (ADR 0036); it is static, no template.

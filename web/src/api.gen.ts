@@ -2013,7 +2013,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les trois derniers clips distincts dont le traitement automatique est terminé, classés par fin ; les tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence), avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET /api/admin/analysis/queue/events. */
+    /** @description Administrateurs. Une entrée par analyse (active, ou échouée et non remplacée), sans pagination ; les clips au traitement terminé qui attendent encore une décision humaine sur une voix (awaiting_review, sans limite) ; les trois derniers clips distincts dont le traitement automatique est terminé et qui n'en attendent aucune, classés par fin ; les tâches non terminées, mortes ou en échec qu'aucune analyse ne suit (jamais supprimées en silence), avec leur Cause d'échec et l'action conseillée ; un résumé de charge (summary). Repli du flux GET /api/admin/analysis/queue/events. */
     get: operations["getAnalysisQueue"];
     put?: never;
     post?: never;
@@ -3872,6 +3872,8 @@ export interface components {
     AnalysisQueue: {
       summary: components["schemas"]["AnalysisQueueSummary"];
       active: components["schemas"]["AnalysisQueueRun"][];
+      /** @description Clips dont le traitement automatique est terminé mais qui ont encore une voix à valider, identifier ou écarter (awaiting_human_review), sans limite : une action humaine est due. Le statut de l'exécution reste completed ; le clip passe dans completed dès qu'aucune voix n'attend de décision. */
+      awaiting_review: components["schemas"]["AnalysisQueueRun"][];
       completed: components["schemas"]["AnalysisQueueRun"][];
       tasks: components["schemas"]["AnalysisQueueTask"][];
     };
@@ -3881,6 +3883,7 @@ export interface components {
       active_ids: number[];
       /** @description Les exécutions de active_ids nouvelles ou modifiées depuis l'état précédent. */
       active: components["schemas"]["AnalysisQueueRun"][];
+      awaiting_review: components["schemas"]["AnalysisQueueRun"][];
       completed: components["schemas"]["AnalysisQueueRun"][];
       tasks: components["schemas"]["AnalysisQueueTask"][];
       summary: components["schemas"]["AnalysisQueueSummary"];

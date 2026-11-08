@@ -46,6 +46,24 @@ code=$(printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -sS --max-
 [ "$code" = 200 ] || exit 0
 target=$(sed -n 's/.*"target_image":"\([^"]*\)".*/\1/p' "$resp" | head -n1)
 version=$(sed -n 's/.*"target_version":"\([^"]*\)".*/\1/p' "$resp" | head -n1)
+# Self-refresh: Snitch announces the sha256 of the updater Workers should run. A different script is downloaded with the
+# Worker's token, accepted only if it matches the announced hash and parses, then swapped in atomically. A failure never
+# blocks the release update below. worker.env, the token, the volume and the container are not touched.
+sha256_of() { { sha256sum "$1" 2>/dev/null || shasum -a 256 "$1" 2>/dev/null; } | cut -d' ' -f1; }
+announced=$(sed -n 's/.*"updater_sha256":"\([a-f0-9]\{64\}\)".*/\1/p' "$resp" | head -n1)
+if [ -n "$announced" ] && [ -z "${SNITCH_UPDATER_REFRESHED:-}" ] && [ "$(sha256_of "$0")" != "$announced" ]; then
+ fresh="$dir/updater.sh.new"
+ rm -f "$fresh"
+ if printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -sS --max-time 30 -K - -o "$fresh" "$api_url/api/worker/updater" >/dev/null 2>&1 \
+   && [ "$(sha256_of "$fresh")" = "$announced" ] && bash -n "$fresh" 2>/dev/null && chmod 700 "$fresh" && mv "$fresh" "$dir/updater.sh"; then
+  # Continue with the new script: release the lock first, the new process takes it. The flag prevents a loop.
+  rmdir "$lock" 2>/dev/null || true; rm -f "$resp"; trap - EXIT
+  SNITCH_UPDATER_REFRESHED=1 exec bash "$dir/updater.sh"
+ fi
+ rm -f "$fresh"
+ # Report only when a release update is pending: a current Worker must not be left showing Failed.
+ if [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] && [ -n "$target" ] && [ "$target" != "$current" ]; then report failed "$version" "" updater_update_failed; fi
+fi
 [ -n "$target" ] && [ -n "$version" ] || exit 0
 
 # Only a released version of the same repository as the installed image is accepted.

@@ -31,6 +31,7 @@ class AnalysisQueueDelta:
         Attributes:
             active_ids (list[int]): Toutes les exécutions actives, dans l'ordre de la file.
             active (list[AnalysisQueueRun]): Les exécutions de active_ids nouvelles ou modifiées depuis l'état précédent.
+            awaiting_review (list[AnalysisQueueRun]):
             completed (list[AnalysisQueueRun]):
             tasks (list[AnalysisQueueTask]):
             summary (AnalysisQueueSummary): Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les
@@ -39,6 +40,7 @@ class AnalysisQueueDelta:
 
     active_ids: list[int]
     active: list[AnalysisQueueRun]
+    awaiting_review: list[AnalysisQueueRun]
     completed: list[AnalysisQueueRun]
     tasks: list[AnalysisQueueTask]
     summary: AnalysisQueueSummary
@@ -60,6 +62,13 @@ class AnalysisQueueDelta:
         for active_item_data in self.active:
             active_item = active_item_data.to_dict()
             active.append(active_item)
+
+
+
+        awaiting_review = []
+        for awaiting_review_item_data in self.awaiting_review:
+            awaiting_review_item = awaiting_review_item_data.to_dict()
+            awaiting_review.append(awaiting_review_item)
 
 
 
@@ -85,6 +94,7 @@ class AnalysisQueueDelta:
         field_dict.update({
             "active_ids": active_ids,
             "active": active,
+            "awaiting_review": awaiting_review,
             "completed": completed,
             "tasks": tasks,
             "summary": summary,
@@ -111,6 +121,16 @@ class AnalysisQueueDelta:
 
 
             active.append(active_item)
+
+
+        awaiting_review = []
+        _awaiting_review = d.pop("awaiting_review")
+        for awaiting_review_item_data in (_awaiting_review):
+            awaiting_review_item = AnalysisQueueRun.from_dict(awaiting_review_item_data)
+
+
+
+            awaiting_review.append(awaiting_review_item)
 
 
         completed = []
@@ -141,6 +161,7 @@ class AnalysisQueueDelta:
         analysis_queue_delta = cls(
             active_ids=active_ids,
             active=active,
+            awaiting_review=awaiting_review,
             completed=completed,
             tasks=tasks,
             summary=summary,

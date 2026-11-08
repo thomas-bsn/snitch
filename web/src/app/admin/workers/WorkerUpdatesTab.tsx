@@ -39,6 +39,8 @@ function causeKey(cause: string): MessageKey | undefined {
       return "workerUpdates.causes.digest_unknown";
     case "target_mismatch":
       return "workerUpdates.causes.target_mismatch";
+    case "updater_update_failed":
+      return "workerUpdates.causes.updater_update_failed";
     case "unhealthy":
       return "workerUpdates.causes.unhealthy";
     case "rollback_failed":
