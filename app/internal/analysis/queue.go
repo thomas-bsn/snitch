@@ -22,15 +22,21 @@ const NoDispositionVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions
 
 // UnknownSpeakerPredicate selects (alias ls) the diarized voices no one has validated or
 // automatically attributed, and that are not set aside as ignored or random (ADR 0031).
-// PendingVoiceCondition is the voices that still await a decision: unknown, ambiguous or merely
-// suggested (a suggestion stays unknown until a user decides). The Verification list, the
-// speaker-review notification and the Task Queue's awaiting-review state use the same one.
+// PendingVoiceCondition narrows them to those that still await a decision: unknown or ambiguous
+// (the speaker-review notification; a suggestion no longer asks for one there). ReviewVoiceCondition
+// keeps the suggestions too, for the Task Queue.
 const UnknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic')) AND ` + NoDispositionVoice
 
-const PendingVoiceCondition = UnknownSpeakerPredicate
+const PendingVoiceCondition = UnknownSpeakerPredicate + `
+AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='unvalidated'),'unknown') IN ('unknown','ambiguous')`
 
-// hasPendingVoice is true (alias r, a run) when its clip has a voice awaiting a decision.
-const hasPendingVoice = `EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=r.clip_id AND ` + PendingVoiceCondition + `)`
+// ReviewVoiceCondition is the voices a human must still decide for the Task Queue: every
+// UnknownSpeakerPredicate voice, a suggestion included (it stays unknown until a user decides, as
+// in the Verification list). It drives the awaiting-review state and the pending_voices count.
+const ReviewVoiceCondition = UnknownSpeakerPredicate
+
+// hasPendingVoice is true (alias r, a run) when its clip has a voice awaiting a human decision.
+const hasPendingVoice = `EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=r.clip_id AND ` + ReviewVoiceCondition + `)`
 
 // HistoryPageSize is the page of the durable run history.
 const HistoryPageSize = 10
@@ -264,9 +270,9 @@ WHERE sf.clip_id=ANY($1) AND sf.status<>'missing' ORDER BY sf.clip_id,cs.name,sf
 	return nil
 }
 
-// pendingVoices counts, per clip, the voices still awaiting a decision (PendingVoiceCondition).
+// pendingVoices counts, per clip, the voices still awaiting a human decision (ReviewVoiceCondition).
 func (s *Service) pendingVoices(ctx context.Context, clips []int64) (map[int64]int, error) {
-	rows, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+PendingVoiceCondition+` GROUP BY ls.clip_id`, clips)
+	rows, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+ReviewVoiceCondition+` GROUP BY ls.clip_id`, clips)
 	if err != nil {
 		return nil, fmt.Errorf("count pending voices: %w", err)
 	}
