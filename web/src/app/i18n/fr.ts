@@ -172,6 +172,8 @@ export const fr: Messages = {
       branchVoices: "Branche voix",
       voicesToCheck: "Voix à vérifier ({n})",
       partiallyIdentified: "Partiellement identifié",
+      awaitingReview: "En attente de revue",
+      reviewVoices: "Vérifier les voix",
       identified: "Voix identifiées",
       timeline: {
         label: "Événements de l’étape {step}",

@@ -73,6 +73,7 @@ export function QueueTab() {
       }
       setQueue({
         active,
+        awaiting_review: delta.awaiting_review,
         completed: delta.completed,
         tasks: delta.tasks,
         summary: delta.summary,

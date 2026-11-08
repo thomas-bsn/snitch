@@ -22,12 +22,21 @@ const NoDispositionVoice = `NOT EXISTS (SELECT 1 FROM local_speaker_dispositions
 
 // UnknownSpeakerPredicate selects (alias ls) the diarized voices no one has validated or
 // automatically attributed, and that are not set aside as ignored or random (ADR 0031).
-// PendingVoiceCondition narrows them to those that still await a decision (the Verification
-// list and the speaker-review notification use the same one).
+// PendingVoiceCondition narrows them to those that still await a decision: unknown or ambiguous
+// (the speaker-review notification; a suggestion no longer asks for one there). ReviewVoiceCondition
+// keeps the suggestions too, for the Task Queue.
 const UnknownSpeakerPredicate = `ls.kind='diarized' AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND (a.validation_state='validated' OR a.decision_level='automatic')) AND ` + NoDispositionVoice
 
 const PendingVoiceCondition = UnknownSpeakerPredicate + `
 AND COALESCE((SELECT a.decision_level FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='unvalidated'),'unknown') IN ('unknown','ambiguous')`
+
+// ReviewVoiceCondition is the voices a human must still decide for the Task Queue: every
+// UnknownSpeakerPredicate voice, a suggestion included (it stays unknown until a user decides, as
+// in the Verification list). It drives the awaiting-review state and the pending_voices count.
+const ReviewVoiceCondition = UnknownSpeakerPredicate
+
+// hasPendingVoice is true (alias r, a run) when its clip has a voice awaiting a human decision.
+const hasPendingVoice = `EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.clip_id=r.clip_id AND ` + ReviewVoiceCondition + `)`
 
 // HistoryPageSize is the page of the durable run history.
 const HistoryPageSize = 10
@@ -105,7 +114,11 @@ type Queue struct {
 	// Active lists the runs that still need attention: running, waiting, blocked, failed or
 	// cancelled (never counted as finished, planned again to leave), and not superseded by a newer run of the same clip.
 	Active []QueueRun `json:"active"`
-	// Completed lists the last clips whose automatic processing finished.
+	// AwaitingReview lists every clip whose automatic processing finished but that still has a
+	// voice to validate, identify or set aside (awaiting_human_review): never limited, since a
+	// human action is owed. The run status stays completed; a clip leaves as soon as no voice is left.
+	AwaitingReview []QueueRun `json:"awaiting_review"`
+	// Completed lists the last clips whose automatic processing finished and that owe no human action.
 	Completed []QueueRun `json:"completed"`
 	// Tasks lists the unfinished jobs that no listed run follows.
 	Tasks []QueueJob `json:"tasks"`
@@ -122,10 +135,11 @@ type QueueDelta struct {
 	// ActiveIDs lists every active run, in the order of the queue.
 	ActiveIDs []int64 `json:"active_ids"`
 	// Active holds the runs of ActiveIDs that are new or differ from the previous snapshot.
-	Active    []QueueRun   `json:"active"`
-	Completed []QueueRun   `json:"completed"`
-	Tasks     []QueueJob   `json:"tasks"`
-	Summary   QueueSummary `json:"summary"`
+	Active         []QueueRun   `json:"active"`
+	AwaitingReview []QueueRun   `json:"awaiting_review"`
+	Completed      []QueueRun   `json:"completed"`
+	Tasks          []QueueJob   `json:"tasks"`
+	Summary        QueueSummary `json:"summary"`
 }
 
 // DeltaFrom compares the queue with a previous snapshot.
@@ -134,7 +148,7 @@ func (q Queue) DeltaFrom(previous Queue) QueueDelta {
 	for i := range previous.Active {
 		before[previous.Active[i].ID] = &previous.Active[i]
 	}
-	d := QueueDelta{ActiveIDs: make([]int64, 0, len(q.Active)), Active: []QueueRun{}, Completed: q.Completed, Tasks: q.Tasks, Summary: q.Summary}
+	d := QueueDelta{ActiveIDs: make([]int64, 0, len(q.Active)), Active: []QueueRun{}, AwaitingReview: q.AwaitingReview, Completed: q.Completed, Tasks: q.Tasks, Summary: q.Summary}
 	for i := range q.Active {
 		run := &q.Active[i]
 		d.ActiveIDs = append(d.ActiveIDs, run.ID)
@@ -256,9 +270,9 @@ WHERE sf.clip_id=ANY($1) AND sf.status<>'missing' ORDER BY sf.clip_id,cs.name,sf
 	return nil
 }
 
-// pendingVoices counts, per clip, the voices still awaiting a decision (PendingVoiceCondition).
+// pendingVoices counts, per clip, the voices still awaiting a human decision (ReviewVoiceCondition).
 func (s *Service) pendingVoices(ctx context.Context, clips []int64) (map[int64]int, error) {
-	rows, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+PendingVoiceCondition+` GROUP BY ls.clip_id`, clips)
+	rows, err := s.pool.Query(ctx, `SELECT ls.clip_id,count(*)::int FROM local_speakers ls WHERE ls.clip_id=ANY($1) AND `+ReviewVoiceCondition+` GROUP BY ls.clip_id`, clips)
 	if err != nil {
 		return nil, fmt.Errorf("count pending voices: %w", err)
 	}
@@ -347,7 +361,10 @@ func (s *Service) Queue(ctx context.Context) (Queue, error) {
 	if q.Active, err = s.queueRuns(ctx, `r.status IN ('active','failed','cancelled')`, `r.created_at,r.id`, 0); err != nil {
 		return q, err
 	}
-	if q.Completed, err = s.queueRuns(ctx, `r.status='completed'`, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
+	if q.AwaitingReview, err = s.queueRuns(ctx, `r.status='completed' AND `+hasPendingVoice, `r.finished_at DESC NULLS LAST,r.id DESC`, 0); err != nil {
+		return q, err
+	}
+	if q.Completed, err = s.queueRuns(ctx, `r.status='completed' AND NOT `+hasPendingVoice, `r.finished_at DESC NULLS LAST,r.id DESC`, CompletedRuns); err != nil {
 		return q, err
 	}
 	rows, err := s.pool.Query(ctx, `SELECT j.id,j.clip_id,j.step,j.input_version,j.status,j.priority,j.attempts,j.max_attempts,j.lease_owner,j.lease_expires_at,j.next_attempt_at,j.last_error,j.created_at,j.updated_at,j.cycle,COALESCE(c.display_title,c.original_name),`+latestFailureCode+`

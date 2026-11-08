@@ -165,6 +165,8 @@ export const en = {
       branchVoices: "Voice branch",
       voicesToCheck: "Voices to check ({n})",
       partiallyIdentified: "Partially identified",
+      awaitingReview: "Awaiting review",
+      reviewVoices: "Review voices",
       identified: "Voices identified",
       timeline: {
         label: "Events of the step {step}",
