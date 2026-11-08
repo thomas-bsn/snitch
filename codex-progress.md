@@ -4,13 +4,13 @@ Branche : integration/issue-274-multitrack ; HEAD initial f0e9e23f.
 
 Autorisé : corrections, tests synthétiques, revue depuis 53583abc, intégration main nécessaire, push et PR ready. Aucun merge PR, scan réel ou benchmark phase 7.
 
-En cours : validation complète finale et contre-revue des corrections, puis commit/push et passage de PR345 à ready.
+Corrections, contre-vérification, bilan et push effectués. Dernière étape : contrôles CI du HEAD publié, puis passage de PR345 à ready.
 
 Résultats antérieurs : /tmp/snitch-274/344-result.md. Ils ne remplacent pas les validations finales de cette reprise.
 
 ## Reprise finale
 
-- Revue indépendante depuis 53583abc : 2 défauts fonctionnels Standards et 6 Spec identifiés ; corrections appliquées, contre-vérification en cours.
+- Revue indépendante depuis 53583abc : 2 défauts fonctionnels Standards et 6 Spec identifiés ; corrections appliquées et contre-vérifiées par l’intégrateur.
 - Migration 118 remplacée par une optimisation de vue ; aucun réglage JIT global. Test sur 3 000 clips / 36 000 segments passant avec JIT activé.
 - Corrections : offset inconnu conservateur, paires acoustiques explicites, couverture acoustique union des preuves directes, diagnostics réutilisables entre Plans, réanalyse limitée, pistes vocales réellement retenues, garde des validations concurrentes, cycle complet jusqu'aux voix.
 - Génération reproductible validée. Worker final : 332 tests, 9 sauts de dépendances vocales optionnelles ; Silero et déduplication exécutés sur fixtures dédiées. Smoke serveur Go / Worker Python réel passant (ASR déterministe injecté).
@@ -38,3 +38,10 @@ Résultats antérieurs : /tmp/snitch-274/344-result.md. Ils ne remplacent pas le
 - Suite locale complète terminée : tous les sous-tests Go/PostgreSQL passent ; 40/45 suites navigateur passent. Cinq suites ont échoué : trois limites du relais Docker (Discord, contrôle embeddings, accès au répertoire temporaire), scénarios clip-analysis intermittents et sélection de réanalyse non forcée. Relance ciblée : recherche 8/8, panneau analyse 4/4, activation multipiste 3/3 passent. Le scénario destructif choisit explicitement le mode full (`fe35f2ff`, poussé). Les deux suites intermittentes sont répétées trois fois pour contrôle. CI relancée sur ce commit.
 
 - Répétition locale : course reproduite dans clip-analysis, claim avant achèvement du POST de lancement ; synchronisation du test sur fermeture du dialogue et réponse de retry, sans temporisation arbitraire. Recherche CI intermittente observée séparément ; répétitions locales en cours.
+
+## Validation du dernier correctif
+
+- `clip-analysis.spec.ts` : 4/4 tests, trois répétitions successives vertes après synchronisation ; `/tmp/snitch-274/e2e-analysis-synchronized.log`. L’échec de préparation du scénario suivant provenait du job laissé en attente par le scénario interrompu.
+- `search-screen.spec.ts` : 8/8 tests, trois répétitions vertes ; `/tmp/snitch-274/e2e-stability.log` (ce journal conserve l’échec antérieur du panneau d’analyse, désormais corrigé).
+- README, ADR 0054, guide des Plans, bilan et revue Standards/Spec publiés. Corps de PR #345 mis à jour avec les limites : ASR déterministe injecté, dépendances vocales optionnelles et absence de scan réel.
+- Dernier fetch : `origin/main = 53583abc`, ancêtre du HEAD d’intégration ; aucune fusion supplémentaire nécessaire. Aucun merge de PR. Les contrôles GitHub du HEAD publié constituent la validation finale avant ready.
