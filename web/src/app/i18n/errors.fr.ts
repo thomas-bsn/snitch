@@ -16,6 +16,13 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette version du moteur est indisponible ou révoquée.",
   engine_not_installed:
     "Importez une version approuvée avant d’installer ce modèle.",
+  invalid_engine_order: "Cet ordre d’engine n’est pas valide.",
+  invalid_engine_status: "Ce rapport d’état d’engine n’est pas valide.",
+  invalid_engine_inventory: "Cet inventaire d’engines n’est pas valide.",
+  engine_order_in_progress:
+    "Un ordre pour cet engine est déjà en cours sur ce Worker.",
+  engine_already_installed:
+    "Cette version de l’engine est déjà installée sur ce Worker.",
 
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_required:

@@ -162,7 +162,7 @@ def _wheel_budget(directory: Path, budget: int) -> None:
         raise RuntimeFailed() from None
 
 
-def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any) -> Path:
+def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, detailed: bool = False) -> Path:
     validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
     if sys.version_info[:2] != (3, 12) or platform.system() != "Linux" or platform.machine() != "x86_64":
         raise RuntimeFailed()
@@ -188,7 +188,8 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any) -
                 for wheel in manifest["wheels"]:
                     _download(wheel, wheels / wheel["name"])
                 _wheel_budget(wheels, manifest["disk_bytes"] - sum(w["size"] for w in manifest["wheels"]))
-                report("verifying")
+                # A model order reports one "verifying" step; an engine order tells installing and verifying apart.
+                report("installing" if detailed else "verifying")
                 subprocess.run([sys.executable, "-m", "venv", str(target)], env=env, check=True,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
                 python = str(target / "bin/python")
@@ -198,6 +199,8 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any) -
                                env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1800)
                 subprocess.run([python, "-I", "-m", "pip", "--isolated", "check"], env=env, check=True,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+                if detailed:
+                    report("verifying")
                 # Protocol import proves the approved adapter is usable before recording the runtime.
                 module = {"pyannote": "pyannote.audio", "nemo": "nemo.collections.asr.models",
                           "nemo-titanet": "nemo.collections.asr.models", "speechbrain-ecapa": "speechbrain.lobes.models.ECAPA_TDNN"}[manifest["engine"]]
@@ -215,6 +218,27 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any) -
         except (subprocess.SubprocessError, ValueError):
             raise RuntimeFailed() from None
     return target
+
+
+def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
+    """What this volume proves it holds: runtimes whose ready marker matches their own identity. Read-only."""
+    found: list[dict[str, str]] = []
+    try:
+        engines = sorted(path for path in root(environ).iterdir() if path.is_dir() and path.name in ADAPTERS)
+    except OSError:
+        return found
+    for engine in engines:
+        try:
+            candidates = sorted(engine.iterdir())
+        except OSError:
+            continue
+        for path in candidates:
+            try:
+                if _SHA.fullmatch(path.name) and (path / ".ready").read_text() == path.name and (path / "bin/python").is_file():
+                    found.append({"engine": engine.name, "local_identity": path.name})
+            except OSError:
+                continue
+    return found
 
 
 def model_binding(path: str) -> dict[str, Any] | None:

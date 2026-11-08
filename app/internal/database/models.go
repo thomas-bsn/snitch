@@ -1024,6 +1024,53 @@ type Worker struct {
 	LastClaimAt              pgtype.Timestamptz `json:"last_claim_at"`
 }
 
+type WorkerEngineEvent struct {
+	ID         int64              `json:"id"`
+	WorkerID   string             `json:"worker_id"`
+	Digest     string             `json:"digest"`
+	OrderID    pgtype.Text        `json:"order_id"`
+	Generation int64              `json:"generation"`
+	State      string             `json:"state"`
+	CauseCode  string             `json:"cause_code"`
+	Ignored    bool               `json:"ignored"`
+	Reason     string             `json:"reason"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type WorkerEngineInventory struct {
+	WorkerID      string             `json:"worker_id"`
+	Digest        string             `json:"digest"`
+	Engine        string             `json:"engine"`
+	Version       string             `json:"version"`
+	State         string             `json:"state"`
+	CauseCode     string             `json:"cause_code"`
+	BytesReceived int64              `json:"bytes_received"`
+	BytesTotal    int64              `json:"bytes_total"`
+	OrderID       pgtype.Text        `json:"order_id"`
+	Generation    int64              `json:"generation"`
+	LocalIdentity string             `json:"local_identity"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkerEngineOrder struct {
+	ID             string             `json:"id"`
+	WorkerID       string             `json:"worker_id"`
+	Digest         string             `json:"digest"`
+	Engine         string             `json:"engine"`
+	Version        string             `json:"version"`
+	Intent         string             `json:"intent"`
+	Manifest       []byte             `json:"manifest"`
+	Generation     int64              `json:"generation"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorName     string             `json:"author_name"`
+	Status         string             `json:"status"`
+	CauseCode      string             `json:"cause_code"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	AckedAt        pgtype.Timestamptz `json:"acked_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+}
+
 type WorkerHfToken struct {
 	WorkerID     string             `json:"worker_id"`
 	AckedVersion string             `json:"acked_version"`

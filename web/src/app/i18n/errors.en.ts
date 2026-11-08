@@ -12,6 +12,13 @@ export const errorsEn = {
   engine_release_unavailable: "This engine release is unavailable or revoked.",
   engine_not_installed:
     "Import an approved release before installing this model.",
+  invalid_engine_order: "The engine order is not valid.",
+  invalid_engine_status: "This engine status report is not valid.",
+  invalid_engine_inventory: "This engine inventory report is not valid.",
+  engine_order_in_progress:
+    "An order for this engine is already running on this Worker.",
+  engine_already_installed:
+    "This engine release is already installed on this Worker.",
 
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:

@@ -188,6 +188,10 @@ func (s *Server) revokeVoiceEngine(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return err
 		}
+		// Queued engine orders of this release are cancelled the same way; their inventory row is not a promise.
+		if _, err = tx.Exec(r.Context(), `WITH cancelled AS (UPDATE worker_engine_orders SET status='cancelled',finished_at=now() WHERE status='pending' AND digest=$1 RETURNING id,worker_id,generation) UPDATE worker_engine_inventory i SET state='failed',cause_code='runtime_incompatible',updated_at=now() FROM cancelled c WHERE i.order_id=c.id`, digest); err != nil {
+			return err
+		}
 		_, err = tx.Exec(r.Context(), `UPDATE worker_model_replacements r SET cause_code='runtime_incompatible',updated_at=now() WHERE phase='preparing' AND EXISTS(SELECT 1 FROM worker_voice_models m JOIN worker_model_orders o ON o.id=m.order_id WHERE m.worker_id=r.worker_id AND m.model_id=r.new_model_id AND o.status='cancelled' AND o.runtime=(SELECT manifest FROM voice_engine_registry WHERE digest=$1))`, digest)
 		return err
 	})
