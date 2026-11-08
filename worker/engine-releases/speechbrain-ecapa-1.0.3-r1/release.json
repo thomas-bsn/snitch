@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "engine": "speechbrain-ecapa",
+  "version": "1.0.3-cu128-r1",
+  "adapter_version": 1,
+  "python": "3.12",
+  "platform": "linux-x86_64",
+  "cuda": "12.8",
+  "license": "Apache-2.0 (SpeechBrain); BSD-3-Clause (PyTorch); NVIDIA CUDA EULA (nvidia-*)",
+  "kind": "fingerprint",
+  "architecture": "ecapa-tdnn",
+  "vram_bytes": 1073741824,
+  "ram_bytes": 4294967296,
+  "capabilities": ["fingerprint"],
+  "input_contract": "audio-wav-flac-ogg-8k-48k",
+  "output_contract": "fingerprint-192-unit-v1",
+  "cpu_fallback": true
+}
