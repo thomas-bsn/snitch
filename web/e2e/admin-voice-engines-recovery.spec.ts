@@ -120,7 +120,7 @@ test("un échec propose Réessayer, Remplacer et Nettoyer, et un ordre en cours 
   ).toBeVisible();
   await expect(
     page.getByRole("button", {
-      name: `Remove the incomplete files of ${failed}`,
+      name: `Clean up the incomplete files of ${failed}`,
     }),
   ).toBeVisible();
   await expect(
@@ -163,7 +163,7 @@ test("un échec propose Réessayer, Remplacer et Nettoyer, et un ordre en cours 
   ];
   await page
     .getByRole("button", {
-      name: `Remove the incomplete files of ${failed}`,
+      name: `Clean up the incomplete files of ${failed}`,
     })
     .click();
   await expect(

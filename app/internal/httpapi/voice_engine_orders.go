@@ -141,84 +141,89 @@ func (s *Server) installEngineOrder(ctx context.Context, author session, workerI
 	var out engineOrderView
 	created := false
 	err := s.withVoiceModelLock(ctx, func(tx pgx.Tx) error {
-		var exists bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workers WHERE id=$1 AND revoked_at IS NULL)`, workerID).Scan(&exists); err != nil {
-			return err
-		}
-		if !exists {
-			return orderFailure{http.StatusNotFound, "worker_not_found"}
-		}
-		// The key first: a replay is answered with the recorded order whatever changed since.
-		prior, err := scanEngineOrder(tx.QueryRow(ctx, `SELECT `+engineOrderColumns+` FROM worker_engine_orders WHERE idempotency_key=$1`, key))
-		if err == nil {
-			if prior.WorkerID != workerID || prior.Digest != digest || prior.Intent != "install" {
-				return orderFailure{http.StatusConflict, "idempotency_key_reused"}
-			}
-			out = prior
-			return nil
-		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		var manifest json.RawMessage
-		var engine, version string
-		var revoked bool
-		err = tx.QueryRow(ctx, `SELECT manifest,engine,version,revoked FROM voice_engine_registry WHERE digest=$1`, digest).Scan(&manifest, &engine, &version, &revoked)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return orderFailure{http.StatusNotFound, "engine_not_found"}
-		}
-		if err != nil {
-			return err
-		}
-		if revoked {
-			return orderFailure{http.StatusConflict, "engine_release_unavailable"}
-		}
-		var open bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2 AND status IN ('pending','acknowledged'))`, workerID, engine).Scan(&open); err != nil {
-			return err
-		}
-		if open {
-			return orderFailure{http.StatusConflict, "engine_order_in_progress"}
-		}
-		var state string
-		switch err = tx.QueryRow(ctx, `SELECT state FROM worker_engine_inventory WHERE worker_id=$1 AND digest=$2`, workerID, digest).Scan(&state); {
-		case errors.Is(err, pgx.ErrNoRows), err == nil && (state == "failed" || state == "removed"):
-		case err != nil:
-			return err
-		case state == "ready":
-			return orderFailure{http.StatusConflict, "engine_already_installed"}
-		default:
-			return orderFailure{http.StatusConflict, "engine_order_in_progress"}
-		}
-		// Hardware, CUDA and cumulated disk (open orders reserve their budget) are checked before anything is recorded.
-		if err = checkWorkerEngine(ctx, tx, workerID, manifest, false); err != nil {
-			return err
-		}
-		var generation int64
-		if err = tx.QueryRow(ctx, `SELECT COALESCE(max(generation),0)+1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2`, workerID, engine).Scan(&generation); err != nil {
-			return err
-		}
-		id := "ord_" + auth.Token()[:32]
-		if _, err = tx.Exec(ctx, `INSERT INTO worker_engine_orders(id,worker_id,digest,engine,version,intent,manifest,generation,idempotency_key,author_id,author_name) VALUES($1,$2,$3,$4,$5,'install',$6,$7,$8,$9,$10)`,
-			id, workerID, digest, engine, version, manifest, generation, key, author.User.ID, author.User.Username); err != nil {
-			return err
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO worker_engine_inventory(worker_id,digest,engine,version,state,generation,order_id) VALUES($1,$2,$3,$4,'requested',$5,$6)
-			ON CONFLICT(worker_id,digest) DO UPDATE SET state='requested',cause_code='',bytes_received=0,bytes_total=0,generation=EXCLUDED.generation,order_id=EXCLUDED.order_id,local_identity='',updated_at=now()`,
-			workerID, digest, engine, version, generation, id); err != nil {
-			return err
-		}
-		if err = engineEvent(ctx, tx, workerID, digest, id, generation, "requested", "", false, ""); err != nil {
-			return err
-		}
-		created = true
-		out, err = scanEngineOrder(tx.QueryRow(ctx, `SELECT `+engineOrderColumns+` FROM worker_engine_orders WHERE id=$1`, id))
+		var err error
+		out, created, err = s.installEngineOrderIn(ctx, tx, author, workerID, digest, key)
 		return err
 	})
 	if created {
 		s.Log.Info("voice engine install ordered", "order_id", out.OrderID, "worker_id", workerID, "digest", digest, "generation", out.Generation, "author_id", author.User.ID)
 	}
 	return out, created, err
+}
+
+// installEngineOrderIn also serves model installations, so both explicit orders commit atomically.
+func (s *Server) installEngineOrderIn(ctx context.Context, tx pgx.Tx, author session, workerID, digest, key string) (engineOrderView, bool, error) {
+	var exists bool
+	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workers WHERE id=$1 AND revoked_at IS NULL)`, workerID).Scan(&exists); err != nil {
+		return engineOrderView{}, false, err
+	}
+	if !exists {
+		return engineOrderView{}, false, orderFailure{http.StatusNotFound, "worker_not_found"}
+	}
+	// The key first: a replay is answered with the recorded order whatever changed since.
+	prior, err := scanEngineOrder(tx.QueryRow(ctx, `SELECT `+engineOrderColumns+` FROM worker_engine_orders WHERE idempotency_key=$1`, key))
+	if err == nil {
+		if prior.WorkerID != workerID || prior.Digest != digest || prior.Intent != "install" {
+			return engineOrderView{}, false, orderFailure{http.StatusConflict, "idempotency_key_reused"}
+		}
+		return prior, false, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return engineOrderView{}, false, err
+	}
+	var manifest json.RawMessage
+	var engine, version string
+	var revoked bool
+	err = tx.QueryRow(ctx, `SELECT manifest,engine,version,revoked FROM voice_engine_registry WHERE digest=$1`, digest).Scan(&manifest, &engine, &version, &revoked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return engineOrderView{}, false, orderFailure{http.StatusNotFound, "engine_not_found"}
+	}
+	if err != nil {
+		return engineOrderView{}, false, err
+	}
+	if revoked {
+		return engineOrderView{}, false, orderFailure{http.StatusConflict, "engine_release_unavailable"}
+	}
+	var open bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2 AND status IN ('pending','acknowledged'))`, workerID, engine).Scan(&open); err != nil {
+		return engineOrderView{}, false, err
+	}
+	if open {
+		return engineOrderView{}, false, orderFailure{http.StatusConflict, "engine_order_in_progress"}
+	}
+	var state string
+	switch err = tx.QueryRow(ctx, `SELECT state FROM worker_engine_inventory WHERE worker_id=$1 AND digest=$2`, workerID, digest).Scan(&state); {
+	case errors.Is(err, pgx.ErrNoRows), err == nil && (state == "failed" || state == "removed"):
+	case err != nil:
+		return engineOrderView{}, false, err
+	case state == "ready":
+		return engineOrderView{}, false, orderFailure{http.StatusConflict, "engine_already_installed"}
+	default:
+		return engineOrderView{}, false, orderFailure{http.StatusConflict, "engine_order_in_progress"}
+	}
+	// Hardware, CUDA and cumulated disk (open orders reserve their budget) are checked before anything is recorded.
+	if err = checkWorkerEngine(ctx, tx, workerID, manifest, false); err != nil {
+		return engineOrderView{}, false, err
+	}
+	var generation int64
+	if err = tx.QueryRow(ctx, `SELECT COALESCE(max(generation),0)+1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2`, workerID, engine).Scan(&generation); err != nil {
+		return engineOrderView{}, false, err
+	}
+	id := "ord_" + auth.Token()[:32]
+	if _, err = tx.Exec(ctx, `INSERT INTO worker_engine_orders(id,worker_id,digest,engine,version,intent,manifest,generation,idempotency_key,author_id,author_name) VALUES($1,$2,$3,$4,$5,'install',$6,$7,$8,$9,$10)`,
+		id, workerID, digest, engine, version, manifest, generation, key, author.User.ID, author.User.Username); err != nil {
+		return engineOrderView{}, false, err
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO worker_engine_inventory(worker_id,digest,engine,version,state,generation,order_id) VALUES($1,$2,$3,$4,'requested',$5,$6)
+		ON CONFLICT(worker_id,digest) DO UPDATE SET state='requested',cause_code='',bytes_received=0,bytes_total=0,generation=EXCLUDED.generation,order_id=EXCLUDED.order_id,local_identity='',updated_at=now()`,
+		workerID, digest, engine, version, generation, id); err != nil {
+		return engineOrderView{}, false, err
+	}
+	if err = engineEvent(ctx, tx, workerID, digest, id, generation, "requested", "", false, ""); err != nil {
+		return engineOrderView{}, false, err
+	}
+	out, err := scanEngineOrder(tx.QueryRow(ctx, `SELECT `+engineOrderColumns+` FROM worker_engine_orders WHERE id=$1`, id))
+	return out, err == nil, err
 }
 
 // pendingEngineOrders are the engine orders a Worker still has to run, in order.

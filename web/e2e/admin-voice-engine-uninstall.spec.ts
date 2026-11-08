@@ -87,7 +87,7 @@ test("Désinstaller explique ce qui bloque, puis ordonne le retrait de cette seu
 
   await page.goto("/admin/voice?view=engines");
   await page.getByRole("button", { name: "synthetic-uninstall" }).click();
-  await page.getByRole("button", { name: "Uninstall" }).click();
+  await page.getByRole("button", { name: "Uninstall", exact: true }).click();
   const dialog = page.getByRole("dialog", {
     name: "Uninstall nemo-titanet 1.0.0 from synthetic-uninstall",
   });
@@ -95,7 +95,7 @@ test("Désinstaller explique ce qui bloque, puis ordonne le retrait de cette seu
   await expect(dialog).toContainText("job running");
   await expect(dialog).toContainText("fingerprint transition open");
   await expect(
-    dialog.getByRole("button", { name: "Uninstall" }),
+    dialog.getByRole("button", { name: "Uninstall", exact: true }),
   ).toBeDisabled();
   const { violations } = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -105,9 +105,9 @@ test("Désinstaller explique ce qui bloque, puis ordonne le retrait de cette seu
   await dialog.getByRole("button", { name: "Cancel" }).click();
 
   removable = true;
-  await page.getByRole("button", { name: "Uninstall" }).click();
+  await page.getByRole("button", { name: "Uninstall", exact: true }).click();
   await expect(dialog).toContainText("Nothing uses this version");
-  await dialog.getByRole("button", { name: "Uninstall" }).click();
+  await dialog.getByRole("button", { name: "Uninstall", exact: true }).click();
   await expect(page.getByText("Removing")).toBeVisible();
   expect(orders).toHaveLength(1);
   expect(orders[0]).toMatchObject({ digest, intent: "uninstall" });

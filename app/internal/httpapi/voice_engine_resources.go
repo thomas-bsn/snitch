@@ -99,7 +99,7 @@ func reservedDisk(ctx context.Context, db pgQuerier, workerID string) (int64, er
 	var total int64
 	err := db.QueryRow(ctx, `SELECT
 		COALESCE((SELECT sum((manifest->>'disk_bytes')::bigint) FROM worker_engine_orders WHERE worker_id=$1 AND status IN ('pending','acknowledged')),0)
-		+ COALESCE((SELECT sum((runtime->>'disk_bytes')::bigint) FROM worker_model_orders WHERE worker_id=$1 AND status IN ('pending','acknowledged') AND action='install' AND runtime IS NOT NULL),0)`, workerID).Scan(&total)
+		+ COALESCE((SELECT sum((runtime->>'disk_bytes')::bigint) FROM worker_model_orders WHERE worker_id=$1 AND status IN ('pending','acknowledged') AND action='install' AND runtime IS NOT NULL AND NOT EXISTS (SELECT 1 FROM worker_model_engine_dependencies d WHERE d.model_order_id=worker_model_orders.id)),0)`, workerID).Scan(&total)
 	return total, err
 }
 

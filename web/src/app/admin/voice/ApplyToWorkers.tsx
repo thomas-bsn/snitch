@@ -344,11 +344,20 @@ export function ApplyToWorkers({
           </h4>
           {runtimeDigest && (
             <p>
-              {t("voiceEngines.select")}:{" "}
-              {
-                available.find((r) => r.digest === runtimeDigest)?.manifest
-                  .version
-              }
+              {t("voiceModels.byWorker.applyEnginePlan", {
+                version:
+                  available.find((r) => r.digest === runtimeDigest)?.manifest
+                    .version ?? "",
+                disk: Math.ceil(
+                  (available.find((r) => r.digest === runtimeDigest)?.manifest
+                    .disk_bytes ?? 0) /
+                    1024 ** 2,
+                ),
+                weights: Math.ceil(
+                  (models.find((m) => m.id === modelId)?.size_bytes ?? 0) /
+                    1024 ** 2,
+                ),
+              })}
             </p>
           )}
           <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">

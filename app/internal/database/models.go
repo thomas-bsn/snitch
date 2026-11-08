@@ -1119,6 +1119,11 @@ type WorkerInstallInvite struct {
 	EncryptedSupervisorToken []byte             `json:"encrypted_supervisor_token"`
 }
 
+type WorkerModelEngineDependency struct {
+	ModelOrderID  string `json:"model_order_id"`
+	EngineOrderID string `json:"engine_order_id"`
+}
+
 type WorkerModelOrder struct {
 	ID             string             `json:"id"`
 	WorkerID       string             `json:"worker_id"`

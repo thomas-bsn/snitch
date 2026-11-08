@@ -431,6 +431,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineRecovery(t, pool)
 	})
+	t.Run("voice model engine dependency", func(t *testing.T) {
+		reset(t)
+		testVoiceModelEngineDependency(t, pool)
+	})
 	t.Run("voice engine dispatch", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineDispatch(t, pool)

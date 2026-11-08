@@ -119,6 +119,12 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(install, &first); err != nil {
 		t.Fatal(err)
 	}
+	engines := h.delivered()
+	if len(engines) != 1 {
+		t.Fatalf("dependent engine: %+v", engines)
+	}
+	h.ack(engines[0].OrderID)
+	h.report(engines[0].OrderID, v1, "ready", "", http.StatusNoContent)
 	h.modelAck(first.OrderID, true, "", http.StatusNoContent)
 	h.modelReport(first.OrderID, model, "ready", "", http.StatusNoContent)
 	if b := h.binding(worker, model); b.Digest != v1 || b.PreviousDigest != "" || b.Pending != nil {
@@ -217,7 +223,6 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	}
 
 	// Dispatch follows the published binding, even after its original install release disappears.
-	h.installRuntime(worker, h.token, v1, "dispatch-binding-v1")
 	h.installRuntime(worker, h.token, v2, "dispatch-binding-v2")
 	if _, err := pool.Exec(t.Context(), `UPDATE worker_engine_inventory SET state='failed',cause_code='runtime_missing' WHERE worker_id=$1 AND digest=$2`, worker, v1); err != nil {
 		t.Fatal(err)

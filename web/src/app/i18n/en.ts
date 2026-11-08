@@ -78,7 +78,7 @@ export const en = {
       retryLabel: "Retry the installation of {engine}",
       replaceLabel: "Replace {engine} with another release",
       cancelLabel: "Cancel the installation of {engine}",
-      cleanupLabel: "Remove the incomplete files of {engine}",
+      cleanupLabel: "Clean up the incomplete files of {engine}",
       cancelling:
         "Cancellation requested: the Worker stops at its next safe point.",
       cleanupRequested:
@@ -883,8 +883,10 @@ export const en = {
       applySend: "Send {count} orders",
       applySent: "Order sent",
       applyFailed: "Refused: {reason}",
+      applyEnginePlan:
+        "Two linked orders per Worker: engine {version} (disk budget {disk} MiB), then model (weights {weights} MiB). An engine already ready or being installed is reused. If the engine fails, the model waits; retry the engine from the Engines tab.",
       applyHint:
-        "One order is created per ticked Worker. Nothing is sent until you confirm the list.",
+        "One installation is requested per ticked Worker. Nothing is sent until you confirm the list.",
       applyWorkerEntry: "{worker}",
       replaceWith: "Model that replaces the current one on {worker}",
       replacing: "Replacing {model}: it stays active until the switch.",

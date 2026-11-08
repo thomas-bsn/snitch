@@ -68,6 +68,13 @@ func testVoiceEngineRegistry(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(order.Runtime, &pinned); err != nil || pinned.Version != m.Version {
 		t.Fatalf("runtime not pinned: %s %v", order.Runtime, err)
 	}
+	e := &engineOrderHarness{voiceHarness: h}
+	engines := e.delivered()
+	if len(engines) != 1 {
+		t.Fatalf("dependent engine: %+v", engines)
+	}
+	e.ack(engines[0].OrderID)
+	e.report(engines[0].OrderID, release.Digest, "ready", "", http.StatusNoContent)
 	m.Version = "2.0.0"
 	h.adminCall(http.MethodPost, "/api/admin/voice-engines", envelope(), http.StatusCreated)
 	if got := h.workerOrders(); len(got) != 1 || string(got[0].Runtime) != string(order.Runtime) {

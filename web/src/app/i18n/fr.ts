@@ -79,7 +79,7 @@ export const fr: Messages = {
       retryLabel: "Réessayer l’installation de {engine}",
       replaceLabel: "Remplacer {engine} par une autre version",
       cancelLabel: "Annuler l’installation de {engine}",
-      cleanupLabel: "Supprimer les fichiers incomplets de {engine}",
+      cleanupLabel: "Nettoyer les fichiers incomplets de {engine}",
       cancelling:
         "Annulation demandée : le Worker s’arrête à son prochain point sûr.",
       cleanupRequested: "Nettoyage demandé : livré à la reconnexion du Worker.",
@@ -898,8 +898,10 @@ export const fr: Messages = {
       applySend: "Envoyer {count} ordres",
       applySent: "Ordre envoyé",
       applyFailed: "Refusé : {reason}",
+      applyEnginePlan:
+        "Deux ordres liés par Worker : engine {version} (budget disque {disk} Mio), puis modèle (poids {weights} Mio). Un engine déjà prêt ou en cours d’installation est réutilisé. Si l’engine échoue, le modèle reste en attente ; réessayez l’engine depuis l’onglet Engines.",
       applyHint:
-        "Un ordre est créé par Worker coché. Rien n’est envoyé avant que vous confirmiez la liste.",
+        "Une installation est demandée par Worker coché. Rien n’est envoyé avant que vous confirmiez la liste.",
       applyWorkerEntry: "{worker}",
       replaceWith: "Modèle qui remplace l’actuel sur {worker}",
       replacing: "Remplace {model} : il reste actif jusqu’à la bascule.",

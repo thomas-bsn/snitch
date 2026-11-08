@@ -134,13 +134,10 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 				return orderFailure{http.StatusConflict, "engine_release_unavailable"}
 			}
 		}
+		var engineOrderID string
 		if runtime != nil {
-			// A runtime already ready on the Worker needs no new disk; every other constraint still applies.
-			var present bool
-			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_inventory i JOIN voice_engine_registry g ON g.digest=i.digest WHERE i.worker_id=$1 AND i.state='ready' AND g.manifest=$2::jsonb)`, workerID, runtime).Scan(&present); err != nil {
-				return err
-			}
-			if err = checkWorkerEngine(ctx, tx, workerID, runtime, present); err != nil {
+			engineOrderID, err = s.modelEngineDependency(ctx, tx, author, workerID, runtime)
+			if err != nil {
 				return err
 			}
 		}
@@ -148,6 +145,11 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9)`,
 			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username, runtime); err != nil {
 			return err
+		}
+		if engineOrderID != "" {
+			if _, err = tx.Exec(ctx, `INSERT INTO worker_model_engine_dependencies(model_order_id,engine_order_id) VALUES($1,$2)`, id, engineOrderID); err != nil {
+				return err
+			}
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total,occupied_bytes,revision,order_id) VALUES($1,$2,'requested','',0,0,0,$3,$4)
 			ON CONFLICT(worker_id,model_id) DO UPDATE SET state='requested',cause_code='',bytes_received=0,bytes_total=0,occupied_bytes=0,revision=EXCLUDED.revision,order_id=EXCLUDED.order_id,retry_requested=false,removal_requested=false,updated_at=now()`,
@@ -221,7 +223,13 @@ func (s *Server) createVoiceModelOrder(w http.ResponseWriter, r *http.Request) {
 // delivery of an unfinished order that installs a gated model, and with no other order: a Worker that crashed
 // before writing its secret file gets it again, and nothing is sent once the order is over (ADR 0027).
 func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceModelOrderView, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT `+orderColumns+`,c.gated FROM worker_model_orders o JOIN voice_model_catalog c ON c.id=o.model_id WHERE o.worker_id=$1 AND o.status IN ('pending','acknowledged') ORDER BY o.created_at,o.id`, workerID)
+	rows, err := s.Pool.Query(ctx, `SELECT `+orderColumns+`,c.gated FROM worker_model_orders o JOIN voice_model_catalog c ON c.id=o.model_id WHERE o.worker_id=$1 AND o.status IN ('pending','acknowledged')
+		AND NOT EXISTS (
+			SELECT 1 FROM worker_model_engine_dependencies d JOIN worker_engine_orders e ON e.id=d.engine_order_id
+			WHERE d.model_order_id=o.id AND NOT EXISTS (
+				SELECT 1 FROM worker_engine_inventory i WHERE i.worker_id=o.worker_id AND i.digest=e.digest AND i.state='ready'
+			)
+		) ORDER BY o.created_at,o.id`, workerID)
 	if err != nil {
 		return nil, err
 	}
@@ -416,4 +424,29 @@ func (s *Server) listModelsByWorker(w http.ResponseWriter, r *http.Request) {
 		out.Workers = append(out.Workers, row)
 	}
 	reply(w, http.StatusOK, out)
+}
+
+// modelEngineDependency reuses an explicit install or a ready release, otherwise orders the engine in the
+// same transaction as the model. A failed engine never delivers the model; retrying that release unblocks it.
+func (s *Server) modelEngineDependency(ctx context.Context, tx pgx.Tx, author session, workerID string, manifest json.RawMessage) (string, error) {
+	var digest string
+	if err := tx.QueryRow(ctx, `SELECT digest FROM voice_engine_registry WHERE manifest=$1::jsonb`, manifest).Scan(&digest); err != nil {
+		return "", err
+	}
+	var id string
+	err := tx.QueryRow(ctx, `SELECT o.id FROM worker_engine_orders o
+ WHERE o.worker_id=$1 AND o.digest=$2 AND o.intent='install' AND (
+ o.status IN ('pending','acknowledged') OR EXISTS (SELECT 1 FROM worker_engine_inventory i WHERE i.worker_id=$1 AND i.digest=$2 AND i.state='ready'))
+ ORDER BY o.generation DESC LIMIT 1`, workerID, digest).Scan(&id)
+	if err == nil {
+		if err = checkWorkerEngine(ctx, tx, workerID, manifest, true); err != nil {
+			return "", err
+		}
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
+	}
+	order, _, err := s.installEngineOrderIn(ctx, tx, author, workerID, digest, "model-engine:"+auth.Token()[:32])
+	return order.OrderID, err
 }
