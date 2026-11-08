@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"snitch/internal/jobs"
 	"snitch/internal/workers"
 )
 
@@ -231,10 +232,11 @@ func voiceCandidateIDIn(ctx context.Context, db pgQuerier) (string, error) {
 	return id, err
 }
 
-// voiceModelReadyIn tells whether a Worker that is connected right now holds the model ready.
+// voiceModelReadyIn tells whether a Worker that is connected right now holds the model ready, with its runtime
+// ready on that same Worker (#350).
 func voiceModelReadyIn(ctx context.Context, db pgQuerier, modelID string) (bool, error) {
 	var ready bool
-	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'))`,
+	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second') AND `+jobs.RuntimeReadyClause("m", "c")+`)`,
 		modelID, int64(workers.ConnectedWindow.Seconds())).Scan(&ready)
 	return ready, err
 }
