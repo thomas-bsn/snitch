@@ -22,6 +22,45 @@ from .attribution_event import AttributionEvent
 from .attribution_history import AttributionHistory
 from .attribution_input import AttributionInput
 from .attribution_validation_state import AttributionValidationState
+from .audio_analysis_choice import AudioAnalysisChoice
+from .audio_analysis_choice_mode import AudioAnalysisChoiceMode
+from .audio_analysis_choice_scope import AudioAnalysisChoiceScope
+from .audio_loss_preview import AudioLossPreview
+from .audio_plan import AudioPlan
+from .audio_plan_child import AudioPlanChild
+from .audio_plan_child_stage import AudioPlanChildStage
+from .audio_plan_child_status import AudioPlanChildStatus
+from .audio_plan_input import AudioPlanInput
+from .audio_plan_input_mode import AudioPlanInputMode
+from .audio_plan_state import AudioPlanState
+from .audio_plan_voice import AudioPlanVoice
+from .audio_plan_voice_confirmation import AudioPlanVoiceConfirmation
+from .audio_plan_voice_confirmation_error import AudioPlanVoiceConfirmationError
+from .audio_plan_voice_stake import AudioPlanVoiceStake
+from .audio_plan_voice_start import AudioPlanVoiceStart
+from .audio_plan_voice_status import AudioPlanVoiceStatus
+from .audio_plan_voice_track import AudioPlanVoiceTrack
+from .audio_plan_voice_track_status import AudioPlanVoiceTrackStatus
+from .audio_publication_confirm import AudioPublicationConfirm
+from .audio_publication_preview import AudioPublicationPreview
+from .audio_selection_context import AudioSelectionContext
+from .audio_selection_decision import AudioSelectionDecision
+from .audio_selection_decision_action import AudioSelectionDecisionAction
+from .audio_selection_diagnostic import AudioSelectionDiagnostic
+from .audio_selection_diagnostic_freshness import AudioSelectionDiagnosticFreshness
+from .audio_selection_diagnostic_status import AudioSelectionDiagnosticStatus
+from .audio_selection_effects import AudioSelectionEffects
+from .audio_selection_preview import AudioSelectionPreview
+from .audio_selection_request import AudioSelectionRequest
+from .audio_selection_request_mode import AudioSelectionRequestMode
+from .audio_selection_start import AudioSelectionStart
+from .audio_selection_started import AudioSelectionStarted
+from .audio_speech_interval import AudioSpeechInterval
+from .audio_track_decision import AudioTrackDecision
+from .audio_track_decision_action import AudioTrackDecisionAction
+from .audio_track_diagnostic import AudioTrackDiagnostic
+from .audio_track_diagnostic_status import AudioTrackDiagnosticStatus
+from .audio_track_inventory import AudioTrackInventory
 from .audio_track_override import AudioTrackOverride
 from .audio_track_rule import AudioTrackRule
 from .audio_track_rule_result import AudioTrackRuleResult
@@ -325,7 +364,14 @@ from .start_library_index_run_body_mode import StartLibraryIndexRunBodyMode
 from .status import Status
 from .stream_analysis_queue_events_delta import StreamAnalysisQueueEventsDelta
 from .test_embedding_settings_body import TestEmbeddingSettingsBody
+from .transcript_grouping import TranscriptGrouping
+from .transcript_grouping_strategy import TranscriptGroupingStrategy
+from .transcript_manifest_segment import TranscriptManifestSegment
+from .transcript_manifest_word import TranscriptManifestWord
+from .transcript_revision import TranscriptRevision
+from .transcript_revision_time_base import TranscriptRevisionTimeBase
 from .transcript_segment import TranscriptSegment
+from .transcript_source import TranscriptSource
 from .transcript_word import TranscriptWord
 from .transcription import Transcription
 from .transcription_input import TranscriptionInput
@@ -341,6 +387,7 @@ from .transcription_settings_input_mode import TranscriptionSettingsInputMode
 from .transcription_settings_state import TranscriptionSettingsState
 from .transcription_settings_state_mode import TranscriptionSettingsStateMode
 from .transcription_settings_state_status import TranscriptionSettingsStateStatus
+from .transcription_speaker_coverage_by_track_item import TranscriptionSpeakerCoverageByTrackItem
 from .update_account_password_response_200 import UpdateAccountPasswordResponse200
 from .update_account_profile_response_200 import UpdateAccountProfileResponse200
 from .update_clip_body import UpdateClipBody
@@ -445,6 +492,11 @@ from .voice_verification_case import VoiceVerificationCase
 from .voice_verification_case_decision_level import VoiceVerificationCaseDecisionLevel
 from .voice_verification_counts import VoiceVerificationCounts
 from .worker import Worker
+from .worker_audio_dedup_input import WorkerAudioDedupInput
+from .worker_audio_dedup_segment import WorkerAudioDedupSegment
+from .worker_audio_dedup_track import WorkerAudioDedupTrack
+from .worker_audio_diagnostic_input import WorkerAudioDiagnosticInput
+from .worker_audio_plan_task import WorkerAudioPlanTask
 from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
@@ -547,6 +599,45 @@ __all__ = (
     "AttributionHistory",
     "AttributionInput",
     "AttributionValidationState",
+    "AudioAnalysisChoice",
+    "AudioAnalysisChoiceMode",
+    "AudioAnalysisChoiceScope",
+    "AudioLossPreview",
+    "AudioPlan",
+    "AudioPlanChild",
+    "AudioPlanChildStage",
+    "AudioPlanChildStatus",
+    "AudioPlanInput",
+    "AudioPlanInputMode",
+    "AudioPlanState",
+    "AudioPlanVoice",
+    "AudioPlanVoiceConfirmation",
+    "AudioPlanVoiceConfirmationError",
+    "AudioPlanVoiceStake",
+    "AudioPlanVoiceStart",
+    "AudioPlanVoiceStatus",
+    "AudioPlanVoiceTrack",
+    "AudioPlanVoiceTrackStatus",
+    "AudioPublicationConfirm",
+    "AudioPublicationPreview",
+    "AudioSelectionContext",
+    "AudioSelectionDecision",
+    "AudioSelectionDecisionAction",
+    "AudioSelectionDiagnostic",
+    "AudioSelectionDiagnosticFreshness",
+    "AudioSelectionDiagnosticStatus",
+    "AudioSelectionEffects",
+    "AudioSelectionPreview",
+    "AudioSelectionRequest",
+    "AudioSelectionRequestMode",
+    "AudioSelectionStart",
+    "AudioSelectionStarted",
+    "AudioSpeechInterval",
+    "AudioTrackDecision",
+    "AudioTrackDecisionAction",
+    "AudioTrackDiagnostic",
+    "AudioTrackDiagnosticStatus",
+    "AudioTrackInventory",
     "AudioTrackOverride",
     "AudioTrackRule",
     "AudioTrackRuleResult",
@@ -850,6 +941,8 @@ __all__ = (
     "Status",
     "StreamAnalysisQueueEventsDelta",
     "TestEmbeddingSettingsBody",
+    "TranscriptGrouping",
+    "TranscriptGroupingStrategy",
     "Transcription",
     "TranscriptionInput",
     "TranscriptionLocalSpeakersItem",
@@ -864,7 +957,13 @@ __all__ = (
     "TranscriptionSettingsState",
     "TranscriptionSettingsStateMode",
     "TranscriptionSettingsStateStatus",
+    "TranscriptionSpeakerCoverageByTrackItem",
+    "TranscriptManifestSegment",
+    "TranscriptManifestWord",
+    "TranscriptRevision",
+    "TranscriptRevisionTimeBase",
     "TranscriptSegment",
+    "TranscriptSource",
     "TranscriptWord",
     "UpdateAccountPasswordResponse200",
     "UpdateAccountProfileResponse200",
@@ -970,6 +1069,11 @@ __all__ = (
     "VoiceVerificationCaseDecisionLevel",
     "VoiceVerificationCounts",
     "Worker",
+    "WorkerAudioDedupInput",
+    "WorkerAudioDedupSegment",
+    "WorkerAudioDedupTrack",
+    "WorkerAudioDiagnosticInput",
+    "WorkerAudioPlanTask",
     "WorkerBundle",
     "WorkerClaim",
     "WorkerDetail",

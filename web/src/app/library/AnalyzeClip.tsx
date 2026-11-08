@@ -17,6 +17,13 @@ import type { MessageKey } from "../i18n/messages";
 import { IdentificationBadge } from "../admin/queue/AnalysisBoard";
 import { isAdministrator, isSuperAdministrator } from "../roles";
 import { useSession } from "../session";
+import {
+  AudioPreviewAction,
+  AudioSelectionPreviewView,
+  AudioTrackChoice,
+  useAudioSelectionFlow,
+} from "./AudioSelection";
+import { AudioPublicationHold } from "./AudioPublicationHold";
 import { AnalysisPill, type PillState } from "./AnalysisPill";
 import { DeleteAnalysis } from "./DeleteAnalysis";
 import { JobLogsPanel } from "./JobLogs";
@@ -29,6 +36,16 @@ type View = components["schemas"]["ClipAnalysisView"];
 export type Run = AdminRun | View;
 type MediaTrack = components["schemas"]["MediaTrack"];
 type Step = AdminRun["steps"][number];
+
+/** A failed step, or an audio plan held by a failed examination or comparison, can be retried. */
+function retryable(step: Step | Run["steps"][number]): boolean {
+  return (
+    step.status === "failed" ||
+    (step.status === "blocked" &&
+      (step.reason === "diagnostic_failed" ||
+        step.reason === "audio_dedup_failed"))
+  );
+}
 
 /** What a run is worth showing: its status and each step's state. Timestamps are left out. */
 export function runSignature(run: Run | null): string {
@@ -133,6 +150,18 @@ export function AnalyzeClip({
     refresh,
   );
 
+  // Preparation waiting for a track: when the server offers the choice of tracks, it replaces
+  // the single-track selector below, with the same preview and confirmation as a reanalysis.
+  const needsTrack =
+    admin &&
+    !!run?.steps.some((s) => s.reason === "audio_track_selection_required");
+  const flow = useAudioSelectionFlow({
+    clipId,
+    enabled: open && needsTrack,
+    analysis: { scope: "full", mode: "missing", steps: [] },
+    onStarted: refresh,
+  });
+
   if (!user || !loaded) return null;
   // A reader without a run has nothing to follow; the controls are administrators'.
   if (!admin && !run) return null;
@@ -193,9 +222,7 @@ export function AnalyzeClip({
     }
   }
 
-  const selection =
-    admin &&
-    run?.steps.some((s) => s.reason === "audio_track_selection_required");
+  const selection = needsTrack && !flow.available;
   return (
     <>
       <AnalysisPill run={run} legacy={legacy} onOpen={() => setOpen(true)} />
@@ -315,7 +342,7 @@ export function AnalyzeClip({
                       <JobLogsPanel jobId={step.job_id} />
                     )}
                   {"job_id" in step &&
-                    (step.job_id !== null || step.status === "failed") && (
+                    (step.job_id !== null || retryable(step)) && (
                       <span className="mt-1 flex flex-wrap gap-2">
                         {step.job_id !== null && (
                           <Link
@@ -326,7 +353,7 @@ export function AnalyzeClip({
                           </Link>
                         )}
                         {admin &&
-                          step.status === "failed" &&
+                          retryable(step) &&
                           run.status !== "cancelled" && (
                             <button
                               type="button"
@@ -345,6 +372,24 @@ export function AnalyzeClip({
               ))}
             </ol>
           )}
+          {admin &&
+            run &&
+            "audio_plan_id" in run &&
+            typeof run.audio_plan_id === "number" &&
+            run.status === "active" &&
+            run.steps.some(
+              (step) =>
+                step.step === "transcription" &&
+                step.status === "blocked" &&
+                (step.reason === "audio_confirmation_required" ||
+                  step.reason === "audio_publication_changed"),
+            ) && (
+              <AudioPublicationHold
+                clipId={clipId}
+                planId={run.audio_plan_id}
+                onConfirmed={() => void refresh()}
+              />
+            )}
           {run && <IdentificationBadge run={run} />}
           {run?.status === "cancelled" && (
             <p className="m-0 text-sm text-mute">
@@ -377,6 +422,18 @@ export function AnalyzeClip({
               </button>
             </div>
           )}
+          {needsTrack && flow.available && (
+            <div className="flex flex-col gap-3">
+              {flow.shown ? (
+                <AudioSelectionPreviewView flow={flow} />
+              ) : (
+                <>
+                  <AudioTrackChoice flow={flow} idPrefix="prepare" />
+                  <AudioPreviewAction flow={flow} />
+                </>
+              )}
+            </div>
+          )}
           {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
           {admin && (
             <ReanalyzeClip
@@ -386,6 +443,7 @@ export function AnalyzeClip({
               open={reanalyzing}
               onOpenChange={setReanalyzing}
               onStarted={apply}
+              onSelectionStarted={refresh}
             />
           )}
         </section>

@@ -4,6 +4,18 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
+  audio_plan_required:
+    "Un clip à plusieurs pistes audio est transcrit par une analyse, pas par une tâche isolée.",
+  invalid_audio_dedup: "Ce résultat de comparaison audio n’est pas valide.",
+  invalid_audio_diagnostic: "Ce résultat de diagnostic audio n’est pas valide.",
+  audio_plan_not_found: "Ce plan audio n’existe pas pour ce clip.",
+  audio_plan_not_published:
+    "Ce plan audio n’est pas la transcription publiée du clip : ses voix ne peuvent pas encore être analysées.",
+  audio_plan_superseded:
+    "Un autre plan audio a été publié depuis : actualisez pour voir le plan courant.",
+  voice_step_in_progress:
+    "Une étape vocale de cette piste est déjà en cours hors de ce plan. Attendez qu’elle se termine.",
   invalid_profile:
     "Choisissez un pseudo affiché de 1 à 100 caractères et un identifiant de 3 à 64 caractères, sans espaces au début ni à la fin.",
   invalid_password_format: "Choisissez un mot de passe de 12 à 256 caractères.",
@@ -136,6 +148,23 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_analysis_step: "Cette étape d’analyse n’est pas valide.",
   analysis_deletion_confirmation_required:
     "La suppression fait perdre du travail humain ou une transcription : confirmez les pertes affichées.",
+  audio_selection_stale:
+    "Les pistes audio ou leurs diagnostics ont changé depuis l’ouverture de ce choix. Vérifiez-le à nouveau.",
+  invalid_audio_selection:
+    "Ce choix de pistes audio n’est pas valide : choisissez des pistes existantes et une analyse valide.",
+  audio_decision_required:
+    "Décidez d’inclure ou d’écarter chaque piste ambiguë.",
+  audio_force_required:
+    "Une piste sans parole demande un « utiliser malgré le diagnostic » explicite.",
+  audio_preview_expired:
+    "Cet aperçu a expiré. Refaites l’aperçu des effets avant de lancer.",
+  audio_preview_changed:
+    "Le choix ou le travail concerné a changé depuis l’aperçu. Refaites l’aperçu.",
+  audio_confirmation_required:
+    "Confirmez les conséquences affichées avant le démarrage de l’analyse.",
+  audio_selection_disabled:
+    "Le choix des pistes audio n’est pas encore disponible pour ce clip.",
+  analysis_already_active: "Une analyse est déjà en cours sur ce clip.",
   invalid_reanalysis: "Ce choix de réanalyse n’est pas valide.",
   reanalysis_confirmation_required:
     "Confirmez les conséquences de cette réanalyse avant son démarrage.",

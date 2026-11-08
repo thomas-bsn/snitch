@@ -10656,7 +10656,8 @@
               "enum": [
                 "diarization",
                 "fingerprint",
-                "separation"
+                "separation",
+                "vad"
               ]
             }
           }
@@ -15430,6 +15431,555 @@
           }
         }
       }
+    },
+    "/api/admin/clips/{id}/audio-selection": {
+      "get": {
+        "operationId": "getClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionContext"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionStarted"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioSelectionStart"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-selection/preview": {
+      "post": {
+        "operationId": "previewClipAudioSelection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Selection state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioSelectionPreview"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid selection"
+          },
+          "409": {
+            "description": "Selection or confirmation is stale"
+          },
+          "503": {
+            "description": "Multitrack activation unavailable"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioSelectionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}/voice": {
+      "get": {
+        "operationId": "getAudioPlanVoice",
+        "tags": [
+          "analysis"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État vocal par piste du Plan, avec le travail humain qu'un lancement remplacerait. Sans effet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanVoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          }
+        }
+      },
+      "post": {
+        "operationId": "startAudioPlanVoice",
+        "tags": [
+          "analysis"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Voix planifiées pour les seules pistes retenues sans résultat : travaux faits conservés, échecs repris sur place.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanVoice"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "409": {
+            "description": "audio_plan_not_published, audio_plan_superseded, voice_step_in_progress ou voice_rediarization_confirmation_required (avec le travail humain en jeu sur toutes les pistes remplacées)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanVoiceConfirmation"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioPlanVoiceStart"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}": {
+      "get": {
+        "operationId": "getAudioPlan",
+        "tags": [
+          "analysis"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Plan immuable et état courant de ses enfants. Auto non activé par cette lecture.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}/diagnostics": {
+      "post": {
+        "operationId": "queueAudioPlanDiagnostics",
+        "tags": [
+          "analysis"
+        ],
+        "description": "Met en file un job audio.diagnostic.N distinct par piste retenue du plan, de façon idempotente. Aucun effet sur les transcriptions. Un Worker ne prend un job que s'il déclare audio.diagnostic.* et détient le détecteur épinglé installé explicitement.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du plan avec ses jobs de diagnostic (en file, en cours, nouvelle tentative, mort) et le dernier diagnostic de chaque piste.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPlanState"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          }
+        }
+      }
+    },
+    "/api/admin/clips/{id}/audio-plans/{plan_id}/publication": {
+      "get": {
+        "operationId": "getAudioPlanPublication",
+        "tags": [
+          "analysis"
+        ],
+        "description": "Pertes que causerait la publication du plan (corrections, validations vocales, révision remplacée) et empreinte (guard) de l'historique humain vu. La confirmation enregistrée n'est valable que si cette empreinte n'a pas changé depuis.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Pertes de la publication du plan, telles qu'elles sont maintenant, et état de la confirmation enregistrée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPublicationPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "400": {
+            "description": "Identifiant invalide"
+          }
+        }
+      },
+      "post": {
+        "operationId": "confirmAudioPlanPublication",
+        "tags": [
+          "analysis"
+        ],
+        "description": "Enregistre la confirmation des pertes vues (guard) pour le plan actif ; l'orchestrateur publie ensuite. Refusé si l'historique humain a changé depuis l'aperçu (409 audio_preview_changed) ou si la confirmation manque alors qu'il y a des pertes (409 audio_confirmation_required).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "plan_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AudioPublicationConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pertes de la publication du plan, telles qu'elles sont maintenant, et état de la confirmation enregistrée.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AudioPublicationPreview"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentification ou privilège requis"
+          },
+          "403": {
+            "description": "Authentification ou privilège requis"
+          },
+          "404": {
+            "description": "Clip ou plan introuvable"
+          },
+          "409": {
+            "description": "Aperçu périmé, confirmation manquante ou plan remplacé"
+          },
+          "400": {
+            "description": "Requête invalide"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15707,6 +16257,12 @@
             "type": "integer",
             "minimum": 0,
             "description": "Voix du clip encore inconnues ou ambiguës (liste de vérification), lues en direct : une analyse terminée qui en laisse est seulement partiellement identifiée."
+          },
+          "audio_plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Plan audio de l'analyse d'un clip à plusieurs pistes (absent pour une analyse monopiste). Sert à lire et confirmer les pertes d'une publication en attente."
           },
           "steps": {
             "type": "array",
@@ -18797,6 +19353,220 @@
           },
           "voice": {
             "$ref": "#/components/schemas/WorkerVoiceInput"
+          },
+          "audio_plan": {
+            "$ref": "#/components/schemas/WorkerAudioPlanTask"
+          },
+          "audio_diagnostic": {
+            "$ref": "#/components/schemas/WorkerAudioDiagnosticInput"
+          },
+          "audio_dedup": {
+            "$ref": "#/components/schemas/WorkerAudioDedupInput"
+          }
+        }
+      },
+      "WorkerAudioDiagnosticInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Identité immuable d'un job audio.diagnostic.N. start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur.",
+        "required": [
+          "plan_id",
+          "track_index",
+          "input_version",
+          "detector_version",
+          "detector_config_version",
+          "start_seconds",
+          "duration_seconds"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input_version": {
+            "type": "string",
+            "description": "Empreinte du plan, recopiée dans l'observation."
+          },
+          "detector_version": {
+            "type": "string"
+          },
+          "detector_config_version": {
+            "type": "string"
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "nullable": true
+          }
+        }
+      },
+      "AudioPublicationPreview": {
+        "type": "object",
+        "description": "Pertes de la publication d'un plan et état de la confirmation de l'administrateur.",
+        "required": [
+          "plan_id",
+          "guard",
+          "losses",
+          "confirmed",
+          "confirmation_current"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "guard": {
+            "type": "string",
+            "description": "Empreinte de l'historique des corrections et validations vu par l'aperçu."
+          },
+          "losses": {
+            "$ref": "#/components/schemas/AudioLossPreview"
+          },
+          "confirmed": {
+            "type": "boolean",
+            "description": "Les pertes sont acceptées pour cette empreinte."
+          },
+          "confirmation_current": {
+            "type": "boolean",
+            "description": "La confirmation enregistrée porte sur l'empreinte et la révision actuelles."
+          }
+        }
+      },
+      "AudioPublicationConfirm": {
+        "type": "object",
+        "required": [
+          "guard",
+          "confirm_losses"
+        ],
+        "properties": {
+          "guard": {
+            "type": "string",
+            "description": "Empreinte (guard) de l'aperçu affiché."
+          },
+          "confirm_losses": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkerAudioDedupInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Tâche d'un job audio.dedup.N (comparaison acoustique des pistes retenues d'un plan). Les segments sont dans le repère du clip ; start_seconds est le décalage du flux de la piste.",
+        "required": [
+          "plan_id",
+          "input_version",
+          "tracks"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerAudioDedupTrack"
+            }
+          }
+        }
+      },
+      "WorkerAudioDedupTrack": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_index",
+          "job_id",
+          "start_seconds",
+          "segments"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerAudioDedupSegment"
+            }
+          }
+        }
+      },
+      "WorkerAudioDedupSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "start",
+          "end"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start": {
+            "type": "number",
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
+      "WorkerAudioPlanTask": {
+        "type": "object",
+        "description": "Tâche d’un job de transcription épinglé à un plan audio (capacité audio.multitrack.v1). Les intervalles sont relatifs à la piste ; le Worker ajoute start_seconds une seule fois et rend des temps sur la ligne de temps du clip.",
+        "required": [
+          "plan_id",
+          "input_version",
+          "track_index",
+          "start_seconds",
+          "intervals"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "track_index": {
+            "type": "integer"
+          },
+          "start_seconds": {
+            "type": "number"
+          },
+          "intervals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSpeechInterval"
+            }
           }
         }
       },
@@ -19182,7 +19952,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "label": {
@@ -19285,7 +20056,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           }
         }
@@ -19334,7 +20106,8 @@
               "enum": [
                 "diarization",
                 "fingerprint",
-                "separation"
+                "separation",
+                "vad"
               ]
             }
           },
@@ -19406,7 +20179,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           }
         }
@@ -19665,7 +20439,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "action": {
@@ -19760,7 +20535,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "action": {
@@ -19868,7 +20644,8 @@
             "enum": [
               "diarization",
               "fingerprint",
-              "separation"
+              "separation",
+              "vad"
             ]
           },
           "supported": {
@@ -22377,6 +23154,11 @@
             "format": "int64",
             "minimum": 1,
             "description": "Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis."
+          },
+          "expected_revision_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les anciens clients monopistes."
           }
         }
       },
@@ -22478,6 +23260,11 @@
             "format": "int64",
             "minimum": 1,
             "description": "Transcription lue par l'appelant ; refusée (transcription_changed) si le clip a été retranscrit depuis."
+          },
+          "expected_revision_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les anciens clients monopistes."
           }
         }
       },
@@ -22550,6 +23337,11 @@
             "type": "integer",
             "format": "int64",
             "minimum": 1
+          },
+          "expected_revision_id": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Révision lue ; 409 transcription_changed si remplacée. Facultatif pour les anciens clients monopistes."
           }
         }
       },
@@ -22907,6 +23699,7 @@
         "required": [
           "id",
           "label",
+          "audio_stream_index",
           "kind",
           "ordinal",
           "speaking_seconds",
@@ -22924,6 +23717,11 @@
           },
           "label": {
             "type": "string"
+          },
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Piste audio réelle (indice ffprobe) sur laquelle la voix a été détectée : sa provenance. Deux pistes ne partagent jamais un Locuteur local."
           },
           "kind": {
             "type": "string",
@@ -23004,6 +23802,18 @@
           "history"
         ],
         "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Plan audio dont la révision est la transcription visible ; présent seulement dans ce cas. Les étapes et les voix couvrent alors toutes ses pistes retenues."
+          },
+          "tracks": {
+            "type": "array",
+            "description": "État vocal de chaque piste retenue du Plan (présent avec plan_id).",
+            "items": {
+              "$ref": "#/components/schemas/AudioPlanVoiceTrack"
+            }
+          },
           "clip_id": {
             "type": "integer",
             "format": "int64"
@@ -23465,6 +24275,19 @@
           },
           "channel_layout": {
             "type": "string"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Durée propre au flux ffprobe ; null si inconnue. Jamais la durée du conteneur."
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Décalage de départ propre au flux ffprobe ; null si inconnu."
           }
         }
       },
@@ -23988,6 +24811,20 @@
             "type": "string",
             "format": "date-time",
             "description": "Date de la correction du texte, si corrigé."
+          },
+          "sources": {
+            "type": "array",
+            "description": "Toutes les provenances du passage publié (piste réelle, tâche, segment) ; la première porte l'identité des corrections. Absent pour une ancienne transcription.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSource"
+            }
+          },
+          "grouping": {
+            "type": "array",
+            "description": "Sources regroupées par preuve acoustique sous ce passage, consultables ; absent sans regroupement.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptGrouping"
+            }
           }
         }
       },
@@ -24037,6 +24874,34 @@
                 },
                 "label": {
                   "type": "string"
+                },
+                "audio_stream_index": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "description": "Piste de la voix ; présent pour une révision de Plan (une liste pour toutes les pistes retenues)."
+                }
+              }
+            }
+          },
+          "speaker_coverage_by_track": {
+            "type": "array",
+            "description": "Révision de Plan seulement : la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une piste sans aucun segment.",
+            "items": {
+              "type": "object",
+              "required": [
+                "audio_stream_index",
+                "coverage"
+              ],
+              "properties": {
+                "audio_stream_index": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "coverage": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SpeakerCoverage"
+                  }
                 }
               }
             }
@@ -24053,6 +24918,9 @@
             "items": {
               "$ref": "#/components/schemas/TranscriptSegment"
             }
+          },
+          "revision": {
+            "$ref": "#/components/schemas/TranscriptRevision"
           }
         }
       },
@@ -25122,6 +25990,1092 @@
           },
           "supervisor_available": {
             "type": "boolean"
+          }
+        }
+      },
+      "AudioTrackInventory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "title",
+          "codec",
+          "language",
+          "channels",
+          "channel_layout",
+          "duration_seconds",
+          "start_seconds",
+          "evidence"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "title": {
+            "type": "string"
+          },
+          "codec": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "channels": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "channel_layout": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "nullable": true,
+            "format": "double"
+          },
+          "start_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AudioTrackDecision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_index",
+          "action",
+          "forced",
+          "reason",
+          "actor_id",
+          "decided_at"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "include",
+              "exclude"
+            ]
+          },
+          "forced": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "decided_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AudioSelectionDiagnostic": {
+        "type": "object",
+        "required": [
+          "track_index",
+          "status",
+          "freshness",
+          "cause"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "no_speech",
+              "ambiguous",
+              "unexamined",
+              "failed"
+            ]
+          },
+          "freshness": {
+            "type": "string",
+            "enum": [
+              "current",
+              "stale",
+              "missing"
+            ]
+          },
+          "cause": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionContext": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "version",
+          "state_version",
+          "inventory",
+          "diagnostics"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          },
+          "state_version": {
+            "type": "string"
+          },
+          "inventory": {
+            "type": "array",
+            "description": "Pistes audio réelles du clip, avec leur indice ffprobe ; vide quand la sélection est désactivée.",
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackInventory"
+            }
+          },
+          "input": {
+            "$ref": "#/components/schemas/AudioPlanInput"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSelectionDiagnostic"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionDecision": {
+        "type": "object",
+        "required": [
+          "track_index",
+          "action",
+          "forced",
+          "reason"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer"
+          },
+          "action": {
+            "type": "string",
+            "enum": [
+              "include",
+              "exclude"
+            ]
+          },
+          "forced": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioAnalysisChoice": {
+        "type": "object",
+        "required": [
+          "scope",
+          "mode",
+          "steps"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "full",
+              "transcription",
+              "voice"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "full",
+              "steps"
+            ]
+          },
+          "steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionRequest": {
+        "type": "object",
+        "required": [
+          "version",
+          "mode",
+          "track_indices",
+          "decisions",
+          "analysis"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
+          },
+          "track_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSelectionDecision"
+            }
+          },
+          "analysis": {
+            "$ref": "#/components/schemas/AudioAnalysisChoice"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionEffects": {
+        "type": "object",
+        "required": [
+          "added_steps",
+          "invalidated_steps",
+          "track_indices",
+          "losses",
+          "worker_compatible",
+          "stake_version"
+        ],
+        "properties": {
+          "added_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "invalidated_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "track_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            }
+          },
+          "losses": {
+            "$ref": "#/components/schemas/AudioLossPreview"
+          },
+          "worker_compatible": {
+            "type": "boolean"
+          },
+          "stake_version": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionPreview": {
+        "type": "object",
+        "required": [
+          "input",
+          "effects",
+          "preview_token",
+          "expires_at"
+        ],
+        "properties": {
+          "input": {
+            "$ref": "#/components/schemas/AudioPlanInput"
+          },
+          "effects": {
+            "$ref": "#/components/schemas/AudioSelectionEffects"
+          },
+          "preview_token": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionStart": {
+        "type": "object",
+        "required": [
+          "selection",
+          "preview_token",
+          "confirm_losses"
+        ],
+        "properties": {
+          "selection": {
+            "$ref": "#/components/schemas/AudioSelectionRequest"
+          },
+          "preview_token": {
+            "type": "string"
+          },
+          "confirm_losses": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioSelectionStarted": {
+        "type": "object",
+        "required": [
+          "state",
+          "worker_compatible"
+        ],
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/AudioPlanState"
+          },
+          "worker_compatible": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AudioPlanInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "track_indices",
+          "inventory",
+          "decisions",
+          "detector_version",
+          "detector_config_version",
+          "merge_version",
+          "pipeline_version",
+          "vocabulary_version"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "manual"
+            ]
+          },
+          "track_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "inventory": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackInventory"
+            }
+          },
+          "decisions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackDecision"
+            }
+          },
+          "detector_version": {
+            "type": "string"
+          },
+          "detector_config_version": {
+            "type": "string"
+          },
+          "merge_version": {
+            "type": "string"
+          },
+          "pipeline_version": {
+            "type": "string"
+          },
+          "vocabulary_version": {
+            "type": "string"
+          }
+        }
+      },
+      "AudioPlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "run_id",
+          "clip_id",
+          "input_version",
+          "created_at",
+          "input"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "run_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "input": {
+            "$ref": "#/components/schemas/AudioPlanInput"
+          }
+        }
+      },
+      "AudioSpeechInterval": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start",
+          "end"
+        ],
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          }
+        }
+      },
+      "AudioTrackDiagnostic": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plan_id",
+          "track_index",
+          "input_version",
+          "status",
+          "cause",
+          "detector_version",
+          "detector_config_version",
+          "intervals",
+          "job_id",
+          "attempt"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "speech",
+              "no_speech",
+              "ambiguous",
+              "unexamined",
+              "failed"
+            ]
+          },
+          "cause": {
+            "type": "string"
+          },
+          "detector_version": {
+            "type": "string"
+          },
+          "detector_config_version": {
+            "type": "string"
+          },
+          "intervals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioSpeechInterval"
+            }
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "nullable": true
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AudioPlanChild": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plan_id",
+          "track_index",
+          "stage",
+          "job_id",
+          "input_version",
+          "status",
+          "attempt"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "track_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "diagnostic",
+              "transcription",
+              "diarization",
+              "fingerprint"
+            ]
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "input_version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "retry",
+              "done",
+              "dead",
+              "cancelled"
+            ]
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "AudioLossPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "expected_revision_id",
+          "previewed_at",
+          "correction_count",
+          "validated_voice_count",
+          "replaced_track_indices",
+          "invalidated_steps",
+          "confirmation_required"
+        ],
+        "properties": {
+          "expected_revision_id": {
+            "type": "string"
+          },
+          "previewed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correction_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "validated_voice_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "replaced_track_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "invalidated_steps": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "confirmation_required": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AudioPlanVoiceStake": {
+        "type": "object",
+        "required": [
+          "validated_speakers",
+          "voice_samples",
+          "speaker_corrections",
+          "affected_persons",
+          "audio_stream_indices"
+        ],
+        "properties": {
+          "validated_speakers": {
+            "type": "integer"
+          },
+          "voice_samples": {
+            "type": "integer"
+          },
+          "speaker_corrections": {
+            "type": "integer"
+          },
+          "affected_persons": {
+            "type": "integer",
+            "description": "Personnes dont la Référence perd un échantillon vocal ou une validation."
+          },
+          "audio_stream_indices": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Pistes qui portent ce travail humain."
+          }
+        },
+        "description": "Travail humain qu'une diarisation des pistes concernées rendrait obsolète. Les anciennes voix restent protégées jusqu'à un nouveau résultat réussi."
+      },
+      "AudioPlanVoiceTrack": {
+        "type": "object",
+        "required": [
+          "audio_stream_index",
+          "status",
+          "cause",
+          "reused",
+          "microphone",
+          "diarization",
+          "fingerprint",
+          "speaker_count",
+          "model",
+          "model_version",
+          "stake"
+        ],
+        "properties": {
+          "audio_stream_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "queued",
+              "running",
+              "done",
+              "failed",
+              "cancelled",
+              "not_applicable"
+            ]
+          },
+          "cause": {
+            "type": "string",
+            "description": "voice_worker_unavailable (en attente d'un Worker vocal prêt), microphone_direct_attribution, no_speakers, cancelled_by_admin, fingerprint_missing ou le code expurgé de l'étape en échec ; vide sinon."
+          },
+          "reused": {
+            "type": "boolean",
+            "description": "Vrai si la diarisation déjà faite avec le même modèle a été conservée : seuls les travaux manquants sont repris."
+          },
+          "microphone": {
+            "type": "boolean",
+            "description": "Piste micro désignée : attribution directe, jamais diarisée, sans extension aux autres pistes."
+          },
+          "diarization": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceStep"
+              }
+            ],
+            "nullable": true
+          },
+          "fingerprint": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceStep"
+              }
+            ],
+            "nullable": true
+          },
+          "speaker_count": {
+            "type": "integer"
+          },
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string",
+            "description": "Version épinglée au premier lancement du Plan."
+          },
+          "stake": {
+            "$ref": "#/components/schemas/AudioPlanVoiceStake"
+          }
+        }
+      },
+      "AudioPlanVoice": {
+        "type": "object",
+        "required": [
+          "plan_id",
+          "clip_id",
+          "revision_id",
+          "published",
+          "status",
+          "cause",
+          "pipeline_version",
+          "tracks",
+          "stake"
+        ],
+        "properties": {
+          "plan_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revision_id": {
+            "type": "string"
+          },
+          "published": {
+            "type": "boolean",
+            "description": "La révision du Plan est la transcription visible. Les étapes vocales ne démarrent qu'alors."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "not_published",
+              "not_started",
+              "queued",
+              "running",
+              "done",
+              "failed"
+            ]
+          },
+          "cause": {
+            "type": "string"
+          },
+          "pipeline_version": {
+            "type": "string",
+            "description": "Version du pipeline vocal épinglée par le Plan."
+          },
+          "tracks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioPlanVoiceTrack"
+            }
+          },
+          "stake": {
+            "$ref": "#/components/schemas/AudioPlanVoiceStake"
+          }
+        },
+        "description": "Analyse des voix de toutes les pistes retenues d'un Plan publié. La transcription publiée n'est jamais retirée par une panne ou l'absence d'un Worker vocal."
+      },
+      "AudioPlanVoiceStart": {
+        "type": "object",
+        "properties": {
+          "confirm_replace_validations": {
+            "type": "boolean",
+            "description": "Vrai pour confirmer le remplacement des validations, échantillons vocaux (Références) et corrections de locuteur des pistes recensées dans la confirmation 409."
+          }
+        }
+      },
+      "AudioPlanVoiceConfirmation": {
+        "type": "object",
+        "required": [
+          "error",
+          "stake"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "voice_rediarization_confirmation_required"
+            ]
+          },
+          "stake": {
+            "$ref": "#/components/schemas/AudioPlanVoiceStake"
+          }
+        }
+      },
+      "AudioPlanState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "plan",
+          "diagnostics",
+          "children"
+        ],
+        "properties": {
+          "plan": {
+            "$ref": "#/components/schemas/AudioPlan"
+          },
+          "diagnostics": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioTrackDiagnostic"
+            }
+          },
+          "children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AudioPlanChild"
+            }
+          },
+          "loss_preview": {
+            "$ref": "#/components/schemas/AudioLossPreview"
+          }
+        }
+      },
+      "TranscriptGrouping": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Preuve acoustique pour laquelle une source a été regroupée sous le passage conservé. La source reste consultable ; son texte n'est pas publié en double.",
+        "required": [
+          "source",
+          "strategy",
+          "strategy_version",
+          "lag_seconds",
+          "matched_start",
+          "matched_end"
+        ],
+        "properties": {
+          "source": {
+            "$ref": "#/components/schemas/TranscriptSource"
+          },
+          "strategy": {
+            "type": "string",
+            "enum": [
+              "exact_pcm",
+              "gain"
+            ],
+            "description": "Règle acoustique activée qui a prouvé le doublon."
+          },
+          "strategy_version": {
+            "type": "string"
+          },
+          "gain": {
+            "type": "number",
+            "format": "double",
+            "description": "Gain constant prouvé entre la source regroupée et le passage conservé (stratégie gain)."
+          },
+          "lag_seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Décalage résiduel mesuré entre les deux signaux, en secondes."
+          },
+          "matched_start": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double",
+            "description": "Début, dans le repère du clip, de la plage prouvée identique côté passage conservé."
+          },
+          "matched_end": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          }
+        }
+      },
+      "TranscriptSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "track_index",
+          "job_id",
+          "segment_index"
+        ],
+        "properties": {
+          "track_index": {
+            "type": "integer",
+            "minimum": -1,
+            "description": "Indice ffprobe réel ; -1 réservé à une ancienne transcription sans indice enregistré."
+          },
+          "job_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "segment_index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "word_index": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "TranscriptManifestWord": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "start",
+          "end",
+          "sources"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSource"
+            },
+            "minItems": 1
+          }
+        }
+      },
+      "TranscriptManifestSegment": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "index",
+          "start",
+          "end",
+          "sources",
+          "words"
+        ],
+        "properties": {
+          "index": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0,
+            "format": "double"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptSource"
+            },
+            "minItems": 1
+          },
+          "words": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptManifestWord"
+            }
+          },
+          "grouping": {
+            "type": "array",
+            "description": "Sources regroupées sous ce passage avec leur preuve acoustique ; absent si aucun regroupement. Elles figurent aussi dans `sources`.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptGrouping"
+            }
+          }
+        }
+      },
+      "TranscriptRevision": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "clip_id",
+          "plan_id",
+          "legacy_job_id",
+          "empty",
+          "time_base",
+          "segments"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "plan_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "nullable": true
+          },
+          "legacy_job_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "nullable": true
+          },
+          "empty": {
+            "type": "boolean"
+          },
+          "time_base": {
+            "type": "string",
+            "enum": [
+              "clip"
+            ]
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptManifestSegment"
+            }
           }
         }
       }

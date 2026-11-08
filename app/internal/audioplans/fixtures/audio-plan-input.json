@@ -1,0 +1,37 @@
+{
+  "mode": "manual",
+  "track_indices": [
+    2,
+    7
+  ],
+  "inventory": [
+    {
+      "index": 2,
+      "title": "Synthetic commentary",
+      "codec": "aac",
+      "language": "fra",
+      "channels": 2,
+      "channel_layout": "stereo",
+      "duration_seconds": 12,
+      "start_seconds": 0,
+      "evidence": []
+    },
+    {
+      "index": 7,
+      "title": "Synthetic dialogue",
+      "codec": "aac",
+      "language": "und",
+      "channels": 1,
+      "channel_layout": "mono",
+      "duration_seconds": null,
+      "start_seconds": 1.25,
+      "evidence": []
+    }
+  ],
+  "decisions": [],
+  "detector_version": "vad-v1",
+  "detector_config_version": "cfg-v1",
+  "merge_version": "merge-v1",
+  "pipeline_version": "pipeline-v1",
+  "vocabulary_version": "vocab-v1"
+}

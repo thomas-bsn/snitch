@@ -391,7 +391,12 @@ function ClipView({
                 onSeek={seek}
                 clipName={clipTitle(clip)}
                 onChanged={refreshVoices}
-                coverage={clip.transcription?.speaker_coverage}
+                coverage={
+                  clip.transcription?.speaker_coverage ??
+                  clip.transcription?.speaker_coverage_by_track?.flatMap(
+                    (track) => track.coverage,
+                  )
+                }
               />
               {voiceData && (
                 <div className="flex flex-col gap-3 p-3">

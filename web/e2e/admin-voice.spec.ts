@@ -617,7 +617,13 @@ test("la matrice B conserve la sélection, le catalogue est éditable et les ong
     .getByRole("searchbox", { name: "Search references", exact: true })
     .fill("");
   await page.getByRole("button", { name: /^Separation/ }).click();
-  await expect(page.getByRole("article")).toHaveCount(0);
+  // The catalogue persists across tests; earlier API tests can have
+  // registered an unsupported separation reference. Assert the filter against
+  // the actual catalogue rather than assuming the original seed is unchanged.
+  await expect(page.getByRole("article")).toHaveCount(
+    catalogue.models.filter((m: { kind: string }) => m.kind === "separation")
+      .length,
+  );
   await expectNoViolations(page);
   await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
   await context.close();

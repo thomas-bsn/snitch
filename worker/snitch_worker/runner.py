@@ -35,7 +35,7 @@ from snitch_client.models.worker_transcription_reachability_input import WorkerT
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import cancellation, log, revocation
+from snitch_worker import acoustic_dedup, audio_diagnostic, cancellation, log, revocation
 from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
@@ -306,8 +306,27 @@ def detect_voice_spans(wav_path: str, config: dict[str, Any]) -> list[tuple[floa
     return spans
 
 
-def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: dict[str, Any], vocabulary: list[dict[str, Any]]) -> dict[str, Any]:
-    spans = detect_voice_spans(wav_path, config)
+def audio_plan_spans(plan: dict[str, Any]) -> list[tuple[float, float]]:
+    """Track-relative speech intervals pinned by the plan's diagnostic."""
+    return [(float(item["start"]), float(item["end"])) for item in plan.get("intervals") or []]
+
+
+def transcribe_prepared_audio(
+    transcriber: Transcriber,
+    wav_path: str,
+    config: dict[str, Any],
+    vocabulary: list[dict[str, Any]],
+    spans: list[tuple[float, float]] | None = None,
+    offset: float = 0.0,
+) -> dict[str, Any]:
+    """Transcribe the speech spans of a prepared track.
+
+    ``spans`` (track-relative) replaces the energy VAD when a plan pins them.
+    ``offset`` is the stream start in the clip: segments and words get the span
+    start and the offset added exactly once, so results are on the clip timeline.
+    """
+    if spans is None:
+        spans = detect_voice_spans(wav_path, config)
     results: list[dict[str, Any]] = []
     with tempfile.TemporaryDirectory(prefix="snitch-vad-") as temporary:
         for index, (start, end) in enumerate(spans):
@@ -324,11 +343,11 @@ def transcribe_prepared_audio(transcriber: Transcriber, wav_path: str, config: d
             else:
                 part = transcriber.transcribe(chunk_path, vocabulary)
             for segment in part.get("segments", []):
-                segment["start"] = float(segment["start"]) + start
-                segment["end"] = float(segment["end"]) + start
+                segment["start"] = float(segment["start"]) + start + offset
+                segment["end"] = float(segment["end"]) + start + offset
                 for word in segment.get("words", []):
-                    word["start"] = float(word["start"]) + start
-                    word["end"] = float(word["end"]) + start
+                    word["start"] = float(word["start"]) + start + offset
+                    word["end"] = float(word["end"]) + start + offset
             results.extend(part.get("segments", []))
     if not spans:
         return {"provider": "openai-compatible", "model": config.get("model") or getattr(transcriber, "model", "fixture"), "version": getattr(transcriber, "model", "fixture"), "language": config.get("language", "fr"), "segments": []}
@@ -491,10 +510,85 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
     return True
 
 
+def supported_steps() -> list[str]:
+    """The step families this Worker can read. A diagnostic is declared only where Torch can run the detector;
+    Snitch still dispatches one only after this Worker reports the pinned model ready (ADR 0048)."""
+    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"]
+    if audio_diagnostic.available():
+        steps.append("audio.diagnostic.*")
+    return steps
+
+
+# Pairs the acoustic comparison may examine in one job: beyond it the remaining pairs are kept whole
+# (pair_budget_exceeded), never guessed. A pair costs about 20 to 110 ms (docs/acoustic-dedup.md).
+DEDUP_MAX_PAIRS = 1000
+
+
+def run_audio_dedup(client: AuthenticatedClient, task_input: Any, lease_token: str) -> dict[str, Any]:
+    """Acoustic comparison of the retained tracks of a plan (ADR 0053/0054): decode each track once to 16 kHz
+    mono PCM, then compare the overlapping segments of different tracks. The report is evidence only."""
+    value = getattr(task_input, "audio_dedup", None)
+    task = value.to_dict() if hasattr(value, "to_dict") else None
+    if not task or not task.get("tracks"):
+        raise ValueError("audio dedup task missing")
+    with tempfile.TemporaryDirectory(prefix="snitch-dedup-") as temporary:
+        original = os.path.join(temporary, "original.media")
+        download_media(client, task_input, lease_token, original)
+        events: list[dict[str, Any]] = []
+        for track in task["tracks"]:
+            cancellation.check()
+            index = int(track["track_index"])
+            wav_path = os.path.join(temporary, f"track-{index}.wav")
+            prepare_audio(original, wav_path, index)
+            for segment in track["segments"]:
+                if not float(segment["end"]) > float(segment["start"]) >= 0:
+                    continue
+                events.append(
+                    {
+                        "id": f"{index}:{track['job_id']}:{segment['index']}",
+                        "track_index": index,
+                        "job_id": int(track["job_id"]),
+                        "path": wav_path,
+                        "clip_offset": float(track["start_seconds"]),
+                        "start": float(segment["start"]),
+                        "end": float(segment["end"]),
+                    }
+                )
+        cancellation.check()
+        return acoustic_dedup.run(
+            {"schema_version": acoustic_dedup.SCHEMA_VERSION, "config": {"max_pairs": DEDUP_MAX_PAIRS}, "events": events},
+            cancel=cancellation.check,
+        )
+
+
+def run_audio_diagnostic(client: AuthenticatedClient, task_input: Any, lease_token: str, step: str, detector: Any = None) -> dict[str, Any]:
+    """Examine one real stream with the pinned offline detector and return an observation (ADR 0048).
+
+    The result keeps the detector identity of this Worker: a plan made for another detector or configuration is a
+    failure of the job, never a result recorded under a different identity."""
+    value = getattr(task_input, "audio_diagnostic", None)
+    plan = value.to_dict() if hasattr(value, "to_dict") else None
+    index = int(step.rsplit(".", 1)[1])
+    if not isinstance(plan, dict) or plan.get("track_index") != index:
+        raise ValueError("audio diagnostic input does not match the step")
+    if plan.get("detector_version") != audio_diagnostic.VERSION or plan.get("detector_config_version") != audio_diagnostic.CONFIG_VERSION:
+        raise ValueError("audio diagnostic detector version is not supported by this Worker")
+    with tempfile.TemporaryDirectory(prefix="snitch-diagnostic-") as temporary:
+        original = os.path.join(temporary, "original.media")
+        download_media(client, task_input, lease_token, original)
+        cancellation.check()
+        duration = plan.get("duration_seconds")
+        offset = plan.get("start_seconds")
+        return audio_diagnostic.diagnose(
+            original, index, offset=offset if isinstance(offset, (int, float)) else None,
+            expected_duration=duration if isinstance(duration, (int, float)) else None, detector=detector,
+        )
+
+
 def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: ReachabilityMonitor | None = None) -> None:
     body = WorkerPulseInput(
         capacity=capacity,
-        supported_steps=["fixture.*", "transcription.audio.*", "voice.*"],
+        supported_steps=supported_steps(),
         models=declared_models(os.environ, voice_models.active_repo()),
         machine=declared_machine(),
     )
@@ -740,6 +834,10 @@ def _run_claimed(
             )
             if job.step.startswith("fixture."):
                 result = fake_provider(job.step)
+            elif re.fullmatch(r"audio\.dedup\.\d+", job.step):
+                result = run_audio_dedup(client, task_input, lease_token)
+            elif re.fullmatch(r"audio\.diagnostic\.\d+", job.step):
+                result = run_audio_diagnostic(client, task_input, lease_token, job.step)
             elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
                 with tempfile.TemporaryDirectory(
                     prefix="snitch-transcription-"
@@ -762,9 +860,26 @@ def _run_claimed(
                         for term in (task_input.vocabulary or [])
                     ]
                     cancellation.check()
-                    result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
-                    result["audio_stream_index"] = stream_index
-                    attach_peaks(result, wav_path)
+                    plan_value = getattr(task_input, "audio_plan", None)
+                    plan = plan_value.to_dict() if hasattr(plan_value, "to_dict") else None
+                    if plan:
+                        if int(plan["track_index"]) != stream_index:
+                            raise ValueError("audio plan track does not match the job")
+                        # A plan without usable intervals (forced track) falls back to the VAD.
+                        pinned = audio_plan_spans(plan) or None
+                        result = transcribe_prepared_audio(
+                            active_transcriber, wav_path, pipeline, vocabulary, pinned, float(plan["start_seconds"])
+                        )
+                        result.update(
+                            audio_stream_index=stream_index,
+                            time_base="clip",
+                            audio_plan_id=plan["plan_id"],
+                            audio_plan_version=plan["input_version"],
+                        )
+                    else:
+                        result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
+                        result["audio_stream_index"] = stream_index
+                        attach_peaks(result, wav_path)
             elif is_voice_step(job.step):
                 voice_value = getattr(task_input, "voice", None)
                 voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}

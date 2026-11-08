@@ -314,9 +314,22 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	if selection.AudioTrackSelection.Status != "selection_required" {
-		t.Fatalf("ambiguous multitrack clip must require selection: %+v", selection.AudioTrackSelection)
+		t.Fatalf("a rule-less multitrack clip still reports that no single track is selected: %+v", selection.AudioTrackSelection)
 	}
-	call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusConflict)
+	// A clip with several audio tracks is no longer blocked on a choice: its transcription is an audio plan that
+	// examines every track (ADR 0054), never a single-track job.
+	planned := call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusCreated)
+	if !strings.Contains(string(planned), `"audio.plan"`) {
+		t.Fatalf("multitrack transcription must be an audio plan: %s", planned)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%'`, completed.ClipID); n != 0 {
+		t.Fatalf("a single-track job was created for a multitrack clip: %d", n)
+	}
+	call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(completed.ClipID)+"/analysis/cancel", nil, session.CSRF, http.StatusOK)
+	// The rest of the scenario exercises the single-track pipeline of the clip with one audio track.
+	if _, err := pool.Exec(context.Background(), `UPDATE clips SET tracks=(SELECT jsonb_agg(t ORDER BY ord) FROM jsonb_array_elements(tracks) WITH ORDINALITY e(t,ord) WHERE t->>'type'<>'audio' OR (t->>'index')::int=2) WHERE id=$1`, completed.ClipID); err != nil {
+		t.Fatal(err)
+	}
 	call(admin, http.MethodPut, "/api/admin/clips/"+strconv64(completed.ClipID)+"/audio-track", map[string]int{"audio_stream_index": 2}, session.CSRF, http.StatusOK)
 	if err := json.Unmarshal(call(admin, http.MethodGet, "/api/clips/"+strconv64(completed.ClipID), nil, "", http.StatusOK), &selection); err != nil {
 		t.Fatal(err)
@@ -347,7 +360,9 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/transcriptions/batch-schedule", map[string]bool{"confirm": true}, session.CSRF, http.StatusOK), &batchResult); err != nil {
 		t.Fatal(err)
 	}
-	if batchResult.Scheduled != 0 || batchResult.Preview.AlreadyQueued < 1 || batchResult.Preview.SelectionRequired < 1 {
+	// The other clips of the library with several audio tracks are planned (an audio plan each), never "selection
+	// required"; the clip already queued is not scheduled twice.
+	if batchResult.Scheduled != batch.Eligible || batchResult.Preview.AlreadyQueued < 1 || batchResult.Preview.SelectionRequired != 0 {
 		t.Fatalf("confirmed batch duplicated an active task: %+v", batchResult)
 	}
 	var queuedPage struct {
@@ -735,6 +750,11 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	}
 	// Keep all three result tiers in the same SQL response and assert their
 	// precedence independently of clip dates and identifiers.
+	// Revisions are immutable and what search reads is the captured manifest: drop the legacy
+	// revision so rewriting the job result captures a new one from the three segments below.
+	if _, err = pool.Exec(context.Background(), `DELETE FROM transcript_revisions WHERE clip_id=$1 AND legacy_job_id IS NOT NULL`, completed.ClipID); err != nil {
+		t.Fatal(err)
+	}
 	_, err = pool.Exec(context.Background(), `UPDATE jobs SET result=$1::jsonb WHERE clip_id=$2 AND status='done' AND step LIKE 'transcription.audio.%'`, `{"segments":[{"start":1,"text":"Jouee !","words":[{"word":"Jouee","start":1}]},{"start":2,"text":"On dit jouee ici","words":[{"word":"ici","start":2}]},{"start":3,"text":"Joues !","words":[{"word":"Joues","start":3}]}]}`, completed.ClipID)
 	if err != nil {
 		t.Fatal(err)
@@ -860,17 +880,21 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if ruleResult.Version != 1 || sourceSelection.AudioTrackSelection.Status != "selected" || sourceSelection.AudioTrackSelection.AudioStreamIndex == nil || *sourceSelection.AudioTrackSelection.AudioStreamIndex != 2 || sourceSelection.AudioTrackSelection.SelectionSource != "source_rule" || sourceSelection.AudioTrackSelection.RuleVersion != 1 {
 		t.Fatalf("source rule did not resolve the synthetic track: %+v, version %d", sourceSelection.AudioTrackSelection, ruleResult.Version)
 	}
-	var sourceTask struct {
-		Job struct {
-			Step         string `json:"step"`
-			InputVersion string `json:"input_version"`
-		} `json:"job"`
+	// The clip has several audio tracks: the rule designates the one track of a manual audio plan (ADR 0054), pinned
+	// to the active pipeline; no single-track job is scheduled.
+	latestPlan := func() (mode string, tracks []int, pipeline string, active int) {
+		t.Helper()
+		if err := pool.QueryRow(context.Background(), `SELECT p.input->>'mode',ARRAY(SELECT jsonb_array_elements_text(p.input->'track_indices')::int),p.input->>'pipeline_version',(SELECT count(*) FROM clip_analysis_runs WHERE clip_id=p.clip_id AND status='active')::int FROM audio_plans p WHERE p.clip_id=$1 ORDER BY p.id DESC LIMIT 1`, sourceClipID).Scan(&mode, &tracks, &pipeline, &active); err != nil {
+			t.Fatal(err)
+		}
+		return
 	}
-	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
-		t.Fatal(err)
+	call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK)
+	if mode, tracks, pipeline, active := latestPlan(); mode != "manual" || len(tracks) != 1 || tracks[0] != 2 || pipeline != newPipeline.Version || active != 1 {
+		t.Fatalf("source rule did not produce its targeted plan: %s %v %s %d", mode, tracks, pipeline, active)
 	}
-	if sourceTask.Job.Step != "transcription.audio.2" || !strings.HasPrefix(sourceTask.Job.InputVersion, "t4-a2-r1-v") || !strings.HasSuffix(sourceTask.Job.InputVersion, "-p"+newPipeline.Version) {
-		t.Fatalf("source policy version not included in targeted task: %+v", sourceTask.Job)
+	if n := countRows(t, pool, `SELECT count(*) FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND input_version NOT LIKE 'mt1:%'`, sourceClipID); n != 0 {
+		t.Fatalf("a single-track job was scheduled: %d", n)
 	}
 	if err := json.Unmarshal(call(admin, http.MethodPut, "/api/admin/sources/"+strconv64(createdSource.ID)+"/audio-track-rule", map[string]string{"title": "Micro"}, session.CSRF, http.StatusOK), &ruleResult); err != nil {
 		t.Fatal(err)
@@ -881,10 +905,20 @@ func testTranscriptionPipeline(t *testing.T, pool *pgxpool.Pool) {
 	if sourceSelection.AudioTrackSelection.AudioStreamIndex == nil || *sourceSelection.AudioTrackSelection.AudioStreamIndex != 1 || sourceSelection.AudioTrackSelection.RuleVersion != 2 {
 		t.Fatalf("updated source rule did not resolve its new track/version: %+v", sourceSelection.AudioTrackSelection)
 	}
-	if err := json.Unmarshal(call(admin, http.MethodPost, "/api/admin/clips/"+strconv64(sourceClipID)+"/transcription", map[string]any{}, session.CSRF, http.StatusOK), &sourceTask); err != nil {
+	// The updated rule supersedes the older automatic plan with a plan of the new track.
+	if mode, tracks, _, active := latestPlan(); mode != "manual" || len(tracks) != 1 || tracks[0] != 1 || active != 1 {
+		t.Fatalf("updated source rule did not replace the plan: %s %v %d", mode, tracks, active)
+	}
+	if n := countRows(t, pool, `SELECT count(*) FROM clip_analysis_runs WHERE clip_id=$1 AND status='cancelled'`, sourceClipID); n != 1 {
+		t.Fatalf("the superseded plan run must be cancelled: %d", n)
+	}
+}
+
+func countRows(t *testing.T, pool *pgxpool.Pool, query string, args ...any) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(), query, args...).Scan(&n); err != nil {
 		t.Fatal(err)
 	}
-	if sourceTask.Job.Step != "transcription.audio.1" || !strings.HasPrefix(sourceTask.Job.InputVersion, "t4-a1-r2-v") || !strings.HasSuffix(sourceTask.Job.InputVersion, "-p"+newPipeline.Version) {
-		t.Fatalf("updated source rule did not create a targeted transcription version: %+v", sourceTask.Job)
-	}
+	return n
 }

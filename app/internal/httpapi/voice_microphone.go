@@ -840,7 +840,7 @@ func (s *Server) replaceClipOverride(ctx context.Context, id int64, next *microp
 // microphoneSpeakerViews lists the clip's microphone local speaker (on its own
 // stream, whatever the diarized stream is) with its effective attribution.
 func (s *Server) microphoneSpeakerViews(ctx context.Context, clipID int64, attributions map[int64]*attributionView) ([]localSpeakerView, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT id,label,ordinal,speaking_seconds,turn_count,kind FROM local_speakers WHERE clip_id=$1 AND kind='microphone' ORDER BY ordinal`, clipID)
+	rows, err := s.Pool.Query(ctx, `SELECT id,label,ordinal,speaking_seconds,turn_count,kind,audio_stream_index FROM local_speakers WHERE clip_id=$1 AND kind='microphone' ORDER BY ordinal`, clipID)
 	if err != nil {
 		return nil, err
 	}
@@ -848,7 +848,7 @@ func (s *Server) microphoneSpeakerViews(ctx context.Context, clipID int64, attri
 	out := []localSpeakerView{}
 	for rows.Next() {
 		sp := localSpeakerView{Fingerprints: []voiceFingerprintView{}}
-		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind); err != nil {
+		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind, &sp.AudioStreamIndex); err != nil {
 			return nil, err
 		}
 		sp.applyAttribution(attributions[sp.ID])

@@ -184,4 +184,21 @@ func testSearchCorrections(t *testing.T, pool *pgxpool.Pool) {
 	if page = search(h.adminUser(), "exact", "troisieme", ""); page.Total != 1 {
 		t.Fatalf("the admin sees the private clip: %+v", page)
 	}
+	// Pagination without a Person filter must preserve the total and still resolve
+	// each page's voice, including after the first page.
+	h.userCall(h.adminUser(), http.MethodPut, segmentTextPath(h.clipID, 0), map[string]any{"text": corrected, "expected_version": 0}, http.StatusOK)
+	for _, mode := range []string{"exact", "full_text"} {
+		first := search(h.adminUser(), mode, "troisieme", "&page_size=1")
+		next := search(h.adminUser(), mode, "troisieme", "&page_size=1&page=2")
+		if first.Total != 2 || next.Total != 2 || len(first.Items) != 1 || len(next.Items) != 1 || first.Items[0].Timestamp >= next.Items[0].Timestamp {
+			t.Fatalf("%s: paginated corrected passages: first=%+v next=%+v", mode, first, next)
+		}
+		if next.Items[0].Person == nil || next.Items[0].Person.DisplayName != "Alice" || next.Items[0].DecisionLevel != "human" {
+			t.Fatalf("%s: second page lost the validated voice: %+v", mode, next)
+		}
+		if empty := search(h.adminUser(), mode, "troisieme", "&page_size=1&page=3"); empty.Total != 2 || len(empty.Items) != 0 {
+			t.Fatalf("%s: page past the last result: %+v", mode, empty)
+		}
+	}
+
 }

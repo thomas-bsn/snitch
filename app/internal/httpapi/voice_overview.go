@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 
 	"snitch/internal/workers"
@@ -36,15 +37,31 @@ type voiceInventory struct {
 }
 
 func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
-	_, pipeline, err := s.activeVoicePipeline(r.Context())
+	out, err := s.voiceInventory(r.Context())
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	items, err := s.Workers.List(r.Context())
+	// Only the steps Claim gates on a model can be blocked: the synthetic provider never waits.
+	if out.real && out.WorkersVoiceReady == 0 {
+		if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM jobs WHERE status='pending' AND (step LIKE 'voice.diarization.%' OR step LIKE 'voice.fingerprint.%')`).Scan(&out.PendingVoiceJobs); err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
+	reply(w, http.StatusOK, out)
+}
+
+// voiceInventory is what the Workers report about the voice models; real tells whether the active
+// provider runs a local model (the synthetic one never waits for a Worker).
+func (s *Server) voiceInventory(ctx context.Context) (voiceInventoryView, error) {
+	_, pipeline, err := s.activeVoicePipeline(ctx)
 	if err != nil {
-		s.internal(w, err)
-		return
+		return voiceInventoryView{}, err
+	}
+	items, err := s.Workers.List(ctx)
+	if err != nil {
+		return voiceInventoryView{}, err
 	}
 	live := items[:0]
 	for _, item := range items {
@@ -52,20 +69,19 @@ func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
 			live = append(live, item)
 		}
 	}
-	if err = s.withInstallProgress(r, live, false); err != nil {
-		s.internal(w, err)
-		return
+	if err = s.withInstallProgressCtx(ctx, live, false); err != nil {
+		return voiceInventoryView{}, err
 	}
-	out := voiceInventory{Provider: pipeline.Provider, Workers: []voiceInventoryWorker{}}
+	out := voiceInventoryView{voiceInventory: voiceInventory{Provider: pipeline.Provider, Workers: []voiceInventoryWorker{}}}
 	out.ActiveModels.Diarization = pipeline.Model
-	activeFingerprint, err := voiceActiveFingerprintRepo(r.Context(), s.Pool)
+	activeFingerprint, err := voiceActiveFingerprintRepo(ctx, s.Pool)
 	if err != nil {
-		s.internal(w, err)
-		return
+		return voiceInventoryView{}, err
 	}
 	out.ActiveModels.Fingerprint = activeFingerprint
 	// The fake provider runs no model: nothing to hold.
-	real := voiceRealProvider(pipeline.Provider)
+	out.real = voiceRealProvider(pipeline.Provider)
+	real := out.real
 	for _, item := range live {
 		row := voiceInventoryWorker{
 			ID: item.ID, Name: item.Name, Connected: item.Connected,
@@ -93,12 +109,11 @@ func (s *Server) getVoiceOverview(w http.ResponseWriter, r *http.Request) {
 		out.Workers = append(out.Workers, row)
 	}
 	out.WorkersTotal = len(live)
-	// Only the steps Claim gates on a model can be blocked: the synthetic provider never waits.
-	if real && out.WorkersVoiceReady == 0 {
-		if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM jobs WHERE status='pending' AND (step LIKE 'voice.diarization.%' OR step LIKE 'voice.fingerprint.%')`).Scan(&out.PendingVoiceJobs); err != nil {
-			s.internal(w, err)
-			return
-		}
-	}
-	reply(w, http.StatusOK, out)
+	return out, nil
+}
+
+// voiceInventoryView carries the unexported provider kind next to the JSON contract.
+type voiceInventoryView struct {
+	voiceInventory
+	real bool
 }

@@ -143,6 +143,14 @@ func (s *Server) scheduleVoice(w http.ResponseWriter, r *http.Request) {
 	if s.refuseWhileAnalyzing(w, r, id) {
 		return
 	}
+	// The visible transcription is a published audio plan: its voices belong to the plan, track by track.
+	if planID, published, planErr := s.visiblePlanOf(r.Context(), id); planErr != nil {
+		s.internal(w, planErr)
+		return
+	} else if published {
+		s.replyPlanVoice(w, r, planID, id, input.ConfirmReplaceValidations)
+		return
+	}
 	tracks, err := s.clipAudioTracks(r.Context(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "clip_not_found")
@@ -336,17 +344,19 @@ func pathID(w http.ResponseWriter, r *http.Request, code string) (int64, bool) {
 }
 
 type localSpeakerView struct {
-	ID              int64                  `json:"id"`
-	Label           string                 `json:"label"`
-	Kind            string                 `json:"kind"`
-	Ordinal         int                    `json:"ordinal"`
-	SpeakingSeconds float64                `json:"speaking_seconds"`
-	TurnCount       int                    `json:"turn_count"`
-	State           string                 `json:"state"`
-	DecisionLevel   DecisionLevel          `json:"decision_level"`
-	Person          *personRef             `json:"person"`
-	Attribution     *attributionView       `json:"attribution"`
-	Fingerprints    []voiceFingerprintView `json:"fingerprints"`
+	ID    int64  `json:"id"`
+	Label string `json:"label"`
+	// AudioStreamIndex is the real stream the voice was found on: its provenance (#342).
+	AudioStreamIndex int                    `json:"audio_stream_index"`
+	Kind             string                 `json:"kind"`
+	Ordinal          int                    `json:"ordinal"`
+	SpeakingSeconds  float64                `json:"speaking_seconds"`
+	TurnCount        int                    `json:"turn_count"`
+	State            string                 `json:"state"`
+	DecisionLevel    DecisionLevel          `json:"decision_level"`
+	Person           *personRef             `json:"person"`
+	Attribution      *attributionView       `json:"attribution"`
+	Fingerprints     []voiceFingerprintView `json:"fingerprints"`
 	// Disposition is "ignored" or "random" when the voice is set aside (ADR 0031), else absent.
 	Disposition *string `json:"disposition"`
 	// RefusedPersons are the Persons refused for the voice (ADR 0031), each one cancellable.
@@ -395,6 +405,19 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	view := map[string]any{"clip_id": clip.ID, "status": "none", "audio_stream_index": nil, "steps": []voiceStep{}, "speakers": []localSpeakerView{}, "history": []voiceHistoryEntry{}}
+	// A clip whose visible transcript is a plan revision shows the voices of every kept track (#342).
+	if planID, found, planErr := s.visiblePlanOf(r.Context(), clip.ID); planErr != nil {
+		s.internal(w, planErr)
+		return
+	} else if found {
+		planView, viewErr := s.planClipVoice(r.Context(), clip.ID, planID)
+		if viewErr != nil {
+			s.internal(w, viewErr)
+			return
+		}
+		reply(w, http.StatusOK, planView)
+		return
+	}
 	diarization, err := s.latestVoiceStep(r.Context(), clip.ID, "voice.diarization.%")
 	if err != nil {
 		s.internal(w, err)
@@ -434,72 +457,8 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 			status = voiceStatus(fingerprint.Status)
 		}
 	}
-	attributions, err := s.effectiveAttributionPointers(r.Context(), clip.ID)
+	speakers, err := s.voiceSpeakers(r.Context(), clip.ID, []int{index})
 	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	speakers := []localSpeakerView{}
-	byID := map[int64]int{}
-	rows, err := s.Pool.Query(r.Context(), `SELECT ls.id,ls.label,ls.ordinal,ls.speaking_seconds,ls.turn_count,ls.kind,d.disposition FROM local_speakers ls LEFT JOIN local_speaker_dispositions d ON d.local_speaker_id=ls.id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind<>'archived' ORDER BY ls.ordinal`, clip.ID, index)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	for rows.Next() {
-		sp := localSpeakerView{Fingerprints: []voiceFingerprintView{}}
-		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind, &sp.Disposition); err != nil {
-			rows.Close()
-			s.internal(w, err)
-			return
-		}
-		sp.applyAttribution(attributions[sp.ID])
-		byID[sp.ID] = len(speakers)
-		speakers = append(speakers, sp)
-	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		s.internal(w, err)
-		return
-	}
-	// The microphone speaker lives on its own stream: list it first, once.
-	microphone, err := s.microphoneSpeakerViews(r.Context(), clip.ID, attributions)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	for i := len(microphone) - 1; i >= 0; i-- {
-		if _, listed := byID[microphone[i].ID]; !listed {
-			speakers = append([]localSpeakerView{microphone[i]}, speakers...)
-		}
-	}
-	byID = map[int64]int{}
-	for i, sp := range speakers {
-		byID[sp.ID] = i
-	}
-	fpRows, err := s.Pool.Query(r.Context(), `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions FROM voice_fingerprints WHERE clip_id=$1 AND NOT benchmark ORDER BY id`, clip.ID)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	for fpRows.Next() {
-		var speakerID int64
-		var fp voiceFingerprintView
-		if err = fpRows.Scan(&speakerID, &fp.ID, &fp.Scope, &fp.StartSeconds, &fp.EndSeconds, &fp.DurationSecond, &fp.Quality, &fp.Usable, &fp.UnusableReason, &fp.Model, &fp.ModelVersion, &fp.Dimensions); err != nil {
-			fpRows.Close()
-			s.internal(w, err)
-			return
-		}
-		if at, found := byID[speakerID]; found {
-			speakers[at].Fingerprints = append(speakers[at].Fingerprints, fp)
-		}
-	}
-	fpRows.Close()
-	if err = fpRows.Err(); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if err = s.attachRefusedPersons(r.Context(), clip.ID, speakers); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -510,6 +469,74 @@ func (s *Server) getClipVoice(w http.ResponseWriter, r *http.Request) {
 	}
 	view["status"], view["audio_stream_index"], view["steps"], view["speakers"], view["history"] = status, index, steps, speakers, history
 	reply(w, http.StatusOK, view)
+}
+
+// voiceSpeakers lists the voices of the given streams, then the microphone voice first, with their
+// fingerprint metadata (never the vectors) and refused Persons.
+func (s *Server) voiceSpeakers(ctx context.Context, clipID int64, indexes []int) ([]localSpeakerView, error) {
+	attributions, err := s.effectiveAttributionPointers(ctx, clipID)
+	if err != nil {
+		return nil, err
+	}
+	speakers := []localSpeakerView{}
+	rows, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,ls.ordinal,ls.speaking_seconds,ls.turn_count,ls.kind,d.disposition,ls.audio_stream_index FROM local_speakers ls LEFT JOIN local_speaker_dispositions d ON d.local_speaker_id=ls.id WHERE ls.clip_id=$1 AND ls.audio_stream_index=ANY($2) AND ls.kind<>'archived' ORDER BY array_position($2::int[],ls.audio_stream_index),ls.ordinal`, clipID, indexes)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		sp := localSpeakerView{Fingerprints: []voiceFingerprintView{}}
+		if err = rows.Scan(&sp.ID, &sp.Label, &sp.Ordinal, &sp.SpeakingSeconds, &sp.TurnCount, &sp.Kind, &sp.Disposition, &sp.AudioStreamIndex); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		sp.applyAttribution(attributions[sp.ID])
+		speakers = append(speakers, sp)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	// The microphone speaker lives on its own stream: list it first, once.
+	microphone, err := s.microphoneSpeakerViews(ctx, clipID, attributions)
+	if err != nil {
+		return nil, err
+	}
+	listed := map[int64]bool{}
+	for _, sp := range speakers {
+		listed[sp.ID] = true
+	}
+	for i := len(microphone) - 1; i >= 0; i-- {
+		if !listed[microphone[i].ID] {
+			speakers = append([]localSpeakerView{microphone[i]}, speakers...)
+		}
+	}
+	byID := map[int64]int{}
+	for i, sp := range speakers {
+		byID[sp.ID] = i
+	}
+	fpRows, err := s.Pool.Query(ctx, `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions FROM voice_fingerprints WHERE clip_id=$1 AND NOT benchmark ORDER BY id`, clipID)
+	if err != nil {
+		return nil, err
+	}
+	for fpRows.Next() {
+		var speakerID int64
+		var fp voiceFingerprintView
+		if err = fpRows.Scan(&speakerID, &fp.ID, &fp.Scope, &fp.StartSeconds, &fp.EndSeconds, &fp.DurationSecond, &fp.Quality, &fp.Usable, &fp.UnusableReason, &fp.Model, &fp.ModelVersion, &fp.Dimensions); err != nil {
+			fpRows.Close()
+			return nil, err
+		}
+		if at, found := byID[speakerID]; found {
+			speakers[at].Fingerprints = append(speakers[at].Fingerprints, fp)
+		}
+	}
+	fpRows.Close()
+	if err = fpRows.Err(); err != nil {
+		return nil, err
+	}
+	if err = s.attachRefusedPersons(ctx, clipID, speakers); err != nil {
+		return nil, err
+	}
+	return speakers, nil
 }
 
 // attachRefusedPersons lists on each voice the Persons refused for it (ADR 0031).
@@ -543,13 +570,24 @@ func (s *Server) attachRefusedPersons(ctx context.Context, clipID int64, speaker
 // lists the local speakers of the audio stream (transcription.local_speakers) so a
 // reader can offer them as the choice of a correction.
 func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcript any, states map[int]segmentState) error {
+	return s.attachTrackSpeakers(ctx, clipID, transcript, states, false)
+}
+
+// attachTrackSpeakers is attachLocalSpeakers; keepEmpty lists and covers the voices of a track
+// that has no segment at all (a plan's kept track whose voices carry no word, #342).
+func (s *Server) attachTrackSpeakers(ctx context.Context, clipID int64, transcript any, states map[int]segmentState, keepEmpty bool) error {
 	object, ok := transcript.(map[string]any)
 	if !ok {
 		return nil
 	}
+	if revision, ok := object["revision"].(map[string]any); ok {
+		if id, _ := revision["id"].(string); strings.HasPrefix(id, "plan:") {
+			return s.attachRevisionSpeakers(ctx, clipID, object, states)
+		}
+	}
 	index, indexOK := object["audio_stream_index"].(float64)
 	segments, isList := object["segments"].([]any)
-	if !indexOK || !isList || len(segments) == 0 {
+	if !indexOK || !isList || (len(segments) == 0 && !keepEmpty) {
 		return nil
 	}
 	roster, err := s.Pool.Query(ctx, `SELECT ls.id,ls.label,COALESCE(d.disposition,'') FROM local_speakers ls LEFT JOIN local_speaker_dispositions d ON d.local_speaker_id=ls.id WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind<>'archived' ORDER BY ls.ordinal,ls.id`, clipID, int(index))

@@ -170,21 +170,34 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	cols := "clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type,segment_start,segment_end,stream,wn,corrected,job_id,idx"
 	matches := "SELECT " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0"
 	if mode == "full_text" {
-		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,similarity(wn,$1) DESC,timestamp"
+		matches = "SELECT DISTINCT ON (clip_id,job_id,idx) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,job_id,idx,CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,similarity(wn,$1) DESC,timestamp"
 	}
 	if mode == "exact" {
 		// The passage matches on every word row of its segment: keep one row per passage,
 		// preferring the word row that is the query itself (its timestamp and spelling),
 		// then the earliest, so the pick is deterministic.
-		matches = "SELECT DISTINCT ON (clip_id,context,segment_start) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,context,segment_start,CASE WHEN wn=" + phraseNorm + " THEN 0 ELSE 1 END,timestamp"
+		matches = "SELECT DISTINCT ON (clip_id,job_id,idx) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,job_id,idx,CASE WHEN wn=" + phraseNorm + " THEN 0 ELSE 1 END,timestamp"
 	}
-	enrich := " FROM matches m" + segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx") + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
+	speakerJoin := segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx")
+	enrich := " FROM matches m" + speakerJoin + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
 	withMatches := baseQuery + ", matches AS (" + matches + ") "
+	order := " ORDER BY CASE m.match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,m.recorded_at DESC NULLS LAST,m.clip_id DESC,m.timestamp"
+	pageLimit := " LIMIT $12 OFFSET $13"
 	countQuery := withMatches + "SELECT count(*)" + enrich
-	query := withMatches + "SELECT m.clip_id,m.clip_name,m.visibility,m.recorded_at,m.status,m.sources,m.context,COALESCE(m.matched_text,''),m.timestamp,m.match_type,m.corrected,spk.person_id,spk.person_name,COALESCE(spk.level,'unknown')" + enrich + " ORDER BY CASE m.match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,m.recorded_at DESC NULLS LAST,m.clip_id DESC,m.timestamp LIMIT $12 OFFSET $13"
 	args := []any{queryNorm, ss.User.ID, admin, visibility, sourceID, from, to, status}
+	countArgs := append(append([]any{}, args...), 0.30, person.PersonID, person.Unknown)
+	if person.PersonID == 0 && !person.Unknown {
+		// Without a Person filter, voices cannot affect the total or page membership.
+		// Resolve them only for this page: multiplying the estimated word rows by
+		// the speaker lookup cost otherwise triggers expensive JIT on tiny searches.
+		countQuery = withMatches + "SELECT count(*) FROM matches"
+		countArgs = append(append([]any{}, args...), 0.30)
+		enrich = " FROM (SELECT * FROM matches m" + order + pageLimit + ") m" + speakerJoin + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
+		pageLimit = ""
+	}
+	query := withMatches + "SELECT m.clip_id,m.clip_name,m.visibility,m.recorded_at,m.status,m.sources,m.context,COALESCE(m.matched_text,''),m.timestamp,m.match_type,m.corrected,spk.person_id,spk.person_name,COALESCE(spk.level,'unknown')" + enrich + order + pageLimit
 	var total int
-	if err = s.Pool.QueryRow(r.Context(), countQuery, append(args, 0.30, person.PersonID, person.Unknown)...).Scan(&total); err != nil {
+	if err = s.Pool.QueryRow(r.Context(), countQuery, countArgs...).Scan(&total); err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -252,9 +265,9 @@ func (s *Server) hybridSearch(w http.ResponseWriter, r *http.Request, q string, 
 	filter := `clip_readable(c.id,c.owner_id,c.visibility,$2,$3) AND ($4='' OR c.visibility=$4) AND ($5=0 OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.source_id=$5)) AND ($6='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date >= $6::date) AND ($7='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date <= $7::date) AND ($8='' OR CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END=$8)`
 	args := []any{vector, ss.User.ID, admin, visibility, sourceID, from, to, status}
 	// The Person filter applies to the semantic candidates before their 100-row cut.
-	speaker := segmentSpeakerJoin("spk", "c.id", "COALESCE((j.result->>'audio_stream_index')::int,-1)", "e.segment_start", "e.segment_end", "e.transcription_job_id", "e.segment_index")
+	speaker := segmentSpeakerJoin("spk", "c.id", "v.stream", "v.seg_start", "v.seg_end", "e.transcription_job_id", "e.segment_index")
 	filter += " AND " + segmentPersonPredicate("spk", "$11", "$12")
-	query := fmt.Sprintf(`SELECT e.clip_id,COALESCE(c.display_title,c.original_name),c.visibility,c.capture_time,CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),COALESCE(sc.text,e.text),'',e.segment_start,'semantic',(sc.text IS NOT NULL),spk.person_id,spk.person_name,COALESCE(spk.level,'unknown') FROM transcript_embeddings e JOIN clips c ON c.id=e.clip_id JOIN jobs j ON j.id=e.transcription_job_id LEFT JOIN segment_corrections sc ON sc.transcription_job_id=e.transcription_job_id AND sc.segment_index=e.segment_index AND sc.stale_at IS NULL %s WHERE e.profile_id=%d AND NOT COALESCE(sc.reindex_pending,false) AND j.status='done' AND j.step LIKE 'transcription.audio.%%' AND NOT EXISTS(SELECT 1 FROM jobs newer WHERE newer.clip_id=j.clip_id AND newer.status='done' AND newer.step LIKE 'transcription.audio.%%' AND (newer.updated_at>j.updated_at OR (newer.updated_at=j.updated_at AND newer.id>j.id))) AND `+filter+` ORDER BY e.embedding::halfvec(%d) <=> $1::halfvec(%d) LIMIT $9 OFFSET $10`, speaker, profileID, dimensions, dimensions)
+	query := fmt.Sprintf(`SELECT e.clip_id,COALESCE(c.display_title,c.original_name),c.visibility,c.capture_time,CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),COALESCE(sc.text,e.text),'',v.seg_start,'semantic',(sc.text IS NOT NULL),spk.person_id,spk.person_name,COALESCE(spk.level,'unknown') FROM transcript_embeddings e JOIN clips c ON c.id=e.clip_id JOIN jobs j ON j.id=e.transcription_job_id JOIN audio_visible_segments v ON v.job_id=e.transcription_job_id AND v.idx=e.segment_index LEFT JOIN segment_corrections sc ON sc.transcription_job_id=e.transcription_job_id AND sc.segment_index=e.segment_index AND sc.stale_at IS NULL %s WHERE e.profile_id=%d AND NOT COALESCE(sc.reindex_pending,false) AND EXISTS(SELECT 1 FROM audio_visible_segments visible WHERE visible.job_id=j.id AND visible.idx=e.segment_index) AND `+filter+` ORDER BY e.embedding::halfvec(%d) <=> $1::halfvec(%d) LIMIT $9 OFFSET $10`, speaker, profileID, dimensions, dimensions)
 	rows, err := s.Pool.Query(r.Context(), query, append(args, 100, 0, person.PersonID, person.Unknown)...)
 	if err != nil {
 		fallback()

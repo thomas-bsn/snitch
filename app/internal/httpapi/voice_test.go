@@ -20,6 +20,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/config"
+	"snitch/internal/jobs"
 	"snitch/internal/setup"
 )
 
@@ -245,10 +246,37 @@ func newVoiceHarnessLogged(t *testing.T, pool *pgxpool.Pool, clips int, logger *
 	return h
 }
 
+// useSingleAudioTrack keeps only audio track 2 on every synthetic clip: a clip with one audio track is planned by
+// the legacy single-track scheduler, which the tests of that scheduler exercise (a clip with several audio tracks
+// is planned by an audio plan, ADR 0054).
+func (h *voiceHarness) useSingleAudioTrack() {
+	h.t.Helper()
+	if _, err := h.pool.Exec(context.Background(), `UPDATE clips SET tracks=COALESCE((SELECT jsonb_agg(t ORDER BY ord) FROM jsonb_array_elements(tracks) WITH ORDINALITY e(t,ord) WHERE t->>'type'<>'audio' OR (t->>'index')::int=2),'[]'::jsonb) WHERE id=ANY($1)`, h.clipIDs); err != nil {
+		h.t.Fatal(err)
+	}
+}
+
+// legacyTranscription is a clip whose single-track transcription was made before the audio plans existed (the
+// state of every clip transcribed with a track rule or an override): the override is recorded and the legacy job is
+// scheduled directly. The audio plan pipeline never produces it again for a clip with several audio tracks.
+func (h *voiceHarness) legacyTranscription(index int) {
+	h.t.Helper()
+	ctx := context.Background()
+	if _, err := h.pool.Exec(ctx, `INSERT INTO clip_audio_track_overrides(clip_id,audio_stream_index) VALUES($1,$2) ON CONFLICT(clip_id) DO UPDATE SET audio_stream_index=EXCLUDED.audio_stream_index,version=clip_audio_track_overrides.version+1,updated_at=now()`, h.clipID, index); err != nil {
+		h.t.Fatal(err)
+	}
+	plan, err := h.api.planTranscription(ctx, h.clipID, &index, true)
+	if err != nil {
+		h.t.Fatal(err)
+	}
+	if _, _, err = h.api.Jobs.Schedule(ctx, jobs.ScheduleInput{ClipID: h.clipID, Step: plan.step, InputVersion: plan.version, MaxAttempts: 3}); err != nil {
+		h.t.Fatal(err)
+	}
+}
+
 func (h *voiceHarness) transcribe() {
 	h.t.Helper()
-	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)
-	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/transcription", h.clipID), map[string]any{}, http.StatusOK)
+	h.legacyTranscription(2)
 	job, ok := h.claim()
 	if !ok || job.Step != "transcription.audio.2" {
 		h.t.Fatalf("expected the transcription task, got %+v", job)

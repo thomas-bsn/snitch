@@ -206,7 +206,7 @@ test("les colonnes placent chaque analyse selon son étape courante, avec leur c
   // Waiting for a Worker advises to start one.
   await expect(card(page, waiting)).toContainText("install or start a Worker");
   await expect(card(page, blocked)).toContainText(
-    "Choose the audio track to transcribe.",
+    "Waiting for a compatible Worker",
   );
   // The counter is the number of cards of the column.
   for (const name of ["transcription", "search", "voices", "recognition"]) {

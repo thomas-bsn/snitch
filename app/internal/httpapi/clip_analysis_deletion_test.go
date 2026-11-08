@@ -29,6 +29,7 @@ type deletionRefusal struct {
 // the Persons kept.
 func testClipAnalysisDeletion(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	first, _ := h.diarizeClip()
 	// Human work: a corrected segment text and a validated voice.
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/clips/%d/segments/0/text", h.clipID), map[string]any{"text": "corrigé", "expected_version": 0}, http.StatusOK)
@@ -152,6 +153,7 @@ func testClipAnalysisDeletion(t *testing.T, pool *pgxpool.Pool) {
 // full path: fingerprints and matching alone, and the whole analysis at once.
 func testClipAnalysisDeletionCascades(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	_, second := h.diarizeClip()
 	// A validated reference lets the other voice be matched automatically.
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/validation", second), map[string]any{"new_person_name": "Bob"}, http.StatusCreated)
@@ -200,6 +202,7 @@ func testClipAnalysisDeletionCascades(t *testing.T, pool *pgxpool.Pool) {
 // validated attribution and sample), and a speaker of another clip all survive.
 func testClipAnalysisDeletionKeepsOtherVoices(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	first, second := h.diarizeClip()
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/validation", first), map[string]any{"new_person_name": "Alice"}, http.StatusCreated)
 	ctx := t.Context()
@@ -263,6 +266,7 @@ func testClipAnalysisDeletionKeepsOtherVoices(t *testing.T, pool *pgxpool.Pool) 
 // confirmation, reported in the stake, and kept in the clip-level audit.
 func testClipAnalysisDeletionReportsRefusals(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	first, second := h.diarizeClip()
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/local-speakers/%d/validation", first), map[string]any{"new_person_name": "Alice"}, http.StatusCreated)
 	bob := h.createPerson("Bob")
@@ -307,6 +311,7 @@ func testClipAnalysisDeletionReportsRefusals(t *testing.T, pool *pgxpool.Pool) {
 // transaction of the deletion, so the confirm without confirm_loss refuses instead of deleting.
 func testClipAnalysisDeletionStakeAtConfirm(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.diarizeClip()
 	previewPath := fmt.Sprintf("%s?steps=transcription", h.analysisPath())
 	var preview struct {

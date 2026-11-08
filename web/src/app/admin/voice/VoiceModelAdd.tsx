@@ -10,7 +10,7 @@ import type { MessageKey } from "../../i18n/messages";
 import { useSession } from "../../session";
 
 type Inspection = components["schemas"]["VoiceModelInspection"];
-type Kind = components["schemas"]["VoiceModelAdd"]["kind"];
+type Kind = Exclude<components["schemas"]["VoiceModelAdd"]["kind"], "vad">;
 
 const kinds: Kind[] = ["diarization", "fingerprint", "separation"];
 const kindKeys: Record<Kind, MessageKey> = {

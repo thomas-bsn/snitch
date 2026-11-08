@@ -628,6 +628,7 @@ export const fr: Messages = {
         diarization: "Diarisation",
         fingerprint: "Empreinte",
         separation: "Séparation",
+        vad: "Détecteur de parole",
       },
       absent: "Absent",
       separationUnsupported:
@@ -2480,6 +2481,17 @@ export const fr: Messages = {
       play: "Lire à partir de {time}",
       textCorrected: "Texte corrigé par {author}",
       textCorrectedAnon: "Texte corrigé",
+
+      sourcesSummary: "Captée sur {count} pistes",
+
+      sourceTrack: "Piste {track}",
+
+      sourceExact: "Signal identique prouvé : copie exacte, de {from} à {to}",
+
+      sourceGain:
+        "Signal identique prouvé : gain constant ×{gain}, de {from} à {to}",
+
+      sourceRetained: "Passage conservé : piste {track}",
       unknownSpeaker: "Voix inconnue",
     },
     speaker: {
@@ -2507,6 +2519,29 @@ export const fr: Messages = {
       track: "Piste de {label}",
       waveformLabel: "Forme d’onde par voix",
       tracksLabel: "Pistes du clip, une par voix",
+      fromTrack: "Piste {index}",
+      trackStatesLabel: "État des voix par piste retenue",
+      trackLine: "Piste {index}",
+      microphoneTrack: "micro",
+      trackStatus: {
+        not_started: "Pas encore lancée",
+        queued: "En attente",
+        running: "En cours",
+        done: "Terminée",
+        failed: "En échec",
+        cancelled: "Annulée",
+        not_applicable: "Sans objet",
+      },
+      trackCause: {
+        voice_worker_unavailable:
+          "Aucun Worker vocal prêt : la transcription publiée est conservée, les voix attendent.",
+        microphone_direct_attribution:
+          "Piste micro : attribuée directement, sans diarisation.",
+        no_speakers: "Aucune voix détectée sur cette piste.",
+        cancelled_by_admin: "Annulée par un administrateur.",
+        fingerprint_missing: "Empreintes à calculer.",
+        step_failed: "L’étape a échoué.",
+      },
     },
     history: {
       empty: "Aucun segment de ce clip n’a été corrigé.",
@@ -2640,6 +2675,51 @@ export const fr: Messages = {
         awaiting_fingerprints: "En attente des empreintes vocales.",
         matching_failed: "La comparaison des voix a échoué.",
         upstream_failed: "Non exécutée : une étape précédente a échoué.",
+        audio_plan:
+          "Les pistes audio du clip sont examinées, puis celles qui contiennent de la parole sont transcrites.",
+        diagnostics_running:
+          "Examen de chaque piste audio pour repérer celles qui contiennent de la parole.",
+        diagnostics_complete: "Toutes les pistes audio ont été examinées.",
+        audio_children:
+          "En attente de la transcription des pistes qui contiennent de la parole.",
+        audio_dedup:
+          "Comparaison des pistes transcrites pour reconnaître une voix captée deux fois.",
+        audio_dedup_failed:
+          "La comparaison des pistes a échoué. Relancez-la : rien n’est publié sans elle.",
+        audio_child_failed:
+          "La transcription d’une piste a échoué. Relancez : seule cette piste est transcrite de nouveau.",
+        audio_retry:
+          "Une tâche en échec de l’analyse a été remise dans la file.",
+        audio_plan_published: "La transcription des pistes audio est publiée.",
+        diagnostic_ambiguous:
+          "Une piste n’a pas pu être classée. Annulez l’analyse, relancez-la et choisissez d’inclure ou d’écarter cette piste.",
+        diagnostic_no_speech:
+          "Aucune parole n’a été trouvée sur une piste que vous avez choisie. Annulez l’analyse, relancez-la et forcez cette piste pour la transcrire.",
+        diagnostic_failed:
+          "L’examen d’une piste a échoué. Relancez-le, ou annulez et choisissez vous-même les pistes.",
+        audio_confirmation_required:
+          "Publication suspendue : elle remplacerait un travail humain non confirmé. La transcription actuelle reste visible.",
+        audio_publication_changed:
+          "Publication suspendue : des corrections ou validations de voix ont changé depuis votre confirmation. Relisez et confirmez de nouveau ; la transcription actuelle reste visible.",
+        audio_publication_incomplete:
+          "Publication suspendue : le résultat ne couvre pas toutes les pistes attendues.",
+        audio_transcription_empty:
+          "Une piste avec parole n’a rendu aucun texte. Relancez-la, ou relancez l’analyse sans cette piste.",
+        invalid_audio_evidence:
+          "Le rapport de comparaison n’est pas valide. Relancez la comparaison.",
+        invalid_audio_result:
+          "Une piste a rendu un résultat qui n’appartient pas à cette analyse.",
+        publication_unavailable: "La publication n’est pas disponible.",
+      },
+      publication: {
+        title: "Publication suspendue",
+        losses:
+          "La publication remplace {corrections} correction(s) et {validations} voix validée(s) de la transcription actuelle.",
+        none: "La publication ne remplace aucun travail humain.",
+        tracks: "Pistes remplacées : {tracks}.",
+        confirm: "Remplacer et publier",
+        confirmed: "Pertes confirmées.",
+        loading: "Lecture de ce que la publication remplacerait…",
       },
       track: "Piste audio",
       trackPlaceholder: "Choisir une piste…",
@@ -2711,6 +2791,77 @@ export const fr: Messages = {
       viewTask: "Voir la tâche n°{id}",
       forced: "(relancée)",
       profile: "Profil : {profile}",
+    },
+    audioSelection: {
+      legend: "Pistes audio",
+      loading: "Lecture des pistes audio…",
+      loadFailed: "Les pistes audio n’ont pas pu être lues.",
+      reload: "Relire",
+      modeAuto: "Auto — examiner toutes les pistes",
+      modeManual: "Choisir les pistes moi-même",
+      autoHint:
+        "Toutes les pistes audio sont examinées. Aucune n’est supposée être la voix ou le jeu : seuls les diagnostics décident.",
+      tracksLabel: "Pistes à analyser",
+      track: "Piste {index}",
+      untitled: "Sans titre",
+      codec: "Codec {codec}",
+      channels: "{count} canaux",
+      language: "Langue {language}",
+      offset: "Débute à {seconds} s",
+      duration: "Durée {seconds} s",
+      noDiagnostic: "Pas encore de diagnostic",
+      diagnostic: {
+        speech: "Parole détectée",
+        no_speech: "Aucune parole détectée",
+        ambiguous: "Ambiguë",
+        unexamined: "Non examinée",
+        failed: "Diagnostic en échec",
+      },
+      freshness: {
+        current: "À jour",
+        stale: "Périmé",
+        missing: "Absent",
+      },
+      cause: "Cause : {cause}",
+      decisionLabel: "Piste ambiguë {index} : votre décision",
+      include: "Inclure",
+      exclude: "Écarter",
+      force: "Utiliser cette piste malgré le diagnostic",
+      forceReason: "Pourquoi (conservé avec l’analyse)",
+      forceNeeded:
+        "La piste {index} ne contient pas de parole : cochez « utiliser malgré le diagnostic » pour la garder.",
+      needTrack: "Choisissez au moins une piste.",
+      needDecision: "Décidez d’inclure ou d’écarter chaque piste ambiguë.",
+      preview: "Aperçu des effets",
+      previewing: "Calcul des effets…",
+      previewTitle: "Ce qui sera recalculé",
+      added: "Étapes ajoutées",
+      invalidated: "Étapes invalidées",
+      tracksConcerned: "Pistes concernées",
+      nothingAdded: "Aucune étape n’est ajoutée.",
+      nothingInvalidated: "Aucune étape existante n’est invalidée.",
+      stepName: {
+        diagnostic: "Diagnostic de la piste {index}",
+        transcription: "Transcription de la piste {index}",
+        diarization: "Détection des voix de la piste {index}",
+        fingerprint: "Empreintes vocales de la piste {index}",
+      },
+      lossesTitle: "Conséquences sur le travail humain",
+      noLoss:
+        "Aucune correction ni validation n’est remplacée : aucune confirmation n’est nécessaire.",
+      lossCorrections:
+        "{count} corrections de la transcription deviendront obsolètes.",
+      lossValidations: "{count} voix validées seront détachées.",
+      lossTracks: "Pistes remplacées : {tracks}.",
+      confirmLosses:
+        "Je confirme ces conséquences pour cette analyse uniquement",
+      confirmScope:
+        "Cette confirmation vaut pour l’aperçu affiché. Modifier le choix, ou toute modification ultérieure, exige un nouvel aperçu.",
+      workerWait:
+        "Aucun Worker compatible n’est connecté : l’analyse est créée et démarrera dès qu’il y en aura un.",
+      change: "Modifier le choix",
+      start: "Lancer l’analyse",
+      starting: "Démarrage…",
     },
     reanalyze: {
       title: "Lancer l’analyse",

@@ -1,0 +1,19 @@
+{
+  "recipe": "worker/tests/fixtures/acoustic/generate.py",
+  "text": "go to the north gate now",
+  "synthesis": "espeak-ng (GPL-3.0 tool; its output is generated test data), ffmpeg",
+  "files": {
+    "game-bed.wav": "1bc6ae16e778142c15577c48bd9d996e61a5fc8fa21156fa809205083bc561bd",
+    "mix-a-and-b.wav": "fee0f585c8dd4ac2ad141779338f2608be19e94558271870981135c7b5c800ce",
+    "mix-a-game.wav": "ee6e8a66261f793f01900bafea341e930dcff918a70b993f6d9d1d1e7f77c3b2",
+    "mix-b-game.wav": "16d83eddb5a3e98febe42c0c63f41b27df0f2b7292db87aba8cbf82f98f2dee2",
+    "voice-a-aac64k.wav": "8cd98b2267ddb49a681cfc76c22f00aeb058bdc7c777da5f565712efbc0c5beb",
+    "voice-a-flac-roundtrip.wav": "cb07ae93743e31e85a6b95b58c6433b11b27ebcd0b0eb0abb86be0436894c21c",
+    "voice-a-gain-0.25.wav": "030f9e41fa9b145f30644f98c03cc8d888f5fa716b9eb56df6c29621ab844ba0",
+    "voice-a-gain-0.5.wav": "842979a1e8f6d7a39b8bd212a3228e88d715c7b5214c76e28811e1832f3b44d0",
+    "voice-a-gain-2.0.wav": "08b0991416226c250a61c9c33a1e8cea76dc391ecc2be14843ed6e4db745b8a6",
+    "voice-a-second-take.wav": "3c67ae9a75054c57a98c01eb77df502789478bc9bcf801c9ed646c9a4f8b2e59",
+    "voice-a.wav": "43c9328b661904d77beee136b28a7a3592ebe38a10ab45e817d60041283bf7ea",
+    "voice-b-same-words.wav": "ff5581ba1b6d149afbd462ab19b112c80c2e3ecb119768071567fd0b457a7109"
+  }
+}

@@ -13,8 +13,10 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.speaker_coverage import SpeakerCoverage
+  from ..models.transcript_revision import TranscriptRevision
   from ..models.transcript_segment import TranscriptSegment
   from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem
+  from ..models.transcription_speaker_coverage_by_track_item import TranscriptionSpeakerCoverageByTrackItem
 
 
 
@@ -37,8 +39,12 @@ class Transcription:
             transcription_job_id (int | Unset): Tâche de transcription visible : avec l'index, l'identité d'un segment.
             local_speakers (list[TranscriptionLocalSpeakersItem] | Unset): Locuteurs locaux de la piste audio, désignables
                 pour un segment ; absent sans diarisation.
+            speaker_coverage_by_track (list[TranscriptionSpeakerCoverageByTrackItem] | Unset): Révision de Plan seulement :
+                la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une
+                piste sans aucun segment.
             speaker_coverage (list[SpeakerCoverage] | Unset): Couverture des locuteurs détectés par la transcription de la
                 piste (#273) : un locuteur sans parole attribuée y reste visible. Absent sans diarisation.
+            revision (TranscriptRevision | Unset):
      """
 
     provider: str
@@ -49,7 +55,9 @@ class Transcription:
     language: str | Unset = UNSET
     transcription_job_id: int | Unset = UNSET
     local_speakers: list[TranscriptionLocalSpeakersItem] | Unset = UNSET
+    speaker_coverage_by_track: list[TranscriptionSpeakerCoverageByTrackItem] | Unset = UNSET
     speaker_coverage: list[SpeakerCoverage] | Unset = UNSET
+    revision: TranscriptRevision | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -58,8 +66,10 @@ class Transcription:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.speaker_coverage import SpeakerCoverage # noqa: PLC0415
+        from ..models.transcript_revision import TranscriptRevision # noqa: PLC0415
         from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
         from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem # noqa: PLC0415
+        from ..models.transcription_speaker_coverage_by_track_item import TranscriptionSpeakerCoverageByTrackItem # noqa: PLC0415
         provider = self.provider
 
         model = self.model
@@ -88,6 +98,15 @@ class Transcription:
 
 
 
+        speaker_coverage_by_track: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.speaker_coverage_by_track, Unset):
+            speaker_coverage_by_track = []
+            for speaker_coverage_by_track_item_data in self.speaker_coverage_by_track:
+                speaker_coverage_by_track_item = speaker_coverage_by_track_item_data.to_dict()
+                speaker_coverage_by_track.append(speaker_coverage_by_track_item)
+
+
+
         speaker_coverage: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.speaker_coverage, Unset):
             speaker_coverage = []
@@ -96,6 +115,10 @@ class Transcription:
                 speaker_coverage.append(speaker_coverage_item)
 
 
+
+        revision: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.revision, Unset):
+            revision = self.revision.to_dict()
 
 
         field_dict: dict[str, Any] = {}
@@ -114,8 +137,12 @@ class Transcription:
             field_dict["transcription_job_id"] = transcription_job_id
         if local_speakers is not UNSET:
             field_dict["local_speakers"] = local_speakers
+        if speaker_coverage_by_track is not UNSET:
+            field_dict["speaker_coverage_by_track"] = speaker_coverage_by_track
         if speaker_coverage is not UNSET:
             field_dict["speaker_coverage"] = speaker_coverage
+        if revision is not UNSET:
+            field_dict["revision"] = revision
 
         return field_dict
 
@@ -124,8 +151,10 @@ class Transcription:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.speaker_coverage import SpeakerCoverage # noqa: PLC0415
+        from ..models.transcript_revision import TranscriptRevision # noqa: PLC0415
         from ..models.transcript_segment import TranscriptSegment # noqa: PLC0415
         from ..models.transcription_local_speakers_item import TranscriptionLocalSpeakersItem # noqa: PLC0415
+        from ..models.transcription_speaker_coverage_by_track_item import TranscriptionSpeakerCoverageByTrackItem # noqa: PLC0415
         d = dict(src_dict)
         provider = d.pop("provider")
 
@@ -161,6 +190,18 @@ class Transcription:
                 local_speakers.append(local_speakers_item)
 
 
+        _speaker_coverage_by_track = d.pop("speaker_coverage_by_track", UNSET)
+        speaker_coverage_by_track: list[TranscriptionSpeakerCoverageByTrackItem] | Unset = UNSET
+        if _speaker_coverage_by_track is not UNSET:
+            speaker_coverage_by_track = []
+            for speaker_coverage_by_track_item_data in _speaker_coverage_by_track:
+                speaker_coverage_by_track_item = TranscriptionSpeakerCoverageByTrackItem.from_dict(speaker_coverage_by_track_item_data)
+
+
+
+                speaker_coverage_by_track.append(speaker_coverage_by_track_item)
+
+
         _speaker_coverage = d.pop("speaker_coverage", UNSET)
         speaker_coverage: list[SpeakerCoverage] | Unset = UNSET
         if _speaker_coverage is not UNSET:
@@ -173,6 +214,16 @@ class Transcription:
                 speaker_coverage.append(speaker_coverage_item)
 
 
+        _revision = d.pop("revision", UNSET)
+        revision: TranscriptRevision | Unset
+        if isinstance(_revision,  Unset):
+            revision = UNSET
+        else:
+            revision = TranscriptRevision.from_dict(_revision)
+
+
+
+
         transcription = cls(
             provider=provider,
             model=model,
@@ -182,7 +233,9 @@ class Transcription:
             language=language,
             transcription_job_id=transcription_job_id,
             local_speakers=local_speakers,
+            speaker_coverage_by_track=speaker_coverage_by_track,
             speaker_coverage=speaker_coverage,
+            revision=revision,
         )
 
 

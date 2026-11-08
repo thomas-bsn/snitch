@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"snitch/internal/audioplans"
 	"snitch/internal/jobs"
 )
 
@@ -63,7 +64,7 @@ func (s *Server) batchTranscriptionSchedule(w http.ResponseWriter, r *http.Reque
 	}
 	scheduled := 0
 	for _, id := range preview.ClipIDs {
-		_, created, scheduleErr := s.scheduleResolvedTranscription(r.Context(), id, nil, true)
+		_, created, scheduleErr := s.scheduleResolvedTranscriptionAs(r.Context(), id, nil, true, audioStarter{Actor: sessionUserID(r), ConfirmLosses: input.IncludeCorrected})
 		if scheduleErr != nil {
 			s.internal(w, scheduleErr)
 			return
@@ -131,6 +132,42 @@ func (s *Server) previewTranscriptionBatch(r *http.Request, includeCorrected boo
 				continue
 			}
 			return batchPreview{}, mediaErr
+		}
+		if multitrackClip(tracksFromClip(json.RawMessage(raw))) {
+			// A clip with several audio tracks is planned by the audio plan pipeline: it is never "selection
+			// required", and a plan already published or running for the same inputs is not scheduled twice.
+			input, planErr := s.legacyAudioInput(r.Context(), id, nil)
+			if planErr != nil {
+				return batchPreview{}, planErr
+			}
+			canonical, planErr := audioplans.CanonicalInput(input)
+			if planErr != nil {
+				return batchPreview{}, planErr
+			}
+			var published, active bool
+			if err = s.Pool.QueryRow(r.Context(), `SELECT
+ EXISTS(SELECT 1 FROM audio_plans p JOIN audio_publications ap ON ap.clip_id=p.clip_id JOIN transcript_revisions tr ON tr.id=ap.revision_id AND tr.plan_id=p.id WHERE p.clip_id=$1 AND p.input_version=$2),
+ EXISTS(SELECT 1 FROM audio_plans p JOIN clip_analysis_runs r ON r.id=p.run_id WHERE p.clip_id=$1 AND p.input_version=$2 AND r.status='active')`, id, canonical.Version).Scan(&published, &active); err != nil {
+				return batchPreview{}, err
+			}
+			if published {
+				result.AlreadyProcessed++
+				continue
+			}
+			if active {
+				result.AlreadyQueued++
+				continue
+			}
+			if n := corrected[id]; n > 0 {
+				result.Corrected++
+				result.CorrectedSegments += n
+				if !includeCorrected {
+					continue
+				}
+			}
+			result.Eligible++
+			result.ClipIDs = append(result.ClipIDs, id)
+			continue
 		}
 		selection, selErr := s.audioSelection(r.Context(), id, tracksFromClip(json.RawMessage(raw)))
 		if selErr != nil {

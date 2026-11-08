@@ -49,6 +49,7 @@ func (h *voiceHarness) retranscriptionResult(texts ...string) map[string]any {
 
 func testSegmentRetranscription(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	h.transcribe()
 	admin := h.adminUser()
 	bob := h.newUser("bob")

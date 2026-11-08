@@ -10,6 +10,12 @@ _Avoid_ : Enregistrement (qui peut être plus long), fichier (qui désigne un em
 **Analyse de clip** : Une exécution durable lancée par un administrateur, ou automatiquement à l'ajout d'une vidéo, qui enchaîne les étapes applicables d'un clip (préparation, transcription, puis les suivantes) et explique l'état de chacune. Une seule est active par clip ; les résultats valides sont réutilisés.
 _Avoid_ : Traitement (trop vague), tâche (qui désigne un job).
 
+**Plan audio** : Les pistes qu'une Analyse de clip doit examiner ou retenir, avec les choix explicites de l'utilisateur et les règles utilisées pour interpréter leur parole. Changer ces choix donne un autre Plan audio.
+_Avoid_ : Piste choisie (qui ne couvre qu'une piste), Analyse de clip (qui désigne l'exécution entière).
+
+**Diagnostic de piste** : L'observation, par un détecteur de parole versionné, de la présence de parole dans une piste audio réelle d'un Plan audio : parole détectée, aucune parole détectée, ambigu, échec ou non examiné, avec ses causes et intervalles. Une erreur, un modèle absent ou une faible certitude ne sont jamais une absence de parole ; le diagnostic n'exclut pas une piste à lui seul.
+_Avoid_ : Détection de piste jeu (le titre ou l'ordre d'une piste ne dit rien de son contenu).
+
 **Analyse complète automatique** : Le réglage qui fait démarrer une Analyse de clip complète, de la transcription jusqu'aux voix, dès qu'une vidéo est ajoutée. Il ne concerne que les nouveaux ajouts.
 
 **Suppression d'analyse** : Le retrait volontaire des résultats d'étapes choisies d'un clip, avec tout ce qui en dépend. Le clip, ses fichiers et les Personnes restent ; les Références perdent les échantillons qui venaient de ce clip.
@@ -59,6 +65,8 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Couverture d'un Locuteur local** : Ce que la transcription retient d'un Locuteur local détecté : des paroles lui sont attribuées, il parle sous des paroles attribuées à d'autres Locuteurs locaux, ou aucune parole ne recouvre ses tours. Un Locuteur local détecté sans parole attribuée reste visible.
 
+**Provenance d'une voix** : La piste audio réelle sur laquelle un Locuteur local a été détecté. Deux pistes ne partagent jamais un Locuteur local, et fusionner des textes ne fusionne ni voix, ni Personnes, ni Échantillons vocaux validés (ADR 0052).
+
 **Voix ignorée** : Un Locuteur local déclaré par un utilisateur comme une fausse détection. Il ne compte pas : aucun locuteur n'est affiché pour ses paroles, et il n'est ni vérifié, ni groupé, ni rapproché d'une Personne. La décision est réversible.
 _Avoid_ : Bruit, voix supprimée.
 
@@ -84,6 +92,9 @@ _Avoid_ : Spectre, spectrogramme (qui montre les fréquences).
 **Profil vocal** : Les échantillons validés, empreintes et attributions d'une Personne. Son titulaire peut le supprimer ; ses voix redeviennent alors inconnues et ne sont plus rapprochées d'elle.
 
 **Transcription d'origine** : Le texte d'un clip tel que produit par la transcription automatique. Il n'est jamais modifié et sert de référence pour mesurer la qualité.
+
+**Révision de transcription** : Un ensemble identifié de paroles d'un clip, conservant la ou les pistes d'origine de chaque segment et mot. La révision publiée est celle que l'on consulte, corrige et recherche ; une révision candidate attend encore sa publication.
+_Avoid_ : Dernière transcription (qui ne précise pas laquelle est publiée).
 
 **Configuration de transcription** : Les réglages définis dans Snitch pour produire les transcriptions de la bibliothèque : serveur, modèle et langue. Elle peut exister avant tout Worker.
 

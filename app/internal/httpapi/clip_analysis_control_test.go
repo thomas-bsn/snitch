@@ -27,13 +27,14 @@ func (h *voiceHarness) analysisAction(path string, want int) analysisRunView {
 // after the track or Worker is resolved, the cancellation and the retry of a failed step.
 func testClipAnalysisControl(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	ctx := context.Background()
 	h.adminCall(http.MethodPost, h.analysisPath()+"/cancel", nil, http.StatusConflict)
 	h.adminCall(http.MethodPost, h.analysisPath()+"/steps/transcription/retry", nil, http.StatusNotFound)
 
 	run := h.startAnalysis(map[string]any{}, http.StatusCreated)
-	if run.step("preparation").Reason != "audio_track_selection_required" {
-		t.Fatalf("expected a track choice: %+v", run)
+	if run.step("preparation").Status != "done" {
+		t.Fatalf("a clip with one audio track needs no track choice: %+v", run)
 	}
 	// Choosing the track resumes the run by itself; no Worker supports the task yet.
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)

@@ -65,6 +65,18 @@ func (s *Server) scheduleJob(w http.ResponseWriter, r *http.Request) {
 	if s.refuseWhileAnalyzing(w, r, input.ClipID) {
 		return
 	}
+	// The steps and input versions of audio plans are owned by the plan orchestrator: a raw job could skip its
+	// diagnostics, its dedup or the publication guard.
+	if strings.HasPrefix(input.Step, "audio.") || strings.HasPrefix(input.InputVersion, "mt1:") {
+		fail(w, http.StatusBadRequest, "invalid_job")
+		return
+	}
+	if isTranscriptionStep(input.Step) && input.ClipID > 0 && input.RequestedModelID == "" {
+		if tracks, trackErr := s.clipAudioTracks(r.Context(), input.ClipID); trackErr == nil && multitrackClip(tracks) {
+			fail(w, http.StatusConflict, "audio_plan_required")
+			return
+		}
+	}
 	if isTranscriptionStep(input.Step) && input.ClipID > 0 && !s.correctionsGuard(w, r, input.ClipID) {
 		return
 	}
@@ -102,10 +114,10 @@ func (s *Server) scheduleTranscription(w http.ResponseWriter, r *http.Request) {
 		fail(w, 400, "invalid_audio_stream")
 		return
 	}
-	if s.refuseWhileAnalyzing(w, r, clipID) || !s.correctionsGuard(w, r, clipID) {
+	if s.refuseWhileAnalyzingUnlessAutoPlan(w, r, clipID) || !s.correctionsGuard(w, r, clipID) {
 		return
 	}
-	job, created, err := s.scheduleResolvedTranscription(r.Context(), clipID, input.AudioStreamIndex, true)
+	job, created, err := s.scheduleResolvedTranscriptionAs(r.Context(), clipID, input.AudioStreamIndex, true, audioStarter{Actor: sessionUserID(r), ConfirmLosses: true})
 	if err != nil {
 		if err.Error() == "audio selection required" {
 			fail(w, http.StatusConflict, "audio_track_selection_required")

@@ -29,8 +29,7 @@ func testClipProgress(t *testing.T, pool *pgxpool.Pool) {
 	if tr, ix := progress(); tr != "none" || ix != "none" {
 		t.Fatalf("a clip nothing was planned for: %s %s", tr, ix)
 	}
-	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)
-	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/transcription", h.clipID), map[string]any{}, http.StatusOK)
+	h.legacyTranscription(2)
 	if tr, _ := progress(); tr != "queued" {
 		t.Fatalf("a planned transcription must be queued: %s", tr)
 	}

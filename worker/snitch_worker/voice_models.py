@@ -105,7 +105,7 @@ _LEGACY = {
 
 def kind_of(item: Mapping[str, Any]) -> str:
     """The type of an item; the diarization model when the server does not say."""
-    return item["kind"] if item.get("kind") in _LEGACY else "diarization"
+    return item["kind"] if item.get("kind") in (*_LEGACY, "vad") else "diarization"
 
 
 def _legacy_path(environ: Mapping[str, str], repo: str, revision: str, kind: str = "diarization") -> str:
@@ -180,6 +180,7 @@ class ModelManager:
         report: Report | None = None,
         min_progress_interval: float = 1.0,
         verify_fingerprint: Verify | None = None,
+        install_vad: Callable[..., None] | None = None,
     ) -> None:
         self._env = environ
         self._download = download
@@ -190,6 +191,8 @@ class ModelManager:
         self.failed_proofs: set[tuple[str, str]] = set()
         self._report = report
         self._interval = min_progress_interval
+        # The pinned speech detector of the audio diagnostics (ADR 0048), installed by an order only.
+        self._install_vad = install_vad
 
     def note_active(self, desired: Mapping[str, Any]) -> None:
         """Remember which repository Snitch holds as active: it only labels the declaration, nothing is fetched."""
@@ -210,6 +213,8 @@ class ModelManager:
         if not (isinstance(repo, str) and isinstance(revision, str) and valid_model(repo, revision)):
             return False
         kind = kind_of(item)
+        if kind == "vad":
+            return is_ready(self._env, repo, revision)
         return is_ready(self._env, repo, revision) or bool(_legacy_path(self._env, repo, revision, kind))
 
     def remove(self, items: list[dict[str, Any]], report: Report | None = None) -> None:
@@ -231,6 +236,27 @@ class ModelManager:
             return
         post({"model_id": model_id, "state": "removed", "cause_code": "", "bytes_received": 0, "bytes_total": 0})
 
+    def _prepare_vad(self, repo: str, revision: str, target: str, say: Callable[..., None]) -> None:
+        """Install the one pinned speech detector this order names: checksum, then a real CPU inference."""
+        from snitch_worker import audio_diagnostic
+
+        if repo != audio_diagnostic.REPO or revision != audio_diagnostic.REVISION:
+            # Only the artifact the adapter is versioned for is executable: never an arbitrary TorchScript file.
+            say("failed", "runtime_incompatible")
+            return
+        install = self._install_vad or audio_diagnostic.install
+        say("downloading")
+        try:
+            install(target, download=True, report=lambda state: say(state) if state == "verifying" else None)
+        except BaseException as error:  # noqa: BLE001 - only a closed cause leaves this function
+            if isinstance(error, (KeyboardInterrupt, SystemExit)):
+                raise
+            cause = _vad_cause(error)
+            log.emit(logging.INFO, "voice_model_failed", phase="vad", cause_code=cause, model_id=repo, revision=revision)
+            say("failed", cause)
+            return
+        say("ready")
+
     def _prepare(self, item: dict[str, Any], post: Report) -> None:
         repo, revision, model_id = item.get("repo"), item.get("revision"), item.get("model_id")
         if not (isinstance(repo, str) and isinstance(revision, str) and isinstance(model_id, str) and valid_model(repo, revision)):
@@ -245,6 +271,9 @@ class ModelManager:
             say("ready")
             return
         kind = kind_of(item)
+        if kind == "vad":
+            self._prepare_vad(repo, revision, target, say)
+            return
         verify = self._verify_fingerprint if kind == "fingerprint" else self._verify
         legacy = _legacy_path(self._env, repo, revision, kind)
         location = legacy or target
@@ -295,6 +324,22 @@ class ModelManager:
         if item.get("role") == "active":
             log.emit(logging.INFO, "voice_model_activated", **milestone)
         say("ready")
+
+
+def _vad_cause(error: BaseException) -> str:
+    """A closed cause for a failed detector installation (the voice vocabulary is reused, ADR 0048)."""
+    from urllib.error import URLError
+
+    cause = getattr(error, "cause", "")
+    if cause in ("model_checksum_mismatch", "runtime_incompatible"):
+        return "runtime_incompatible"
+    if cause == "model_missing" or isinstance(error, (URLError, TimeoutError, ConnectionError)):
+        return "hf_network"
+    if isinstance(error, OSError) and getattr(error, "errno", None) == 28:
+        return "disk_full"
+    if isinstance(error, PermissionError):
+        return "models_volume_unwritable"
+    return "inference_failed"
 
 
 def sync_voice_models(client: Any, manager: ModelManager) -> None:

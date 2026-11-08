@@ -612,6 +612,7 @@ export const en = {
         diarization: "Diarization",
         fingerprint: "Fingerprint",
         separation: "Separation",
+        vad: "Speech detector",
       },
       absent: "Absent",
       separationUnsupported:
@@ -2436,6 +2437,17 @@ export const en = {
       play: "Play from {time}",
       textCorrected: "Text corrected by {author}",
       textCorrectedAnon: "Text corrected",
+
+      sourcesSummary: "Captured on {count} tracks",
+
+      sourceTrack: "Track {track}",
+
+      sourceExact: "Identical signal proven: exact copy, from {from} to {to}",
+
+      sourceGain:
+        "Identical signal proven: constant gain ×{gain}, from {from} to {to}",
+
+      sourceRetained: "Kept passage: track {track}",
       unknownSpeaker: "Unknown voice",
     },
     speaker: {
@@ -2462,6 +2474,29 @@ export const en = {
       track: "Track of {label}",
       waveformLabel: "Waveform by voice",
       tracksLabel: "Tracks of the clip, one per voice",
+      fromTrack: "Track {index}",
+      trackStatesLabel: "Voice state per kept track",
+      trackLine: "Track {index}",
+      microphoneTrack: "microphone",
+      trackStatus: {
+        not_started: "Not started",
+        queued: "Waiting",
+        running: "Running",
+        done: "Done",
+        failed: "Failed",
+        cancelled: "Cancelled",
+        not_applicable: "Not applicable",
+      },
+      trackCause: {
+        voice_worker_unavailable:
+          "No voice Worker is ready: the published transcript is kept, the voices wait.",
+        microphone_direct_attribution:
+          "Microphone track: attributed directly, never diarized.",
+        no_speakers: "No voice detected on this track.",
+        cancelled_by_admin: "Cancelled by an administrator.",
+        fingerprint_missing: "Fingerprints still to compute.",
+        step_failed: "The step failed.",
+      },
     },
     history: {
       empty: "No segment of this clip was corrected.",
@@ -2592,6 +2627,51 @@ export const en = {
         awaiting_fingerprints: "Waiting for the voice fingerprints.",
         matching_failed: "Voice matching failed.",
         upstream_failed: "Not run: a previous step failed.",
+        audio_plan:
+          "The audio tracks of this clip are being examined, then the ones with speech are transcribed.",
+        diagnostics_running:
+          "Examining every audio track to find the ones with speech.",
+        diagnostics_complete: "Every audio track was examined.",
+        audio_children:
+          "Waiting for the transcription of the tracks with speech.",
+        audio_dedup:
+          "Comparing the transcribed tracks to recognize a voice captured twice.",
+        audio_dedup_failed:
+          "The comparison of the tracks failed. Retry it: nothing is published without it.",
+        audio_child_failed:
+          "The transcription of a track failed. Retry: only that track is transcribed again.",
+        audio_retry: "A failed task of the analysis was put back in the queue.",
+        audio_plan_published:
+          "The transcription of the audio tracks is published.",
+        diagnostic_ambiguous:
+          "A track could not be classified. Cancel the analysis, then run it again and choose to include or exclude that track.",
+        diagnostic_no_speech:
+          "No speech was found on a track you chose. Cancel the analysis, then run it again and force that track if you want it transcribed.",
+        diagnostic_failed:
+          "The examination of a track failed. Retry it, or cancel and choose the tracks yourself.",
+        audio_confirmation_required:
+          "Publication is held: it would replace human work that is not confirmed yet. The current transcription stays visible.",
+        audio_publication_changed:
+          "Publication is held: corrections or voice validations changed since you confirmed. Review and confirm again; the current transcription stays visible.",
+        audio_publication_incomplete:
+          "Publication is held: the result does not cover every expected track.",
+        audio_transcription_empty:
+          "A track with speech returned no text. Retry it, or run the analysis again without that track.",
+        invalid_audio_evidence:
+          "The comparison report is not valid. Retry the comparison.",
+        invalid_audio_result:
+          "A track returned a result that does not belong to this analysis.",
+        publication_unavailable: "Publication is not available.",
+      },
+      publication: {
+        title: "Publication on hold",
+        losses:
+          "Publishing replaces {corrections} correction(s) and {validations} validated voice(s) of the current transcription.",
+        none: "Publishing replaces no human work.",
+        tracks: "Tracks replaced: {tracks}.",
+        confirm: "Replace and publish",
+        confirmed: "Losses confirmed.",
+        loading: "Reading what publication would replace…",
       },
       track: "Audio track",
       trackPlaceholder: "Choose a track…",
@@ -2660,6 +2740,76 @@ export const en = {
       viewTask: "View task #{id}",
       forced: "(run again)",
       profile: "Profile: {profile}",
+    },
+    audioSelection: {
+      legend: "Audio tracks",
+      loading: "Reading the audio tracks…",
+      loadFailed: "The audio tracks could not be read.",
+      reload: "Read again",
+      modeAuto: "Auto — examine all tracks",
+      modeManual: "Choose the tracks myself",
+      autoHint:
+        "Every audio track is examined. No track is assumed to be the voice or the game: only the diagnostics decide.",
+      tracksLabel: "Tracks to analyze",
+      track: "Track {index}",
+      untitled: "Untitled",
+      codec: "Codec {codec}",
+      channels: "{count} channels",
+      language: "Language {language}",
+      offset: "Starts at {seconds} s",
+      duration: "Duration {seconds} s",
+      noDiagnostic: "No diagnostic yet",
+      diagnostic: {
+        speech: "Speech detected",
+        no_speech: "No speech detected",
+        ambiguous: "Ambiguous",
+        unexamined: "Not examined",
+        failed: "Diagnostic failed",
+      },
+      freshness: {
+        current: "Up to date",
+        stale: "Out of date",
+        missing: "Missing",
+      },
+      cause: "Cause: {cause}",
+      decisionLabel: "Ambiguous track {index}: your decision",
+      include: "Include",
+      exclude: "Exclude",
+      force: "Use this track despite the diagnostic",
+      forceReason: "Why (kept with the analysis)",
+      forceNeeded:
+        "Track {index} shows no speech: tick “use despite the diagnostic” to keep it.",
+      needTrack: "Choose at least one track.",
+      needDecision: "Decide whether to include each ambiguous track.",
+      preview: "Preview the effects",
+      previewing: "Calculating the effects…",
+      previewTitle: "What will be recalculated",
+      added: "Steps added",
+      invalidated: "Steps invalidated",
+      tracksConcerned: "Tracks concerned",
+      nothingAdded: "No step is added.",
+      nothingInvalidated: "No existing step is invalidated.",
+      stepName: {
+        diagnostic: "Diagnostic of track {index}",
+        transcription: "Transcription of track {index}",
+        diarization: "Voice detection of track {index}",
+        fingerprint: "Voice fingerprints of track {index}",
+      },
+      lossesTitle: "Consequences for human work",
+      noLoss:
+        "No correction or validation is replaced: no confirmation is needed.",
+      lossCorrections:
+        "{count} corrections to the transcript will become obsolete.",
+      lossValidations: "{count} validated voices will be detached.",
+      lossTracks: "Tracks replaced: {tracks}.",
+      confirmLosses: "I confirm these consequences for this analysis only",
+      confirmScope:
+        "This confirmation covers the preview shown. Changing the choice, or any later edit, requires a new preview.",
+      workerWait:
+        "No compatible Worker is connected: the analysis is created and starts as soon as one is.",
+      change: "Change the choice",
+      start: "Start the analysis",
+      starting: "Starting…",
     },
     reanalyze: {
       title: "Launch analysis",

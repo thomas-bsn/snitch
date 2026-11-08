@@ -13,7 +13,7 @@ import (
 // (Engine) allowed to run it.
 type voiceCatalogEntry struct {
 	ID                  string
-	Kind                string // diarization, fingerprint or separation
+	Kind                string // diarization, fingerprint, separation or vad
 	Engine              string
 	Repo                string
 	Revision            string
@@ -39,7 +39,7 @@ func scanVoiceCatalogEntry(row pgx.Row) (voiceCatalogEntry, error) {
 
 // voiceCatalogList returns every reference, in a stable order (kind, then creation).
 func voiceCatalogList(ctx context.Context, db pgQuerier) ([]voiceCatalogEntry, error) {
-	rows, err := db.Query(ctx, `SELECT `+voiceCatalogColumns+` FROM voice_model_catalog ORDER BY CASE kind WHEN 'diarization' THEN 0 WHEN 'fingerprint' THEN 1 ELSE 2 END, created_at, id`)
+	rows, err := db.Query(ctx, `SELECT `+voiceCatalogColumns+` FROM voice_model_catalog ORDER BY CASE kind WHEN 'diarization' THEN 0 WHEN 'fingerprint' THEN 1 WHEN 'separation' THEN 2 ELSE 3 END, created_at, id`)
 	if err != nil {
 		return nil, err
 	}

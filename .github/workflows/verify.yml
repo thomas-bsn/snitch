@@ -184,6 +184,10 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           python: 'true'
+      - name: Install media fixture tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
       - run: |
           python -m venv .venv-worker
           python scripts/worker_test_deps.py > "$RUNNER_TEMP/worker-test.txt"

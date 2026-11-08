@@ -6,6 +6,8 @@ dependencies = ["snitch-client"]
 
 # Fournisseurs vocaux réels (image worker ; voir docs/real-voice-worker.md).
 [project.optional-dependencies]
+# Offline neural speech diagnostics; no model package/hub loader or implicit acquisition.
+acoustic = ["torch==2.8.0"]
 voice = [
   "pyannote.audio==4.0.7",
   "torch==2.8.0",

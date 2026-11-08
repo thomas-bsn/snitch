@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -40,7 +41,7 @@ func visibleTranscriptsCTE(clipFilter string) string {
 	if clipFilter != "" {
 		clipFilter = " AND " + clipFilter
 	}
-	return `transcript AS (SELECT DISTINCT ON (j.clip_id) j.clip_id,j.id job_id,j.result FROM jobs j WHERE j.status='done' AND j.step LIKE 'transcription.audio.%'` + clipFilter + ` ORDER BY j.clip_id,j.updated_at DESC,j.id DESC)`
+	return `transcript AS (SELECT DISTINCT ON (j.clip_id) j.clip_id,j.id job_id,j.result FROM audio_visible_transcripts j WHERE true` + clipFilter + ` ORDER BY j.clip_id,j.updated_at DESC,j.id DESC)`
 }
 
 // effectiveSegmentsCTE is the CTE `eff_segments`, one row per segment of each visible
@@ -52,12 +53,12 @@ func visibleTranscriptsCTE(clipFilter string) string {
 // speaker_override_id (NULL = deduced speaker).
 // Word timestamps stay those of the original words: the corrected text is not realigned.
 func effectiveSegmentsCTE() string {
-	return `eff_segments AS (SELECT t.clip_id,t.job_id,COALESCE((t.result->>'audio_stream_index')::int,-1) stream,(s.ord-1)::int idx,s.seg,
- COALESCE((s.seg->>'start')::double precision,0) seg_start,COALESCE((s.seg->>'end')::double precision,(s.seg->>'start')::double precision,0) seg_end,
- COALESCE(s.seg->>'text','') original_text,COALESCE(sc.text,s.seg->>'text','') text,(sc.text IS NOT NULL) corrected,COALESCE(sc.version,0) version,
+	return `eff_segments AS (SELECT v.clip_id,v.job_id,v.stream,v.idx,v.visible_index,v.revision_id,v.seg,
+ v.seg_start,v.seg_end,COALESCE(v.seg->>'text','') original_text,COALESCE(sc.text,v.seg->>'text','') text,
+ (sc.text IS NOT NULL) corrected,COALESCE(sc.version,0) version,
  sc.text_author_id author_id,sc.text_author_username author_username,sc.text_corrected_at corrected_at,sc.speaker_override_id
- FROM transcript t CROSS JOIN LATERAL jsonb_array_elements(COALESCE(t.result->'segments','[]'::jsonb)) WITH ORDINALITY s(seg,ord)
- LEFT JOIN segment_corrections sc ON sc.transcription_job_id=t.job_id AND sc.segment_index=s.ord-1 AND sc.stale_at IS NULL)`
+ FROM audio_visible_segments v JOIN transcript t ON t.clip_id=v.clip_id
+ LEFT JOIN segment_corrections sc ON sc.transcription_job_id=v.job_id AND sc.segment_index=v.idx AND sc.stale_at IS NULL)`
 }
 
 // segmentState is the current correction state of one segment.
@@ -109,7 +110,7 @@ type visibleTranscript struct {
 // visibleTranscriptsCTE), or ok=false when the clip has none.
 func (s *Server) visibleTranscription(ctx context.Context, q queryer, clipID int64) (visibleTranscript, bool, error) {
 	var v visibleTranscript
-	err := q.QueryRow(ctx, `SELECT id,result FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%' AND status='done' ORDER BY updated_at DESC,id DESC LIMIT 1`, clipID).Scan(&v.JobID, &v.Result)
+	err := q.QueryRow(ctx, `SELECT id,result FROM audio_visible_transcripts WHERE clip_id=$1`, clipID).Scan(&v.JobID, &v.Result)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return visibleTranscript{}, false, nil
 	}
@@ -130,7 +131,7 @@ func (s *Server) readVisibleTranscript(ctx context.Context, clipID int64) (visib
 	if err != nil || !found {
 		return visibleTranscript{}, nil, false, err
 	}
-	states, err := loadSegmentStates(ctx, tx, visible.JobID)
+	states, err := loadVisibleSegmentStates(ctx, tx, clipID)
 	if err != nil {
 		return visibleTranscript{}, nil, false, err
 	}
@@ -148,10 +149,21 @@ func overlaySegments(transcription any, jobID int64, states map[int]segmentState
 	}
 	object["transcription_job_id"] = jobID
 	segments, _ := object["segments"].([]any)
+	// Acoustic provenance (#343) lives in the published manifest; the visible rank is the
+	// position in both lists. Presentation only: no identity, text or time comes from it.
+	var manifest []any
+	if revision, isMap := object["revision"].(map[string]any); isMap {
+		manifest, _ = revision["segments"].([]any)
+	}
 	for i, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
 			continue
+		}
+		if i < len(manifest) {
+			if entry, isEntry := manifest[i].(map[string]any); isEntry && entry["grouping"] != nil {
+				segment["grouping"] = entry["grouping"]
+			}
 		}
 		original, _ := segment["text"].(string)
 		segment["index"], segment["original_text"], segment["corrected"], segment["correction_version"] = i, original, false, 0
@@ -169,6 +181,8 @@ func overlaySegments(transcription any, jobID int64, states map[int]segmentState
 
 // segmentRef is one segment of the visible transcription of a visible clip.
 type segmentRef struct {
+	VisibleIndex int
+	RevisionID   string
 	Clip         clipItem
 	JobID        int64
 	Index        int
@@ -215,16 +229,47 @@ func (s *Server) resolveSegment(ctx context.Context, q queryer, clip clipItem, i
 	}
 	var result struct {
 		Stream   *int `json:"audio_stream_index"`
+		Revision struct {
+			ID string `json:"id"`
+		} `json:"revision"`
 		Segments []struct {
-			Text string `json:"text"`
+			Text        string `json:"text"`
+			JobID       int64  `json:"transcription_job_id"`
+			SourceIndex int    `json:"source_segment_index"`
+			Stream      *int   `json:"audio_stream_index"`
 		} `json:"segments"`
 	}
 	if err = json.Unmarshal(visible.Result, &result); err != nil || index >= len(result.Segments) {
 		return segmentRef{}, false, nil
 	}
-	ref := segmentRef{Clip: clip, JobID: visible.JobID, Index: index, Count: len(result.Segments), OriginalText: result.Segments[index].Text, Stream: -1}
-	if result.Stream != nil {
+	ref := segmentRef{VisibleIndex: index, RevisionID: result.Revision.ID, Clip: clip, JobID: visible.JobID, Index: index, Count: len(result.Segments), OriginalText: result.Segments[index].Text, Stream: -1}
+	source := result.Segments[index]
+	if source.JobID != 0 {
+		ref.JobID, ref.Index = source.JobID, source.SourceIndex
+	}
+	if source.Stream != nil {
+		ref.Stream = *source.Stream
+	} else if result.Stream != nil {
 		ref.Stream = *result.Stream
 	}
 	return ref, true, nil
+}
+
+// Visible ranks are presentation only; correction rows remain keyed by source.
+func loadVisibleSegmentStates(ctx context.Context, q queryer, clipID int64) (map[int]segmentState, error) {
+	rows, err := q.Query(ctx, `SELECT v.visible_index,sc.`+strings.ReplaceAll(segmentStateColumns, ",", ",sc.")+` FROM audio_visible_segments v JOIN segment_corrections sc ON sc.transcription_job_id=v.job_id AND sc.segment_index=v.idx WHERE v.clip_id=$1`, clipID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int]segmentState{}
+	for rows.Next() {
+		var rank int
+		var st segmentState
+		if err = rows.Scan(&rank, &st.Index, &st.Version, &st.Text, &st.AuthorID, &st.AuthorUsername, &st.CorrectedAt, &st.SpeakerOverrideID, &st.StaleAt, &st.TextVersion); err != nil {
+			return nil, err
+		}
+		out[rank] = st
+	}
+	return out, rows.Err()
 }

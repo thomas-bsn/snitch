@@ -71,6 +71,7 @@ func (q causeQueue) step(clipID int64, name string) causeStep {
 // a Worker wait shows the stable start_worker remedy, and a deferred retry never does.
 func testAdminQueueFailureCauses(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	ctx := context.Background()
 	h.startAnalysis(map[string]any{}, http.StatusCreated)
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)

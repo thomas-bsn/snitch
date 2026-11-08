@@ -38,8 +38,8 @@ func testVoiceModelAddFromHF(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	ctx := context.Background()
 	t.Cleanup(func() {
-		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34')`)
-		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_catalog WHERE id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34')`)
+		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34','silero-vad-v6.2.1')`)
+		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_catalog WHERE id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34','silero-vad-v6.2.1')`)
 	})
 
 	const commit = "0123456789abcdef0123456789abcdef01234567"

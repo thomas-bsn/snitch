@@ -25,6 +25,20 @@ const analysisInterval = 5 * time.Second
 type analysisHooks struct{ s *Server }
 
 func (h analysisHooks) Prepare(ctx context.Context, clipID int64) (analysis.Preparation, error) {
+	// A clip with several audio tracks never reaches the single-track plan: its transcription is an audio plan
+	// (AttachAudio); what remains for the legacy steps is to follow the visible transcription it already has.
+	if tracks, err := h.s.clipAudioTracks(ctx, clipID); err != nil {
+		return analysis.Preparation{}, err
+	} else if multitrackClip(tracks) {
+		var ready bool
+		if err = h.s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM uploaded_media WHERE clip_id=$1) OR EXISTS(SELECT 1 FROM source_files WHERE clip_id=$1 AND status='ready')`, clipID).Scan(&ready); err != nil {
+			return analysis.Preparation{}, err
+		}
+		if !ready {
+			return analysis.Preparation{Status: analysis.StatusWaiting, Reason: "clip_not_ready"}, nil
+		}
+		return analysis.Preparation{Status: analysis.StatusDone, Reason: "clip_ready"}, nil
+	}
 	plan, err := h.s.planTranscription(ctx, clipID, nil, false)
 	switch {
 	case err != nil && err.Error() == "audio selection required":
@@ -38,6 +52,20 @@ func (h analysisHooks) Prepare(ctx context.Context, clipID int64) (analysis.Prep
 }
 
 func (h analysisHooks) Transcribe(ctx context.Context, clipID int64, since time.Time, force bool) (analysis.Transcription, error) {
+	if tracks, err := h.s.clipAudioTracks(ctx, clipID); err != nil {
+		return analysis.Transcription{}, err
+	} else if multitrackClip(tracks) {
+		// Planned by AttachAudio when a transcription is needed: here the visible one is only followed.
+		visible, ok, visErr := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+		if visErr != nil {
+			return analysis.Transcription{}, visErr
+		}
+		if !ok {
+			return analysis.Transcription{Job: jobs.Job{ClipID: clipID, Status: jobs.Pending}}, nil
+		}
+		job, readErr := h.s.readJob(ctx, visible.JobID)
+		return analysis.Transcription{Job: job}, readErr
+	}
 	plan, err := h.s.planTranscription(ctx, clipID, nil, true)
 	if err != nil {
 		return analysis.Transcription{}, err
@@ -89,7 +117,7 @@ func (h analysisHooks) Index(ctx context.Context, clipID int64) (analysis.StepRe
 		return analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_transcription"}, err
 	}
 	// A transcription that predates the indexing profile still needs its task.
-	if _, err = h.s.Pool.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT active_profile_id,$1 FROM embedding_index_state WHERE id=1 AND active_profile_id IS NOT NULL ON CONFLICT DO NOTHING`, visible.JobID); err != nil {
+	if _, err = h.s.Pool.Exec(ctx, `INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT st.active_profile_id,v.job_id FROM embedding_index_state st CROSS JOIN (SELECT DISTINCT job_id FROM audio_visible_segments WHERE clip_id=$1) v WHERE st.id=1 AND st.active_profile_id IS NOT NULL ON CONFLICT DO NOTHING`, clipID); err != nil {
 		return analysis.StepResult{}, err
 	}
 	progress, err := h.s.clipProgress(ctx, clipID, visible.JobID, true)
@@ -123,6 +151,12 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time,
 	tracks, err := s.clipAudioTracks(ctx, clipID)
 	if err != nil {
 		return analysis.VoiceSteps{}, err
+	}
+	// The visible transcription is a published audio plan: its voices follow every kept track (ADR 0052).
+	if planID, published, planErr := s.visiblePlanOf(ctx, clipID); planErr != nil {
+		return analysis.VoiceSteps{}, planErr
+	} else if published {
+		return h.planVoice(ctx, planID, clipID, force)
 	}
 	selection, err := s.audioSelection(ctx, clipID, tracks)
 	if err != nil {
@@ -196,20 +230,20 @@ func (h analysisHooks) Voice(ctx context.Context, clipID int64, since time.Time,
 }
 
 func (h analysisHooks) Reindex(ctx context.Context, clipID int64) error {
-	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	_, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
 	if err != nil || !ok {
 		return err
 	}
-	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id=$1 AND state IN ('done','failed') AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, visible.JobID)
+	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id IN (SELECT job_id FROM audio_visible_segments WHERE clip_id=$1) AND state IN ('done','failed') AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, clipID)
 	return err
 }
 
 func (h analysisHooks) RetryIndex(ctx context.Context, clipID int64) error {
-	visible, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
+	_, ok, err := h.s.visibleTranscription(ctx, h.s.Pool, clipID)
 	if err != nil || !ok {
 		return err
 	}
-	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id=$1 AND state='failed' AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, visible.JobID)
+	_, err = h.s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE transcription_job_id IN (SELECT job_id FROM audio_visible_segments WHERE clip_id=$1) AND state='failed' AND profile_id IN (SELECT active_profile_id FROM embedding_index_state WHERE id=1)`, clipID)
 	return err
 }
 
@@ -601,6 +635,25 @@ func (s *Server) refuseWhileAnalyzing(w http.ResponseWriter, r *http.Request, cl
 	return active
 }
 
+// refuseWhileAnalyzingUnlessAutoPlan is refuseWhileAnalyzing for the explicit "transcribe this clip" requests: an
+// active run that is only an automatic audio plan (scope transcription, no administrator decision) does not block
+// them, since they resolve to the same plan or supersede it (scheduleMultitrack). Any other active run still does.
+func (s *Server) refuseWhileAnalyzingUnlessAutoPlan(w http.ResponseWriter, r *http.Request, clipID int64) bool {
+	if clipID < 1 {
+		return false
+	}
+	var blocking bool
+	if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM clip_analysis_runs r WHERE r.clip_id=$1 AND r.status='active'
+ AND NOT (r.scope='transcription' AND EXISTS(SELECT 1 FROM audio_plans p WHERE p.run_id=r.id) AND NOT EXISTS(SELECT 1 FROM audio_plans p WHERE p.run_id=r.id AND jsonb_array_length(p.input->'decisions')>0)))`, clipID).Scan(&blocking); err != nil {
+		s.internal(w, err)
+		return true
+	}
+	if blocking {
+		fail(w, http.StatusConflict, "analysis_active")
+	}
+	return blocking
+}
+
 // clipReadable tells whether the session of the request may open the clip: shared, its own, or
 // any clip for an administrator (the rule of authorizedClip).
 func (s *Server) clipReadable(ctx context.Context, r *http.Request, clipID int64) error {
@@ -652,4 +705,34 @@ func (s *Server) clipAnalysisViewEvents(w http.ResponseWriter, r *http.Request) 
 			return map[string]any{"run": run.Public()}, err
 		},
 	})
+}
+
+// planVoice runs, for the published plan, the voice steps of every kept track and reports them as the two
+// voice steps of the run. A re-diarization that would replace validated voices waits for the confirmation the
+// run carries (force): without it the step is blocked with the stable code, never started.
+func (h analysisHooks) planVoice(ctx context.Context, planID, clipID int64, force bool) (analysis.VoiceSteps, error) {
+	after := analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_previous_step"}
+	state, err := h.s.startAnalysisPlanVoice(ctx, planID, clipID, authorRef{Username: "analysis"})
+	var needs *voiceConfirmationError
+	if errors.As(err, &needs) {
+		blocked := analysis.StepResult{Status: analysis.StatusBlocked, Reason: "voice_rediarization_confirmation_required"}
+		return analysis.VoiceSteps{Diarization: blocked, Fingerprints: after, Matching: &after}, nil
+	}
+	if err != nil {
+		return analysis.VoiceSteps{}, err
+	}
+	var result analysis.StepResult
+	switch state.Status {
+	case "done":
+		result = analysis.StepResult{Status: analysis.StatusDone, Reason: "completed"}
+	case "running":
+		result = analysis.StepResult{Status: analysis.StatusRunning, Reason: "running"}
+	case "failed":
+		result = analysis.StepResult{Status: analysis.StatusFailed, Reason: "voice_failed"}
+	case "queued":
+		result = analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_worker"}
+	default:
+		result = analysis.StepResult{Status: analysis.StatusWaiting, Reason: "awaiting_previous_step"}
+	}
+	return analysis.VoiceSteps{Diarization: result, Fingerprints: result}, nil
 }

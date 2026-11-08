@@ -115,28 +115,24 @@ func (s *Server) indexNext(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	var transcript indexResult
-	if err = json.Unmarshal(raw, &transcript); err != nil {
-		return s.embeddingTaskFailed(ctx, taskID, err)
-	}
-	// The index holds the effective text (a correction replaces the original), so a
-	// rebuilt candidate never brings an old text back at the switch.
-	states, err := loadSegmentStates(ctx, s.Pool, jobID)
+	rows, err := s.Pool.Query(ctx, `WITH `+visibleTranscriptsCTE("")+`, `+effectiveSegmentsCTE()+` SELECT e.idx,e.seg_start,e.seg_end,e.text,COALESCE(sc.text_version,0) FROM eff_segments e LEFT JOIN segment_corrections sc ON sc.transcription_job_id=e.job_id AND sc.segment_index=e.idx AND sc.stale_at IS NULL WHERE e.job_id=$1 ORDER BY visible_index`, jobID)
 	if err != nil {
 		return s.embeddingTaskFailed(ctx, taskID, err)
 	}
-	segments := make([]indexSegment, 0, len(transcript.Segments))
-	for index, seg := range transcript.Segments {
-		if st, found := states[index]; found && st.StaleAt == nil {
-			seg.Version = st.TextVersion
-			if st.Text != nil {
-				seg.Text = *st.Text
-			}
+	segments := []indexSegment{}
+	for rows.Next() {
+		var seg indexSegment
+		if err = rows.Scan(&seg.Index, &seg.Start, &seg.End, &seg.Text, &seg.Version); err != nil {
+			rows.Close()
+			return s.embeddingTaskFailed(ctx, taskID, err)
 		}
 		if strings.TrimSpace(seg.Text) != "" {
-			seg.Index = index
 			segments = append(segments, seg)
 		}
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return s.embeddingTaskFailed(ctx, taskID, err)
 	}
 	if len(segments) == 0 {
 		_, err = s.Pool.Exec(ctx, `UPDATE embedding_tasks SET state='done',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE id=$1`, taskID)
@@ -416,7 +412,7 @@ func (s *Server) embeddingStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) backfillEmbeddings(w http.ResponseWriter, r *http.Request) {
-	tag, err := s.Pool.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT ON (clip_id) id FROM jobs WHERE status='done' AND step LIKE 'transcription.audio.%' ORDER BY clip_id,updated_at DESC,id DESC) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,j.id FROM embedding_profiles p JOIN embedding_index_state st ON st.active_profile_id=p.id CROSS JOIN latest j ON CONFLICT(profile_id,transcription_job_id) DO UPDATE SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE embedding_tasks.state='failed'`)
+	tag, err := s.Pool.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT job_id id FROM audio_visible_segments) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT p.id,j.id FROM embedding_profiles p JOIN embedding_index_state st ON st.active_profile_id=p.id CROSS JOIN latest j ON CONFLICT(profile_id,transcription_job_id) DO UPDATE SET state='pending',lease_expires_at=NULL,error=NULL,updated_at=now() WHERE embedding_tasks.state='failed'`)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -489,7 +485,7 @@ func (s *Server) rebuildEmbeddings(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	if _, err = tx.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT ON (clip_id) id FROM jobs WHERE status='done' AND step LIKE 'transcription.audio.%' ORDER BY clip_id,updated_at DESC,id DESC) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT $1,j.id FROM latest j ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
+	if _, err = tx.Exec(r.Context(), `WITH latest AS (SELECT DISTINCT job_id id FROM audio_visible_segments) INSERT INTO embedding_tasks(profile_id,transcription_job_id) SELECT $1,j.id FROM latest j ON CONFLICT(profile_id,transcription_job_id) DO NOTHING`, id); err != nil {
 		s.internal(w, err)
 		return
 	}

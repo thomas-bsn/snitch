@@ -34,6 +34,96 @@ type AttributionEvent struct {
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 }
 
+type AudioPlan struct {
+	ID           int64              `json:"id"`
+	RunID        int64              `json:"run_id"`
+	ClipID       int64              `json:"clip_id"`
+	InputVersion string             `json:"input_version"`
+	Input        []byte             `json:"input"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type AudioPlanChild struct {
+	PlanID       int64  `json:"plan_id"`
+	TrackIndex   int32  `json:"track_index"`
+	Stage        string `json:"stage"`
+	JobID        int64  `json:"job_id"`
+	InputVersion string `json:"input_version"`
+}
+
+type AudioPlanConfirmation struct {
+	PlanID             int64              `json:"plan_id"`
+	ExpectedRevisionID string             `json:"expected_revision_id"`
+	Guard              string             `json:"guard"`
+	Confirmed          bool               `json:"confirmed"`
+	ConfirmedBy        pgtype.Int8        `json:"confirmed_by"`
+	ConfirmedAt        pgtype.Timestamptz `json:"confirmed_at"`
+}
+
+type AudioPlanTrack struct {
+	PlanID     int64 `json:"plan_id"`
+	TrackIndex int32 `json:"track_index"`
+}
+
+type AudioPlanVoiceStart struct {
+	PlanID          int64              `json:"plan_id"`
+	PipelineVersion string             `json:"pipeline_version"`
+	StakeAt         pgtype.Timestamptz `json:"stake_at"`
+	Stake           []byte             `json:"stake"`
+	Confirmed       bool               `json:"confirmed"`
+	StartedBy       pgtype.Int8        `json:"started_by"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+}
+
+type AudioPublication struct {
+	ClipID      int64              `json:"clip_id"`
+	RevisionID  string             `json:"revision_id"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+}
+
+type AudioTrackDiagnostic struct {
+	PlanID     int64  `json:"plan_id"`
+	TrackIndex int32  `json:"track_index"`
+	Attempt    int32  `json:"attempt"`
+	Payload    []byte `json:"payload"`
+}
+
+type AudioVisibleLegacyTranscript struct {
+	ClipID    int64              `json:"clip_id"`
+	ID        int64              `json:"id"`
+	Result    interface{}        `json:"result"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AudioVisibleRevision struct {
+	ID          string             `json:"id"`
+	ClipID      int64              `json:"clip_id"`
+	PlanID      pgtype.Int8        `json:"plan_id"`
+	LegacyJobID pgtype.Int8        `json:"legacy_job_id"`
+	Manifest    []byte             `json:"manifest"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	VisibleAt   pgtype.Timestamptz `json:"visible_at"`
+}
+
+type AudioVisibleSegment struct {
+	ClipID       int64       `json:"clip_id"`
+	RevisionID   string      `json:"revision_id"`
+	VisibleIndex int32       `json:"visible_index"`
+	JobID        int64       `json:"job_id"`
+	Idx          int32       `json:"idx"`
+	Stream       int32       `json:"stream"`
+	SegStart     float64     `json:"seg_start"`
+	SegEnd       float64     `json:"seg_end"`
+	Seg          interface{} `json:"seg"`
+}
+
+type AudioVisibleTranscript struct {
+	ClipID    int64              `json:"clip_id"`
+	ID        int64              `json:"id"`
+	Result    interface{}        `json:"result"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AvatarPreference struct {
 	UserID               int64              `json:"user_id"`
 	Source               string             `json:"source"`
@@ -625,6 +715,15 @@ type TranscriptEmbedding struct {
 	SegmentEnd         float64         `json:"segment_end"`
 	Text               string          `json:"text"`
 	Embedding          pgvector.Vector `json:"embedding"`
+}
+
+type TranscriptRevision struct {
+	ID          string             `json:"id"`
+	ClipID      int64              `json:"clip_id"`
+	PlanID      pgtype.Int8        `json:"plan_id"`
+	LegacyJobID pgtype.Int8        `json:"legacy_job_id"`
+	Manifest    []byte             `json:"manifest"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
 type TranscriptionPipelineActive struct {

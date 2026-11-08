@@ -228,6 +228,15 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	if _, err := tx.Exec(ctx, `SELECT id FROM clips WHERE id=$1 FOR UPDATE`, job.ClipID); err != nil {
 		return fmt.Errorf("lock clip for diarization: %w", err)
 	}
+	// A job bound to an audio plan reports times from the start of its stream; the plan's
+	// transcript is in clip time. Convert once here, so turns, carry and coverage agree (#342).
+	offset, err := jobs.PlanTrackOffset(ctx, tx, job.ID)
+	if err != nil {
+		return fmt.Errorf("read plan track offset: %w", err)
+	}
+	if offset != 0 {
+		result = shiftDiarization(result, offset)
+	}
 	// Validations take the clip row FOR SHARE, so none can race with this replacement.
 	// A designated microphone track is never diarized (microphone track).
 	var microphone bool
@@ -239,8 +248,12 @@ func projectDiarization(ctx context.Context, tx pgx.Tx, job jobs.Job, result dia
 	}
 	// A forced reanalysis only replaces the human work it showed: a validation or a speaker
 	// correction made after the confirmation locks the speakers instead of being lost.
+	// A plan's voice start (#342) records the same instant for the tracks it replaces.
 	var newer bool
-	if err := tx.QueryRow(ctx, `WITH cutoff AS (SELECT r.confirmed_stake_at AS at FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=$3 AND 'diarization'=ANY(r.forced_steps) AND r.confirmed_stake_at IS NOT NULL ORDER BY r.id DESC LIMIT 1)
+	if err := tx.QueryRow(ctx, `WITH cutoff AS (SELECT at FROM (
+ (SELECT r.confirmed_stake_at AS at FROM clip_analysis_steps st JOIN clip_analysis_runs r ON r.id=st.run_id WHERE st.job_id=$3 AND 'diarization'=ANY(r.forced_steps) AND r.confirmed_stake_at IS NOT NULL ORDER BY r.id DESC LIMIT 1)
+ UNION ALL
+ (SELECT v.stake_at FROM audio_plan_children c JOIN audio_plan_voice_starts v ON v.plan_id=c.plan_id WHERE c.job_id=$3 AND c.stage='diarization')) x ORDER BY at DESC LIMIT 1)
 SELECT EXISTS(SELECT 1 FROM cutoff, local_speakers ls WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind='diarized'
  AND (EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.validation_state='validated' AND a.decided_at > cutoff.at)
  OR EXISTS (SELECT 1 FROM segment_corrections sc WHERE sc.speaker_override_id=ls.id AND sc.speaker_corrected_at > cutoff.at)))`, job.ClipID, index, job.ID).Scan(&newer); err != nil {
@@ -309,10 +322,52 @@ DELETE FROM speaker_turns st USING archived WHERE st.local_speaker_id=archived.i
 	if len(*result.Speakers) == 0 {
 		return nil
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,0,3) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING`, job.ClipID, step, version); err != nil {
+	// A rerun keeps its plan-owned child identity. Resume that fingerprint after
+	// replacing the speakers, rather than leaving a stale done child in the plan.
+	var boundFingerprint int64
+	err = tx.QueryRow(ctx, `SELECT fp.job_id FROM audio_plan_children d JOIN audio_plan_children fp ON fp.plan_id=d.plan_id AND fp.track_index=d.track_index AND fp.stage='fingerprint' WHERE d.job_id=$1 AND d.stage='diarization'`, job.ID).Scan(&boundFingerprint)
+	if err == nil {
+		_, err = tx.Exec(ctx, `UPDATE jobs SET status='pending',attempts=0,cycle=cycle+1,next_attempt_at=now(),last_error='',result=NULL,lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,updated_at=now() WHERE id=$1`, boundFingerprint)
+		return err
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	var fingerprintID int64
+	if err := tx.QueryRow(ctx, `WITH inserted AS (INSERT INTO jobs(clip_id,step,input_version,priority,max_attempts) VALUES($1,$2,$3,0,3) ON CONFLICT (clip_id,step,input_version,(COALESCE(requested_model_id,''))) WHERE status IN ('pending','leased','retry_wait') DO NOTHING RETURNING id)
+SELECT COALESCE((SELECT id FROM inserted),(SELECT id FROM jobs WHERE clip_id=$1 AND step=$2 AND input_version=$3 AND requested_model_id IS NULL AND status IN ('pending','leased','retry_wait') ORDER BY id DESC LIMIT 1))`, job.ClipID, step, version).Scan(&fingerprintID); err != nil {
 		return fmt.Errorf("queue fingerprint step: %w", err)
 	}
+	// The fingerprint of a plan's diarization belongs to the same plan and track, created in
+	// this transaction so no worker can claim it unbound.
+	if _, err := tx.Exec(ctx, `INSERT INTO audio_plan_children(plan_id,track_index,stage,job_id,input_version) SELECT plan_id,track_index,'fingerprint',$2,$3 FROM audio_plan_children WHERE job_id=$1 AND stage='diarization' ON CONFLICT DO NOTHING`, job.ID, fingerprintID, version); err != nil {
+		return fmt.Errorf("bind fingerprint step to its plan: %w", err)
+	}
 	return nil
+}
+
+// shiftDiarization returns a copy of the result with every turn moved by offset seconds.
+func shiftDiarization(result diarizationResult, offset float64) diarizationResult {
+	if result.Speakers == nil {
+		return result
+	}
+	speakers := make([]struct {
+		Label string       `json:"label"`
+		Turns *[]voiceTurn `json:"turns"`
+	}, len(*result.Speakers))
+	for i, speaker := range *result.Speakers {
+		speakers[i].Label = speaker.Label
+		if speaker.Turns != nil {
+			turns := make([]voiceTurn, len(*speaker.Turns))
+			for j, turn := range *speaker.Turns {
+				start, end := *turn.Start+offset, *turn.End+offset
+				turns[j] = voiceTurn{Start: &start, End: &end}
+			}
+			speakers[i].Turns = &turns
+		}
+	}
+	result.Speakers = &speakers
+	return result
 }
 
 // projectFingerprints replaces the fingerprints of the current diarization. A
@@ -356,10 +411,19 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 	if _, err = tx.Exec(ctx, `DELETE FROM voice_fingerprints WHERE clip_id=$1 AND benchmark=$3 AND ($3::boolean IS FALSE OR (model=$4 AND model_version=$5)) AND local_speaker_id IN (SELECT id FROM local_speakers WHERE diarization_job_id=$2)`, job.ClipID, diarizationID, benchmark, result.EmbeddingModel, result.EmbeddingModelVersion); err != nil {
 		return fmt.Errorf("replace fingerprints: %w", err)
 	}
+	// Same single conversion as the turns: the worker's times start at its stream, the stored ones are clip time.
+	offset, err := jobs.PlanTrackOffset(ctx, tx, job.ID)
+	if err != nil {
+		return fmt.Errorf("read plan track offset: %w", err)
+	}
 	for _, fp := range *result.Fingerprints {
 		speakerID, known := speakers[fp.SpeakerLabel]
 		if !known {
 			return jobs.ErrInvalidInput
+		}
+		if offset != 0 {
+			start, end := *fp.Start+offset, *fp.End+offset
+			fp.Start, fp.End = &start, &end
 		}
 		var turnID *int64
 		if fp.TurnIndex != nil {

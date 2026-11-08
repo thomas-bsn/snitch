@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"snitch/internal/auth"
+	"snitch/internal/multitrack"
 )
 
 type Status string
@@ -126,6 +127,12 @@ type Input struct {
 	PipelineVersion    string           `json:"pipeline_version"`
 	TranscriptionModel string           `json:"transcription_model"`
 	Voice              json.RawMessage  `json:"voice,omitempty"`
+	// AudioPlan pins a multitrack transcription child to its immutable plan.
+	AudioPlan *multitrack.Task `json:"audio_plan,omitempty"`
+	// AudioDiagnostic is the immutable plan identity of an audio.diagnostic.N step (ADR 0048).
+	AudioDiagnostic json.RawMessage `json:"audio_diagnostic,omitempty"`
+	// AudioDedup is the acoustic comparison task of an audio.dedup.N step (ADR 0054).
+	AudioDedup json.RawMessage `json:"audio_dedup,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -382,6 +389,17 @@ const localVoiceModelReadyGuard = `(
 		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='separation'))
 		  )`
 
+// audioDiagnosticModelReadyGuard keeps a diagnostic from any Worker whose pinned speech detector is not reported
+// ready: the step capability alone only tells that the code can read the format (ADR 0048). Parameter $4 is the
+// claiming Worker. The model is installed by an explicit order, never by a claim.
+const audioDiagnosticModelReadyGuard = `(
+		      j.step NOT LIKE 'audio.diagnostic.%'
+		      OR EXISTS (
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_model_catalog m ON m.id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false
+		            AND m.kind='vad' AND m.enabled AND m.supported AND wvm.revision=m.revision)
+		  )`
+
 // Claim leases the highest-priority available task without exceeding the
 // worker's configured or currently reported concurrency.
 // For transcription jobs, a worker whose active_version diverges from the job's pipeline cannot claim.
@@ -496,6 +514,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		FROM jobs j
 		LEFT JOIN voice_pipeline_versions pin ON pin.version=substring(j.input_version FROM '-p(voice-[0-9a-f]+)')
 		WHERE j.status='pending' AND j.next_attempt_at<=now()
+ AND (j.input_version NOT LIKE 'mt1:%' OR 'audio.multitrack.v1'=ANY($1::text[]))
 		  AND EXISTS (
 		      SELECT 1 FROM unnest($1::text[]) AS capability
 		      WHERE CASE WHEN right(capability,2)='.*'
@@ -507,6 +526,7 @@ func (s *Service) Claim(ctx context.Context, workerID string) (assignment *Assig
 		      OR $2::text = '' OR $2::text = (SELECT ts.version FROM transcription_settings ts WHERE ts.id=true)
 		  )
 		  AND `+localVoiceModelReadyGuard+`
+		  AND `+audioDiagnosticModelReadyGuard+`
 		  AND `+requestedModelClaimGuard+`
 		ORDER BY j.priority DESC,j.created_at,j.id
 		FOR UPDATE OF j SKIP LOCKED LIMIT 1
@@ -552,6 +572,11 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 			return Input{}, fmt.Errorf("read worker transcription model: %w", queryErr)
 		}
 
+		if strings.HasPrefix(input.Job.InputVersion, multitrack.Prefix) {
+			err = s.audioPlanInput(ctx, &input)
+			return input, err
+		}
+
 		vocabMarker := strings.Index(input.Job.InputVersion, "-v")
 		if vocabMarker >= 0 {
 			vocabVersion := input.Job.InputVersion[vocabMarker+len("-v"):]
@@ -576,6 +601,16 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 		input.PipelineVersion = pipelineVersion
 		if queryErr := s.pool.QueryRow(ctx, `SELECT config FROM transcription_pipeline_versions WHERE version=$1`, pipelineVersion).Scan(&input.Pipeline); queryErr != nil {
 			return Input{}, fmt.Errorf("read transcription pipeline snapshot: %w", queryErr)
+		}
+	}
+	if strings.HasPrefix(input.Job.Step, "audio.diagnostic.") {
+		if err = s.audioDiagnosticInput(ctx, &input); err != nil {
+			return Input{}, err
+		}
+	}
+	if strings.HasPrefix(input.Job.Step, DedupStepPrefix) {
+		if err = s.audioDedupInput(ctx, &input); err != nil {
+			return Input{}, err
 		}
 	}
 	if strings.HasPrefix(input.Job.Step, "voice.") {
@@ -657,7 +692,13 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 		return Job{}, fmt.Errorf("complete worker job: %w", err)
 	}
 	if newlyCompleted {
-		if strings.HasPrefix(job.Step, "transcription.audio.") {
+		// Diagnostic and transcription children are published by their plan (#340). The voice
+		// children (#342) project into the local speakers like any voice job.
+		var audioChild bool
+		if err = tx.QueryRow(ctx, `SELECT COALESCE((SELECT stage IN ('diagnostic','transcription') FROM audio_plan_children WHERE job_id=$1),false)`, job.ID).Scan(&audioChild); err != nil {
+			return Job{}, fmt.Errorf("read audio child binding: %w", err)
+		}
+		if !audioChild && strings.HasPrefix(job.Step, "transcription.audio.") {
 			var embeddingStateID int
 			if err = tx.QueryRow(ctx, `SELECT id FROM embedding_index_state WHERE id=1 FOR SHARE`).Scan(&embeddingStateID); err != nil {
 				return Job{}, fmt.Errorf("lock embedding profile state: %w", err)
@@ -673,7 +714,9 @@ func (s *Service) CompleteWith(ctx context.Context, id int64, workerID, leaseTok
 				return Job{}, fmt.Errorf("mark replaced corrections obsolete: %w", err)
 			}
 		}
-		if opts.Project != nil {
+		// A plan child never projects into the legacy single-track tables; only the diagnostic records its own
+		// immutable observation.
+		if opts.Project != nil && (!audioChild || strings.HasPrefix(job.Step, "audio.diagnostic.")) {
 			if err = opts.Project(ctx, tx, job); err != nil {
 				return Job{}, err
 			}

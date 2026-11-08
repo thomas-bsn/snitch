@@ -51,6 +51,7 @@ type historyEventsPage struct {
 // and pagination keep working, only administrators read it, and no raw error text is exposed.
 func testAdminQueueHistoryEvents(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
 	ctx := context.Background()
 	h.startAnalysis(map[string]any{}, http.StatusCreated)
 	h.adminCall(http.MethodPut, fmt.Sprintf("/api/admin/clips/%d/audio-track", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusOK)
