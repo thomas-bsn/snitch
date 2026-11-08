@@ -219,6 +219,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testClipAnalysis(t, pool)
 	})
+	t.Run("clip analysis json contract", func(t *testing.T) {
+		reset(t)
+		testClipAnalysisJSONContract(t, pool)
+	})
 	t.Run("automatic full analysis", func(t *testing.T) {
 		reset(t)
 		testAutomaticFullAnalysis(t, pool)

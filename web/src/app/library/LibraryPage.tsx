@@ -418,7 +418,7 @@ export function LibraryPage() {
     // Still indexing after the delay: not a failure, the next click resumes them.
     const pending = waiting.size;
     // A clip can be reached twice (listed and just indexed): ask once per clip.
-    let queued = 0;
+    let requested = 0;
     let aborted: string | undefined;
     for (const id of new Set(clips)) {
       // Complete analysis of what is missing: valid results and human work are reused, never replaced.
@@ -430,10 +430,10 @@ export function LibraryPage() {
         },
       );
       if (!failure) {
-        queued += 1;
+        requested += 1;
       } else if (errorCode(failure) === "analysis_scope_conflict") {
         // An analysis is already active on this clip: it is being analysed, nothing to redo.
-        queued += 1;
+        requested += 1;
       } else if ([400, 401, 403, 415].includes(response.status)) {
         // The request itself is invalid or refused: every other clip would fail the same way.
         aborted = errorCode(failure) ?? String(response.status);
@@ -446,14 +446,22 @@ export function LibraryPage() {
     setAnalysisNotice(
       aborted
         ? t("library.explorer.analysisAborted", {
-            count: queued,
+            count: requested,
             code: aborted,
           })
         : pending > 0
-          ? t("library.explorer.analysisPending", { count: queued, pending })
+          ? t(
+              failed > 0
+                ? "library.explorer.analysisPendingPartial"
+                : "library.explorer.analysisPending",
+              { count: requested, pending, failed },
+            )
           : failed === 0
-            ? t("library.explorer.analysisQueued", { count: queued })
-            : t("library.explorer.analysisPartial", { count: queued, failed }),
+            ? t("library.explorer.analysisQueued", { count: requested })
+            : t("library.explorer.analysisPartial", {
+                count: requested,
+                failed,
+              }),
     );
     setAnalysisTarget(null);
   }

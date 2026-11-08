@@ -33,6 +33,32 @@ async function expectNoViolations(page: Page) {
   ).toEqual([]);
 }
 
+const ANALYSIS_URL = /\/api\/admin\/clips\/\d+\/analysis$/;
+
+// Confirms the analysis of a folder from its "…" menu or its context menu (#361).
+async function analyseFolder(
+  page: Page,
+  folder: string,
+  via: "menu" | "context",
+) {
+  const entry = page
+    .getByRole("table")
+    .getByRole("row")
+    .filter({ hasText: folder });
+  if (via === "context") await entry.click({ button: "right" });
+  else
+    await entry
+      .getByRole("button", { name: `Actions for folder ${folder}` })
+      .click();
+  await page
+    .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+    .click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: /^Analyse \d+ videos/ })
+    .click();
+}
+
 // The rows of the list view only: the tree of folders repeats the same names.
 const row = (page: Page, name: string) =>
   page.getByRole("table").getByRole("row").filter({ hasText: name });
@@ -349,9 +375,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       "Videos not indexed yet (1) are indexed first, then analysed.",
     );
     const started = page.waitForResponse(
-      (r) =>
-        /\/api\/admin\/clips\/\d+\/analysis$/.test(r.url()) &&
-        r.request().method() === "POST",
+      (r) => ANALYSIS_URL.test(r.url()) && r.request().method() === "POST",
     );
     await dialog.getByRole("button", { name: "Analyse 1 videos" }).click();
     // #361: the start carries a JSON body asking the complete analysis of what is missing, never a 415.
@@ -371,7 +395,7 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     page,
   }) => {
     let calls = 0;
-    await page.route(/\/api\/admin\/clips\/\d+\/analysis$/, async (route) => {
+    await page.route(ANALYSIS_URL, async (route) => {
       if (route.request().method() !== "POST") return route.fallback();
       calls += 1;
       return route.fulfill({
@@ -381,54 +405,41 @@ test.describe.serial("explorateur de la bibliothèque", () => {
       });
     });
     await page.goto("/library?folder=league");
-    await row(page, "2026")
-      .getByRole("button", { name: "Actions for folder 2026" })
-      .click();
-    await page
-      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
-      .click();
-    await page
-      .getByRole("alertdialog")
-      .getByRole("button", { name: /^Analyse \d+ videos/ })
-      .click();
+    await analyseFolder(page, "2026", "menu");
     await expect(
       page.getByText(/Analysis stopped: .*\(json_required\)/),
     ).toBeVisible();
     expect(calls).toBe(1);
   });
 
-  test("le clic droit sur un dossier lance l'analyse complète sans doublon ni 415 (#361)", async ({
+  test("un clip refusé n'empêche pas les autres : succès partiel annoncé exactement (#361)", async ({
     page,
   }) => {
-    const posts: { status: number; body: unknown; type: string }[] = [];
-    page.on("response", (r) => {
-      if (
-        r.request().method() === "POST" &&
-        /\/api\/admin\/clips\/\d+\/analysis$/.test(r.url())
-      )
-        posts.push({
-          status: r.status(),
-          body: r.request().postDataJSON(),
-          type: r.request().headers()["content-type"] ?? "",
+    let calls = 0;
+    await page.route(ANALYSIS_URL, async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      calls += 1;
+      // The second clip fails with a server error; the others are accepted. Nothing reaches the server.
+      if (calls === 2)
+        return route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "internal_error" }),
         });
+      return route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({ run: { id: calls } }),
+      });
     });
     await page.goto("/library?folder=league");
-    await row(page, "2026").click({ button: "right" });
-    await page
-      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
-      .click();
-    await page
-      .getByRole("alertdialog")
-      .getByRole("button", { name: /^Analyse \d+ videos/ })
-      .click();
+    await analyseFolder(page, "2026", "context");
     await expect(page.getByRole("alertdialog")).toBeHidden({ timeout: 30000 });
-    await expect(page.getByText(/^\d+ analyses requested\.$/)).toBeVisible();
-    expect(posts.length).toBeGreaterThan(0);
-    for (const post of posts) {
-      expect(post.type).toContain("application/json");
-      expect(post.body).toEqual({ scope: "full", mode: "missing" });
-      expect([200, 201, 409]).toContain(post.status);
-    }
+    // Every clip was asked: the failure of one does not stop the batch.
+    expect(calls).toBeGreaterThanOrEqual(2);
+    await expect(
+      page.getByText(`${calls - 1} analyses requested, 1 refused.`),
+    ).toBeVisible();
   });
 
   test("un dossier nommé d'après un jeu montre sa jaquette, les autres gardent l'icône", async ({
@@ -546,9 +557,42 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     });
     await expect(videoDialog).toBeVisible();
     await expect(videoDialog).toContainText("Video");
-    // The state depends on the analyses the tests before asked for (#361): only its presence matters here.
-    await expect(videoDialog).toContainText("State");
+    await expect(videoDialog).toContainText("Not analysed");
     await expect(videoDialog).toContainText("Size");
+  });
+
+  test("le clic droit sur un dossier lance l'analyse complète sans doublon ni 415 (#361)", async ({
+    page,
+  }) => {
+    const posts: {
+      url: string;
+      status: number;
+      body: unknown;
+      type: string;
+    }[] = [];
+    page.on("response", (r) => {
+      if (r.request().method() === "POST" && ANALYSIS_URL.test(r.url()))
+        posts.push({
+          url: r.url(),
+          status: r.status(),
+          body: r.request().postDataJSON(),
+          type: r.request().headers()["content-type"] ?? "",
+        });
+    });
+    await page.goto("/library?folder=league");
+    await analyseFolder(page, "2026", "context");
+    await expect(page.getByRole("alertdialog")).toBeHidden({ timeout: 30000 });
+    // A folder with several clips: one request per distinct clip, each accepted.
+    expect(posts.length).toBeGreaterThan(1);
+    expect(new Set(posts.map((post) => post.url)).size).toBe(posts.length);
+    await expect(
+      page.getByText(`${posts.length} analyses requested.`),
+    ).toBeVisible();
+    for (const post of posts) {
+      expect(post.type).toContain("application/json");
+      expect(post.body).toEqual({ scope: "full", mode: "missing" });
+      expect([200, 201, 409]).toContain(post.status);
+    }
   });
 
   test("le logo d'un dossier s'importe, se réinitialise et se restaure", async ({
