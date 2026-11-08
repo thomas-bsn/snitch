@@ -589,7 +589,7 @@ def _send_pulse(client: AuthenticatedClient, capacity: int, reachability: Reacha
     body = WorkerPulseInput(
         capacity=capacity,
         supported_steps=supported_steps(),
-        models=declared_models(os.environ, voice_models.active_repo()),
+        models=declared_models(os.environ, references=voice_models.active_references()),
         machine=declared_machine(),
     )
     # The probe runs on its own thread: the pulse only reads its last result, never waits for it.
@@ -888,7 +888,7 @@ def _run_claimed(
                 voice_config = voice_input.get("config") or {}
                 if requires_audio(voice_config):
                     # Fail on a missing model path before downloading any media.
-                    ensure_provider_ready(voice_input, voice_providers)
+                    ensure_provider_ready(voice_input, voice_providers, step=job.step)
                     with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
                         original = os.path.join(temporary, "original.media")
                         wav_path = os.path.join(temporary, "prepared.wav")

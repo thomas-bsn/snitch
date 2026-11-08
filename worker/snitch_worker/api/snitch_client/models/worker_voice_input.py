@@ -14,6 +14,7 @@ from typing import cast
 if TYPE_CHECKING:
   from ..models.voice_pipeline import VoicePipeline
   from ..models.worker_voice_input_diarization import WorkerVoiceInputDiarization
+  from ..models.worker_voice_input_fingerprint_model import WorkerVoiceInputFingerprintModel
 
 
 
@@ -29,11 +30,15 @@ class WorkerVoiceInput:
         Attributes:
             pipeline_version (str):
             config (VoicePipeline):
+            fingerprint_model (WorkerVoiceInputFingerprintModel | Unset): Référence locale du modèle d’empreinte actif ou
+                demandé, indépendante du moteur de diarisation. Absente uniquement pour les anciens serveurs et le fournisseur
+                factice.
             diarization (WorkerVoiceInputDiarization | Unset): Étape d'empreintes uniquement : locuteurs et tours à encoder.
      """
 
     pipeline_version: str
     config: VoicePipeline
+    fingerprint_model: WorkerVoiceInputFingerprintModel | Unset = UNSET
     diarization: WorkerVoiceInputDiarization | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -44,9 +49,14 @@ class WorkerVoiceInput:
     def to_dict(self) -> dict[str, Any]:
         from ..models.voice_pipeline import VoicePipeline # noqa: PLC0415
         from ..models.worker_voice_input_diarization import WorkerVoiceInputDiarization # noqa: PLC0415
+        from ..models.worker_voice_input_fingerprint_model import WorkerVoiceInputFingerprintModel # noqa: PLC0415
         pipeline_version = self.pipeline_version
 
         config = self.config.to_dict()
+
+        fingerprint_model: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.fingerprint_model, Unset):
+            fingerprint_model = self.fingerprint_model.to_dict()
 
         diarization: dict[str, Any] | Unset = UNSET
         if not isinstance(self.diarization, Unset):
@@ -59,6 +69,8 @@ class WorkerVoiceInput:
             "pipeline_version": pipeline_version,
             "config": config,
         })
+        if fingerprint_model is not UNSET:
+            field_dict["fingerprint_model"] = fingerprint_model
         if diarization is not UNSET:
             field_dict["diarization"] = diarization
 
@@ -70,10 +82,21 @@ class WorkerVoiceInput:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.voice_pipeline import VoicePipeline # noqa: PLC0415
         from ..models.worker_voice_input_diarization import WorkerVoiceInputDiarization # noqa: PLC0415
+        from ..models.worker_voice_input_fingerprint_model import WorkerVoiceInputFingerprintModel # noqa: PLC0415
         d = dict(src_dict)
         pipeline_version = d.pop("pipeline_version")
 
         config = VoicePipeline.from_dict(d.pop("config"))
+
+
+
+
+        _fingerprint_model = d.pop("fingerprint_model", UNSET)
+        fingerprint_model: WorkerVoiceInputFingerprintModel | Unset
+        if isinstance(_fingerprint_model,  Unset):
+            fingerprint_model = UNSET
+        else:
+            fingerprint_model = WorkerVoiceInputFingerprintModel.from_dict(_fingerprint_model)
 
 
 
@@ -91,6 +114,7 @@ class WorkerVoiceInput:
         worker_voice_input = cls(
             pipeline_version=pipeline_version,
             config=config,
+            fingerprint_model=fingerprint_model,
             diarization=diarization,
         )
 

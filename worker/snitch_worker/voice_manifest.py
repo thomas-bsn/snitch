@@ -22,6 +22,9 @@ DEFAULT_EMBEDDING_PATH = "/models/embedding"
 
 def manifest_path(environ: Mapping[str, str]) -> str:
     """The marker lives in the directory that holds the embedding model directory."""
+    root = environ.get("SNITCH_WORKER_MODELS_DIR", "").strip()
+    if root:
+        return os.path.join(root, MANIFEST_NAME)
     embedding = environ.get(EMBEDDING_PATH_ENV, "").strip() or DEFAULT_EMBEDDING_PATH
     return os.path.join(os.path.dirname(os.path.normpath(embedding)), MANIFEST_NAME)
 

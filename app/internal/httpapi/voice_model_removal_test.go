@@ -65,6 +65,7 @@ func testVoiceModelExplicitRemoval(t *testing.T, pool *pgxpool.Pool) {
 	if replay := h.remove(workerID, communityID, "remove-a-0003", http.StatusOK); replay.OrderID != o.OrderID {
 		t.Fatal("the same key replays the recorded order")
 	}
+	h.order(workerID, communityID, "remove-a-0003", http.StatusConflict)  // same key, different action
 	h.remove(workerID, communityID, "remove-a-0004", http.StatusConflict) // already being removed
 	if c := h.cells(workerID)["diarization"]; c.State != "removing" || c.ModelID != communityID {
 		t.Fatalf("removing expected: %+v", c)

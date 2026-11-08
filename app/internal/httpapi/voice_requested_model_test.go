@@ -5,6 +5,7 @@ package httpapi
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 
@@ -100,6 +101,7 @@ func testVoiceRequestedModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	if !ok || prod.Step != "voice.fingerprint.3" {
 		t.Fatalf("the Worker holding the active model must take the production job, got %+v", prod)
 	}
+	h.assertFingerprintInput(prod, activeEmbedding, "837717ddb9ff5507820346191109dc79c958d614")
 	h.release(prod)
 
 	// A Worker without the requested model ready does not get the job; with it, it does.
@@ -115,8 +117,35 @@ func testVoiceRequestedModelDispatch(t *testing.T, pool *pgxpool.Pool) {
 	if !ok || bench.Step != "voice.fingerprint.4" {
 		t.Fatalf("the Worker holding the requested model must take the job, got %+v", bench)
 	}
+	h.assertFingerprintInput(bench, benchModelRepo, "0123456789abcdef0123456789abcdef01234567")
 	var requested string
 	if err := pool.QueryRow(context.Background(), `SELECT requested_model_id FROM jobs WHERE id=$1`, bench.ID).Scan(&requested); err != nil || requested != benchModelID {
 		t.Fatalf("the leased job keeps its requested model: %q %v", requested, err)
+	}
+}
+
+// Verify the actual leased input, independent of the Worker's legacy environment.
+func (h *voiceHarness) assertFingerprintInput(job claimedJob, repo, revision string) {
+	h.t.Helper()
+	version := fmt.Sprintf("f5-a3-p%s-d%d", h.pipelineVersion(), job.ID)
+	if _, err := h.pool.Exec(context.Background(), `UPDATE jobs SET input_version=$2 WHERE id=$1`, job.ID, version); err != nil {
+		h.t.Fatal(err)
+	}
+	var input struct {
+		Voice struct {
+			FingerprintModel struct {
+				Repo     string `json:"repo"`
+				Revision string `json:"revision"`
+				Engine   string `json:"engine"`
+			} `json:"fingerprint_model"`
+		} `json:"voice"`
+	}
+	raw := h.workerCall(http.MethodGet, fmt.Sprintf("/api/worker/jobs/%d/input", job.ID), nil, job.Lease, http.StatusOK)
+	if err := json.Unmarshal(raw, &input); err != nil {
+		h.t.Fatal(err)
+	}
+	ref := input.Voice.FingerprintModel
+	if ref.Repo != repo || ref.Revision != revision || ref.Engine != "pyannote" {
+		h.t.Fatalf("incorrect fingerprint reference: %+v", ref)
 	}
 }

@@ -46,10 +46,10 @@ func (s *Server) removalOrder(ctx context.Context, author session, workerID, mod
 		if !exists {
 			return orderFailure{http.StatusNotFound, "worker_not_found"}
 		}
-		var prior, priorWorker, priorModel string
-		err := tx.QueryRow(ctx, `SELECT id,worker_id,model_id FROM worker_model_orders WHERE idempotency_key=$1`, key).Scan(&prior, &priorWorker, &priorModel)
+		var prior, priorWorker, priorModel, priorAction string
+		err := tx.QueryRow(ctx, `SELECT id,worker_id,model_id,action FROM worker_model_orders WHERE idempotency_key=$1`, key).Scan(&prior, &priorWorker, &priorModel, &priorAction)
 		if err == nil {
-			if priorWorker != workerID || priorModel != modelID {
+			if priorWorker != workerID || priorModel != modelID || priorAction != "remove" {
 				return orderFailure{http.StatusConflict, "idempotency_key_reused"}
 			}
 			out, err = orderByID(ctx, tx, prior)
@@ -95,7 +95,7 @@ func (s *Server) removalOrder(ctx context.Context, author session, workerID, mod
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 				return err
 			}
-			abandon := rep.Old == modelID && rep.Phase == "preparing" && next == "failed"
+			abandon := (rep.Old == modelID || rep.New == modelID) && rep.Phase == "preparing" && next == "failed"
 			if !abandon {
 				return orderFailure{http.StatusConflict, "voice_replacement_in_progress"}
 			}

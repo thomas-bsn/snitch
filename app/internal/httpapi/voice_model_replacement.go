@@ -95,7 +95,16 @@ func checkReplacement(ctx context.Context, tx pgx.Tx, workerID string, entry voi
 		}
 	}
 	if len(existing) == 1 && (existing[0].New != entry.ID || existing[0].Old != old.ID || existing[0].Phase != "preparing") {
-		return "", orderFailure{http.StatusConflict, "voice_replacement_in_progress"}
+		var failed bool
+		if existing[0].Old == old.ID && existing[0].Phase == "preparing" {
+			err = tx.QueryRow(ctx, `SELECT state='failed' FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, workerID, existing[0].New).Scan(&failed)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return "", err
+			}
+		}
+		if !failed {
+			return "", orderFailure{http.StatusConflict, "voice_replacement_in_progress"}
+		}
 	}
 	return old.ID, nil
 }
@@ -279,7 +288,8 @@ func (s *Server) cancelVoiceModelReplacement(w http.ResponseWriter, r *http.Requ
 			if _, err = tx.Exec(r.Context(), `UPDATE worker_model_orders SET status='cancelled',cause_code='',finished_at=now() WHERE id=(SELECT order_id FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2) AND status='pending'`, workerID, rep.New); err != nil {
 				return err
 			}
-			if _, err = tx.Exec(r.Context(), `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, workerID, rep.New); err != nil {
+			// A failed attempt can still hold partial files. Retain its inventory for explicit cleanup.
+			if _, err = tx.Exec(r.Context(), `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2 AND state='requested'`, workerID, rep.New); err != nil {
 				return err
 			}
 		default:
@@ -342,6 +352,7 @@ func (s *Server) heldModelCells(ctx context.Context) (map[[2]string]workerModelC
 			continue
 		}
 		c.ReplacesModelID = rep.Old
+		c.ReplacementPhase = rep.Phase
 		switch {
 		case rep.Phase == "removing":
 			c.State = "removing"

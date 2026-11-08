@@ -159,7 +159,8 @@ func testVoiceModelOrderCreation(t *testing.T, pool *pgxpool.Pool) {
 	if count != 1 {
 		t.Fatalf("one order expected, got %d", count)
 	}
-	// The same key for something else is a conflict.
+	// The same key for another action or content is a conflict.
+	h.remove(workerID, secondID, "install-b-0001", http.StatusConflict)
 	h.order(workerID, "pyannote-wespeaker-resnet34", "install-b-0001", http.StatusConflict)
 
 	if orders := h.workerOrders(); len(orders) != 1 || orders[0].OrderID != o.OrderID || orders[0].Repo != secondRepo {

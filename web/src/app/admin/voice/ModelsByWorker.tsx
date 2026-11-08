@@ -26,15 +26,7 @@ type Pending =
       replaces?: string;
     }
   | { type: "retry"; worker: Row; kind: Kind; modelId: string }
-  | { type: "uninstall"; worker: Row; kind: Kind; modelId: string }
-  | {
-      type: "removeOld";
-      worker: Row;
-      kind: Kind;
-      modelId: string;
-      /** The new model that failed for lack of space. */
-      successor: string;
-    };
+  | { type: "uninstall"; worker: Row; kind: Kind; modelId: string };
 
 function progress(cell: Cell) {
   if (cell.bytes_total > 0)
@@ -82,7 +74,16 @@ export function ModelsByWorker({
     catalogue.models.filter(
       (m) => m.kind === kind && m.enabled && m.supported && m.id !== except,
     );
+  const replacementOptions = (cell: Cell) =>
+    options(cell.kind, cell.model_id).filter(
+      (model) => model.id !== cell.replaces_model_id,
+    );
   const kindLabel = (kind: Kind) => t(`voiceModels.byWorker.type.${kind}`);
+
+  function itemState(item: Pending) {
+    return item.worker.models.find((cell) => cell.model_id === item.modelId)
+      ?.state;
+  }
 
   function open(next: Pending) {
     setOrderKey(crypto.randomUUID());
@@ -221,38 +222,11 @@ export function ModelsByWorker({
                   <p>
                     {t("voiceModels.byWorker.uninstallText", { model, worker })}
                   </p>
-                  <p className="font-medium text-ink">
-                    {t("voiceModels.byWorker.uninstallNoActive", { worker })}
-                  </p>
-                </>
-              ),
-            };
-          case "removeOld":
-            return {
-              danger: true,
-              confirm: t("voiceModels.byWorker.removeOldAction", {
-                old: model,
-              }),
-              title: t("voiceModels.byWorker.removeOldTitle", {
-                old: model,
-                worker,
-              }),
-              body: (
-                <>
-                  <p>
-                    {t("voiceModels.byWorker.removeOldText", {
-                      old: model,
-                      model: modelName(pending.successor),
-                      worker,
-                    })}
-                  </p>
-                  <p className="font-medium text-ink">
-                    {t("voiceModels.byWorker.removeOldNoActive", {
-                      old: model,
-                      model: modelName(pending.successor),
-                      worker,
-                    })}
-                  </p>
+                  {itemState(pending) === "ready" && (
+                    <p className="font-medium text-ink">
+                      {t("voiceModels.byWorker.uninstallNoActive", { worker })}
+                    </p>
+                  )}
                 </>
               ),
             };
@@ -510,6 +484,7 @@ export function ModelsByWorker({
                                   </button>
                                 )}
                                 {cell.replaces_model_id &&
+                                  cell.replacement_phase === "preparing" &&
                                   ["requested", "failed"].includes(
                                     cell.state,
                                   ) && (
@@ -526,75 +501,60 @@ export function ModelsByWorker({
                                       )}
                                     </button>
                                   )}
-                                {cell.replaces_model_id &&
-                                  cell.state === "failed" &&
-                                  cell.cause_code === "disk_full" && (
-                                    <button
-                                      type="button"
-                                      className="voice-btn quiet"
-                                      disabled={busy}
-                                      onClick={() =>
-                                        open({
-                                          type: "removeOld",
-                                          worker,
-                                          kind,
-                                          modelId: cell.replaces_model_id,
-                                          successor: cell.model_id,
-                                        })
-                                      }
-                                    >
-                                      {t("voiceModels.byWorker.removeOld")}
-                                    </button>
-                                  )}
-                                {cell.state === "ready" &&
-                                  !cell.replaces_model_id && (
-                                    <>
-                                      {options(kind, cell.model_id).length >
-                                        0 && (
-                                        <button
-                                          type="button"
-                                          className="voice-btn quiet"
-                                          disabled={busy}
-                                          onClick={() =>
-                                            kind === "fingerprint"
-                                              ? onTransition(
-                                                  options(
-                                                    kind,
-                                                    cell.model_id,
-                                                  )[0].id,
-                                                )
-                                              : open({
-                                                  type: "install",
-                                                  worker,
-                                                  kind,
-                                                  replaces: cell.model_id,
-                                                  modelId: options(
-                                                    kind,
-                                                    cell.model_id,
-                                                  )[0].id,
-                                                })
-                                          }
-                                        >
-                                          {t("voiceModels.byWorker.replace")}
-                                        </button>
-                                      )}
+                                {((cell.state === "ready" &&
+                                  !cell.replaces_model_id) ||
+                                  (cell.state === "failed" &&
+                                    (!cell.replaces_model_id ||
+                                      cell.replacement_phase ===
+                                        "preparing"))) && (
+                                  <>
+                                    {replacementOptions(cell).length > 0 && (
                                       <button
                                         type="button"
                                         className="voice-btn quiet"
-                                        disabled={busy || cell.waiting_for_jobs}
+                                        disabled={busy}
                                         onClick={() =>
-                                          open({
-                                            type: "uninstall",
-                                            worker,
-                                            kind,
-                                            modelId: cell.model_id,
-                                          })
+                                          kind === "fingerprint" &&
+                                          (cell.state === "ready" ||
+                                            cell.replaces_model_id)
+                                            ? onTransition(
+                                                replacementOptions(cell)[0].id,
+                                              )
+                                            : open({
+                                                type: "install",
+                                                worker,
+                                                kind,
+                                                replaces:
+                                                  cell.replaces_model_id ||
+                                                  (cell.state === "ready"
+                                                    ? cell.model_id
+                                                    : undefined),
+                                                modelId:
+                                                  replacementOptions(cell)[0]
+                                                    .id,
+                                              })
                                         }
                                       >
-                                        {t("voiceModels.byWorker.uninstall")}
+                                        {t("voiceModels.byWorker.replace")}
                                       </button>
-                                    </>
-                                  )}
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="voice-btn quiet"
+                                      disabled={busy || cell.waiting_for_jobs}
+                                      onClick={() =>
+                                        open({
+                                          type: "uninstall",
+                                          worker,
+                                          kind,
+                                          modelId: cell.model_id,
+                                        })
+                                      }
+                                    >
+                                      {t("voiceModels.byWorker.uninstall")}
+                                    </button>
+                                  </>
+                                )}
                                 {!["ready", "failed"].includes(cell.state) && (
                                   <button
                                     type="button"

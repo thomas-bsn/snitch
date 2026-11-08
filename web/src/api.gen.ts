@@ -5159,6 +5159,11 @@ export interface components {
       cause_code?: "" | "invalid_order";
     };
     WorkerModelCell: {
+      /**
+       * @description Phase du remplacement ; absente en dehors d’un remplacement.
+       * @enum {string}
+       */
+      replacement_phase?: "preparing" | "switching" | "removing";
       /** @enum {string} */
       kind: "diarization" | "fingerprint" | "separation" | "vad";
       supported: boolean;
@@ -6214,6 +6219,13 @@ export interface components {
       history: components["schemas"]["VoiceHistoryEntry"][];
     };
     WorkerVoiceInput: {
+      /** @description Référence locale du modèle d’empreinte actif ou demandé, indépendante du moteur de diarisation. Absente uniquement pour les anciens serveurs et le fournisseur factice. */
+      fingerprint_model?: {
+        repo: string;
+        revision: string;
+        /** @enum {string} */
+        engine: "pyannote";
+      };
       pipeline_version: string;
       config: components["schemas"]["VoicePipeline"];
       /** @description Étape d'empreintes uniquement : locuteurs et tours à encoder. */

@@ -193,6 +193,7 @@ class PyannoteProvider:
         self._open_audio: Callable[[str], DecodedAudio] | None = None
         self._device: str | None = None
         self._pipeline_path: str | None = None
+        self._embedding_path: str | None = None
 
     # -- configuration -------------------------------------------------
 
@@ -205,11 +206,25 @@ class PyannoteProvider:
     def _diarization_path(self, config: dict[str, Any]) -> str:
         """The active model's own directory on the models volume, else the legacy single path."""
         repo, revision = str(config.get("model") or ""), str(config.get("model_version") or "")
-        if voice_models.is_ready(self._environ, repo, revision):
-            return voice_models.model_path(self._environ, repo, revision)
+        path = voice_models.ready_path(self._environ, repo, revision, "diarization")
+        if path:
+            return path
+        if voice_models.valid_model(repo, revision):
+            legacy = voice_models._legacy_path(self._environ, repo, revision, "diarization")
+            if legacy:
+                return legacy
+            raise VoiceProviderUnavailable("model_path_missing")
         return self._path(DIARIZATION_PATH_ENV)
 
-    def _embedding_identity(self) -> tuple[str, str]:
+    def _embedding_identity(self, config: dict[str, Any] | None = None) -> tuple[str, str]:
+        reference = (config or {}).get("fingerprint_model")
+        if reference is not None:
+            if not isinstance(reference, dict) or reference.get("engine") != "pyannote":
+                raise VoiceProviderUnavailable("model_path_missing")
+            repo, revision = reference.get("repo", ""), reference.get("revision", "")
+            if not isinstance(repo, str) or not isinstance(revision, str) or not voice_models.valid_model(repo, revision):
+                raise VoiceProviderUnavailable("model_path_missing")
+            return repo, revision
         version = self._environ.get(EMBEDDING_VERSION_ENV, "").strip()
         if not version:  # fall back to the marker written by snitch_worker.bootstrap
             version = voice_manifest.read_embedding_version(self._environ)
@@ -217,11 +232,25 @@ class PyannoteProvider:
             raise VoiceProviderUnavailable("embedding_version_missing")
         return self._environ.get(EMBEDDING_NAME_ENV, "").strip() or DEFAULT_EMBEDDING_NAME, version
 
+    def _embedding_location(self, config: dict[str, Any] | None = None) -> str:
+        if (config or {}).get("fingerprint_model") is not None:
+            repo, revision = self._embedding_identity(config)
+            path = voice_models.ready_path(self._environ, repo, revision, "fingerprint")
+            if not path:
+                path = voice_models._legacy_path(self._environ, repo, revision, "fingerprint")
+            if not path:
+                raise VoiceProviderUnavailable("model_path_missing")
+            return path
+        return self._path(EMBEDDING_PATH_ENV)
+
     def ensure_ready(self, config: dict[str, Any]) -> None:
         """Cheap checks only: nothing is imported, loaded or downloaded."""
         self._diarization_path(config)
-        self._path(EMBEDDING_PATH_ENV)
-        self._embedding_identity()
+        self.ensure_fingerprint_ready(config)
+
+    def ensure_fingerprint_ready(self, config: dict[str, Any]) -> None:
+        self._embedding_location(config)
+        self._embedding_identity(config)
 
     def ensure_diarization_ready(self, config: dict[str, Any]) -> None:
         """A trial only needs its own diarization model."""
@@ -267,14 +296,16 @@ class PyannoteProvider:
                 log.emit(logging.INFO, "diarization_model_loaded", device=device, load_ms=int((time.monotonic() - started) * 1000))
             return self._pipeline
 
-    def _audio_opener(self) -> Callable[[str], DecodedAudio]:
+    def _audio_opener(self, config: dict[str, Any] | None = None) -> Callable[[str], DecodedAudio]:
         with self._load_lock:
-            if self._open_audio is None:
-                path = self._path(EMBEDDING_PATH_ENV)
+            path = self._embedding_location(config)
+            if self._open_audio is None or self._embedding_path != path:
+                self._open_audio = None
                 device = self._resolve_device()
                 self._offline()
                 try:
                     self._open_audio = self._load_embedder(path, device)
+                    self._embedding_path = path
                 except VoiceProviderUnavailable:
                     raise
                 except ImportError:
@@ -320,7 +351,7 @@ class PyannoteProvider:
         return diarization_from_turns(config, turns, stream_index)
 
     def fingerprint(self, config: dict[str, Any], diarization: dict[str, Any], audio_path: str, stream_index: int) -> dict[str, Any]:
-        name, version = self._embedding_identity()
+        name, version = self._embedding_identity(config)
         state: dict[str, DecodedAudio] = {}
         # What the step was doing, for the diagnostic log: never audio content, path or token.
         trace: dict[str, Any] = {"stage": "segment_extraction", "embedded": 0, "skipped_out_of_audio": 0, "cut_at_audio_end": 0}
@@ -329,7 +360,7 @@ class PyannoteProvider:
             cancellation.check()  # between two turns: a refused lease stops the step here
             if "audio" not in state:  # models load only if a turn is long enough
                 trace["stage"] = "model_load"
-                opener = state["opener"] = self._audio_opener()
+                opener = state["opener"] = self._audio_opener(config)
                 trace["stage"] = "audio_decode"
                 try:
                     audio = state["audio"] = cancellation.interruptible(opener, audio_path)

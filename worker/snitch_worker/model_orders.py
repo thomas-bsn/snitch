@@ -73,6 +73,7 @@ class OrderExecutor:
         self._token_file = token_file
         self._path = state_path(environ)
         self._lock = threading.Lock()
+        self._state_lock = threading.RLock()
         self._queue: list[tuple[dict[str, Any], Any]] = []
         self._running: set[str] = set()
         self._thread: threading.Thread | None = None
@@ -113,20 +114,24 @@ class OrderExecutor:
             and isinstance(engine, str)
             and engine in ENGINES[kind]
             and isinstance(order.get("model_id"), str)
-            and bool(_MODEL_ID.match(order["model_id"]))
+            and bool(_MODEL_ID.fullmatch(order["model_id"]))
             and isinstance(repo, str)
             and isinstance(revision, str)
             and voice_models.valid_model(repo, revision)
             and isinstance(order.get("idempotency_key"), str)
-            and bool(_KEY.match(order["idempotency_key"]))
+            and bool(_KEY.fullmatch(order["idempotency_key"]))
         )
 
     def handle(self, answer: Mapping[str, Any], http: Any) -> None:
         """Check, acknowledge and queue the orders of one pull; execution continues in the background."""
         orders = answer.get("orders")
         worker_id = answer.get("worker_id")
-        if not isinstance(orders, list) or not orders or not isinstance(worker_id, str) or not _WORKER_ID.match(worker_id):
+        if not isinstance(orders, list) or not orders or not isinstance(worker_id, str) or not _WORKER_ID.fullmatch(worker_id):
             return
+        with self._state_lock:
+            self._handle_orders(orders, worker_id, http)
+
+    def _handle_orders(self, orders: list[Any], worker_id: str, http: Any) -> None:
         state = self._load()
         if state["worker_id"] and state["worker_id"] != worker_id:
             log.emit(logging.WARNING, "voice_order_identity_mismatch")
@@ -140,17 +145,20 @@ class OrderExecutor:
 
     def _receive(self, order: dict[str, Any], worker_id: str, state: dict[str, Any], http: Any) -> None:
         order_id = order.get("order_id")
-        if not isinstance(order_id, str) or not _ORDER_ID.match(order_id):
+        if not isinstance(order_id, str) or not _ORDER_ID.fullmatch(order_id):
             log.emit(logging.WARNING, "voice_order_ignored", reason="identity")
             return
         token = order.get("hf_token") if order.get("action") == "install" else None
         key = order.get("idempotency_key")
         seen = state["keys"].get(key) if isinstance(key, str) else None
-        content = {"model_id": order.get("model_id"), "repo": order.get("repo"), "revision": order.get("revision")}
+        content = {name: order.get(name) for name in ("model_id", "repo", "revision", "action", "kind", "engine")}
+        # Older volumes recorded only the pinned identity; preserve their restart semantics.
+        recorded = seen.get("content", {}) if isinstance(seen, dict) else {}
+        same_content = all(content.get(name) == value for name, value in recorded.items())
         valid = (
             order.get("worker_id") == worker_id
             and self._well_formed(order)
-            and (seen is None or (seen.get("order_id") == order_id and seen.get("content") == content))
+            and (seen is None or (seen.get("order_id") == order_id and same_content))
         )
         if not valid:
             log.emit(logging.WARNING, "voice_order_refused", order_id=order_id)
@@ -204,6 +212,7 @@ class OrderExecutor:
         while True:
             with self._lock:
                 if not self._queue:
+                    self._thread = None
                     return
                 order, http = self._queue.pop(0)
                 self._running.add(order["order_id"])
@@ -229,7 +238,7 @@ class OrderExecutor:
                 "cause_code": payload.get("cause_code", ""),
                 "bytes_received": payload.get("bytes_received", 0),
                 "bytes_total": payload.get("bytes_total", 0),
-                "occupied_bytes": _directory_size(voice_models.model_path(self._env, order["repo"], revision)) if state in ("verifying", "ready") else payload.get("bytes_received", 0),
+                "occupied_bytes": _directory_size(voice_models.ready_path(self._env, order["repo"], revision, order["kind"]) or voice_models.model_path(self._env, order["repo"], revision)) if state in ("verifying", "ready") else payload.get("bytes_received", 0),
             }
             http.post("/api/worker/voice-models/status", json=body).raise_for_status()
             last.update(body)
@@ -237,18 +246,21 @@ class OrderExecutor:
         log.emit(logging.INFO, "voice_order_started", order_id=order_id, model_id=model_id, revision=revision, action=order["action"])
         if order["action"] == "remove":
             # Only an order from Snitch removes a model, after it decided the switch and that no job uses it.
-            self._manager.remove([{"model_id": model_id, "repo": order["repo"], "revision": revision}], post)
+            self._manager.remove([{"model_id": model_id, "repo": order["repo"], "revision": revision, "kind": order["kind"]}], post)
         elif not self._fits(order, post):
             pass
         else:
             self._install(order, post)
         if last.get("state") in ("ready", "failed", "removed"):
-            state = self._load()
-            state["orders"][order_id] = {"state": last["state"], "cause_code": last["cause_code"], "occupied_bytes": last["occupied_bytes"]}
-            self._save(state)
+            with self._state_lock:
+                state = self._load()
+                state["orders"][order_id] = {"state": last["state"], "cause_code": last["cause_code"], "occupied_bytes": last["occupied_bytes"]}
+                self._save(state)
 
     def _fits(self, order: dict[str, Any], post: Any) -> bool:
         """Refuse before downloading what the disk cannot hold: the old model is kept, nothing is erased."""
+        if voice_models.is_ready(self._env, order["repo"], order["revision"]):
+            return True
         size = order.get("size_bytes")
         if not isinstance(size, int) or size <= 0:
             return True

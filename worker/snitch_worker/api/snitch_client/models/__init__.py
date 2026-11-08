@@ -526,6 +526,7 @@ from .worker_model_cell import WorkerModelCell
 from .worker_model_cell_blocked import WorkerModelCellBlocked
 from .worker_model_cell_cause_code import WorkerModelCellCauseCode
 from .worker_model_cell_kind import WorkerModelCellKind
+from .worker_model_cell_replacement_phase import WorkerModelCellReplacementPhase
 from .worker_model_cell_state import WorkerModelCellState
 from .worker_model_order import WorkerModelOrder
 from .worker_model_order_ack import WorkerModelOrderAck
@@ -568,6 +569,8 @@ from .worker_voice_input import WorkerVoiceInput
 from .worker_voice_input_diarization import WorkerVoiceInputDiarization
 from .worker_voice_input_diarization_speakers_item import WorkerVoiceInputDiarizationSpeakersItem
 from .worker_voice_input_diarization_speakers_item_turns_item import WorkerVoiceInputDiarizationSpeakersItemTurnsItem
+from .worker_voice_input_fingerprint_model import WorkerVoiceInputFingerprintModel
+from .worker_voice_input_fingerprint_model_engine import WorkerVoiceInputFingerprintModelEngine
 from .worker_voice_model import WorkerVoiceModel
 from .worker_voice_model_kind import WorkerVoiceModelKind
 from .worker_voice_model_role import WorkerVoiceModelRole
@@ -1103,6 +1106,7 @@ __all__ = (
     "WorkerModelCellBlocked",
     "WorkerModelCellCauseCode",
     "WorkerModelCellKind",
+    "WorkerModelCellReplacementPhase",
     "WorkerModelCellState",
     "WorkerModelOrder",
     "WorkerModelOrderAck",
@@ -1145,6 +1149,8 @@ __all__ = (
     "WorkerVoiceInputDiarization",
     "WorkerVoiceInputDiarizationSpeakersItem",
     "WorkerVoiceInputDiarizationSpeakersItemTurnsItem",
+    "WorkerVoiceInputFingerprintModel",
+    "WorkerVoiceInputFingerprintModelEngine",
     "WorkerVoiceModel",
     "WorkerVoiceModelKind",
     "WorkerVoiceModelRole",
