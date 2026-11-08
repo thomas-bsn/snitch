@@ -77,6 +77,10 @@ def _titanet(path: str, device: str) -> Any:
 
 
 def _speaker_loader(engine: str, path: str, device: str) -> Any:
+    if engine == "speechbrain-ecapa":
+        # Pinned files, data-only YAML scan, fixed architecture: see voice_ecapa (never from_hparams).
+        from snitch_worker import voice_ecapa
+        return voice_ecapa.speaker_loader(path, device)
     import torch
     import torchaudio
 
@@ -86,19 +90,7 @@ def _speaker_loader(engine: str, path: str, device: str) -> Any:
             _, vector = model(input_signal=waveform, input_signal_length=torch.tensor([waveform.shape[-1]], device=device))
             return vector
     else:
-        from speechbrain.lobes.features import Fbank
-        from speechbrain.processing.features import InputNormalization
-        from speechbrain.lobes.models.ECAPA_TDNN import ECAPA_TDNN
-        # The approved ECAPA-TDNN architecture; no from_hparams or executable YAML.
-        model = ECAPA_TDNN(input_size=80, channels=[1024, 1024, 1024, 1024, 3072],
-                           kernel_sizes=[5, 3, 3, 3, 1], dilations=[1, 2, 3, 4, 1],
-                           attention_channels=128, lin_neurons=192).to(device).eval()
-        model.load_state_dict(torch.load(Path(path) / "embedding_model.ckpt", map_location=device, weights_only=True), strict=True)
-        features = Fbank(n_mels=80).to(device).eval()
-        norm = InputNormalization(norm_type="sentence", std_norm=False).to(device)
-        def embed(waveform: Any) -> Any:
-            signal = features(waveform)
-            return model(norm(signal, torch.ones(signal.shape[0], device=device)))
+        raise VoiceProviderUnavailable("model_load_failed")
     def open_audio(audio_path: str) -> DecodedAudio:
         waveform, rate = torchaudio.load(audio_path)
         channels = waveform.shape[0]

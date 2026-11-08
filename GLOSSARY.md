@@ -117,6 +117,8 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Release d'engine** : Une version précise et immuable d'un Runtime approuvé. Une Release révoquée ne peut plus être installée ; ce qui est déjà installé continue de servir.
 
+**Variante de modèle épinglée** : Un modèle de famille d'empreinte que le Worker accepte parce que ses fichiers correspondent, octet pour octet, à une révision connue de l'adaptateur. Une autre révision ou architecture est refusée avec une raison, jamais devinée ; la configuration d'un modèle (par exemple le YAML de SpeechBrain) est lue comme une donnée et n'est jamais exécutée. ADR 0055.
+
 **Inventaire du Worker** : Ce qu'un Worker détient réellement de chaque Release d'engine : non installée, demandée, en téléchargement, en installation, en vérification, prête ou en échec, avec la cause et l'historique. Il ne change que par un ordre explicite de l'Administrateur ou par le constat du Worker ; une reconnexion n'installe jamais rien.
 
 **Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.

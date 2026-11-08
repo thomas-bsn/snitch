@@ -7,7 +7,7 @@ import re
 import sys
 from pathlib import Path
 
-NEEDED = {"anyio", "attrs", "certifi", "h11", "httpcore", "httpx", "idna", "python-dateutil", "six", "sniffio", "typing-extensions"}
+NEEDED = {"anyio", "attrs", "certifi", "h11", "httpcore", "httpx", "idna", "python-dateutil", "pyyaml", "six", "sniffio", "typing-extensions"}
 lock = (Path(__file__).resolve().parents[1] / "worker/voice-runtime.lock").read_text()
 found = set()
 for name, hashes in re.findall(r"^([A-Za-z0-9_.-]+==\S+) \\\n((?:\s+--hash=\S+(?: \\)?\n?)+)", lock, re.M):
