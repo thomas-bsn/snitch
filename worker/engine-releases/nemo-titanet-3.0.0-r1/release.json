@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "engine": "nemo-titanet",
+  "version": "3.0.0-cu128-r1",
+  "adapter_version": 1,
+  "python": "3.12",
+  "platform": "linux-x86_64",
+  "cuda": "12.8",
+  "license": "Apache-2.0 (NeMo); BSD-3-Clause (PyTorch); NVIDIA CUDA EULA (nvidia-*)",
+  "kind": "fingerprint",
+  "architecture": "titanet",
+  "vram_bytes": 2147483648,
+  "ram_bytes": 4294967296,
+  "capabilities": ["fingerprint"],
+  "input_contract": "audio-mono-16khz",
+  "output_contract": "speaker-embedding-unit-v1",
+  "cpu_fallback": true,
+  "disk_factor": 3
+}

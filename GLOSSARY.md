@@ -123,6 +123,10 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.
 
+**Empreinte vocale réelle** : Une empreinte produite par un modèle d'empreinte du catalogue exécuté pour de bon sur un Worker (et non par un double de test). Elle porte le modèle, sa version, ses dimensions, un vecteur normalisé, la durée de parole utilisée et une qualité ; elle n'est jamais comparée à celle d'une autre famille, version ou dimension. Une preuve sur la machine de l'opérateur (matériel, mémoire, durée) reste distincte des tests automatiques.
+
+**Enveloppe de release** : Le fichier signé qu'un éditeur de confiance remet au Super-administrateur pour importer une Release d'engine : l'identité de la clé, le manifeste et sa signature. La clé privée de l'éditeur reste chez lui ; Snitch ne la voit jamais.
+
 **Matériel du Worker** : Ce qu'un Worker déclare de sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre) et si sa configuration autorise le repli CPU. Une Release d'engine est comparée à ce matériel avant tout ordre ; un Worker qui n'a rien déclaré n'est pas bloqué et vérifie lui-même avant d'installer.
 
 **Repli CPU** : L'exécution d'une Release CUDA sur le processeur. Jamais automatique : elle exige l'autorisation du contrat de la Release et celle de la configuration du Worker, et n'installe rien. Un runtime CPU est une Release approuvée distincte, installée volontairement.

@@ -173,7 +173,7 @@ def check_resources(manifest: Mapping[str, Any], hw: Mapping[str, Any] | None) -
     ram = manifest.get("ram_bytes", 0)
     if ram and hw.get("ram_bytes", 0) and ram > hw["ram_bytes"]:
         raise RuntimeFailed("insufficient_ram")
-    if manifest["cuda"] != "cpu" and hw.get("cuda") == "" and not (manifest.get("cpu_fallback") is True and hw.get("cpu_fallback")):
+    if manifest["cuda"] != "cpu" and hw.get("cuda") == "":
         raise RuntimeFailed("cuda_incompatible")
 
 
@@ -315,15 +315,14 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
                 subprocess.run([python, "-I", "-c", "import importlib; importlib.import_module(" + repr(module) + ")"],
                                env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
                 # Hardware is checked in this runtime, not against the base image's torch.
-                # Exit 2: CUDA absent or another version. Exit 3: not enough VRAM. A CUDA release without a GPU only
-                # passes when its contract and this Worker's configuration both allow the CPU.
-                probe = ("import sys,torch; cuda=sys.argv[1]; need=int(sys.argv[2]); cpu_ok=sys.argv[3]=='1'\n"
+                # Exit 2: CUDA absent or another version. Exit 3: not enough VRAM. A CUDA release without a GPU
+                # is refused: CPU execution requires a distinct approved CPU release.
+                probe = ("import sys,torch; cuda=sys.argv[1]; need=int(sys.argv[2])\n"
                          "if cuda=='cpu': sys.exit(0)\n"
-                         "if not torch.cuda.is_available(): sys.exit(0 if cpu_ok else 2)\n"
+                         "if not torch.cuda.is_available(): sys.exit(2)\n"
                          "if torch.version.cuda!=cuda: sys.exit(2)\n"
                          "sys.exit(0 if torch.cuda.get_device_properties(0).total_memory>=need else 3)")
-                allowed = "1" if manifest.get("cpu_fallback") is True and cpu_fallback_enabled(environ) else "0"
-                verdict = subprocess.run([python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"]), allowed], env=env,
+                verdict = subprocess.run([python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"])], env=env,
                                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120).returncode
                 if verdict != 0:
                     raise RuntimeFailed({2: "cuda_incompatible", 3: "insufficient_vram"}.get(verdict, "runtime_incompatible"))

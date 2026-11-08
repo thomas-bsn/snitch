@@ -28856,15 +28856,13 @@
             "description": "Cause d'échec du dernier ordre."
           },
           "waiting": {
-            "anyOf": [
+            "description": "Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon.",
+            "allOf": [
               {
                 "$ref": "#/components/schemas/EngineBlockers"
-              },
-              {
-                "type": "null"
               }
             ],
-            "description": "Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon."
+            "nullable": true
           }
         }
       },

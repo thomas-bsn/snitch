@@ -48,12 +48,12 @@ class CheckResourcesTests(unittest.TestCase):
         self.assertEqual(self.refused(manifest(ram_bytes=32 * GIB), self.hw), "insufficient_ram")
         runtime.check_resources(manifest(ram_bytes=8 * GIB), self.hw)
 
-    def test_cuda_release_without_gpu_is_refused_unless_contract_and_configuration_allow_cpu(self):
+    def test_cuda_release_without_gpu_requires_a_distinct_cpu_release(self):
         no_gpu = self.hw | {"cuda": "", "vram_bytes": 0}
         self.assertEqual(self.refused(manifest(), no_gpu), "cuda_incompatible")
         self.assertEqual(self.refused(manifest(cpu_fallback=True), no_gpu), "cuda_incompatible")  # configuration missing
         self.assertEqual(self.refused(manifest(), no_gpu | {"cpu_fallback": True}), "cuda_incompatible")  # contract missing
-        runtime.check_resources(manifest(cpu_fallback=True), no_gpu | {"cpu_fallback": True})
+        self.assertEqual(self.refused(manifest(cpu_fallback=True), no_gpu | {"cpu_fallback": True}), "cuda_incompatible")
 
     def test_cpu_release_needs_no_gpu(self):
         runtime.check_resources(manifest(cuda="cpu", vram_bytes=0), self.hw | {"cuda": "", "vram_bytes": 0})
@@ -159,8 +159,10 @@ class InferenceDeviceTests(unittest.TestCase):
                     self.device(value, ("", 0, 0), env)
                 self.assertEqual(raised.exception.reason, "cuda_unavailable")
 
-    def test_cpu_fallback_needs_contract_and_configuration(self):
-        self.assertEqual(self.device(manifest(cpu_fallback=True), ("", 0, 0), {runtime.CPU_FALLBACK_ENV: "1"}), "cpu")
+    def test_cuda_release_cannot_become_a_cpu_release_through_configuration(self):
+        with self.assertRaises(VoiceProviderUnavailable) as raised:
+            self.device(manifest(cpu_fallback=True), ("", 0, 0), {runtime.CPU_FALLBACK_ENV: "1"})
+        self.assertEqual(raised.exception.reason, "cuda_unavailable")
 
     def test_other_cuda_version_is_refused(self):
         with self.assertRaises(VoiceProviderUnavailable):

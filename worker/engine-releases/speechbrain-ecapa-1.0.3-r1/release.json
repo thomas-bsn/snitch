@@ -14,5 +14,6 @@
   "capabilities": ["fingerprint"],
   "input_contract": "audio-wav-flac-ogg-8k-48k",
   "output_contract": "fingerprint-192-unit-v1",
+  "disk_factor": 3,
   "cpu_fallback": true
 }

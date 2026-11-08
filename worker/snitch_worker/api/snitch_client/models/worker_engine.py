@@ -242,11 +242,11 @@ class WorkerEngine:
             try:
                 if not isinstance(data, dict):
                     raise TypeError()
-                waiting_type_0 = EngineBlockers.from_dict(data)
+                waiting_type_1 = EngineBlockers.from_dict(data)
 
 
 
-                return waiting_type_0
+                return waiting_type_1
             except (TypeError, ValueError, AttributeError, KeyError):
                 pass
             return cast(EngineBlockers | None, data)

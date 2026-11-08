@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -16,8 +17,7 @@ def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) ->
     """The device an approved runtime may use, or a stable refusal before any inference starts.
 
     A CPU runtime is its own approved release and runs on the CPU. A CUDA release needs its GPU and the VRAM it
-    declares: when the free VRAM is short the job fails with `gpu_out_of_memory` (it never degrades silently). It runs
-    on the CPU only when its contract (`cpu_fallback`) and this Worker's configuration both allow it. Nothing is installed.
+    declares: when the free VRAM is short the job fails with `gpu_out_of_memory` (it never degrades silently). CPU execution requires a distinct approved CPU release. Nothing is installed.
     None when the GPU cannot be assessed: the configured device then applies unchanged.
     """
     if manifest["cuda"] == "cpu":
@@ -27,8 +27,6 @@ def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) ->
         return None
     cuda, _total, free = state
     if not cuda:
-        if manifest.get("cpu_fallback") is True and engine_runtime.cpu_fallback_enabled(environ):
-            return "cpu"
         raise VoiceProviderUnavailable("cuda_unavailable")
     if cuda != manifest["cuda"]:
         raise VoiceProviderUnavailable("cuda_unavailable")
@@ -60,7 +58,11 @@ def call(manifest: dict[str, Any], path: str, environ: Any, **request: Any) -> d
             answer = json.loads(outgoing.read_text())
             if "error" in answer:
                 safe = {"ml_libraries_missing", "cuda_unavailable", "gpu_out_of_memory", "model_load_failed", "inference_failed", "model_path_missing", "device_invalid"}
-                raise VoiceProviderUnavailable(answer["error"] if answer["error"] in safe else "inference_failed")
+                refused = VoiceProviderUnavailable(answer["error"] if answer["error"] in safe else "inference_failed")
+                detail = answer.get("detail")
+                if isinstance(detail, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,47}", detail):
+                    refused.detail = detail  # stable adapter refusal code, kept for the Worker log
+                raise refused
             if not isinstance(answer["result"], dict):
                 raise ValueError()
             return answer["result"]

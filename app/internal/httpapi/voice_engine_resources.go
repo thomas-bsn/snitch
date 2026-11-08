@@ -59,18 +59,10 @@ func checkEngineResources(m engineManifest, hw *workerHardware, reservedDisk int
 	if (hw.Python != "" && hw.Python != m.Python) || (hw.Platform != "" && hw.Platform != m.Platform) {
 		return engineVerdict{Cause: causePlatform}
 	}
-	// Running on the CPU is never automatic: a CPU runtime is its own approved release. A CUDA release only runs
-	// without a GPU when its contract and the Worker's configuration both allow it, and still installs nothing else.
+	// CPU execution requires its own approved release, installed explicitly.
 	onCPU := m.CUDA == "cpu"
-	if !onCPU {
-		if hw.CUDA == "" {
-			if !(m.CPUFallback && hw.CPUFallback) {
-				return engineVerdict{Cause: causeCUDA}
-			}
-			onCPU = true
-		} else if hw.CUDA != m.CUDA {
-			return engineVerdict{Cause: causeCUDA}
-		}
+	if !onCPU && hw.CUDA != m.CUDA {
+		return engineVerdict{Cause: causeCUDA}
 	}
 	if !onCPU && m.VRAMBytes > hw.VRAMBytes {
 		return engineVerdict{Cause: causeVRAM, Required: m.VRAMBytes, Available: hw.VRAMBytes}

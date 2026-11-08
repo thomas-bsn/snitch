@@ -743,7 +743,8 @@
     min-width: 44px;
   }
   .voice-tabs {
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 0 16px;
   }
   .voice-tabs > button {
     font-size: 12px;

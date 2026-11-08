@@ -44,6 +44,13 @@ class Ed25519Test(unittest.TestCase):
 
 
 class ReleaseTest(unittest.TestCase):
+    def test_ecapa_disk_budget_covers_wheels_and_measured_unpacked_size(self):
+        manifest = tool.build_manifest(RELEASE)
+        # ZIP-directory measurement recorded during the release audit: 6.43 GiB.
+        # Round up to keep the check conservative without downloading the wheels.
+        unpacked_bytes = 644 * (1 << 30) // 100
+        self.assertGreaterEqual(manifest["disk_bytes"], sum(w["size"] for w in manifest["wheels"]) + unpacked_bytes)
+
     def test_the_committed_manifest_is_what_the_inputs_build(self):
         built = tool.canonical(tool.build_manifest(RELEASE)) + b"\n"
         self.assertEqual((RELEASE / "manifest.json").read_bytes(), built)

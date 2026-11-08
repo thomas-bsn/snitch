@@ -169,7 +169,7 @@ func testVoiceEngineResources(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("platform: %+v", r)
 	}
 	h.setHardware(b, workerHardware{Python: "3.12", Platform: "linux-x86_64", CUDA: "", RAMBytes: 16 * gib, VRAMBytes: 0, DiskFreeBytes: 1 << 40, CPUFallback: true})
-	// The Worker's configuration alone is not enough: the contract must allow the CPU too.
+	// Legacy fallback flags cannot turn a CUDA release into a CPU release.
 	if r := h.only(cuda("nofallback", nil), b, "res-nofallback-001"); r.Status != "refused" || r.Cause != "cuda_incompatible" {
 		t.Fatalf("CUDA release without contract on a GPU-less Worker: %+v", r)
 	}
@@ -178,8 +178,8 @@ func testVoiceEngineResources(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("a refusal installed something else: %d orders", n)
 	}
 	withContract := cuda("fallback-ok", func(m *engineManifest) { m.CPUFallback = true })
-	if r := h.only(withContract, b, "res-fallback-0001"); r.Status != "created" {
-		t.Fatalf("contract and configuration both allow the CPU: %+v", r)
+	if r := h.only(withContract, b, "res-fallback-0001"); r.Status != "refused" || r.Cause != "cuda_incompatible" {
+		t.Fatalf("a CUDA release needs a GPU even when both fallback flags are set: %+v", r)
 	}
 	h.setHardware(b, workerHardware{Python: "3.12", Platform: "linux-x86_64", CUDA: "", RAMBytes: 16 * gib, VRAMBytes: 0, DiskFreeBytes: 1 << 40, CPUFallback: false})
 	if r := h.only(cuda("contract-only", func(m *engineManifest) {

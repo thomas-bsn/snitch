@@ -388,7 +388,7 @@ class ModelManager:
             if isinstance(error, (KeyboardInterrupt, SystemExit)):
                 raise
             cause = _cause_of_verification(error)
-            log.emit(logging.INFO, "voice_model_failed", phase="verification", cause_code=cause, **milestone)
+            log.emit(logging.INFO, "voice_model_failed", phase="verification", cause_code=cause, refusal=getattr(error, "detail", None), **milestone)
             say("failed", cause)
             return
         log.emit(logging.INFO, "voice_model_validated", **milestone)

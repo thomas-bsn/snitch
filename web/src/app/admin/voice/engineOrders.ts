@@ -55,14 +55,8 @@ export function resourceVerdict(
   )
     return { cause: "platform_incompatible" };
   // A CPU runtime is its own approved release; a CUDA release never falls back on its own.
-  let onCPU = m.cuda === "cpu";
-  if (!onCPU) {
-    if (hw.cuda === "") {
-      if (!(m.cpu_fallback && hw.cpu_fallback))
-        return { cause: "cuda_incompatible" };
-      onCPU = true;
-    } else if (hw.cuda !== m.cuda) return { cause: "cuda_incompatible" };
-  }
+  const onCPU = m.cuda === "cpu";
+  if (!onCPU && hw.cuda !== m.cuda) return { cause: "cuda_incompatible" };
   if (!onCPU && m.vram_bytes > hw.vram_bytes)
     return {
       cause: "insufficient_vram",

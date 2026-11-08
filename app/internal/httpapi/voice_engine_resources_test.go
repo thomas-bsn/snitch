@@ -89,7 +89,7 @@ func TestEngineResourceVerdicts(t *testing.T) {
 		{"a CPU release needs no GPU", func() engineManifest { return testEngineManifest() }, func(h *workerHardware) { h.CUDA, h.VRAMBytes = "", 0 }, 0, false, ""},
 		{"CPU fallback needs the contract", cudaManifest, func(h *workerHardware) { h.CUDA, h.VRAMBytes, h.CPUFallback = "", 0, true }, 0, false, causeCUDA},
 		{"CPU fallback needs the configuration", func() engineManifest { m := cudaManifest(); m.CPUFallback = true; return m }, func(h *workerHardware) { h.CUDA, h.VRAMBytes = "", 0 }, 0, false, causeCUDA},
-		{"CPU fallback with both", func() engineManifest { m := cudaManifest(); m.CPUFallback = true; return m }, func(h *workerHardware) { h.CUDA, h.VRAMBytes, h.CPUFallback = "", 0, true }, 0, false, ""},
+		{"CPU fallback flags cannot substitute a CPU release", func() engineManifest { m := cudaManifest(); m.CPUFallback = true; return m }, func(h *workerHardware) { h.CUDA, h.VRAMBytes, h.CPUFallback = "", 0, true }, 0, false, causeCUDA},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

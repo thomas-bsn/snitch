@@ -154,6 +154,38 @@ _MANIFEST_FIELDS = {"schema", "engine", "version", "adapter_version", "python", 
                     "output_contract", "cpu_fallback"}
 
 
+_MAX_GLIBC = (2, 28)
+
+
+def _wheel_rank(filename: str) -> tuple[int, tuple[int, int]] | None:
+    """How well a wheel suits CPython 3.12 on Linux x86_64 with glibc 2.28 (higher wins); None when it cannot be installed there."""
+    parts = filename[:-4].split("-")
+    if len(parts) not in (5, 6):
+        return None
+    python_tags, abi_tags, platform_tags = (set(part.split(".")) for part in parts[-3:])
+    glibc = (0, 0)
+    if platform_tags != {"any"}:
+        usable = []
+        for tag in platform_tags:
+            legacy = {"manylinux1_x86_64": (2, 5), "manylinux2010_x86_64": (2, 12), "manylinux2014_x86_64": (2, 17)}.get(tag)
+            match = re.fullmatch(r"manylinux_(\d+)_(\d+)_x86_64", tag)
+            version = legacy or ((int(match.group(1)), int(match.group(2))) if match else None)
+            if version is not None and version <= _MAX_GLIBC:
+                usable.append(version)
+        if not usable:
+            return None
+        glibc = max(usable)
+    if "cp312" in python_tags and "cp312" in abi_tags:
+        kind = 3
+    elif "abi3" in abi_tags and any(re.fullmatch(r"cp3\d+", tag) and int(tag[3:]) <= 12 for tag in python_tags):
+        kind = 2
+    elif abi_tags == {"none"} and python_tags & {"py3", "py312", "cp312"}:
+        kind = 1
+    else:
+        return None
+    return kind, glibc
+
+
 def canonical(value: Any) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode()
 
@@ -168,9 +200,12 @@ def build_manifest(release: str | os.PathLike[str]) -> dict[str, Any]:
     for package in lock.get("packages", []):
         files = package.get("wheels") or []
         if len(files) > 1:
-            # A pure-Python fallback next to a native build (soundfile bundles libsndfile only in the latter):
-            # the platform wheel wins, as it would for pip on the target.
-            files = [f for f in files if "manylinux" in f["url"].rsplit("/", 1)[-1] and "x86_64" in f["url"].rsplit("/", 1)[-1]]
+            # Several files for one pin (a pure-Python fallback next to a native build, an abi3 wheel next to a
+            # CPython 3.12 one): keep the one pip would pick on the target (CPython 3.12, Linux x86_64, glibc 2.28),
+            # most specific first. Only a tie that this rule cannot break stays an error.
+            ranked = sorted(((_wheel_rank(f["url"].rsplit("/", 1)[-1]), f) for f in files), key=lambda item: item[0] or (-1, (0, 0)), reverse=True)
+            ranked = [item for item in ranked if item[0] is not None]
+            files = [ranked[0][1]] if ranked and (len(ranked) == 1 or ranked[0][0] != ranked[1][0]) else []
         if len(files) != 1 or package.get("sdist") or package.get("vcs") or package.get("directory"):
             raise SystemExit("%s: exactly one wheel is required (no sdist, no source)" % package.get("name"))
         entry = files[0]

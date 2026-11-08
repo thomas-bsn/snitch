@@ -8,6 +8,8 @@ import (
 	"slices"
 	"testing"
 
+	"snitch/internal/jobs"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -212,6 +214,23 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if state, received := h.modelState(worker, model); state != "ready" || received != 0 {
 		t.Fatalf("model after the update: %s %d", state, received)
+	}
+
+	// Dispatch follows the published binding, even after its original install release disappears.
+	h.installRuntime(worker, h.token, v1, "dispatch-binding-v1")
+	h.installRuntime(worker, h.token, v2, "dispatch-binding-v2")
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_engine_inventory SET state='failed',cause_code='runtime_missing' WHERE worker_id=$1 AND digest=$2`, worker, v1); err != nil {
+		t.Fatal(err)
+	}
+	var usable bool
+	if err := pool.QueryRow(t.Context(), `SELECT `+jobs.RuntimeReadyClause("wvm", "m")+` FROM worker_voice_models wvm JOIN voice_model_catalog m ON m.id=wvm.model_id WHERE wvm.worker_id=$1 AND wvm.model_id=$2`, worker, model).Scan(&usable); err != nil {
+		t.Fatal(err)
+	}
+	if !usable {
+		t.Fatal("the published runtime is ready but dispatch still requires the original install release")
+	}
+	if _, err := pool.Exec(t.Context(), `UPDATE worker_engine_inventory SET state='ready',cause_code='' WHERE worker_id=$1 AND digest=$2`, worker, v1); err != nil {
+		t.Fatal(err)
 	}
 
 	// Rollback: only to a version the Worker already holds and that is still approved.
