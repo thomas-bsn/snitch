@@ -740,7 +740,7 @@ func (s *Service) advance(ctx context.Context, run Run) error {
 	}
 	switch {
 	case planID != 0:
-		states[StepTranscription] = stepState{status: StatusDone, reason: "audio_published"}
+		states[StepTranscription] = stepState{status: StatusDone, reason: "audio_plan_published"}
 	case run.Scope == ScopeVoice:
 		has, hasErr := s.hooks.HasTranscription(ctx, run.ClipID)
 		if hasErr != nil {

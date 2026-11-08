@@ -223,8 +223,8 @@ test("un clip à deux pistes est examiné seul : seule la parole est transcrite,
   // The voices follow the published plan, track by track (Voices tab).
   await page.getByRole("tab", { name: "Voices" }).click();
   const states = page.getByRole("list", { name: "Voice state per kept track" });
-  await expect(states.getByRole("listitem")).toHaveCount(2);
-  await expect(states).toContainText("Track 1");
+  await expect(states.getByRole("listitem")).toHaveCount(1);
+  await expect(states).not.toContainText("Track 1");
   await expect(states).toContainText("Track 2");
   await context.close();
 });
