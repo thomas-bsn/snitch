@@ -1530,18 +1530,7 @@ func TestFoundation(t *testing.T) {
 		testWorkerReachabilityReporting(t, pool)
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{
-			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
-			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
-			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
-			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
-			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
-			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
-			"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
-			"library-explorer.spec.ts",
-			"import-server.spec.ts",
-		}
+		suites := foundationBrowserSuites()
 		if os.Getenv("SNITCH_E2E_UI_COMPARE") == "1" {
 			suites = []string{"ui-compare.spec.ts"}
 		}

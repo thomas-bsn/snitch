@@ -4,6 +4,7 @@ package httpapi
 
 import (
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -85,6 +86,45 @@ func TestShardSuitesPartition(t *testing.T) {
 	for _, bad := range []string{"", "1", "0/3", "4/3", "x/3", "1/0", "1/2/3"} {
 		if _, err := shardSuites(suites, bad); err == nil {
 			t.Fatalf("%q must be rejected", bad)
+		}
+	}
+}
+
+func foundationBrowserSuites() []string {
+	return []string{
+		"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
+		"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
+		"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
+		"admin-voice-engines.spec.ts", "admin-voice-engines-recovery.spec.ts",
+		"admin-voice-engine-models.spec.ts", "admin-voice-engine-uninstall.spec.ts", "admin-voice-engines-resources.spec.ts",
+		"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
+		"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
+		"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
+		"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
+		"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
+		"library-explorer.spec.ts",
+		"import-server.spec.ts",
+	}
+}
+
+func TestEngineBrowserSuitesReachCI(t *testing.T) {
+	files, err := filepath.Glob("../../../web/e2e/admin-voice-engine*.spec.ts")
+	if err != nil || len(files) != 5 {
+		t.Fatalf("engine browser suites: files=%v err=%v", files, err)
+	}
+	seen := map[string]int{}
+	for index := 1; index <= 5; index++ {
+		suites, err := shardSuites(foundationBrowserSuites(), fmt.Sprintf("%d/5", index))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, suite := range suites {
+			seen[suite]++
+		}
+	}
+	for _, file := range files {
+		if seen[filepath.Base(file)] != 1 {
+			t.Errorf("%s reaches %d CI shards, want exactly one", file, seen[filepath.Base(file)])
 		}
 	}
 }
