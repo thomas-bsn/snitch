@@ -12,10 +12,39 @@ from snitch_worker import cancellation, engine_runtime, voice_manifest
 from snitch_worker.voice import VoiceProviderUnavailable
 
 
+def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) -> str | None:
+    """The device an approved runtime may use, or a stable refusal before any inference starts.
+
+    A CPU runtime is its own approved release and runs on the CPU. A CUDA release needs its GPU and the VRAM it
+    declares: when the free VRAM is short the job fails with `gpu_out_of_memory` (it never degrades silently). It runs
+    on the CPU only when its contract (`cpu_fallback`) and this Worker's configuration both allow it. Nothing is installed.
+    None when the GPU cannot be assessed: the configured device then applies unchanged.
+    """
+    if manifest["cuda"] == "cpu":
+        return "cpu"
+    state = (gpu or engine_runtime.gpu_state)()
+    if state is None:
+        return None
+    cuda, _total, free = state
+    if not cuda:
+        if manifest.get("cpu_fallback") is True and engine_runtime.cpu_fallback_enabled(environ):
+            return "cpu"
+        raise VoiceProviderUnavailable("cuda_unavailable")
+    if cuda != manifest["cuda"]:
+        raise VoiceProviderUnavailable("cuda_unavailable")
+    if free < manifest["vram_bytes"]:
+        raise VoiceProviderUnavailable("gpu_out_of_memory")
+    return "cuda"
+
+
 def call(manifest: dict[str, Any], path: str, environ: Any, **request: Any) -> dict[str, Any]:
     engine_runtime.validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
     if not engine_runtime.installed(manifest, environ):
         raise VoiceProviderUnavailable("ml_libraries_missing")
+    device = inference_device(manifest, environ)
+    runtime_env = engine_runtime.environment(environ)
+    if device is not None:
+        runtime_env["SNITCH_VOICE_DEVICE"] = device
     python = str(engine_runtime.location(manifest, environ) / "bin/python")
     with tempfile.TemporaryDirectory(prefix="snitch-inference-") as temporary:
         incoming, outgoing = Path(temporary) / "in.json", Path(temporary) / "out.json"
@@ -24,7 +53,7 @@ def call(manifest: dict[str, Any], path: str, environ: Any, **request: Any) -> d
         bootstrap = "import sys,runpy;sys.path.insert(0," + repr(str(Path(__file__).resolve().parent.parent)) + ");runpy.run_module('snitch_worker.engine_bridge',run_name='__main__')"
         try:
             cancellation.run_process([python, "-I", "-c", bootstrap, str(incoming), str(outgoing)],
-                                     timeout=1800, env=engine_runtime.environment(environ),
+                                     timeout=1800, env=runtime_env,
                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if outgoing.stat().st_size > 32 << 20:
                 raise ValueError()

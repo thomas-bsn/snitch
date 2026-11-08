@@ -22,6 +22,8 @@ Cette tranche ajoute le registre signé, le provisionnement isolé sur ordre et 
 4. Choisir le modèle, les Workers et la version du runtime dans l'installation existante. L'ordre est explicite ; aucun modèle n'est téléchargé par l'import du manifeste.
 5. En cas d'échec, conserver le modèle actif précédent et consulter la cause de l'ordre. Réessayer via les actions existantes. Révoquer une release empêche les nouvelles installations ; cela ne désinstalle pas les environnements utilisés.
 
+Contrôle des ressources (#354) : chaque Worker déclare son matériel et l'onglet Engines l'affiche avec le disque déjà réservé. Un ordre est refusé avec une cause stable (`platform_incompatible`, `cuda_incompatible`, `insufficient_vram`, `insufficient_ram`, `insufficient_disk`) et sans rien enregistrer ; les ordres ouverts réservent leur budget disque. Le repli CPU exige le contrat de la release et la configuration du Worker et n'installe rien ; un runtime CPU est une release distincte. Voir l'ADR 0055.
+
 Aucune clé de confiance, release signée, réinitialisation de Worker ou suppression de modèle existant n'est introduite automatiquement.
 
 ## Validation et restant

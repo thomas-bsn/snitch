@@ -8,6 +8,8 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.voice_engine_manifest_capabilities_item import VoiceEngineManifestCapabilitiesItem
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -38,6 +40,13 @@ class VoiceEngineManifest:
             disk_bytes (int):
             vram_bytes (int):
             wheels (list[VoiceEngineWheel]):
+            ram_bytes (int | Unset): Mémoire vive minimale (optionnelle ; absente = aucune contrainte).
+            capabilities (list[VoiceEngineManifestCapabilitiesItem] | Unset): Capacités déclarées (optionnelles ; absentes =
+                celle du type). La séparation n'est pas une capacité approuvée.
+            input_contract (str | Unset): Contrat d'entrée déclaré (optionnel).
+            output_contract (str | Unset): Contrat de sortie déclaré (optionnel).
+            cpu_fallback (bool | Unset): Autorisation du contrat d'exécuter cette release CUDA sur le CPU ; la configuration
+                du Worker doit aussi l'autoriser. N'installe jamais rien.
      """
 
     engine: str
@@ -53,6 +62,11 @@ class VoiceEngineManifest:
     disk_bytes: int
     vram_bytes: int
     wheels: list[VoiceEngineWheel]
+    ram_bytes: int | Unset = UNSET
+    capabilities: list[VoiceEngineManifestCapabilitiesItem] | Unset = UNSET
+    input_contract: str | Unset = UNSET
+    output_contract: str | Unset = UNSET
+    cpu_fallback: bool | Unset = UNSET
 
 
 
@@ -91,6 +105,23 @@ class VoiceEngineManifest:
 
 
 
+        ram_bytes = self.ram_bytes
+
+        capabilities: list[str] | Unset = UNSET
+        if not isinstance(self.capabilities, Unset):
+            capabilities = []
+            for capabilities_item_data in self.capabilities:
+                capabilities_item = capabilities_item_data.value
+                capabilities.append(capabilities_item)
+
+
+
+        input_contract = self.input_contract
+
+        output_contract = self.output_contract
+
+        cpu_fallback = self.cpu_fallback
+
 
         field_dict: dict[str, Any] = {}
 
@@ -109,6 +140,16 @@ class VoiceEngineManifest:
             "vram_bytes": vram_bytes,
             "wheels": wheels,
         })
+        if ram_bytes is not UNSET:
+            field_dict["ram_bytes"] = ram_bytes
+        if capabilities is not UNSET:
+            field_dict["capabilities"] = capabilities
+        if input_contract is not UNSET:
+            field_dict["input_contract"] = input_contract
+        if output_contract is not UNSET:
+            field_dict["output_contract"] = output_contract
+        if cpu_fallback is not UNSET:
+            field_dict["cpu_fallback"] = cpu_fallback
 
         return field_dict
 
@@ -152,6 +193,26 @@ class VoiceEngineManifest:
             wheels.append(wheels_item)
 
 
+        ram_bytes = d.pop("ram_bytes", UNSET)
+
+        _capabilities = d.pop("capabilities", UNSET)
+        capabilities: list[VoiceEngineManifestCapabilitiesItem] | Unset = UNSET
+        if _capabilities is not UNSET:
+            capabilities = []
+            for capabilities_item_data in _capabilities:
+                capabilities_item = VoiceEngineManifestCapabilitiesItem(capabilities_item_data)
+
+
+
+                capabilities.append(capabilities_item)
+
+
+        input_contract = d.pop("input_contract", UNSET)
+
+        output_contract = d.pop("output_contract", UNSET)
+
+        cpu_fallback = d.pop("cpu_fallback", UNSET)
+
         voice_engine_manifest = cls(
             engine=engine,
             version=version,
@@ -166,6 +227,11 @@ class VoiceEngineManifest:
             disk_bytes=disk_bytes,
             vram_bytes=vram_bytes,
             wheels=wheels,
+            ram_bytes=ram_bytes,
+            capabilities=capabilities,
+            input_contract=input_contract,
+            output_contract=output_contract,
+            cpu_fallback=cpu_fallback,
         )
 
         return voice_engine_manifest

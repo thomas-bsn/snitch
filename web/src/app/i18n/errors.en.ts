@@ -19,6 +19,17 @@ export const errorsEn = {
     "An order for this engine is already running on this Worker.",
   engine_already_installed:
     "This engine release is already installed on this Worker.",
+  invalid_worker_hardware: "This Worker hardware report is not valid.",
+  platform_incompatible:
+    "This engine does not support this Worker's Python version or platform.",
+  cuda_incompatible:
+    "This engine needs a CUDA version this Worker does not have. A CPU runtime is a separate approved release.",
+  insufficient_ram:
+    "This Worker does not have enough memory (RAM) for this engine.",
+  insufficient_vram:
+    "This Worker does not have enough video memory (VRAM) for this engine.",
+  insufficient_disk:
+    "This Worker does not have enough free disk, counting the orders already in progress.",
 
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:

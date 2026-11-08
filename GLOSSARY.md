@@ -119,6 +119,10 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Inventaire du Worker** : Ce qu'un Worker détient réellement de chaque Release d'engine : non installée, demandée, en téléchargement, en installation, en vérification, prête ou en échec, avec la cause et l'historique. Il ne change que par un ordre explicite de l'Administrateur ou par le constat du Worker ; une reconnexion n'installe jamais rien.
 
+**Matériel du Worker** : Ce qu'un Worker déclare de sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre) et si sa configuration autorise le repli CPU. Une Release d'engine est comparée à ce matériel avant tout ordre ; un Worker qui n'a rien déclaré n'est pas bloqué et vérifie lui-même avant d'installer.
+
+**Repli CPU** : L'exécution d'une Release CUDA sur le processeur. Jamais automatique : elle exige l'autorisation du contrat de la Release et celle de la configuration du Worker, et n'installe rien. Un runtime CPU est une Release approuvée distincte, installée volontairement.
+
 **Modèle vocal actif** : Le modèle de diarisation, d'empreinte ou de séparation que Snitch utilise pour tous les nouveaux travaux vocaux de ce type, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
 _Avoid_ : Modèle du Worker, modèle installé.
 

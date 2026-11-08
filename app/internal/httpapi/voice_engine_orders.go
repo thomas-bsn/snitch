@@ -21,7 +21,8 @@ import (
 // runtime it holds on its volume; it is stored beside the digest, only as the Worker's proof of presence.
 
 var engineStates = map[string]int{"requested": 0, "downloading_runtime": 1, "installing": 2, "verifying": 3, "ready": 4, "failed": 4}
-var engineFailureCauses = map[string]bool{"disk_full": true, "runtime_incompatible": true, "hf_network": true, "invalid_order": true, "runtime_missing": true}
+var engineFailureCauses = map[string]bool{"disk_full": true, "runtime_incompatible": true, "hf_network": true, "invalid_order": true, "runtime_missing": true,
+	causePlatform: true, causeCUDA: true, causeInsufficient: true, causeVRAM: true}
 var localIdentity = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type engineOrderView struct {
@@ -52,6 +53,7 @@ func (s *Server) registerVoiceEngineOrderRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/worker/voice-engine-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerEngineOrder)))
 	mux.Handle("POST /api/worker/voice-engines/status", s.workerOnly(http.HandlerFunc(s.postWorkerEngineStatus)))
 	mux.Handle("POST /api/worker/voice-engines/inventory", s.workerOnly(http.HandlerFunc(s.postWorkerEngineInventory)))
+	mux.Handle("POST /api/worker/voice-engines/hardware", s.workerOnly(http.HandlerFunc(s.postWorkerHardware)))
 }
 
 type engineOrderResult struct {
@@ -166,6 +168,10 @@ func (s *Server) installEngineOrder(ctx context.Context, author session, workerI
 			return orderFailure{http.StatusConflict, "engine_already_installed"}
 		default:
 			return orderFailure{http.StatusConflict, "engine_order_in_progress"}
+		}
+		// Hardware, CUDA and cumulated disk (open orders reserve their budget) are checked before anything is recorded.
+		if err = checkWorkerEngine(ctx, tx, workerID, manifest, false); err != nil {
+			return err
 		}
 		var generation int64
 		if err = tx.QueryRow(ctx, `SELECT COALESCE(max(generation),0)+1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2`, workerID, engine).Scan(&generation); err != nil {
@@ -452,10 +458,14 @@ type workerEngineEntry struct {
 }
 
 type workerEnginesRow struct {
-	WorkerID  string              `json:"worker_id"`
-	Name      string              `json:"name"`
-	Connected bool                `json:"connected"`
-	Engines   []workerEngineEntry `json:"engines"`
+	WorkerID  string `json:"worker_id"`
+	Name      string `json:"name"`
+	Connected bool   `json:"connected"`
+	// Hardware is what the Worker reported (absent for a Worker that never did); the reserved disk is what its
+	// open orders already claim, so the screen can show a cumulated plan.
+	Hardware          *workerHardware     `json:"hardware,omitempty"`
+	DiskReservedBytes int64               `json:"disk_reserved_bytes"`
+	Engines           []workerEngineEntry `json:"engines"`
 }
 
 const engineHistoryLimit = 20
@@ -499,6 +509,14 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		row := workerEnginesRow{WorkerID: item.ID, Name: item.Name, Connected: item.Connected, Engines: []workerEngineEntry{}}
+		if row.Hardware, err = loadWorkerHardware(r.Context(), s.Pool, item.ID); err != nil {
+			s.internal(w, err)
+			return
+		}
+		if row.DiskReservedBytes, err = reservedDisk(r.Context(), s.Pool, item.ID); err != nil {
+			s.internal(w, err)
+			return
+		}
 		for _, e := range byWorker[item.ID] {
 			hist, err := s.Pool.Query(r.Context(), `SELECT state,cause_code,generation,ignored,reason,created_at FROM worker_engine_events WHERE worker_id=$1 AND digest=$2 ORDER BY id DESC LIMIT $3`, item.ID, e.Digest, engineHistoryLimit)
 			if err != nil {

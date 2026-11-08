@@ -31,6 +31,12 @@ ADAPTERS = {"pyannote": ("pyannote", {"diarization", "fingerprint"}), "nemo": ("
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _LOCK = threading.RLock()
+_REQUIRED = {"schema", "engine", "version", "adapter_version", "python", "platform", "cuda", "license", "kind", "architecture", "disk_bytes", "vram_bytes", "wheels"}
+_OPTIONAL = {"ram_bytes", "capabilities", "input_contract", "output_contract", "cpu_fallback"}
+# Source separation is not an approved capability: the V2 separation stays inactive.
+_CAPABILITIES = {"diarization", "fingerprint"}
+_CONTRACT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+CPU_FALLBACK_ENV = "SNITCH_VOICE_CPU_FALLBACK"
 
 
 class RuntimeFailed(RuntimeError):
@@ -47,7 +53,7 @@ def validate(manifest: Any, engine: str, kind: str) -> None:
     try:
         architecture, kinds = ADAPTERS[engine]
         require(isinstance(manifest, dict) and type(manifest["schema"]) is int and manifest["schema"] == 1)
-        require(set(manifest) == {"schema", "engine", "version", "adapter_version", "python", "platform", "cuda", "license", "kind", "architecture", "disk_bytes", "vram_bytes", "wheels"})
+        require(_REQUIRED <= set(manifest) <= _REQUIRED | _OPTIONAL)
         require(manifest["engine"] == engine and manifest["kind"] == kind and kind in kinds)
         require(manifest["architecture"] == architecture and type(manifest["adapter_version"]) is int and manifest["adapter_version"] == 1)
         require(isinstance(manifest["version"], str) and _VERSION.fullmatch(manifest["version"]))
@@ -58,6 +64,18 @@ def validate(manifest: Any, engine: str, kind: str) -> None:
         require(type(manifest["disk_bytes"]) is int)
         require(isinstance(manifest["disk_bytes"], int) and 0 < manifest["disk_bytes"] <= 40 << 30)
         require(isinstance(manifest["wheels"], list) and 0 < len(manifest["wheels"]) <= 256)
+        # Optional constraints and contracts; a manifest without them stays valid (legacy).
+        if "ram_bytes" in manifest:
+            require(type(manifest["ram_bytes"]) is int and 0 <= manifest["ram_bytes"] <= 1 << 40)
+        if "capabilities" in manifest:
+            caps = manifest["capabilities"]
+            require(isinstance(caps, list) and len(caps) <= 4 and len(set(caps)) == len(caps))
+            require(all(isinstance(c, str) and c in _CAPABILITIES for c in caps) and (not caps or kind in caps))
+        for contract in ("input_contract", "output_contract"):
+            if contract in manifest:
+                require(isinstance(manifest[contract], str) and (manifest[contract] == "" or _CONTRACT.fullmatch(manifest[contract])))
+        if "cpu_fallback" in manifest:
+            require(type(manifest["cpu_fallback"]) is bool)
         names = set()
         total = 0
         for wheel in manifest["wheels"]:
@@ -75,6 +93,63 @@ def validate(manifest: Any, engine: str, kind: str) -> None:
         require(total <= manifest["disk_bytes"])
     except (KeyError, TypeError, ValueError, AttributeError):
         raise RuntimeFailed() from None
+
+GPU_DEVICE_NODES = ("/dev/nvidiactl", "/dev/dxg")  # native Linux, WSL2
+
+
+def gpu_state(exists: Any = os.path.exists) -> tuple[str, int, int] | None:  # pragma: no cover - needs torch
+    """(usable CUDA version or "", total VRAM, free VRAM); None when it cannot be told (a GPU may exist, torch is absent)."""
+    try:
+        import torch  # noqa: PLC0415 - lazy: the Worker must run without the ML stack
+    except Exception:  # noqa: BLE001
+        return None if any(exists(node) for node in GPU_DEVICE_NODES) else ("", 0, 0)
+    try:
+        if not torch.cuda.is_available():
+            return "", 0, 0
+        free, total = torch.cuda.mem_get_info()
+        return str(torch.version.cuda or ""), int(total), int(free)
+    except Exception:  # noqa: BLE001
+        return "", 0, 0
+
+
+def cpu_fallback_enabled(environ: Mapping[str, str]) -> bool:
+    """The Worker's own configuration; it is never enough alone, the release contract must allow it too."""
+    return environ.get(CPU_FALLBACK_ENV, "").strip() == "1"
+
+
+def hardware(environ: Mapping[str, str], gpu: Any = gpu_state) -> dict[str, Any] | None:
+    """What this machine offers, as reported to Snitch. None when the GPU cannot be assessed: Snitch then
+    does not constrain the Worker and the Worker checks by itself before installing. Observation only."""
+    state = gpu()
+    if state is None:
+        return None
+    cuda, vram, _free = state
+    try:
+        ram = int(os.sysconf("SC_PAGE_SIZE") * os.sysconf("SC_PHYS_PAGES"))
+    except (AttributeError, ValueError, OSError):
+        ram = 0
+    probe = root(environ)
+    while not probe.exists() and probe.parent != probe:
+        probe = probe.parent
+    try:
+        disk = shutil.disk_usage(probe).free
+    except OSError:
+        disk = 0
+    return {"python": f"{sys.version_info[0]}.{sys.version_info[1]}", "platform": f"{platform.system().lower()}-{platform.machine()}",
+            "cuda": cuda, "ram_bytes": max(ram, 0), "vram_bytes": vram if cuda else 0, "disk_free_bytes": max(disk, 0),
+            "cpu_fallback": cpu_fallback_enabled(environ)}
+
+
+def check_resources(manifest: Mapping[str, Any], hw: Mapping[str, Any] | None) -> None:
+    """Refuse before any download with a stable cause. Unknown values never refuse; the runtime probe decides CUDA and VRAM."""
+    if hw is None:
+        return
+    ram = manifest.get("ram_bytes", 0)
+    if ram and hw.get("ram_bytes", 0) and ram > hw["ram_bytes"]:
+        raise RuntimeFailed("insufficient_ram")
+    if manifest["cuda"] != "cpu" and hw.get("cuda") == "" and not (manifest.get("cpu_fallback") is True and hw.get("cpu_fallback")):
+        raise RuntimeFailed("cuda_incompatible")
+
 
 def identity(manifest: Mapping[str, Any]) -> str:
     return hashlib.sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -165,11 +240,12 @@ def _wheel_budget(directory: Path, budget: int) -> None:
 def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, detailed: bool = False) -> Path:
     validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
     if sys.version_info[:2] != (3, 12) or platform.system() != "Linux" or platform.machine() != "x86_64":
-        raise RuntimeFailed()
+        raise RuntimeFailed("platform_incompatible")
     target = location(manifest, environ)
     with _LOCK, _volume_lock(target.parent):
         if installed(manifest, environ):
             return target
+        check_resources(manifest, hardware(environ))
         target.parent.mkdir(parents=True, exist_ok=True)
         if shutil.disk_usage(target.parent).free < manifest["disk_bytes"]:
             raise RuntimeFailed("disk_full")
@@ -207,9 +283,18 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
                 subprocess.run([python, "-I", "-c", "import importlib; importlib.import_module(" + repr(module) + ")"],
                                env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
                 # Hardware is checked in this runtime, not against the base image's torch.
-                probe = "import sys,torch; cuda=sys.argv[1]; need=int(sys.argv[2]); valid = cuda == 'cpu' or (torch.cuda.is_available() and torch.version.cuda == cuda and torch.cuda.get_device_properties(0).total_memory >= need); sys.exit(0 if valid else 1)"
-                subprocess.run([python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"])], env=env, check=True,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                # Exit 2: CUDA absent or another version. Exit 3: not enough VRAM. A CUDA release without a GPU only
+                # passes when its contract and this Worker's configuration both allow the CPU.
+                probe = ("import sys,torch; cuda=sys.argv[1]; need=int(sys.argv[2]); cpu_ok=sys.argv[3]=='1'\n"
+                         "if cuda=='cpu': sys.exit(0)\n"
+                         "if not torch.cuda.is_available(): sys.exit(0 if cpu_ok else 2)\n"
+                         "if torch.version.cuda!=cuda: sys.exit(2)\n"
+                         "sys.exit(0 if torch.cuda.get_device_properties(0).total_memory>=need else 3)")
+                allowed = "1" if manifest.get("cpu_fallback") is True and cpu_fallback_enabled(environ) else "0"
+                verdict = subprocess.run([python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"]), allowed], env=env,
+                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120).returncode
+                if verdict != 0:
+                    raise RuntimeFailed({2: "cuda_incompatible", 3: "insufficient_vram"}.get(verdict, "runtime_incompatible"))
             (target / ".ready").write_text(identity(manifest))
         except RuntimeFailed:
             raise

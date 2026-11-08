@@ -23,6 +23,17 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Un ordre pour cet engine est déjà en cours sur ce Worker.",
   engine_already_installed:
     "Cette version de l’engine est déjà installée sur ce Worker.",
+  invalid_worker_hardware: "Ce rapport matériel de Worker n’est pas valide.",
+  platform_incompatible:
+    "Cet engine ne prend pas en charge la version de Python ou la plateforme de ce Worker.",
+  cuda_incompatible:
+    "Cet engine exige une version de CUDA absente de ce Worker. Un runtime CPU est une release approuvée distincte.",
+  insufficient_ram:
+    "Ce Worker n’a pas assez de mémoire vive (RAM) pour cet engine.",
+  insufficient_vram:
+    "Ce Worker n’a pas assez de mémoire vidéo (VRAM) pour cet engine.",
+  insufficient_disk:
+    "Ce Worker n’a pas assez de disque libre, ordres en cours compris.",
 
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_required:

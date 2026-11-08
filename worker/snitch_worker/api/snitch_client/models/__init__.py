@@ -431,6 +431,7 @@ from .voice_disposition_view import VoiceDispositionView
 from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
 from .voice_engine_import import VoiceEngineImport
 from .voice_engine_manifest import VoiceEngineManifest
+from .voice_engine_manifest_capabilities_item import VoiceEngineManifestCapabilitiesItem
 from .voice_engine_order_input import VoiceEngineOrderInput
 from .voice_engine_order_input_intent import VoiceEngineOrderInputIntent
 from .voice_engine_order_input_orders_item import VoiceEngineOrderInputOrdersItem
@@ -529,6 +530,8 @@ from .worker_engine_status_state import WorkerEngineStatusState
 from .worker_engines_row import WorkerEnginesRow
 from .worker_engines_view import WorkerEnginesView
 from .worker_failure_input import WorkerFailureInput
+from .worker_hardware import WorkerHardware
+from .worker_hardware_report import WorkerHardwareReport
 from .worker_hf_token import WorkerHFToken
 from .worker_hf_token_ack import WorkerHFTokenAck
 from .worker_hf_token_ack_error_code import WorkerHFTokenAckErrorCode
@@ -1039,6 +1042,7 @@ __all__ = (
     "VoiceDispositionViewDisposition",
     "VoiceEngineImport",
     "VoiceEngineManifest",
+    "VoiceEngineManifestCapabilitiesItem",
     "VoiceEngineOrderInput",
     "VoiceEngineOrderInputIntent",
     "VoiceEngineOrderInputOrdersItem",
@@ -1137,6 +1141,8 @@ __all__ = (
     "WorkerEngineStatusState",
     "WorkerEnginesView",
     "WorkerFailureInput",
+    "WorkerHardware",
+    "WorkerHardwareReport",
     "WorkerHFToken",
     "WorkerHFTokenAck",
     "WorkerHFTokenAckErrorCode",

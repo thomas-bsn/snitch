@@ -2,9 +2,11 @@ import { useState } from "react";
 import { ErrorAlert } from "../../components/Alert";
 import { Modal } from "../../components/Modal";
 import { useI18n } from "../../i18n";
+import { WorkerHardware } from "./WorkerHardware";
 import {
   planOrders,
   refusalFor,
+  resourceVerdict,
   type EngineWorker,
   type Release,
 } from "./engineOrders";
@@ -67,6 +69,7 @@ export function WorkerEngineAdd({
       variant="wide"
     >
       <p className="text-mute">{t("workerEngines.addLead")}</p>
+      <WorkerHardware worker={worker} />
       {registryError && <ErrorAlert>{error(registryError)}</ErrorAlert>}
       <input
         type="search"
@@ -83,6 +86,9 @@ export function WorkerEngineAdd({
         {shown.map((r) => {
           const refusal = refusalFor(r, worker);
           const m = r.manifest;
+          const verdict = refusal
+            ? resourceVerdict(m, worker, worker.disk_reserved_bytes)
+            : undefined;
           return (
             <label
               key={r.digest}
@@ -117,6 +123,16 @@ export function WorkerEngineAdd({
                 {refusal && (
                   <span className="engine-refused">
                     {t(`workerEngines.refusal.${refusal}`)}
+                    {verdict?.required !== undefined &&
+                      ` : ${t("workerEngines.refusalDetail", {
+                        required: mebibytes(verdict.required),
+                        available: mebibytes(verdict.available ?? 0),
+                      })}`}
+                  </span>
+                )}
+                {verdict?.cause === "cuda_incompatible" && (
+                  <span className="engine-sub">
+                    {t("workerEngines.refusalCuda")}
                   </span>
                 )}
               </div>

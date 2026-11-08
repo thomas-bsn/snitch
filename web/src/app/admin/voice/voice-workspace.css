@@ -1098,3 +1098,11 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 }
+.engine-hardware {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 4px 0;
+  color: var(--mute);
+  font-size: 13px;
+}
