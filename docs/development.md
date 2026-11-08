@@ -6,7 +6,7 @@ Go 1.27.3, Node 24.21.0/npm, Python 3.12.15 et Docker Compose v2. Installer `npm
 npm --prefix web run lint
 npm --prefix web run build
 (cd app && go vet ./...)
-SNITCH_E2E=1 bash scripts/test.sh                      # tout, parcours navigateur compris
+SNITCH_E2E=1 bash scripts/test.sh                      # Go + 5 lots navigateur en parallèle (comme la CI)
 SNITCH_E2E=1 SNITCH_E2E_SHARD=2/5 bash scripts/test.sh ./internal/httpapi -run 'TestFoundation/browser'   # une part des parcours (la CI en lance 5 en parallèle)
 .venv/bin/python scripts/check_generated.py
 .venv/bin/python scripts/check_compose.py
@@ -20,7 +20,7 @@ python3 scripts/smoke_compose.py snitch-smoke:local
 
 `test -z "$(gofmt -l app)"` vérifie le format Go. Le script lance `go test -race -tags integration ./... -count=1` avec le socket du contexte Docker actif. Les tests utilisent PostgreSQL/pgvector réel via Testcontainers et des données synthétiques ; les parcours navigateur utilisent la vraie API avec Discord simulé, sans compte externe. Aucun scan de bibliothèque n’existe. Ne pas lancer simultanément gros builds et tests sur une VM de 2 Go.
 
-Construire le frontend avec `npm --prefix web run build` avant les tests navigateur : le serveur Go embarque `app/ui/dist` à la compilation et `scripts/test.sh` ne reconstruit pas ces fichiers. Sinon les tests peuvent exercer une ancienne version de la SPA. Le test complet exécute les parcours navigateur Playwright configurés dans le test d’intégration HTTP.
+Construire le frontend avec `npm --prefix web run build` avant les tests navigateur : le serveur Go embarque `app/ui/dist` à la compilation et `scripts/test.sh` ne reconstruit pas ces fichiers. Sinon les tests peuvent exercer une ancienne version de la SPA. Le test complet lance les tests Go et cinq lots navigateur en parallèle, avec la même répartition pondérée que la CI. Chaque lot utilise sa propre base Testcontainers ; ses lignes portent un préfixe et tout échec rend le résultat global négatif. `SNITCH_E2E_JOBS=2` réduit le nombre de lots sur une machine moins puissante (six bases peuvent tourner simultanément avec la valeur par défaut). Les invocations ciblées avec des arguments et `SNITCH_E2E_SHARD` gardent leur comportement.
 
 Le frontend a un point d’entrée Vite (`web/index.html`) et l’interface vit sous `web/src/app/`, avec Tailwind et les jetons de design (voir l’[ADR 0014](adr/0014-refonte-du-front.md)). Le parcours `setup-wizard.spec.ts` installe l'instance par l'assistant lui-même (code, compte, étapes facultatives, reprise par le bandeau) ; les autres suites créent l'Administrateur par l'API. Les parcours navigateur installent l'instance et ouvrent les sessions par l'API puis testent les écrans, avec un contrôle d'accessibilité axe. Pour une instance d'essai à la main (parallèle aux autres), `docker compose -p snitch-<nom>` avec des ports hôte libres, puis `SNITCH_TEST_URL` pour Playwright.
 
