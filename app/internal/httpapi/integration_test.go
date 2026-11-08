@@ -1242,6 +1242,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", failedPath+"/history", nil, "", 200)
 		call(client, "POST", failedPath+"/retry", nil, me.CSRF, 200)
 		call(client, "DELETE", failedPath, nil, me.CSRF, 204)
+		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": "Synthetic contract group"}, me.CSRF, 204)
+		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": ""}, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		// A revoked Worker leaves the list only once its machine confirmed the revocation.
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
@@ -1347,6 +1349,11 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(user, "GET", "/api/auth/me", nil, "", 200), &playerSession)
 		call(user, "GET", restartPath, nil, "", 403)
 		call(user, "POST", restartPath, restartInput, playerSession.CSRF, 403)
+		groupPath := "/api/admin/workers/wk_missing_synthetic/engine-group"
+		groupInput := map[string]string{"group_name": "Synthetic contract group"}
+		call(anon, "PUT", groupPath, groupInput, "", 401)
+		call(user, "PUT", groupPath, groupInput, playerSession.CSRF, 403)
+		call(client, "PUT", groupPath, groupInput, me.CSRF, 404)
 		for _, action := range []struct{ method, suffix string }{
 			{"POST", "/password"}, {"DELETE", "/sessions"}, {"DELETE", "/discord"},
 		} {
