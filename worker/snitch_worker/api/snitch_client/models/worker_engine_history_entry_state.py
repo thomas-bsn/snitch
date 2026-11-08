@@ -5,7 +5,10 @@ class WorkerEngineHistoryEntryState(StrEnum):
     FAILED = "failed"
     INSTALLING = "installing"
     READY = "ready"
+    REMOVED = "removed"
+    REMOVING = "removing"
     REQUESTED = "requested"
+    UNINSTALL_FAILED = "uninstall_failed"
     VERIFYING = "verifying"
 
     def __str__(self) -> str:

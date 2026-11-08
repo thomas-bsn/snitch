@@ -83,9 +83,15 @@ func (s *Server) engineOrderByKey(ctx context.Context, key, workerID, digest str
 
 // currentEngineOrder is the order the inventory row of (Worker, release) stands on.
 func currentEngineOrder(ctx context.Context, tx pgx.Tx, workerID, digest string) (id, status string, generation int64, cancelRequested bool, err error) {
-	err = tx.QueryRow(ctx, `SELECT o.id,o.status,o.generation,o.cancel_requested_at IS NOT NULL FROM worker_engine_inventory i JOIN worker_engine_orders o ON o.id=i.order_id WHERE i.worker_id=$1 AND i.digest=$2 FOR UPDATE OF o`, workerID, digest).Scan(&id, &status, &generation, &cancelRequested)
+	var intent string
+	err = tx.QueryRow(ctx, `SELECT o.id,o.status,o.generation,o.cancel_requested_at IS NOT NULL,o.intent FROM worker_engine_inventory i JOIN worker_engine_orders o ON o.id=i.order_id WHERE i.worker_id=$1 AND i.digest=$2 FOR UPDATE OF o`, workerID, digest).Scan(&id, &status, &generation, &cancelRequested, &intent)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", "", 0, false, orderFailure{http.StatusNotFound, "engine_order_not_found"}
+	}
+	if err == nil && intent != "install" {
+		// Cancelling and cleaning up are about installations: a removal (#353) is never cancelled, and the
+		// Worker would not know how to stop it.
+		return "", "", 0, false, orderFailure{http.StatusConflict, "engine_order_not_cancellable"}
 	}
 	return
 }

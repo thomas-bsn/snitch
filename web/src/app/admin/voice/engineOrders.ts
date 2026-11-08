@@ -14,7 +14,7 @@ export const engineSteps = [
 ] as const;
 
 export const inProgress = (e: EngineEntry) =>
-  e.state !== "ready" && e.state !== "failed";
+  e.state !== "ready" && e.state !== "failed" && e.state !== "removed";
 
 /** Why an order for this release on this Worker cannot be given. Failed never blocks a new order. */
 export type Refusal =

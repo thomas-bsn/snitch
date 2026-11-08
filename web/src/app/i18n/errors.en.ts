@@ -17,6 +17,8 @@ export const errorsEn = {
   invalid_engine_inventory: "This engine inventory report is not valid.",
   engine_order_in_progress:
     "An order for this engine is already running on this Worker.",
+  engine_in_use:
+    "A model on this Worker still uses this engine release: it cannot be removed.",
   engine_already_installed:
     "This engine release is already installed on this Worker.",
   engine_not_failed:

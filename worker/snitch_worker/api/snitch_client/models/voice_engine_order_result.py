@@ -13,6 +13,7 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
+  from ..models.engine_blockers import EngineBlockers
   from ..models.engine_order import EngineOrder
 
 
@@ -30,15 +31,17 @@ class VoiceEngineOrderResult:
             worker_id (str):
             status (VoiceEngineOrderResultStatus):
             cause_code (str | Unset): Cause stable d'un refus (engine_not_found, engine_release_unavailable,
-                engine_order_in_progress, engine_already_installed, idempotency_key_reused, worker_not_found,
-                invalid_idempotency_key).
+                engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused,
+                worker_not_found, invalid_idempotency_key).
             order (EngineOrder | Unset):
+            blockers (EngineBlockers | Unset):
      """
 
     worker_id: str
     status: VoiceEngineOrderResultStatus
     cause_code: str | Unset = UNSET
     order: EngineOrder | Unset = UNSET
+    blockers: EngineBlockers | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -46,6 +49,7 @@ class VoiceEngineOrderResult:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.engine_blockers import EngineBlockers # noqa: PLC0415
         from ..models.engine_order import EngineOrder # noqa: PLC0415
         worker_id = self.worker_id
 
@@ -56,6 +60,10 @@ class VoiceEngineOrderResult:
         order: dict[str, Any] | Unset = UNSET
         if not isinstance(self.order, Unset):
             order = self.order.to_dict()
+
+        blockers: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.blockers, Unset):
+            blockers = self.blockers.to_dict()
 
 
         field_dict: dict[str, Any] = {}
@@ -68,6 +76,8 @@ class VoiceEngineOrderResult:
             field_dict["cause_code"] = cause_code
         if order is not UNSET:
             field_dict["order"] = order
+        if blockers is not UNSET:
+            field_dict["blockers"] = blockers
 
         return field_dict
 
@@ -75,6 +85,7 @@ class VoiceEngineOrderResult:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.engine_blockers import EngineBlockers # noqa: PLC0415
         from ..models.engine_order import EngineOrder # noqa: PLC0415
         d = dict(src_dict)
         worker_id = d.pop("worker_id")
@@ -96,11 +107,22 @@ class VoiceEngineOrderResult:
 
 
 
+        _blockers = d.pop("blockers", UNSET)
+        blockers: EngineBlockers | Unset
+        if isinstance(_blockers,  Unset):
+            blockers = UNSET
+        else:
+            blockers = EngineBlockers.from_dict(_blockers)
+
+
+
+
         voice_engine_order_result = cls(
             worker_id=worker_id,
             status=status,
             cause_code=cause_code,
             order=order,
+            blockers=blockers,
         )
 
 

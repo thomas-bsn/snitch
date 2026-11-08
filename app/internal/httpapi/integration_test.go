@@ -427,6 +427,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineDispatch(t, pool)
 	})
+	t.Run("voice engine uninstall", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineUninstall(t, pool)
+	})
+	t.Run("voice engine cancel uninstall", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineCancelUninstall(t, pool)
+	})
 	t.Run("voice model order creation", func(t *testing.T) {
 		reset(t)
 		testVoiceModelOrderCreation(t, pool)

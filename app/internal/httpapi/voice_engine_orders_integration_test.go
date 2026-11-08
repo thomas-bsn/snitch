@@ -53,7 +53,10 @@ type engineOrderHarness struct {
 }
 
 func newEngineOrderHarness(t *testing.T, pool *pgxpool.Pool) *engineOrderHarness {
-	h := newVoiceHarness(t, pool)
+	return newEngineOrderHarnessOn(t, newVoiceHarness(t, pool))
+}
+
+func newEngineOrderHarnessOn(t *testing.T, h *voiceHarness) *engineOrderHarness {
 	pub, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)

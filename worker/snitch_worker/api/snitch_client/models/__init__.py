@@ -134,6 +134,8 @@ from .discord_bot_status import DiscordBotStatus
 from .discord_bot_status_status import DiscordBotStatusStatus
 from .embedding_settings import EmbeddingSettings
 from .embedding_validation import EmbeddingValidation
+from .engine_blocker_model import EngineBlockerModel
+from .engine_blockers import EngineBlockers
 from .engine_cleanup import EngineCleanup
 from .engine_cleanup_report import EngineCleanupReport
 from .engine_order import EngineOrder
@@ -142,6 +144,8 @@ from .engine_order_status import EngineOrderStatus
 from .engine_recovery_result import EngineRecoveryResult
 from .engine_recovery_result_status import EngineRecoveryResultStatus
 from .engine_retry_input import EngineRetryInput
+from .engine_uninstall_preview import EngineUninstallPreview
+from .engine_uninstall_preview_state import EngineUninstallPreviewState
 from .error import Error
 from .explorer_entry import ExplorerEntry
 from .explorer_entry_state import ExplorerEntryState
@@ -528,6 +532,9 @@ from .worker_engine_history_entry_cause_code import WorkerEngineHistoryEntryCaus
 from .worker_engine_history_entry_state import WorkerEngineHistoryEntryState
 from .worker_engine_inventory import WorkerEngineInventory
 from .worker_engine_inventory_runtimes_item import WorkerEngineInventoryRuntimesItem
+from .worker_engine_order_cause_code import WorkerEngineOrderCauseCode
+from .worker_engine_order_intent import WorkerEngineOrderIntent
+from .worker_engine_order_status import WorkerEngineOrderStatus
 from .worker_engine_state import WorkerEngineState
 from .worker_engine_status import WorkerEngineStatus
 from .worker_engine_status_cause_code import WorkerEngineStatusCauseCode
@@ -748,6 +755,8 @@ __all__ = (
     "DiscordBotStatusStatus",
     "EmbeddingSettings",
     "EmbeddingValidation",
+    "EngineBlockerModel",
+    "EngineBlockers",
     "EngineCleanup",
     "EngineCleanupReport",
     "EngineOrder",
@@ -756,6 +765,8 @@ __all__ = (
     "EngineRecoveryResult",
     "EngineRecoveryResultStatus",
     "EngineRetryInput",
+    "EngineUninstallPreview",
+    "EngineUninstallPreviewState",
     "Error",
     "ExplorerEntry",
     "ExplorerEntryState",
@@ -1142,6 +1153,9 @@ __all__ = (
     "WorkerEngineHistoryEntryState",
     "WorkerEngineInventory",
     "WorkerEngineInventoryRuntimesItem",
+    "WorkerEngineOrderCauseCode",
+    "WorkerEngineOrderIntent",
+    "WorkerEngineOrderStatus",
     "WorkerEnginesRow",
     "WorkerEngineState",
     "WorkerEngineStatus",

@@ -5,6 +5,7 @@ class WorkerEngineStatusState(StrEnum):
     FAILED = "failed"
     INSTALLING = "installing"
     READY = "ready"
+    REMOVED = "removed"
     VERIFYING = "verifying"
 
     def __str__(self) -> str:

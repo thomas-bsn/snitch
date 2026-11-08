@@ -121,6 +121,8 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Annulation et nettoyage d'une installation** : Sortir d'une installation d'engine en échec ou en cours sans perdre ce qui fonctionne. L'annulation est coopérative : le Worker s'arrête à son prochain point sûr et le confirme. Le nettoyage est une demande explicite qui ne supprime que les fichiers incomplets de l'installation concernée, jamais un modèle ni un runtime validé. Un échec de préparation ne touche pas la Release déjà prête du même engine ; remplacer revient à ordonner une autre Release compatible.
 
+**Retrait d'une Release** : La désinstallation explicite d'une Release d'engine sur un Worker. Elle est refusée tant qu'un modèle du Worker lui est lié (avec ses jobs engagés et ses transitions d'empreintes), n'est livrée au Worker qu'une fois les références libérées, n'interrompt aucun job et ne supprime que la version désignée, jamais un modèle.
+
 **Worker éligible à un modèle** : Un Worker qui détient ce modèle prêt à la révision du catalogue et, si son moteur n'est pas embarqué, la Release d'engine liée prête sur ce même Worker. Des poids sans runtime prêt n'ouvrent aucun travail, sans téléchargement implicite ni interruption des travaux déjà engagés.
 
 **Modèle vocal actif** : Le modèle de diarisation, d'empreinte ou de séparation que Snitch utilise pour tous les nouveaux travaux vocaux de ce type, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.

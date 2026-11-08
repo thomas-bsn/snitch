@@ -3698,7 +3698,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable). */
+    /** @description Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est livré au Worker qu'une fois les références libérées, sans interrompre aucun job. */
     post: operations["createVoiceEngineOrders"];
     delete?: never;
     options?: never;
@@ -3836,6 +3836,23 @@ export interface paths {
     put?: never;
     /** @description Le Worker confirme qu'il a exécuté un nettoyage demandé (fichiers supprimés ou rien à supprimer). Rejouer la confirmation est sans effet ; une confirmation non demandée est refusée. */
     post: operations["postWorkerEngineCleanup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/uninstall-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : ce qui empêche le retrait d'une version d'engine sur un Worker (modèles liés, jobs engagés, transitions d'empreintes, installation en cours). */
+    get: operations["getEngineUninstallPreview"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -7424,7 +7441,7 @@ export interface components {
       /** @description Identité signée de la version approuvée (empreinte du registre). */
       digest: string;
       /** @enum {string} */
-      intent: "install";
+      intent: "install" | "uninstall";
       orders: {
         worker_id: string;
         idempotency_key: string;
@@ -7438,7 +7455,7 @@ export interface components {
       engine: string;
       version: string;
       /** @enum {string} */
-      intent: "install";
+      intent: "install" | "uninstall";
       /**
        * Format: int64
        * @description Par Worker et par engine, strictement croissante : un rapport d'une génération plus ancienne est ignoré.
@@ -7457,22 +7474,29 @@ export interface components {
       worker_id: string;
       /** @enum {string} */
       status: "created" | "replayed" | "refused";
-      /** @description Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, idempotency_key_reused, worker_not_found, invalid_idempotency_key). */
+      /** @description Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key). */
       cause_code?: string;
       order?: components["schemas"]["EngineOrder"];
+      blockers?: components["schemas"]["EngineBlockers"];
     };
     VoiceEngineOrderResults: {
       results: components["schemas"]["VoiceEngineOrderResult"][];
     };
     WorkerEngineHistoryEntry: {
-      /** @enum {string} */
+      /**
+       * @description uninstall_failed : retrait refusé par le Worker, le runtime reste en place.
+       * @enum {string}
+       */
       state:
         | "requested"
         | "downloading_runtime"
         | "installing"
         | "verifying"
         | "ready"
-        | "failed";
+        | "failed"
+        | "removing"
+        | "removed"
+        | "uninstall_failed";
       /** @enum {string} */
       cause_code:
         | ""
@@ -7481,7 +7505,8 @@ export interface components {
         | "hf_network"
         | "invalid_order"
         | "runtime_missing"
-        | "cancelled";
+        | "cancelled"
+        | "runtime_in_use";
       /** Format: int64 */
       generation: number;
       /** @description Rapport tardif ignoré et journalisé. */
@@ -7502,7 +7527,9 @@ export interface components {
         | "installing"
         | "verifying"
         | "ready"
-        | "failed";
+        | "failed"
+        | "removing"
+        | "removed";
       /** @enum {string} */
       cause_code:
         | ""
@@ -7511,7 +7538,8 @@ export interface components {
         | "hf_network"
         | "invalid_order"
         | "runtime_missing"
-        | "cancelled";
+        | "cancelled"
+        | "runtime_in_use";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -7531,6 +7559,37 @@ export interface components {
        * @enum {string}
        */
       cleanup: "" | "requested" | "done";
+      /**
+       * @description Intention du dernier ordre sur cette version.
+       * @enum {string}
+       */
+      order_intent: "" | "install" | "uninstall";
+      /**
+       * @description Résultat du dernier ordre (un retrait refusé laisse le runtime prêt).
+       * @enum {string}
+       */
+      order_status:
+        | ""
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      /**
+       * @description Cause d'échec du dernier ordre.
+       * @enum {string}
+       */
+      order_cause_code:
+        | ""
+        | "disk_full"
+        | "runtime_incompatible"
+        | "hf_network"
+        | "invalid_order"
+        | "runtime_missing"
+        | "runtime_in_use";
+      /** @description Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon. */
+      waiting: components["schemas"]["EngineBlockers"] | null;
     };
     WorkerEnginesRow: {
       worker_id: string;
@@ -7550,7 +7609,8 @@ export interface components {
         | "installing"
         | "verifying"
         | "ready"
-        | "failed";
+        | "failed"
+        | "removed";
       /** @enum {string} */
       cause_code:
         | ""
@@ -7558,7 +7618,8 @@ export interface components {
         | "runtime_incompatible"
         | "hf_network"
         | "invalid_order"
-        | "cancelled";
+        | "cancelled"
+        | "runtime_in_use";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */
@@ -7588,6 +7649,35 @@ export interface components {
       order_id: string;
       digest: string;
       runtime: components["schemas"]["VoiceEngineManifest"];
+    };
+    EngineBlockerModel: {
+      model_id: string;
+      label: string;
+      kind: string;
+      state: string;
+      /** @description Un job de ce Worker utilise encore le modèle. */
+      busy: boolean;
+      /** @description Le modèle est source ou cible d'une transition d'empreintes ouverte. */
+      in_transition: boolean;
+    };
+    EngineBlockers: {
+      models: components["schemas"]["EngineBlockerModel"][];
+      /** @description Une installation de cette version est encore en cours sur le Worker. */
+      open_order: boolean;
+    };
+    EngineUninstallPreview: {
+      /** @enum {string} */
+      state:
+        | "requested"
+        | "downloading_runtime"
+        | "installing"
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "removing"
+        | "removed";
+      removable: boolean;
+      blockers: components["schemas"]["EngineBlockers"];
     };
   };
   responses: never;
@@ -18404,6 +18494,38 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getEngineUninstallPreview: {
+    parameters: {
+      query: {
+        worker_id: string;
+        digest: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineUninstallPreview"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_not_installed) */
       default: {
         headers: {
           [name: string]: unknown;
