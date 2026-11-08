@@ -148,3 +148,7 @@ Audit UI : skill `frontend-audit` indisponible ; remplacement par Impeccable (au
 - Restent sans preuve : comparaison ECAPA/TitaNet/WeSpeaker sur parole positive et négative, installation Docker cible, NAS, WSL2, GPU et RTX 4070. Les sons synthétiques ne prouvent pas la discrimination de locuteurs. Seul l’utilisateur réalise la preuve matérielle et fournit les JSON décrits ci-dessus.
 
 L’audit ne clôt matériellement ni #355, ni #357, ni l’epic #326. Aucun scan de bibliothèque réelle n’a été effectué. La PR #347 reste destinée à la relecture, sans fusion automatique.
+
+### Commande de preuve TitaNet
+
+Depuis le Python du runtime installé : `python -m snitch_worker.voice_titanet_proof <répertoire du modèle> --device auto --release manifest.json`. Cette commande utilise uniquement un signal synthétique et rapporte la version de release avec les mesures du probe existant. Elle refuse une exécution CPU pour un manifeste CUDA. Elle ne télécharge rien et ne constitue une preuve matérielle qu’une fois exécutée sur la cible ; cette exécution reste à réaliser.
