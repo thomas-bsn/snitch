@@ -23,6 +23,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Un ordre pour cet engine est déjà en cours sur ce Worker.",
   engine_already_installed:
     "Cette version de l’engine est déjà installée sur ce Worker.",
+  runtime_order_in_progress:
+    "Un ordre est déjà en cours pour ce modèle sur ce Worker.",
+  engine_release_mismatch:
+    "Cette version ne correspond pas à l’engine de ce modèle.",
+  engine_already_bound: "Ce modèle utilise déjà cette version du runtime.",
+  invalid_runtime_order: "Cet ordre de mise à jour n’est pas valide.",
 
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_required:

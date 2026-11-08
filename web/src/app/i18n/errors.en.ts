@@ -19,6 +19,12 @@ export const errorsEn = {
     "An order for this engine is already running on this Worker.",
   engine_already_installed:
     "This engine release is already installed on this Worker.",
+  runtime_order_in_progress:
+    "An order is already running for this model on this Worker.",
+  engine_release_mismatch:
+    "This release does not match the engine of this model.",
+  engine_already_bound: "This model already uses this runtime version.",
+  invalid_runtime_order: "This update order is not valid.",
 
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:

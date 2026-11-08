@@ -306,6 +306,16 @@ from .reset_member_password_response_200 import ResetMemberPasswordResponse200
 from .retry_clip_analysis_step_step import RetryClipAnalysisStepStep
 from .revoke_voice_engine_response_200 import RevokeVoiceEngineResponse200
 from .revoke_worker_body import RevokeWorkerBody
+from .runtime_binding import RuntimeBinding
+from .runtime_binding_history_entry import RuntimeBindingHistoryEntry
+from .runtime_binding_history_entry_intent import RuntimeBindingHistoryEntryIntent
+from .runtime_binding_history_entry_state import RuntimeBindingHistoryEntryState
+from .runtime_binding_pending import RuntimeBindingPending
+from .runtime_binding_pending_intent import RuntimeBindingPendingIntent
+from .runtime_binding_pending_status import RuntimeBindingPendingStatus
+from .runtime_bindings import RuntimeBindings
+from .runtime_order_input import RuntimeOrderInput
+from .runtime_order_input_intent import RuntimeOrderInputIntent
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
 from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
@@ -561,6 +571,7 @@ from .worker_model_order_ack import WorkerModelOrderAck
 from .worker_model_order_ack_cause_code import WorkerModelOrderAckCauseCode
 from .worker_model_order_action import WorkerModelOrderAction
 from .worker_model_order_kind import WorkerModelOrderKind
+from .worker_model_order_runtime_intent import WorkerModelOrderRuntimeIntent
 from .worker_model_order_status import WorkerModelOrderStatus
 from .worker_models import WorkerModels
 from .worker_models_row import WorkerModelsRow
@@ -914,6 +925,16 @@ __all__ = (
     "RetryClipAnalysisStepStep",
     "RevokeVoiceEngineResponse200",
     "RevokeWorkerBody",
+    "RuntimeBinding",
+    "RuntimeBindingHistoryEntry",
+    "RuntimeBindingHistoryEntryIntent",
+    "RuntimeBindingHistoryEntryState",
+    "RuntimeBindingPending",
+    "RuntimeBindingPendingIntent",
+    "RuntimeBindingPendingStatus",
+    "RuntimeBindings",
+    "RuntimeOrderInput",
+    "RuntimeOrderInputIntent",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
     "ScanVideoSelectionResponse200",
@@ -1169,6 +1190,7 @@ __all__ = (
     "WorkerModelOrderAckCauseCode",
     "WorkerModelOrderAction",
     "WorkerModelOrderKind",
+    "WorkerModelOrderRuntimeIntent",
     "WorkerModelOrderStatus",
     "WorkerModels",
     "WorkerModelsRow",

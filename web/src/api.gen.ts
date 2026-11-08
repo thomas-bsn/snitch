@@ -3774,6 +3774,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-model-runtime-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : ordonne la mise à jour du runtime d'un modèle déjà prêt sur un Worker (update), ou le retour à une version déjà installée et approuvée (rollback). Les poids validés sont réutilisés sans téléchargement ; la liaison n'est publiée qu'après une inférence de test réussie, le modèle reste prêt sur l'ancienne liaison entre-temps. Aucun rollback vers une version révoquée. Causes de refus : voice_model_not_ready, runtime_order_in_progress, engine_release_unavailable, engine_release_mismatch, engine_already_bound, engine_not_installed, engine_order_in_progress, idempotency_key_reused, engine_not_found, invalid_runtime_order. */
+    post: operations["createRuntimeOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/bindings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : pour chaque modèle prêt sur un Worker et fondé sur un engine approuvé, la version liée, la version précédente (retour arrière), l'ordre en cours et l'historique des mises à jour. */
+    get: operations["listRuntimeBindings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5248,6 +5282,11 @@ export interface components {
       /** Format: date-time */
       created_at: string;
       runtime?: components["schemas"]["VoiceEngineManifest"];
+      /**
+       * @description install (poids et runtime) ou, pour un modèle déjà prêt, update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés.
+       * @enum {string}
+       */
+      runtime_intent?: "install" | "update" | "rollback";
     };
     VoiceModelRemovalInput: {
       model_id: string;
@@ -7489,6 +7528,60 @@ export interface components {
         engine: string;
         local_identity: string;
       }[];
+    };
+    RuntimeOrderInput: {
+      worker_id: string;
+      model_id: string;
+      /** @description Identité signée de la version approuvée visée. */
+      digest: string;
+      /** @enum {string} */
+      intent: "update" | "rollback";
+      idempotency_key: string;
+    };
+    RuntimeBindingPending: {
+      order_id: string;
+      /** @enum {string} */
+      intent: "update" | "rollback";
+      digest: string;
+      version: string;
+      /** @enum {string} */
+      status: "pending" | "acknowledged";
+    };
+    RuntimeBindingHistoryEntry: {
+      /** @enum {string} */
+      intent: "update" | "rollback";
+      digest: string;
+      version: string;
+      /** @enum {string} */
+      state: "requested" | "downloading" | "verifying" | "published" | "failed";
+      cause_code: string;
+      /** @description Rapport tardif journalisé sans effet. */
+      ignored: boolean;
+      reason: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    RuntimeBinding: {
+      worker_id: string;
+      model_id: string;
+      model_label: string;
+      engine: string;
+      kind: string;
+      /** @description Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi). */
+      digest: string;
+      version: string;
+      /** @description La liaison continue de servir avec un avertissement. */
+      revoked: boolean;
+      /** @description Version précédente, cible du retour arrière ; vide si aucune. */
+      previous_digest: string;
+      previous_version: string;
+      /** @description Aucun retour arrière vers une version révoquée. */
+      previous_revoked: boolean;
+      pending?: components["schemas"]["RuntimeBindingPending"];
+      history: components["schemas"]["RuntimeBindingHistoryEntry"][];
+    };
+    RuntimeBindings: {
+      bindings: components["schemas"]["RuntimeBinding"][];
     };
   };
   responses: never;
@@ -18153,6 +18246,80 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createRuntimeOrder: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuntimeOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listRuntimeBindings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuntimeBindings"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission) */
       default: {
         headers: {
           [name: string]: unknown;

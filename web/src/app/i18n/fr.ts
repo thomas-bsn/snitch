@@ -80,6 +80,48 @@ export const fr: Messages = {
     constraints: "{kind} · disque {disk} Mio · VRAM {vram} Mio · CUDA {cuda}",
     install: "Installer {count} engine(s)",
     cancel: "Annuler",
+    models: {
+      title: "Modèles liés",
+      lead: "Mettre à jour le runtime d’un modèle prêt, ou revenir à la version précédente. Les poids déjà installés sont réutilisés, rien n’est retéléchargé, et le modèle continue de servir tant que le nouveau runtime n’a pas réussi une inférence de test.",
+      none: "Aucun modèle prêt sur un engine approuvé pour ce Worker.",
+      bound: "Runtime lié : {version}",
+      unknown: "Runtime lié : non suivi",
+      update: "Mettre à jour",
+      target: "Version cible de {model}",
+      choose: "Choisir une version",
+      noTarget: "Aucune autre version approuvée.",
+      plan: "Mise à jour vers {version} : {disk} Mio de disque pour le runtime, poids réutilisés, liaison publiée après une inférence de test réussie.",
+      confirm: "Confirmer la mise à jour",
+      rollback: "Revenir à {version}",
+      rollbackPlan:
+        "Retour à {version} : version déjà installée, sans téléchargement.",
+      rollbackBlocked:
+        "La version précédente ({version}) est révoquée : aucun retour arrière.",
+      pending: "{intent} vers {version} : {status}",
+      intent: { update: "Mise à jour", rollback: "Retour arrière" },
+      status: { pending: "en attente du Worker", acknowledged: "en cours" },
+      state: {
+        requested: "Demandé",
+        downloading: "Installation du runtime",
+        verifying: "Inférence de test",
+        published: "Liaison publiée",
+        failed: "Échec, liaison précédente conservée",
+      },
+      cause: {
+        disk_full: "Le disque du Worker est plein.",
+        runtime_incompatible:
+          "Ce runtime n’est pas utilisable avec ce modèle sur ce Worker.",
+        inference_failed: "L’inférence de test a échoué avec ce runtime.",
+        invalid_order: "Le Worker a refusé l’ordre.",
+        hf_network:
+          "Les paquets du runtime n’ont pas pu être téléchargés depuis ce Worker.",
+      },
+      notHeld: "Cette version n’est pas installée sur ce Worker.",
+      revoked:
+        "Version révoquée : elle continue de servir, aucune nouvelle installation.",
+      history: "Historique des mises à jour",
+      ignored: "rapport tardif ignoré ({reason})",
+    },
   },
   voiceWorkspace: {
     engines: "Engines",

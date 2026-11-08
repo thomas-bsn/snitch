@@ -44,8 +44,8 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 	// A report that answers an order: the order must be this Worker's, for this model and revision, and still
 	// open. A report that repeats the outcome already recorded is accepted without effect.
 	err = s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		var status, modelID, revision, action string
-		err := tx.QueryRow(r.Context(), `SELECT status,model_id,revision,action FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, input.OrderID, worker.ID).Scan(&status, &modelID, &revision, &action)
+		var status, modelID, revision, action, intent string
+		err := tx.QueryRow(r.Context(), `SELECT status,model_id,revision,action,runtime_intent FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, input.OrderID, worker.ID).Scan(&status, &modelID, &revision, &action, &intent)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "voice_order_not_found"}
 		}
@@ -56,6 +56,10 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 		removal := action == "remove"
 		if modelID != input.ModelID || (input.Revision != "" && input.Revision != revision) || removal != (input.State == "removed" || (removal && failed)) {
 			return orderFailure{http.StatusBadRequest, "invalid_voice_model_status"}
+		}
+		if intent != "install" {
+			// An update or a rollback never moves the model row: the model stays Ready on its binding.
+			return s.applyRuntimeOrderStatus(r.Context(), tx, worker.ID, input.OrderID, intent, status, input.State, input.CauseCode)
 		}
 		if status == "done" || status == "failed" || status == "refused" || status == "cancelled" {
 			if (status == "done" && (input.State == "ready" || input.State == "removed")) || (status == "failed" && failed) {
@@ -83,6 +87,11 @@ func (s *Server) postWorkerVoiceModelStatus(w http.ResponseWriter, r *http.Reque
 			ON CONFLICT(worker_id,model_id) DO UPDATE SET state=EXCLUDED.state,cause_code=EXCLUDED.cause_code,bytes_received=EXCLUDED.bytes_received,bytes_total=EXCLUDED.bytes_total,occupied_bytes=EXCLUDED.occupied_bytes,revision=EXCLUDED.revision,order_id=EXCLUDED.order_id,retry_requested=false,updated_at=now()`,
 			worker.ID, input.ModelID, input.State, input.CauseCode, input.BytesReceived, input.BytesTotal, input.OccupiedBytes, revision, input.OrderID); err != nil {
 			return err
+		}
+		if input.State == "ready" {
+			if err = bindInstalledRuntime(r.Context(), tx, worker.ID, modelID, input.OrderID); err != nil {
+				return err
+			}
 		}
 		return s.advanceReplacementsIn(r.Context(), tx, worker.ID)
 	})

@@ -301,11 +301,22 @@ class ModelManager:
         location = _legacy_path(self._env, repo, revision, kind_of(item)) or target
         runtime = item.get("runtime")
         was_ready = is_ready(self._env, repo, revision)
+        intent = item.get("runtime_intent") or "install"
+        if intent != "install" and (runtime is None or not was_ready):
+            # An update or a rollback reuses weights already validated: it never downloads them.
+            say("failed", "runtime_incompatible")
+            return
         if runtime is not None:
             from snitch_worker import engine_runtime
             try:
                 engine_runtime.validate(runtime, item.get("engine", ""), kind_of(item))
-                engine_runtime.install(runtime, self._env, say)
+                if intent == "rollback":
+                    # Going back reuses an installed version: a lost one is never fetched again here.
+                    if not engine_runtime.installed(runtime, self._env):
+                        say("failed", "runtime_incompatible")
+                        return
+                else:
+                    engine_runtime.install(runtime, self._env, say)
                 if was_ready and engine_runtime.model_binding(location) == runtime:
                     say("ready")
                     return
