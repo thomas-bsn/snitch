@@ -4,6 +4,7 @@
 # container with the launcher's arguments, and rolls back to the previous image if the new one does not stay up.
 # It never prints the token and never mounts the Docker socket into the Worker.
 set -euo pipefail
+export PATH="$PATH:/usr/lib/wsl/lib"
 umask 077
 
 dir=$(cd "$(dirname "$0")" && pwd)
