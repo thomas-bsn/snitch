@@ -46,10 +46,6 @@ code=$(printf 'header = "Authorization: Bearer %s"\n' "$token" | curl -sS --max-
 [ "$code" = 200 ] || exit 0
 target=$(sed -n 's/.*"target_image":"\([^"]*\)".*/\1/p' "$resp" | head -n1)
 version=$(sed -n 's/.*"target_version":"\([^"]*\)".*/\1/p' "$resp" | head -n1)
-[ -n "$target" ] && [ -n "$version" ] || exit 0
-
-# Only a released version of the same repository as the installed image is accepted.
-if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then exit 0; fi
 # Self-refresh: Snitch announces the sha256 of the updater Workers should run. A different script is downloaded with the
 # Worker's token, accepted only if it matches the announced hash and parses, then swapped in atomically. A failure never
 # blocks the release update below. worker.env, the token, the volume and the container are not touched.
@@ -65,8 +61,13 @@ if [ -n "$announced" ] && [ -z "${SNITCH_UPDATER_REFRESHED:-}" ] && [ "$(sha256_
   SNITCH_UPDATER_REFRESHED=1 exec bash "$dir/updater.sh"
  fi
  rm -f "$fresh"
- report failed "$version" "" updater_update_failed
+ # Report only when a release update is pending: a current Worker must not be left showing Failed.
+ if [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] && [ -n "$target" ] && [ "$target" != "$current" ]; then report failed "$version" "" updater_update_failed; fi
 fi
+[ -n "$target" ] && [ -n "$version" ] || exit 0
+
+# Only a released version of the same repository as the installed image is accepted.
+if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then exit 0; fi
 repository=${current%@*}
 if [[ "${repository##*/}" == *:* ]]; then repository=${repository%:*}; fi
 if [ "$target" != "$repository:$version" ]; then report failed "$version" "" target_mismatch; exit 0; fi

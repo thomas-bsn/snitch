@@ -369,3 +369,24 @@ func TestUpdaterAcceptsDigestAndTagButRefusesForeignRepositoryAndBadVersions(t *
 		}
 	}
 }
+
+func TestUpdaterRefreshesEvenWithoutATarget(t *testing.T) {
+	body := `{"target_version":null,"target_image":null,"updater_sha256":"` + sha256Hex(workerUpdaterScript) + `"}`
+	r := newUpdaterRun(t, repoFixture+"@"+digestFixture, body, "")
+	path := r.installOlderUpdater(t)
+	r.serveUpdater(t, workerUpdaterScript)
+	r.run(t)
+	if got, _ := os.ReadFile(path); string(got) != workerUpdaterScript {
+		t.Fatalf("an idle Worker must still receive the new updater:\n%s", got)
+	}
+}
+
+func TestUpdaterDoesNotLeaveAFailedStatusWhenAlreadyUpToDate(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+":v1.2.0", updateBodyWithUpdater(sha256Hex(workerUpdaterScript)), "")
+	r.installOlderUpdater(t)
+	r.serveUpdater(t, "#!/usr/bin/env bash\necho tampered\n")
+	r.run(t)
+	if rep := r.reported(); rep != "" {
+		t.Fatalf("nothing to update and the Worker is current: no failure must be reported, got %q", rep)
+	}
+}
