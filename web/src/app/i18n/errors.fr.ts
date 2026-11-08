@@ -31,7 +31,17 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette version ne correspond pas à l’engine de ce modèle.",
   engine_already_bound: "Ce modèle utilise déjà cette version du runtime.",
   invalid_runtime_order: "Cet ordre de mise à jour n’est pas valide.",
-
+  invalid_worker_hardware: "Ce rapport matériel de Worker n’est pas valide.",
+  platform_incompatible:
+    "Cet engine ne prend pas en charge la version de Python ou la plateforme de ce Worker.",
+  cuda_incompatible:
+    "Cet engine exige une version de CUDA absente de ce Worker. Un runtime CPU est une release approuvée distincte.",
+  insufficient_ram:
+    "Ce Worker n’a pas assez de mémoire vive (RAM) pour cet engine.",
+  insufficient_vram:
+    "Ce Worker n’a pas assez de mémoire vidéo (VRAM) pour cet engine.",
+  insufficient_disk:
+    "Ce Worker n’a pas assez de disque libre, ordres en cours compris.",
   engine_not_failed:
     "Cette installation d’engine n’est pas en échec : elle ne peut être ni relancée ni nettoyée.",
   engine_order_not_cancellable:

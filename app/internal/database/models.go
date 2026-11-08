@@ -1074,6 +1074,18 @@ type WorkerEngineOrder struct {
 	CleanedAt          pgtype.Timestamptz `json:"cleaned_at"`
 }
 
+type WorkerHardware struct {
+	WorkerID      string             `json:"worker_id"`
+	Python        string             `json:"python"`
+	Platform      string             `json:"platform"`
+	Cuda          string             `json:"cuda"`
+	RamBytes      int64              `json:"ram_bytes"`
+	VramBytes     int64              `json:"vram_bytes"`
+	DiskFreeBytes int64              `json:"disk_free_bytes"`
+	CpuFallback   bool               `json:"cpu_fallback"`
+	ReportedAt    pgtype.Timestamptz `json:"reported_at"`
+}
+
 type WorkerHfToken struct {
 	WorkerID     string             `json:"worker_id"`
 	AckedVersion string             `json:"acked_version"`

@@ -185,6 +185,15 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 				return orderFailure{http.StatusConflict, "engine_order_in_progress"}
 			}
 		}
+		// The same resource check as any order that gives a runtime to a Worker (#354). A release already ready
+		// on the Worker needs no new disk; the other constraints (platform, CUDA, RAM, VRAM) still apply.
+		var present bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_inventory WHERE worker_id=$1 AND digest=$2 AND state='ready')`, in.WorkerID, in.Digest).Scan(&present); err != nil {
+			return err
+		}
+		if err = checkWorkerEngine(ctx, tx, in.WorkerID, manifest, present || in.Intent == "rollback"); err != nil {
+			return err
+		}
 		id := "ord_" + auth.Token()[:32]
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime,runtime_intent) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9,$10)`,
 			id, in.WorkerID, entry.Kind, entry.ID, entry.Revision, in.IdempotencyKey, author.User.ID, author.User.Username, manifest, in.Intent); err != nil {

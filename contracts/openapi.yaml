@@ -16933,6 +16933,42 @@
           }
         }
       }
+    },
+    "/api/worker/voice-engines/hardware": {
+      "post": {
+        "operationId": "postWorkerHardware",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker déclare sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre). Simple observation : n'ordonne et ne télécharge rien.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerHardwareReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Matériel enregistré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -28361,6 +28397,34 @@
             "type": "integer",
             "format": "int64"
           },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Mémoire vive minimale (optionnelle ; absente = aucune contrainte)."
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "diarization",
+                "fingerprint"
+              ]
+            },
+            "description": "Capacités déclarées (optionnelles ; absentes = celle du type). La séparation n'est pas une capacité approuvée."
+          },
+          "input_contract": {
+            "type": "string",
+            "description": "Contrat d'entrée déclaré (optionnel)."
+          },
+          "output_contract": {
+            "type": "string",
+            "description": "Contrat de sortie déclaré (optionnel)."
+          },
+          "cpu_fallback": {
+            "type": "boolean",
+            "description": "Autorisation du contrat d'exécuter cette release CUDA sur le CPU ; la configuration du Worker doit aussi l'autoriser. N'installe jamais rien."
+          },
           "wheels": {
             "type": "array",
             "items": {
@@ -28556,7 +28620,7 @@
           },
           "cause_code": {
             "type": "string",
-            "description": "Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key)."
+            "description": "Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key) ou de ressources (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk)."
           },
           "order": {
             "$ref": "#/components/schemas/EngineOrder"
@@ -28616,7 +28680,11 @@
               "invalid_order",
               "runtime_missing",
               "cancelled",
-              "runtime_in_use"
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
             ]
           },
           "generation": {
@@ -28696,7 +28764,11 @@
               "invalid_order",
               "runtime_missing",
               "cancelled",
-              "runtime_in_use"
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
             ]
           },
           "bytes_received": {
@@ -28774,7 +28846,12 @@
               "hf_network",
               "invalid_order",
               "runtime_missing",
-              "runtime_in_use"
+              "cancelled",
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
             ],
             "description": "Cause d'échec du dernier ordre."
           },
@@ -28797,6 +28874,7 @@
           "worker_id",
           "name",
           "connected",
+          "disk_reserved_bytes",
           "engines"
         ],
         "properties": {
@@ -28808,6 +28886,14 @@
           },
           "connected": {
             "type": "boolean"
+          },
+          "hardware": {
+            "$ref": "#/components/schemas/WorkerHardware"
+          },
+          "disk_reserved_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Disque déjà réservé par les ordres ouverts du Worker (engines et runtimes de modèles)."
           },
           "engines": {
             "type": "array",
@@ -28867,7 +28953,11 @@
               "hf_network",
               "invalid_order",
               "cancelled",
-              "runtime_in_use"
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
             ]
           },
           "bytes_received": {
@@ -29271,6 +29361,95 @@
             "items": {
               "$ref": "#/components/schemas/RuntimeBinding"
             }
+          }
+        }
+      },
+      "WorkerHardwareReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "python",
+          "platform",
+          "cuda",
+          "ram_bytes",
+          "vram_bytes",
+          "disk_free_bytes",
+          "cpu_fallback"
+        ],
+        "properties": {
+          "python": {
+            "type": "string",
+            "description": "Version majeure.mineure de Python du Worker."
+          },
+          "platform": {
+            "type": "string",
+            "description": "Plateforme, par exemple linux-x86_64."
+          },
+          "cuda": {
+            "type": "string",
+            "description": "Version CUDA utilisable ; vide si aucun GPU CUDA n'est utilisable."
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "disk_free_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cpu_fallback": {
+            "type": "boolean",
+            "description": "Configuration du Worker : autorise l'exécution sur le CPU d'une release CUDA dont le contrat l'autorise."
+          }
+        }
+      },
+      "WorkerHardware": {
+        "type": "object",
+        "required": [
+          "python",
+          "platform",
+          "cuda",
+          "ram_bytes",
+          "vram_bytes",
+          "disk_free_bytes",
+          "cpu_fallback",
+          "reported_at"
+        ],
+        "properties": {
+          "python": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cuda": {
+            "type": "string"
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disk_free_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cpu_fallback": {
+            "type": "boolean"
+          },
+          "reported_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }

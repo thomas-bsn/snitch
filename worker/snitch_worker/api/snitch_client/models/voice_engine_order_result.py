@@ -32,7 +32,8 @@ class VoiceEngineOrderResult:
             status (VoiceEngineOrderResultStatus):
             cause_code (str | Unset): Cause stable d'un refus (engine_not_found, engine_release_unavailable,
                 engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused,
-                worker_not_found, invalid_idempotency_key).
+                worker_not_found, invalid_idempotency_key) ou de ressources (platform_incompatible, cuda_incompatible,
+                insufficient_ram, insufficient_vram, insufficient_disk).
             order (EngineOrder | Unset):
             blockers (EngineBlockers | Unset):
      """

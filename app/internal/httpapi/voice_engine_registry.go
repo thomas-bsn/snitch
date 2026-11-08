@@ -47,13 +47,46 @@ type engineManifest struct {
 	DiskBytes      int64         `json:"disk_bytes"`
 	VRAMBytes      int64         `json:"vram_bytes"`
 	Wheels         []engineWheel `json:"wheels"`
+	// Optional constraints and contracts (#354). A manifest without them stays valid and means: no RAM constraint,
+	// the capability of its kind, no declared contract, no CPU fallback. They are part of the signed bytes.
+	RAMBytes       int64    `json:"ram_bytes,omitempty"`
+	Capabilities   []string `json:"capabilities,omitempty"`
+	InputContract  string   `json:"input_contract,omitempty"`
+	OutputContract string   `json:"output_contract,omitempty"`
+	// CPUFallback is the contract's authorization to run a CUDA release on the CPU. It never installs anything:
+	// the Worker's own configuration must also allow it.
+	CPUFallback bool `json:"cpu_fallback,omitempty"`
+}
+
+var engineRequiredFields = []string{"schema", "engine", "version", "adapter_version", "python", "platform", "cuda", "license", "kind", "architecture", "disk_bytes", "vram_bytes", "wheels"}
+var engineOptionalFields = []string{"ram_bytes", "capabilities", "input_contract", "output_contract", "cpu_fallback"}
+var engineContract = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+
+// Source separation is not an approved capability: the V2 separation stays inactive.
+var engineCapabilities = map[string]bool{"diarization": true, "fingerprint": true}
+
+func validEngineOptionals(m engineManifest) bool {
+	if m.RAMBytes < 0 || m.RAMBytes > 1<<40 || len(m.Capabilities) > 4 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, c := range m.Capabilities {
+		if !engineCapabilities[c] || seen[c] {
+			return false
+		}
+		seen[c] = true
+	}
+	if len(m.Capabilities) > 0 && !seen[m.Kind] {
+		return false
+	}
+	return (m.InputContract == "" || engineContract.MatchString(m.InputContract)) && (m.OutputContract == "" || engineContract.MatchString(m.OutputContract))
 }
 
 // This is the protocol implemented in the Worker, not an extensible import path.
 func validEngineManifest(m engineManifest) bool {
 	architecture := map[string]string{"pyannote": "pyannote", "nemo": "sortformer", "nemo-titanet": "titanet", "speechbrain-ecapa": "ecapa-tdnn"}[m.Engine]
 	kindOK := (m.Engine == "pyannote" && (m.Kind == "diarization" || m.Kind == "fingerprint")) || (m.Engine == "nemo" && m.Kind == "diarization") || ((m.Engine == "nemo-titanet" || m.Engine == "speechbrain-ecapa") && m.Kind == "fingerprint")
-	if m.Schema != 1 || m.AdapterVersion != 1 || architecture == "" || m.Architecture != architecture || !kindOK || !engineVersion.MatchString(m.Version) || m.Python != "3.12" || m.Platform != "linux-x86_64" || !engineCUDA.MatchString(m.CUDA) || strings.TrimSpace(m.License) == "" || len(m.License) > 100 || m.DiskBytes <= 0 || m.DiskBytes > 40<<30 || (m.VRAMBytes < 0 || m.VRAMBytes > 256<<30) || len(m.Wheels) == 0 || len(m.Wheels) > 256 {
+	if m.Schema != 1 || m.AdapterVersion != 1 || architecture == "" || m.Architecture != architecture || !kindOK || !engineVersion.MatchString(m.Version) || m.Python != "3.12" || m.Platform != "linux-x86_64" || !engineCUDA.MatchString(m.CUDA) || strings.TrimSpace(m.License) == "" || len(m.License) > 100 || m.DiskBytes <= 0 || m.DiskBytes > 40<<30 || (m.VRAMBytes < 0 || m.VRAMBytes > 256<<30) || len(m.Wheels) == 0 || len(m.Wheels) > 256 || !validEngineOptionals(m) {
 		return false
 	}
 	names := map[string]bool{}
@@ -90,7 +123,16 @@ func verifyEngineRelease(keyID, payload, signature string, keys map[string]strin
 		return m, nil, "", false
 	}
 	var fields map[string]json.RawMessage
-	if json.Unmarshal(raw, &fields) != nil || len(fields) != 13 {
+	if json.Unmarshal(raw, &fields) != nil {
+		return m, nil, "", false
+	}
+	for _, name := range engineRequiredFields {
+		if _, ok := fields[name]; !ok {
+			return m, nil, "", false
+		}
+	}
+	// DisallowUnknownFields below rejects anything that is neither required nor a known optional field.
+	if len(fields) > len(engineRequiredFields)+len(engineOptionalFields) {
 		return m, nil, "", false
 	}
 	for _, value := range fields {

@@ -61,6 +61,12 @@ export const fr: Messages = {
         "Les paquets du runtime n’ont pas pu être téléchargés depuis ce Worker.",
       invalid_order: "Le Worker a refusé l’ordre.",
       runtime_missing: "Le runtime n’est plus sur le volume du Worker.",
+      platform_incompatible:
+        "Python ou la plateforme du Worker ne correspond pas à cet engine.",
+      cuda_incompatible:
+        "La version de CUDA du Worker ne correspond pas à cet engine.",
+      insufficient_ram: "Mémoire vive insuffisante sur le Worker.",
+      insufficient_vram: "Mémoire vidéo (VRAM) insuffisante sur le Worker.",
       cancelled: "L’installation a été annulée.",
       runtime_in_use:
         "Un modèle du Worker utilise encore ce runtime : il n’a pas été retiré.",
@@ -87,6 +93,27 @@ export const fr: Messages = {
       engine_release_unavailable: "version révoquée",
       engine_already_installed: "déjà installé",
       engine_order_in_progress: "un ordre est déjà en cours",
+      platform_incompatible: "Python ou plateforme incompatible",
+      cuda_incompatible: "CUDA incompatible ou absent",
+      insufficient_ram: "RAM insuffisante",
+      insufficient_vram: "VRAM insuffisante",
+      insufficient_disk: "disque insuffisant",
+    },
+    refusalDetail: "requis {required} Mio, disponible {available} Mio",
+    refusalCuda:
+      "Aucun repli sur le CPU : un runtime CPU est une release approuvée distincte, à installer volontairement.",
+    hardware: {
+      title: "Machine",
+      python: "Python {value}",
+      platform: "{value}",
+      cuda: "CUDA {value}",
+      noCuda: "pas de CUDA",
+      ram: "RAM {value} Gio",
+      vram: "VRAM {value} Gio",
+      disk: "disque libre {value} Gio",
+      reserved: "dont {value} Gio déjà réservés par des ordres en cours",
+      unknown:
+        "Matériel non déclaré par ce Worker : il vérifiera lui-même avant d’installer.",
     },
     uninstall: {
       action: "Désinstaller",

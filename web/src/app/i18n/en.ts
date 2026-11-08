@@ -60,6 +60,12 @@ export const en = {
         "The runtime packages could not be downloaded from this Worker.",
       invalid_order: "The Worker refused the order.",
       runtime_missing: "The runtime is no longer on the Worker volume.",
+      platform_incompatible:
+        "The Worker's Python or platform does not match this engine.",
+      cuda_incompatible:
+        "The Worker's CUDA version does not match this engine.",
+      insufficient_ram: "Not enough memory (RAM) on the Worker.",
+      insufficient_vram: "Not enough video memory (VRAM) on the Worker.",
       cancelled: "The installation was cancelled.",
       runtime_in_use:
         "A model on the Worker still uses this runtime: it was not removed.",
@@ -87,6 +93,27 @@ export const en = {
       engine_release_unavailable: "release revoked",
       engine_already_installed: "already installed",
       engine_order_in_progress: "an order is already running",
+      platform_incompatible: "Python or platform incompatible",
+      cuda_incompatible: "CUDA incompatible or missing",
+      insufficient_ram: "not enough RAM",
+      insufficient_vram: "not enough VRAM",
+      insufficient_disk: "not enough disk",
+    },
+    refusalDetail: "needs {required} MiB, {available} MiB available",
+    refusalCuda:
+      "No CPU fallback: a CPU runtime is a separate approved release, installed on purpose.",
+    hardware: {
+      title: "Machine",
+      python: "Python {value}",
+      platform: "{value}",
+      cuda: "CUDA {value}",
+      noCuda: "no CUDA",
+      ram: "RAM {value} GiB",
+      vram: "VRAM {value} GiB",
+      disk: "free disk {value} GiB",
+      reserved: "of which {value} GiB already reserved by running orders",
+      unknown:
+        "This Worker has not reported its hardware: it checks by itself before installing.",
     },
     uninstall: {
       action: "Uninstall",

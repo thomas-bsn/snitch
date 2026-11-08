@@ -27,7 +27,17 @@ export const errorsEn = {
     "This release does not match the engine of this model.",
   engine_already_bound: "This model already uses this runtime version.",
   invalid_runtime_order: "This update order is not valid.",
-
+  invalid_worker_hardware: "This Worker hardware report is not valid.",
+  platform_incompatible:
+    "This engine does not support this Worker's Python version or platform.",
+  cuda_incompatible:
+    "This engine needs a CUDA version this Worker does not have. A CPU runtime is a separate approved release.",
+  insufficient_ram:
+    "This Worker does not have enough memory (RAM) for this engine.",
+  insufficient_vram:
+    "This Worker does not have enough video memory (VRAM) for this engine.",
+  insufficient_disk:
+    "This Worker does not have enough free disk, counting the orders already in progress.",
   engine_not_failed:
     "This engine installation is not failed, so it cannot be retried or cleaned up.",
   engine_order_not_cancellable:

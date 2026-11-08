@@ -321,7 +321,8 @@ class ModelManager:
                     say("ready")
                     return
             except engine_runtime.RuntimeFailed as error:
-                say("failed", error.cause)
+                # Resource causes of an engine (RAM, VRAM, CUDA, platform) fold onto the model order's causes.
+                say("failed", error.cause if error.cause in {"disk_full", "hf_network", "runtime_incompatible"} else "runtime_incompatible")
                 return
         if was_ready and runtime is None:
             from snitch_worker import engine_runtime

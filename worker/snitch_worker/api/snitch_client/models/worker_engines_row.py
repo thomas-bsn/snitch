@@ -8,10 +8,12 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
   from ..models.worker_engine import WorkerEngine
+  from ..models.worker_hardware import WorkerHardware
 
 
 
@@ -28,13 +30,18 @@ class WorkerEnginesRow:
             worker_id (str):
             name (str):
             connected (bool):
+            disk_reserved_bytes (int): Disque déjà réservé par les ordres ouverts du Worker (engines et runtimes de
+                modèles).
             engines (list[WorkerEngine]):
+            hardware (WorkerHardware | Unset):
      """
 
     worker_id: str
     name: str
     connected: bool
+    disk_reserved_bytes: int
     engines: list[WorkerEngine]
+    hardware: WorkerHardware | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -43,11 +50,14 @@ class WorkerEnginesRow:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_engine import WorkerEngine # noqa: PLC0415
+        from ..models.worker_hardware import WorkerHardware # noqa: PLC0415
         worker_id = self.worker_id
 
         name = self.name
 
         connected = self.connected
+
+        disk_reserved_bytes = self.disk_reserved_bytes
 
         engines = []
         for engines_item_data in self.engines:
@@ -56,6 +66,10 @@ class WorkerEnginesRow:
 
 
 
+        hardware: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.hardware, Unset):
+            hardware = self.hardware.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -63,8 +77,11 @@ class WorkerEnginesRow:
             "worker_id": worker_id,
             "name": name,
             "connected": connected,
+            "disk_reserved_bytes": disk_reserved_bytes,
             "engines": engines,
         })
+        if hardware is not UNSET:
+            field_dict["hardware"] = hardware
 
         return field_dict
 
@@ -73,12 +90,15 @@ class WorkerEnginesRow:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker_engine import WorkerEngine # noqa: PLC0415
+        from ..models.worker_hardware import WorkerHardware # noqa: PLC0415
         d = dict(src_dict)
         worker_id = d.pop("worker_id")
 
         name = d.pop("name")
 
         connected = d.pop("connected")
+
+        disk_reserved_bytes = d.pop("disk_reserved_bytes")
 
         engines = []
         _engines = d.pop("engines")
@@ -90,11 +110,23 @@ class WorkerEnginesRow:
             engines.append(engines_item)
 
 
+        _hardware = d.pop("hardware", UNSET)
+        hardware: WorkerHardware | Unset
+        if isinstance(_hardware,  Unset):
+            hardware = UNSET
+        else:
+            hardware = WorkerHardware.from_dict(_hardware)
+
+
+
+
         worker_engines_row = cls(
             worker_id=worker_id,
             name=name,
             connected=connected,
+            disk_reserved_bytes=disk_reserved_bytes,
             engines=engines,
+            hardware=hardware,
         )
 
 

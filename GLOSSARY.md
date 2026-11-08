@@ -121,6 +121,10 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.
 
+**Matériel du Worker** : Ce qu'un Worker déclare de sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre) et si sa configuration autorise le repli CPU. Une Release d'engine est comparée à ce matériel avant tout ordre ; un Worker qui n'a rien déclaré n'est pas bloqué et vérifie lui-même avant d'installer.
+
+**Repli CPU** : L'exécution d'une Release CUDA sur le processeur. Jamais automatique : elle exige l'autorisation du contrat de la Release et celle de la configuration du Worker, et n'installe rien. Un runtime CPU est une Release approuvée distincte, installée volontairement.
+
 **Annulation et nettoyage d'une installation** : Sortir d'une installation d'engine en échec ou en cours sans perdre ce qui fonctionne. L'annulation est coopérative : le Worker s'arrête à son prochain point sûr et le confirme. Le nettoyage est une demande explicite qui ne supprime que les fichiers incomplets de l'installation concernée, jamais un modèle ni un runtime validé. Un échec de préparation ne touche pas la Release déjà prête du même engine ; remplacer revient à ordonner une autre Release compatible.
 
 **Retrait d'une Release** : La désinstallation explicite d'une Release d'engine sur un Worker. Elle est refusée tant qu'un modèle du Worker lui est lié (avec ses jobs engagés et ses transitions d'empreintes), n'est livrée au Worker qu'une fois les références libérées, n'interrompt aucun job et ne supprime que la version désignée, jamais un modèle.

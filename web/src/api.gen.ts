@@ -3893,6 +3893,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/voice-engines/hardware": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker déclare sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre). Simple observation : n'ordonne et ne télécharge rien. */
+    post: operations["postWorkerHardware"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7461,6 +7478,19 @@ export interface components {
       disk_bytes: number;
       /** Format: int64 */
       vram_bytes: number;
+      /**
+       * Format: int64
+       * @description Mémoire vive minimale (optionnelle ; absente = aucune contrainte).
+       */
+      ram_bytes?: number;
+      /** @description Capacités déclarées (optionnelles ; absentes = celle du type). La séparation n'est pas une capacité approuvée. */
+      capabilities?: ("diarization" | "fingerprint")[];
+      /** @description Contrat d'entrée déclaré (optionnel). */
+      input_contract?: string;
+      /** @description Contrat de sortie déclaré (optionnel). */
+      output_contract?: string;
+      /** @description Autorisation du contrat d'exécuter cette release CUDA sur le CPU ; la configuration du Worker doit aussi l'autoriser. N'installe jamais rien. */
+      cpu_fallback?: boolean;
       wheels: components["schemas"]["VoiceEngineWheel"][];
     };
     VoiceEngineRelease: {
@@ -7513,7 +7543,7 @@ export interface components {
       worker_id: string;
       /** @enum {string} */
       status: "created" | "replayed" | "refused";
-      /** @description Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key). */
+      /** @description Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key) ou de ressources (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk). */
       cause_code?: string;
       order?: components["schemas"]["EngineOrder"];
       blockers?: components["schemas"]["EngineBlockers"];
@@ -7545,7 +7575,11 @@ export interface components {
         | "invalid_order"
         | "runtime_missing"
         | "cancelled"
-        | "runtime_in_use";
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
       /** Format: int64 */
       generation: number;
       /** @description Rapport tardif ignoré et journalisé. */
@@ -7578,7 +7612,11 @@ export interface components {
         | "invalid_order"
         | "runtime_missing"
         | "cancelled"
-        | "runtime_in_use";
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -7626,7 +7664,12 @@ export interface components {
         | "hf_network"
         | "invalid_order"
         | "runtime_missing"
-        | "runtime_in_use";
+        | "cancelled"
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
       /** @description Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon. */
       waiting: components["schemas"]["EngineBlockers"] | null;
     };
@@ -7634,6 +7677,12 @@ export interface components {
       worker_id: string;
       name: string;
       connected: boolean;
+      hardware?: components["schemas"]["WorkerHardware"];
+      /**
+       * Format: int64
+       * @description Disque déjà réservé par les ordres ouverts du Worker (engines et runtimes de modèles).
+       */
+      disk_reserved_bytes: number;
       engines: components["schemas"]["WorkerEngine"][];
     };
     WorkerEnginesView: {
@@ -7658,7 +7707,11 @@ export interface components {
         | "hf_network"
         | "invalid_order"
         | "cancelled"
-        | "runtime_in_use";
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */
@@ -7776,6 +7829,36 @@ export interface components {
     };
     RuntimeBindings: {
       bindings: components["schemas"]["RuntimeBinding"][];
+    };
+    WorkerHardwareReport: {
+      /** @description Version majeure.mineure de Python du Worker. */
+      python: string;
+      /** @description Plateforme, par exemple linux-x86_64. */
+      platform: string;
+      /** @description Version CUDA utilisable ; vide si aucun GPU CUDA n'est utilisable. */
+      cuda: string;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      disk_free_bytes: number;
+      /** @description Configuration du Worker : autorise l'exécution sur le CPU d'une release CUDA dont le contrat l'autorise. */
+      cpu_fallback: boolean;
+    };
+    WorkerHardware: {
+      python: string;
+      platform: string;
+      cuda: string;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      disk_free_bytes: number;
+      cpu_fallback: boolean;
+      /** Format: date-time */
+      reported_at: string;
     };
   };
   responses: never;
@@ -18698,6 +18781,37 @@ export interface operations {
         };
       };
       /** @description Erreur (401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerHardware: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerHardwareReport"];
+      };
+    };
+    responses: {
+      /** @description Matériel enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
       default: {
         headers: {
           [name: string]: unknown;

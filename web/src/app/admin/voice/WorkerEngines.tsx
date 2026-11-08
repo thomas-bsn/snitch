@@ -8,6 +8,7 @@ import { useSession } from "../../session";
 import { WorkerEngineAdd } from "./WorkerEngineAdd";
 import { WorkerEngineModels } from "./WorkerEngineModels";
 import { WorkerEngineUninstall } from "./WorkerEngineUninstall";
+import { WorkerHardware } from "./WorkerHardware";
 import {
   engineSteps,
   inProgress,
@@ -397,6 +398,7 @@ export function WorkerEngines() {
                     {t("workerEngines.add")}
                   </button>
                 </div>
+                <WorkerHardware worker={current} />
                 {!current.connected && (
                   <p className="engine-note">
                     {t("workerEngines.offlineNote")}

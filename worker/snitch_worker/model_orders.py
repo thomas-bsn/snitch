@@ -38,7 +38,7 @@ _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
 # Intents of a model order: "install" (weights and runtime), or a runtime-only "update" / "rollback" (#352).
 RUNTIME_INTENTS = {"install", "update", "rollback"}
-ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use"}
+ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use", "platform_incompatible", "cuda_incompatible", "insufficient_ram", "insufficient_vram"}
 # The inventory is observed on every pull but only sent when it changed or this long after the last send.
 INVENTORY_REFRESH_SECONDS = 60.0
 STATE_NAME = "orders.json"
@@ -93,6 +93,7 @@ class OrderExecutor:
         self._cancelled: set[str] = set()
         self._thread: threading.Thread | None = None
         self._inventory_sent: tuple[list[dict[str, str]], float] | None = None
+        self._hardware_sent: tuple[dict[str, Any], float] | None = None
 
     # -- persisted state: identity pin, outcomes and keys, so a restart repeats nothing ------------------------
 
@@ -348,6 +349,23 @@ class OrderExecutor:
         self._cancelled.discard(order_id)
         self._record_engine_outcome(http, order_id, digest, final, cause, identity)
 
+    def report_hardware(self, http: Any) -> None:
+        """Tell Snitch what this machine offers, so a release is checked before it is ordered. Observation only."""
+        from snitch_worker import engine_runtime
+        hw = engine_runtime.hardware(self._env)
+        if hw is None:
+            return  # the GPU cannot be assessed here: Snitch does not constrain this Worker
+        now = time.monotonic()
+        # Free disk changes constantly: compare what is stable, and refresh the rest on the inventory cadence.
+        stable = {k: v for k, v in hw.items() if k != "disk_free_bytes"}
+        if self._hardware_sent is not None and self._hardware_sent[0] == stable and now - self._hardware_sent[1] < INVENTORY_REFRESH_SECONDS:
+            return
+        response = http.post("/api/worker/voice-engines/hardware", json=hw)
+        if response.status_code == 404:
+            return  # a server predating resource checks
+        response.raise_for_status()
+        self._hardware_sent = (stable, now)
+
     def report_inventory(self, http: Any) -> None:
         """Tell Snitch which runtimes this volume proves it holds. Observation only: no order, no download."""
         from snitch_worker import engine_runtime
@@ -522,6 +540,10 @@ def sync_orders(client: Any, executor: OrderExecutor) -> None:
         executor.report_inventory(http)
     except Exception as error:  # noqa: BLE001 - reconciliation is best effort and never blocks the orders
         log.emit(logging.WARNING, "engine_inventory_failed", error_type=type(error).__name__)
+    try:
+        executor.report_hardware(http)
+    except Exception as error:  # noqa: BLE001 - an observation never blocks the orders either
+        log.emit(logging.WARNING, "engine_hardware_failed", error_type=type(error).__name__)
 
 
 _executor: OrderExecutor | None = None

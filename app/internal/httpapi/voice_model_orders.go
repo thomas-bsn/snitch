@@ -134,6 +134,16 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 				return orderFailure{http.StatusConflict, "engine_release_unavailable"}
 			}
 		}
+		if runtime != nil {
+			// A runtime already ready on the Worker needs no new disk; every other constraint still applies.
+			var present bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_inventory i JOIN voice_engine_registry g ON g.digest=i.digest WHERE i.worker_id=$1 AND i.state='ready' AND g.manifest=$2::jsonb)`, workerID, runtime).Scan(&present); err != nil {
+				return err
+			}
+			if err = checkWorkerEngine(ctx, tx, workerID, runtime, present); err != nil {
+				return err
+			}
+		}
 		id := "ord_" + auth.Token()[:32]
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9)`,
 			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username, runtime); err != nil {
