@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -43,12 +44,16 @@ type voiceModelOrderView struct {
 	HFToken   string    `json:"hf_token,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	// SizeBytes is the size the catalogue announces: the Worker checks its free disk against it before downloading.
-	SizeBytes int64 `json:"size_bytes"`
+	SizeBytes int64           `json:"size_bytes"`
+	Runtime   json.RawMessage `json:"runtime,omitempty"`
+	// RuntimeIntent is "install", or "update" / "rollback" for an order that only changes the runtime of a model the
+	// Worker already holds: the weights are reused and never downloaded.
+	RuntimeIntent string `json:"runtime_intent"`
 }
 
 // installOrder records an order to install modelID on a Worker, or returns the one already recorded under the
 // same key. It runs under the voice model lock so that what it read is still true when it writes.
-func (s *Server) installOrder(ctx context.Context, author session, workerID, modelID, key, replaces string) (voiceModelOrderView, bool, error) {
+func (s *Server) installOrder(ctx context.Context, author session, workerID, modelID, key, replaces string, runtimeDigest ...string) (voiceModelOrderView, bool, error) {
 	if !idempotencyKeyFormat.MatchString(key) {
 		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_idempotency_key"}
 	}
@@ -64,13 +69,22 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		}
 		// The key first: a replay is answered with the recorded order whatever changed since.
 		var prior string
-		var priorWorker, priorModel, priorAction string
-		err := tx.QueryRow(ctx, `SELECT id,worker_id,model_id,action FROM worker_model_orders WHERE idempotency_key=$1`, key).Scan(&prior, &priorWorker, &priorModel, &priorAction)
+		var priorWorker, priorModel, priorAction, priorIntent string
+		err := tx.QueryRow(ctx, `SELECT id,worker_id,model_id,action,runtime_intent FROM worker_model_orders WHERE idempotency_key=$1`, key).Scan(&prior, &priorWorker, &priorModel, &priorAction, &priorIntent)
 		if err == nil {
-			if priorWorker != workerID || priorModel != modelID || priorAction != "install" {
+			if priorWorker != workerID || priorModel != modelID || priorAction != "install" || priorIntent != "install" {
 				return orderFailure{http.StatusConflict, "idempotency_key_reused"}
 			}
 			out, err = orderByID(ctx, tx, prior)
+			if err == nil && len(runtimeDigest) > 0 && runtimeDigest[0] != "" {
+				var same bool
+				if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_engine_registry WHERE digest=$1 AND manifest=$2::jsonb)`, runtimeDigest[0], out.Runtime).Scan(&same); err != nil {
+					return err
+				}
+				if !same {
+					return orderFailure{http.StatusConflict, "idempotency_key_reused"}
+				}
+			}
 			return err
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -106,10 +120,36 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		if occupied {
 			return orderFailure{http.StatusConflict, "voice_model_type_occupied"}
 		}
-		id := "ord_" + auth.Token()[:32]
-		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8)`,
-			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username); err != nil {
+		runtime, err := approvedEngine(ctx, tx, entry.Engine, entry.Kind, runtimeDigest...)
+		if err != nil {
 			return err
+		}
+		// A release that is being removed from this Worker (or already is) cannot take a new model.
+		if runtime != nil {
+			var leaving bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders o WHERE o.worker_id=$1 AND o.intent='uninstall' AND o.status IN ('pending','acknowledged') AND o.manifest=$2::jsonb)`, workerID, runtime).Scan(&leaving); err != nil {
+				return err
+			}
+			if leaving {
+				return orderFailure{http.StatusConflict, "engine_release_unavailable"}
+			}
+		}
+		var engineOrderID string
+		if runtime != nil {
+			engineOrderID, err = s.modelEngineDependency(ctx, tx, author, workerID, runtime)
+			if err != nil {
+				return err
+			}
+		}
+		id := "ord_" + auth.Token()[:32]
+		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9)`,
+			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username, runtime); err != nil {
+			return err
+		}
+		if engineOrderID != "" {
+			if _, err = tx.Exec(ctx, `INSERT INTO worker_model_engine_dependencies(model_order_id,engine_order_id) VALUES($1,$2)`, id, engineOrderID); err != nil {
+				return err
+			}
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total,occupied_bytes,revision,order_id) VALUES($1,$2,'requested','',0,0,0,$3,$4)
 			ON CONFLICT(worker_id,model_id) DO UPDATE SET state='requested',cause_code='',bytes_received=0,bytes_total=0,occupied_bytes=0,revision=EXCLUDED.revision,order_id=EXCLUDED.order_id,retry_requested=false,removal_requested=false,updated_at=now()`,
@@ -133,11 +173,11 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 	return out, created, err
 }
 
-const orderColumns = `o.id,o.worker_id,o.kind,o.action,o.model_id,c.engine,c.repo,o.revision,o.idempotency_key,o.status,o.created_at,c.size_bytes`
+const orderColumns = `o.id,o.worker_id,o.kind,o.action,o.model_id,c.engine,c.repo,o.revision,o.idempotency_key,o.status,o.created_at,c.size_bytes,o.runtime,o.runtime_intent`
 
 func scanOrder(row pgx.Row) (voiceModelOrderView, error) {
 	var o voiceModelOrderView
-	err := row.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes)
+	err := row.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &o.Runtime, &o.RuntimeIntent)
 	return o, err
 }
 
@@ -159,12 +199,13 @@ func (s *Server) createVoiceModelOrder(w http.ResponseWriter, r *http.Request) {
 		ModelID        string `json:"model_id"`
 		IdempotencyKey string `json:"idempotency_key"`
 		ReplacesModel  string `json:"replaces_model_id"`
+		RuntimeDigest  string `json:"runtime_digest"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	order, created, err := s.installOrder(r.Context(), ss, r.PathValue("id"), input.ModelID, input.IdempotencyKey, input.ReplacesModel)
+	order, created, err := s.installOrder(r.Context(), ss, r.PathValue("id"), input.ModelID, input.IdempotencyKey, input.ReplacesModel, input.RuntimeDigest)
 	if err != nil {
 		if !s.writeOrderFailure(w, err) {
 			s.internal(w, err)
@@ -182,7 +223,13 @@ func (s *Server) createVoiceModelOrder(w http.ResponseWriter, r *http.Request) {
 // delivery of an unfinished order that installs a gated model, and with no other order: a Worker that crashed
 // before writing its secret file gets it again, and nothing is sent once the order is over (ADR 0027).
 func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceModelOrderView, error) {
-	rows, err := s.Pool.Query(ctx, `SELECT `+orderColumns+`,c.gated FROM worker_model_orders o JOIN voice_model_catalog c ON c.id=o.model_id WHERE o.worker_id=$1 AND o.status IN ('pending','acknowledged') ORDER BY o.created_at,o.id`, workerID)
+	rows, err := s.Pool.Query(ctx, `SELECT `+orderColumns+`,c.gated FROM worker_model_orders o JOIN voice_model_catalog c ON c.id=o.model_id WHERE o.worker_id=$1 AND o.status IN ('pending','acknowledged')
+		AND NOT EXISTS (
+			SELECT 1 FROM worker_model_engine_dependencies d JOIN worker_engine_orders e ON e.id=d.engine_order_id
+			WHERE d.model_order_id=o.id AND NOT EXISTS (
+				SELECT 1 FROM worker_engine_inventory i WHERE i.worker_id=o.worker_id AND i.digest=e.digest AND i.state='ready'
+			)
+		) ORDER BY o.created_at,o.id`, workerID)
 	if err != nil {
 		return nil, err
 	}
@@ -192,7 +239,7 @@ func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceMod
 	for rows.Next() {
 		var o voiceModelOrderView
 		var g bool
-		if err = rows.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &g); err != nil {
+		if err = rows.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &o.Runtime, &o.RuntimeIntent, &g); err != nil {
 			return nil, err
 		}
 		out = append(out, o)
@@ -232,8 +279,8 @@ func (s *Server) ackWorkerModelOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	worker := currentWorker(r)
 	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		var status, modelID, orderID, action string
-		err := tx.QueryRow(r.Context(), `SELECT id,status,model_id,action FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, r.PathValue("id"), worker.ID).Scan(&orderID, &status, &modelID, &action)
+		var status, modelID, orderID, action, intent string
+		err := tx.QueryRow(r.Context(), `SELECT id,status,model_id,action,runtime_intent FROM worker_model_orders WHERE id=$1 AND worker_id=$2`, r.PathValue("id"), worker.ID).Scan(&orderID, &status, &modelID, &action, &intent)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "voice_order_not_found"}
 		}
@@ -252,6 +299,10 @@ func (s *Server) ackWorkerModelOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		if action == "remove" {
 			return removalFailed(r.Context(), tx, worker.ID, modelID, "invalid_order")
+		}
+		if intent != "install" {
+			// The model keeps serving on its binding; only the history tells that the Worker refused the order.
+			return runtimeEvent(r.Context(), tx, worker.ID, orderID, intent, "failed", "invalid_order", false, "")
 		}
 		_, err = tx.Exec(r.Context(), `UPDATE worker_voice_models SET state='failed',cause_code='invalid_order',updated_at=now() WHERE worker_id=$1 AND model_id=$2 AND order_id=$3`, worker.ID, modelID, orderID)
 		return err
@@ -373,4 +424,29 @@ func (s *Server) listModelsByWorker(w http.ResponseWriter, r *http.Request) {
 		out.Workers = append(out.Workers, row)
 	}
 	reply(w, http.StatusOK, out)
+}
+
+// modelEngineDependency reuses an explicit install or a ready release, otherwise orders the engine in the
+// same transaction as the model. A failed engine never delivers the model; retrying that release unblocks it.
+func (s *Server) modelEngineDependency(ctx context.Context, tx pgx.Tx, author session, workerID string, manifest json.RawMessage) (string, error) {
+	var digest string
+	if err := tx.QueryRow(ctx, `SELECT digest FROM voice_engine_registry WHERE manifest=$1::jsonb`, manifest).Scan(&digest); err != nil {
+		return "", err
+	}
+	var id string
+	err := tx.QueryRow(ctx, `SELECT o.id FROM worker_engine_orders o
+ WHERE o.worker_id=$1 AND o.digest=$2 AND o.intent='install' AND (
+ o.status IN ('pending','acknowledged') OR EXISTS (SELECT 1 FROM worker_engine_inventory i WHERE i.worker_id=$1 AND i.digest=$2 AND i.state='ready'))
+ ORDER BY o.generation DESC LIMIT 1`, workerID, digest).Scan(&id)
+	if err == nil {
+		if err = checkWorkerEngine(ctx, tx, workerID, manifest, true); err != nil {
+			return "", err
+		}
+		return id, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return "", err
+	}
+	order, _, err := s.installEngineOrderIn(ctx, tx, author, workerID, digest, "model-engine:"+auth.Token()[:32])
+	return order.OrderID, err
 }

@@ -113,6 +113,30 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Catalogue de modèles vocaux** : Les références de modèles locaux (diarisation, empreinte, séparation) que Snitch sait exécuter, éditées par le Super-administrateur. Seul un modèle du catalogue dont un adaptateur approuvé sait réellement le charger peut être installé ; un dépôt quelconque, ou un modèle sans adaptateur (`unsupported`), n'est jamais exécuté. Le moteur n'est pas un choix de l'utilisateur. ADR 0038.
 
+**Runtime approuvé** : Le code d'exécution d'un moteur vocal (par exemple TitaNet ou ECAPA-TDNN) que Snitch autorise, sous la forme d'une version signée par un éditeur de confiance. Un modèle du catalogue décrit des poids ; seul un Runtime approuvé permet de les exécuter. ADR 0055.
+
+**Release d'engine** : Une version précise et immuable d'un Runtime approuvé. Une Release révoquée ne peut plus être installée ; ce qui est déjà installé continue de servir.
+
+**Variante de modèle épinglée** : Un modèle de famille d'empreinte que le Worker accepte parce que ses fichiers correspondent, octet pour octet, à une révision connue de l'adaptateur. Une autre révision ou architecture est refusée avec une raison, jamais devinée ; la configuration d'un modèle (par exemple le YAML de SpeechBrain) est lue comme une donnée et n'est jamais exécutée. ADR 0055.
+
+**Inventaire du Worker** : Ce qu'un Worker détient réellement de chaque Release d'engine : non installée, demandée, en téléchargement, en installation, en vérification, prête ou en échec, avec la cause et l'historique. Il ne change que par un ordre explicite de l'Administrateur ou par le constat du Worker ; une reconnexion n'installe jamais rien.
+
+**Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.
+
+**Empreinte vocale réelle** : Une empreinte produite par un modèle d'empreinte du catalogue exécuté pour de bon sur un Worker (et non par un double de test). Elle porte le modèle, sa version, ses dimensions, un vecteur normalisé, la durée de parole utilisée et une qualité ; elle n'est jamais comparée à celle d'une autre famille, version ou dimension. Une preuve sur la machine de l'opérateur (matériel, mémoire, durée) reste distincte des tests automatiques.
+
+**Enveloppe de release** : Le fichier signé qu'un éditeur de confiance remet au Super-administrateur pour importer une Release d'engine : l'identité de la clé, le manifeste et sa signature. La clé privée de l'éditeur reste chez lui ; Snitch ne la voit jamais.
+
+**Matériel du Worker** : Ce qu'un Worker déclare de sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre) et si sa configuration autorise le repli CPU. Une Release d'engine est comparée à ce matériel avant tout ordre ; un Worker qui n'a rien déclaré n'est pas bloqué et vérifie lui-même avant d'installer.
+
+**Repli CPU** : L'exécution d'une Release CUDA sur le processeur. Jamais automatique : elle exige l'autorisation du contrat de la Release et celle de la configuration du Worker, et n'installe rien. Un runtime CPU est une Release approuvée distincte, installée volontairement.
+
+**Annulation et nettoyage d'une installation** : Sortir d'une installation d'engine en échec ou en cours sans perdre ce qui fonctionne. L'annulation est coopérative : le Worker s'arrête à son prochain point sûr et le confirme. Le nettoyage est une demande explicite qui ne supprime que les fichiers incomplets de l'installation concernée, jamais un modèle ni un runtime validé. Un échec de préparation ne touche pas la Release déjà prête du même engine ; remplacer revient à ordonner une autre Release compatible.
+
+**Retrait d'une Release** : La désinstallation explicite d'une Release d'engine sur un Worker. Elle est refusée tant qu'un modèle du Worker lui est lié (avec ses jobs engagés et ses transitions d'empreintes), n'est livrée au Worker qu'une fois les références libérées, n'interrompt aucun job et ne supprime que la version désignée, jamais un modèle.
+
+**Worker éligible à un modèle** : Un Worker qui détient ce modèle prêt à la révision du catalogue et, si son moteur n'est pas embarqué, la Release d'engine liée prête sur ce même Worker. Des poids sans runtime prêt n'ouvrent aucun travail, sans téléchargement implicite ni interruption des travaux déjà engagés.
+
 **Modèle vocal actif** : Le modèle de diarisation, d'empreinte ou de séparation que Snitch utilise pour tous les nouveaux travaux vocaux de ce type, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
 _Avoid_ : Modèle du Worker, modèle installé.
 

@@ -134,6 +134,19 @@ from .discord_bot_status import DiscordBotStatus
 from .discord_bot_status_status import DiscordBotStatusStatus
 from .embedding_settings import EmbeddingSettings
 from .embedding_validation import EmbeddingValidation
+from .engine_blocker_model import EngineBlockerModel
+from .engine_blocker_model_role import EngineBlockerModelRole
+from .engine_blockers import EngineBlockers
+from .engine_cleanup import EngineCleanup
+from .engine_cleanup_report import EngineCleanupReport
+from .engine_order import EngineOrder
+from .engine_order_intent import EngineOrderIntent
+from .engine_order_status import EngineOrderStatus
+from .engine_recovery_result import EngineRecoveryResult
+from .engine_recovery_result_status import EngineRecoveryResultStatus
+from .engine_retry_input import EngineRetryInput
+from .engine_uninstall_preview import EngineUninstallPreview
+from .engine_uninstall_preview_state import EngineUninstallPreviewState
 from .error import Error
 from .explorer_entry import ExplorerEntry
 from .explorer_entry_state import ExplorerEntryState
@@ -301,7 +314,18 @@ from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse2
 from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
 from .reset_member_password_response_200 import ResetMemberPasswordResponse200
 from .retry_clip_analysis_step_step import RetryClipAnalysisStepStep
+from .revoke_voice_engine_response_200 import RevokeVoiceEngineResponse200
 from .revoke_worker_body import RevokeWorkerBody
+from .runtime_binding import RuntimeBinding
+from .runtime_binding_history_entry import RuntimeBindingHistoryEntry
+from .runtime_binding_history_entry_intent import RuntimeBindingHistoryEntryIntent
+from .runtime_binding_history_entry_state import RuntimeBindingHistoryEntryState
+from .runtime_binding_pending import RuntimeBindingPending
+from .runtime_binding_pending_intent import RuntimeBindingPendingIntent
+from .runtime_binding_pending_status import RuntimeBindingPendingStatus
+from .runtime_bindings import RuntimeBindings
+from .runtime_order_input import RuntimeOrderInput
+from .runtime_order_input_intent import RuntimeOrderInputIntent
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
 from .scan_video_selection_response_200 import ScanVideoSelectionResponse200
@@ -332,6 +356,7 @@ from .segment_speaker_input import SegmentSpeakerInput
 from .segment_text_input import SegmentTextInput
 from .session import Session
 from .set_video_root_body import SetVideoRootBody
+from .set_worker_engine_group_body import SetWorkerEngineGroupBody
 from .settings import Settings
 from .settings_input import SettingsInput
 from .settings_master_key_origin import SettingsMasterKeyOrigin
@@ -425,6 +450,18 @@ from .voice_disposition_input import VoiceDispositionInput
 from .voice_disposition_input_disposition import VoiceDispositionInputDisposition
 from .voice_disposition_view import VoiceDispositionView
 from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
+from .voice_engine_import import VoiceEngineImport
+from .voice_engine_manifest import VoiceEngineManifest
+from .voice_engine_manifest_capabilities_item import VoiceEngineManifestCapabilitiesItem
+from .voice_engine_order_input import VoiceEngineOrderInput
+from .voice_engine_order_input_intent import VoiceEngineOrderInputIntent
+from .voice_engine_order_input_orders_item import VoiceEngineOrderInputOrdersItem
+from .voice_engine_order_result import VoiceEngineOrderResult
+from .voice_engine_order_result_status import VoiceEngineOrderResultStatus
+from .voice_engine_order_results import VoiceEngineOrderResults
+from .voice_engine_registry import VoiceEngineRegistry
+from .voice_engine_release import VoiceEngineRelease
+from .voice_engine_wheel import VoiceEngineWheel
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
@@ -500,7 +537,26 @@ from .worker_audio_plan_task import WorkerAudioPlanTask
 from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
+from .worker_engine import WorkerEngine
+from .worker_engine_cause_code import WorkerEngineCauseCode
+from .worker_engine_cleanup import WorkerEngineCleanup
+from .worker_engine_history_entry import WorkerEngineHistoryEntry
+from .worker_engine_history_entry_cause_code import WorkerEngineHistoryEntryCauseCode
+from .worker_engine_history_entry_state import WorkerEngineHistoryEntryState
+from .worker_engine_inventory import WorkerEngineInventory
+from .worker_engine_inventory_runtimes_item import WorkerEngineInventoryRuntimesItem
+from .worker_engine_order_cause_code import WorkerEngineOrderCauseCode
+from .worker_engine_order_intent import WorkerEngineOrderIntent
+from .worker_engine_order_status import WorkerEngineOrderStatus
+from .worker_engine_state import WorkerEngineState
+from .worker_engine_status import WorkerEngineStatus
+from .worker_engine_status_cause_code import WorkerEngineStatusCauseCode
+from .worker_engine_status_state import WorkerEngineStatusState
+from .worker_engines_row import WorkerEnginesRow
+from .worker_engines_view import WorkerEnginesView
 from .worker_failure_input import WorkerFailureInput
+from .worker_hardware import WorkerHardware
+from .worker_hardware_report import WorkerHardwareReport
 from .worker_hf_token import WorkerHFToken
 from .worker_hf_token_ack import WorkerHFTokenAck
 from .worker_hf_token_ack_error_code import WorkerHFTokenAckErrorCode
@@ -533,6 +589,7 @@ from .worker_model_order_ack import WorkerModelOrderAck
 from .worker_model_order_ack_cause_code import WorkerModelOrderAckCauseCode
 from .worker_model_order_action import WorkerModelOrderAction
 from .worker_model_order_kind import WorkerModelOrderKind
+from .worker_model_order_runtime_intent import WorkerModelOrderRuntimeIntent
 from .worker_model_order_status import WorkerModelOrderStatus
 from .worker_models import WorkerModels
 from .worker_models_row import WorkerModelsRow
@@ -714,6 +771,19 @@ __all__ = (
     "DiscordBotStatusStatus",
     "EmbeddingSettings",
     "EmbeddingValidation",
+    "EngineBlockerModel",
+    "EngineBlockerModelRole",
+    "EngineBlockers",
+    "EngineCleanup",
+    "EngineCleanupReport",
+    "EngineOrder",
+    "EngineOrderIntent",
+    "EngineOrderStatus",
+    "EngineRecoveryResult",
+    "EngineRecoveryResultStatus",
+    "EngineRetryInput",
+    "EngineUninstallPreview",
+    "EngineUninstallPreviewState",
     "Error",
     "ExplorerEntry",
     "ExplorerEntryState",
@@ -881,7 +951,18 @@ __all__ = (
     "RequestWorkerTranscriptionTestResponse200",
     "ResetMemberPasswordResponse200",
     "RetryClipAnalysisStepStep",
+    "RevokeVoiceEngineResponse200",
     "RevokeWorkerBody",
+    "RuntimeBinding",
+    "RuntimeBindingHistoryEntry",
+    "RuntimeBindingHistoryEntryIntent",
+    "RuntimeBindingHistoryEntryState",
+    "RuntimeBindingPending",
+    "RuntimeBindingPendingIntent",
+    "RuntimeBindingPendingStatus",
+    "RuntimeBindings",
+    "RuntimeOrderInput",
+    "RuntimeOrderInputIntent",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
     "ScanVideoSelectionResponse200",
@@ -925,6 +1006,7 @@ __all__ = (
     "SetupStepStateState",
     "SetupStepStateStep",
     "SetVideoRootBody",
+    "SetWorkerEngineGroupBody",
     "Source",
     "SourceFile",
     "SourceFiles",
@@ -1005,6 +1087,18 @@ __all__ = (
     "VoiceDispositionInputDisposition",
     "VoiceDispositionView",
     "VoiceDispositionViewDisposition",
+    "VoiceEngineImport",
+    "VoiceEngineManifest",
+    "VoiceEngineManifestCapabilitiesItem",
+    "VoiceEngineOrderInput",
+    "VoiceEngineOrderInputIntent",
+    "VoiceEngineOrderInputOrdersItem",
+    "VoiceEngineOrderResult",
+    "VoiceEngineOrderResults",
+    "VoiceEngineOrderResultStatus",
+    "VoiceEngineRegistry",
+    "VoiceEngineRelease",
+    "VoiceEngineWheel",
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
@@ -1080,7 +1174,26 @@ __all__ = (
     "WorkerBundle",
     "WorkerClaim",
     "WorkerDetail",
+    "WorkerEngine",
+    "WorkerEngineCauseCode",
+    "WorkerEngineCleanup",
+    "WorkerEngineHistoryEntry",
+    "WorkerEngineHistoryEntryCauseCode",
+    "WorkerEngineHistoryEntryState",
+    "WorkerEngineInventory",
+    "WorkerEngineInventoryRuntimesItem",
+    "WorkerEngineOrderCauseCode",
+    "WorkerEngineOrderIntent",
+    "WorkerEngineOrderStatus",
+    "WorkerEnginesRow",
+    "WorkerEngineState",
+    "WorkerEngineStatus",
+    "WorkerEngineStatusCauseCode",
+    "WorkerEngineStatusState",
+    "WorkerEnginesView",
     "WorkerFailureInput",
+    "WorkerHardware",
+    "WorkerHardwareReport",
     "WorkerHFToken",
     "WorkerHFTokenAck",
     "WorkerHFTokenAckErrorCode",
@@ -1113,6 +1226,7 @@ __all__ = (
     "WorkerModelOrderAckCauseCode",
     "WorkerModelOrderAction",
     "WorkerModelOrderKind",
+    "WorkerModelOrderRuntimeIntent",
     "WorkerModelOrderStatus",
     "WorkerModels",
     "WorkerModelsRow",

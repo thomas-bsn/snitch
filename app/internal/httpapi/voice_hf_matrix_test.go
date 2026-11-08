@@ -26,6 +26,14 @@ func TestAdapterMatrix(t *testing.T) {
 		kinds  []string
 		reason string // substring of the unsupported reason
 	}{
+		{"TitaNet fingerprint precedes generic NeMo", `{"library_name":"nemo","tags":["nemo","titanet","speaker-embedding"]}`,
+			"fingerprint", "nemo-titanet", []string{"fingerprint"}, ""},
+		{"ECAPA fingerprint", `{"library_name":"speechbrain","tags":["ecapa-tdnn","speaker-verification"]}`,
+			"fingerprint", "speechbrain-ecapa", []string{"fingerprint"}, ""},
+		{"unknown SpeechBrain architecture", `{"library_name":"speechbrain","tags":["speaker-embedding"]}`,
+			"fingerprint", "", nil, "no approved adapter"},
+		{"TitaNet remote code refused", `{"library_name":"nemo","tags":["titanet","speaker-embedding","custom_code"]}`,
+			"fingerprint", "", nil, "remote code"},
 		{"known Sortformer", `{"id":"nvidia/diar_streaming_sortformer_4spk-v2.1",` + sha + `,"tags":["nemo","speaker-diarization"],"library_name":"nemo","siblings":[{"rfilename":"model.nemo"}]}`,
 			"diarization", "nemo", []string{"diarization"}, ""},
 		{"pyannote pipeline", `{"id":"acme/p",` + sha + `,"library_name":"pyannote-audio","tags":["pyannote","pyannote-audio","pyannote-audio-pipeline","speaker-diarization"],"siblings":[{"rfilename":"config.yaml"}]}`,

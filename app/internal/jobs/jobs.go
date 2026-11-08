@@ -372,7 +372,7 @@ func (s *Service) Cancel(ctx context.Context, jobID, adminID int64) error {
 // ready in worker_voice_models, the state the Worker reported after a synthetic inference (ADR 0022, ADR 0038); a job with a requested model
 // (benchmark) is governed by requestedModelClaimGuard instead of the active model;
 // what the pulse declares and what lies on the volume never open it. A model being removed is not ready.
-const localVoiceModelReadyGuard = `(
+var localVoiceModelReadyGuard = `(
 		      j.step NOT LIKE 'voice.%'
 		      OR j.requested_model_id IS NOT NULL
 		      OR (j.step NOT LIKE 'voice.diarization.%' AND j.step NOT LIKE 'voice.fingerprint.%' AND j.step NOT LIKE 'voice.separation.%')
@@ -380,13 +380,16 @@ const localVoiceModelReadyGuard = `(
 		      OR (j.step LIKE 'voice.diarization.%' AND EXISTS (
 		          SELECT 1 FROM worker_voice_models wvm JOIN voice_model_catalog m ON m.id=wvm.model_id
 		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false
-		            AND m.kind='diarization' AND m.repo=COALESCE(pin.config->>'model',$5::text)))
+		            AND m.kind='diarization' AND m.repo=COALESCE(pin.config->>'model',$5::text)
+		            AND ` + RuntimeReadyClause("wvm", "m") + `))
 		      OR (j.step LIKE 'voice.fingerprint.%' AND EXISTS (
-		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
-		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='fingerprint'))
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id JOIN voice_model_catalog m ON m.id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='fingerprint'
+		            AND ` + RuntimeReadyClause("wvm", "m") + `))
 		      OR (j.step LIKE 'voice.separation.%' AND EXISTS (
-		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id
-		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='separation'))
+		          SELECT 1 FROM worker_voice_models wvm JOIN voice_active_model am ON am.model_id=wvm.model_id JOIN voice_model_catalog m ON m.id=wvm.model_id
+		          WHERE wvm.worker_id=$4::text AND wvm.state='ready' AND wvm.removal_requested=false AND am.kind='separation'
+		            AND ` + RuntimeReadyClause("wvm", "m") + `))
 		  )`
 
 // audioDiagnosticModelReadyGuard keeps a diagnostic from any Worker whose pinned speech detector is not reported

@@ -15,6 +15,12 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
+
+	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/getkin/kin-openapi/openapi3filter"
+	"github.com/getkin/kin-openapi/routers"
+	"github.com/getkin/kin-openapi/routers/legacy"
 	"testing"
 	"time"
 
@@ -25,14 +31,15 @@ import (
 )
 
 type voiceHarness struct {
-	t      *testing.T
-	api    *Server
-	pool   *pgxpool.Pool
-	ts     *httptest.Server
-	admin  *http.Client
-	csrf   string
-	token  string
-	clipID int64
+	engineContract routers.Router
+	t              *testing.T
+	api            *Server
+	pool           *pgxpool.Pool
+	ts             *httptest.Server
+	admin          *http.Client
+	csrf           string
+	token          string
+	clipID         int64
 	// clipIDs lists every synthetic clip (clipID is the first); see newVoiceHarnessClips.
 	clipIDs []int64
 	// ffmpegLog records the arguments of each synthetic excerpt cut.
@@ -79,6 +86,39 @@ func (h *voiceHarness) do(client *http.Client, req *http.Request, want int) []by
 	data, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != want {
 		h.t.Fatalf("%s %s: got %d want %d: %s", req.Method, req.URL.Path, resp.StatusCode, want, data)
+	}
+	if strings.Contains(req.URL.Path, "/voice-engine") || req.URL.Path == "/api/admin/voice-model-runtime-orders" {
+		if h.engineContract == nil {
+			spec, err := openapi3.NewLoader().LoadFromFile("../../../contracts/openapi.yaml")
+			if err != nil {
+				h.t.Fatal(err)
+			}
+			if err = spec.Validate(context.Background()); err != nil {
+				h.t.Fatal(err)
+			}
+			spec.Servers = nil
+			h.engineContract, err = legacy.NewRouter(spec)
+			if err != nil {
+				h.t.Fatal(err)
+			}
+		}
+		route, params, err := h.engineContract.FindRoute(req)
+		if err != nil {
+			h.t.Fatal(err)
+		}
+		input := &openapi3filter.RequestValidationInput{Request: req, Route: route, PathParams: params, Options: &openapi3filter.Options{AuthenticationFunc: openapi3filter.NoopAuthenticationFunc}}
+		if want < 400 && req.GetBody != nil {
+			req.Body, err = req.GetBody()
+			if err != nil {
+				h.t.Fatal(err)
+			}
+			if err = openapi3filter.ValidateRequest(context.Background(), input); err != nil {
+				h.t.Fatalf("engine request contract %s %s: %v", req.Method, req.URL.Path, err)
+			}
+		}
+		if err = openapi3filter.ValidateResponse(context.Background(), &openapi3filter.ResponseValidationInput{RequestValidationInput: input, Status: resp.StatusCode, Header: resp.Header, Body: io.NopCloser(bytes.NewReader(data))}); err != nil {
+			h.t.Fatalf("engine response contract %s %s: %v", req.Method, req.URL.Path, err)
+		}
 	}
 	return data
 }

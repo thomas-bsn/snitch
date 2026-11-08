@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { components } from "../../../api.gen";
+import { useLoaded } from "../../api/loaded";
+import { ErrorAlert } from "../../components/Alert";
 import { api, errorCode, mutation } from "../../api/client";
 import { buttonClass } from "../../components/buttons";
 import { Modal } from "../../components/Modal";
@@ -47,6 +49,40 @@ export function ApplyToWorkers({
   const [orders, setOrders] = useState<Order[]>();
   const [outcome, setOutcome] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const [chosenRuntime, setChosenRuntime] = useState("");
+  const { state: registry } = useLoaded(
+    useCallback(async () => {
+      try {
+        const result = await api.GET("/api/admin/voice-engines");
+        return result.data
+          ? { ok: true as const, value: result.data.engines }
+          : {
+              ok: false as const,
+              code: errorCode(result.error) ?? "unavailable",
+            };
+      } catch {
+        return { ok: false as const, code: "unavailable" };
+      }
+    }, []),
+  );
+  const model = catalogue.models.find((m) => m.id === modelId);
+  const releases =
+    registry.status === "ready"
+      ? registry.value.filter(
+          (r) =>
+            r.manifest.engine === model?.engine && r.manifest.kind === kind,
+        )
+      : [];
+  const available = releases.filter((r) => !r.revoked);
+  const runtimeDigest = available.some((r) => r.digest === chosenRuntime)
+    ? chosenRuntime
+    : available[0]?.digest;
+  const runtimeRequired =
+    releases.length > 0 ||
+    model?.engine === "nemo-titanet" ||
+    model?.engine === "speechbrain-ecapa";
+  const runtimeBlocked =
+    registry.status !== "ready" || (runtimeRequired && !runtimeDigest);
   const models = catalogue.models.filter(
     (m) => m.kind === kind && m.enabled && m.supported,
   );
@@ -133,6 +169,7 @@ export function ApplyToWorkers({
             },
             body: {
               model_id: modelId,
+              ...(runtimeDigest ? { runtime_digest: runtimeDigest } : {}),
               idempotency_key: order.key,
               ...(order.replaces ? { replaces_model_id: order.replaces } : {}),
             },
@@ -198,6 +235,49 @@ export function ApplyToWorkers({
               ))}
             </select>
           </label>
+          {registry.status === "loading" && (
+            <p role="status">{t("voiceEngines.loading")}</p>
+          )}
+          {registry.status === "failed" && (
+            <ErrorAlert>{error(registry.code)}</ErrorAlert>
+          )}
+          {registry.status === "ready" &&
+            (available.length > 0 ? (
+              <label className="flex flex-col gap-1 text-sm">
+                {t("voiceEngines.select")}
+                <select
+                  value={runtimeDigest}
+                  onChange={(e) => setChosenRuntime(e.target.value)}
+                  className="h-11 rounded-md border border-line-strong bg-surface px-2 md:h-9"
+                >
+                  {available.map((r) => (
+                    <option key={r.digest} value={r.digest}>
+                      {r.manifest.engine} · {r.manifest.version} · CUDA{" "}
+                      {r.manifest.cuda}
+                    </option>
+                  ))}
+                </select>
+                {available
+                  .filter((r) => r.digest === runtimeDigest)
+                  .map((r) => (
+                    <small key={r.digest}>
+                      {t("voiceEngines.constraints", {
+                        disk: Math.ceil(r.manifest.disk_bytes / 1024 ** 2),
+                        vram: Math.ceil(r.manifest.vram_bytes / 1024 ** 2),
+                        license: r.manifest.license,
+                      })}
+                    </small>
+                  ))}
+              </label>
+            ) : (
+              <p>
+                {t(
+                  runtimeRequired
+                    ? "voiceEngines.unavailable"
+                    : "voiceEngines.bundled",
+                )}
+              </p>
+            ))}
           <fieldset className="flex flex-col gap-1">
             <legend className="mb-1 text-sm">
               {t("voiceModels.byWorker.applyWorkers")}
@@ -236,6 +316,7 @@ export function ApplyToWorkers({
             <button
               type="button"
               disabled={
+                runtimeBlocked ||
                 !eligible.some((w) => ticked.includes(w.worker_id)) ||
                 !models.some((m) => m.id === modelId)
               }
@@ -261,6 +342,24 @@ export function ApplyToWorkers({
           <h4 className="font-medium">
             {t("voiceModels.byWorker.applyPreview", { count: orders.length })}
           </h4>
+          {runtimeDigest && (
+            <p>
+              {t("voiceModels.byWorker.applyEnginePlan", {
+                version:
+                  available.find((r) => r.digest === runtimeDigest)?.manifest
+                    .version ?? "",
+                disk: Math.ceil(
+                  (available.find((r) => r.digest === runtimeDigest)?.manifest
+                    .disk_bytes ?? 0) /
+                    1024 ** 2,
+                ),
+                weights: Math.ceil(
+                  (models.find((m) => m.id === modelId)?.size_bytes ?? 0) /
+                    1024 ** 2,
+                ),
+              })}
+            </p>
+          )}
           <ul className="flex flex-col divide-y divide-line rounded-lg border border-line">
             {orders.map((o) => {
               const result = outcome[o.worker.worker_id];

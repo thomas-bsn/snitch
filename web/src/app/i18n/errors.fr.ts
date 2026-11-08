@@ -4,6 +4,51 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  engine_trust_unconfigured:
+    "L’opérateur n’a pas configuré les clés de signature des moteurs.",
+  engine_release_untrusted:
+    "La signature ou le manifeste de cette version n’est pas approuvé.",
+  engine_version_exists:
+    "Cette version du moteur existe déjà et ne peut pas être modifiée.",
+  invalid_engine_digest: "Identifiant de version du moteur invalide.",
+  engine_not_found: "Cette version du moteur n’existe pas.",
+  engine_release_unavailable:
+    "Cette version du moteur est indisponible ou révoquée.",
+  engine_not_installed:
+    "Importez une version approuvée avant d’installer ce modèle.",
+  invalid_engine_order: "Cet ordre d’engine n’est pas valide.",
+  invalid_engine_status: "Ce rapport d’état d’engine n’est pas valide.",
+  invalid_engine_inventory: "Cet inventaire d’engines n’est pas valide.",
+  engine_order_in_progress:
+    "Un ordre pour cet engine est déjà en cours sur ce Worker.",
+  engine_in_use:
+    "Un modèle de ce Worker utilise encore cette version du moteur : elle ne peut pas être retirée.",
+  engine_already_installed:
+    "Cette version de l’engine est déjà installée sur ce Worker.",
+  runtime_order_in_progress:
+    "Un ordre est déjà en cours pour ce modèle sur ce Worker.",
+  engine_release_mismatch:
+    "Cette version ne correspond pas à l’engine de ce modèle.",
+  engine_already_bound: "Ce modèle utilise déjà cette version du runtime.",
+  invalid_runtime_order: "Cet ordre de mise à jour n’est pas valide.",
+  invalid_worker_hardware: "Ce rapport matériel de Worker n’est pas valide.",
+  platform_incompatible:
+    "Cet engine ne prend pas en charge la version de Python ou la plateforme de ce Worker.",
+  cuda_incompatible:
+    "Cet engine exige une version de CUDA absente de ce Worker. Un runtime CPU est une release approuvée distincte.",
+  insufficient_ram:
+    "Ce Worker n’a pas assez de mémoire vive (RAM) pour cet engine.",
+  insufficient_vram:
+    "Ce Worker n’a pas assez de mémoire vidéo (VRAM) pour cet engine.",
+  insufficient_disk:
+    "Ce Worker n’a pas assez de disque libre, ordres en cours compris.",
+  engine_not_failed:
+    "Cette installation d’engine n’est pas en échec : elle ne peut être ni relancée ni nettoyée.",
+  engine_order_not_cancellable:
+    "Cette installation d’engine est déjà terminée : elle ne peut plus être annulée.",
+  engine_order_not_found:
+    "Aucune installation de cette version n’est enregistrée sur ce Worker.",
+
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_required:
     "Un clip à plusieurs pistes audio est transcrit par une analyse, pas par une tâche isolée.",

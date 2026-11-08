@@ -91,7 +91,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; DELETE FROM transcription_settings; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE clip_metadata_settings SET country='',timezone=''; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; DELETE FROM transcription_settings; DELETE FROM worker_hardware; DELETE FROM worker_model_runtime_events; DELETE FROM worker_model_runtime_bindings; DELETE FROM worker_engine_events; DELETE FROM worker_engine_inventory; DELETE FROM worker_engine_orders; DELETE FROM voice_engine_registry; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE clip_metadata_settings SET country='',timezone=''; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -410,6 +410,54 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice model candidate", func(t *testing.T) {
 		reset(t)
 		testVoiceModelCandidate(t, pool)
+	})
+	t.Run("voice engine registry", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineRegistry(t, pool)
+	})
+	t.Run("voice engine orders", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineOrders(t, pool)
+	})
+	t.Run("worker engine groups", func(t *testing.T) {
+		reset(t)
+		testWorkerEngineGroups(t, pool)
+	})
+	t.Run("voice model runtime update", func(t *testing.T) {
+		reset(t)
+		testVoiceModelRuntimeUpdate(t, pool)
+	})
+	t.Run("voice engine resources", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineResources(t, pool)
+	})
+	t.Run("voice engine recovery", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineRecovery(t, pool)
+	})
+	t.Run("voice model engine dependency", func(t *testing.T) {
+		reset(t)
+		testVoiceModelEngineDependency(t, pool)
+	})
+	t.Run("voice engine dispatch", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineDispatch(t, pool)
+	})
+	t.Run("voice engine uninstall", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineUninstall(t, pool)
+	})
+	t.Run("voice engine cancel uninstall", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineCancelUninstall(t, pool)
+	})
+	t.Run("voice engine runtime uninstall", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineRuntimeUninstall(t, pool)
+	})
+	t.Run("voice engine constraints", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineConstraints(t, pool)
 	})
 	t.Run("voice model order creation", func(t *testing.T) {
 		reset(t)
@@ -1194,6 +1242,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", failedPath+"/history", nil, "", 200)
 		call(client, "POST", failedPath+"/retry", nil, me.CSRF, 200)
 		call(client, "DELETE", failedPath, nil, me.CSRF, 204)
+		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": "Synthetic contract group"}, me.CSRF, 204)
+		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": ""}, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		// A revoked Worker leaves the list only once its machine confirmed the revocation.
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
@@ -1299,6 +1349,11 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(user, "GET", "/api/auth/me", nil, "", 200), &playerSession)
 		call(user, "GET", restartPath, nil, "", 403)
 		call(user, "POST", restartPath, restartInput, playerSession.CSRF, 403)
+		groupPath := "/api/admin/workers/wk_missing_synthetic/engine-group"
+		groupInput := map[string]string{"group_name": "Synthetic contract group"}
+		call(anon, "PUT", groupPath, groupInput, "", 401)
+		call(user, "PUT", groupPath, groupInput, playerSession.CSRF, 403)
+		call(client, "PUT", groupPath, groupInput, me.CSRF, 404)
 		for _, action := range []struct{ method, suffix string }{
 			{"POST", "/password"}, {"DELETE", "/sessions"}, {"DELETE", "/discord"},
 		} {
@@ -1403,7 +1458,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/clips/{id}/audio-selection") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/updater" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || path == "/api/library/explorer/properties" || path == "/api/library/folder-logo" || path == "/api/library/folder-logo/history" {
+				if strings.Contains(path, "/voice-engine") || path == "/api/admin/voice-model-runtime-orders" || strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/clips/{id}/audio-selection") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/updater" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || path == "/api/library/explorer/properties" || path == "/api/library/folder-logo" || path == "/api/library/folder-logo/history" {
 					continue // These contract operations are covered by their focused integration suites, including explorer properties, custom folder logos and audio selection.
 				}
 				if !seen[method+" "+path] {
@@ -1490,18 +1545,7 @@ func TestFoundation(t *testing.T) {
 		testWorkerReachabilityReporting(t, pool)
 	})
 	if os.Getenv("SNITCH_E2E") == "1" {
-		suites := []string{
-			"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
-			"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
-			"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
-			"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
-			"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
-			"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
-			"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
-			"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",
-			"library-explorer.spec.ts",
-			"import-server.spec.ts",
-		}
+		suites := foundationBrowserSuites()
 		if os.Getenv("SNITCH_E2E_UI_COMPARE") == "1" {
 			suites = []string{"ui-compare.spec.ts"}
 		}

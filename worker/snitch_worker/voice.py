@@ -258,7 +258,11 @@ def default_providers() -> dict[str, Any]:
         from snitch_worker.voice_nemo import NemoProvider  # light: no ML import
         from snitch_worker.voice_pyannote import PyannoteProvider
 
-        _default_providers = {"fake": _FakeProvider(), "pyannote": PyannoteProvider(), "nemo": NemoProvider()}
+        from snitch_worker.voice_runtime import RuntimeProvider
+        from snitch_worker.engine_bridge import SpeakerProvider
+        _default_providers = {"fake": _FakeProvider(), "pyannote": RuntimeProvider(PyannoteProvider()), "nemo": RuntimeProvider(NemoProvider()),
+                              "nemo-titanet": RuntimeProvider(SpeakerProvider("nemo-titanet")),
+                              "speechbrain-ecapa": RuntimeProvider(SpeakerProvider("speechbrain-ecapa"))}
     return _default_providers
 
 
@@ -267,7 +271,10 @@ def ensure_provider_ready(voice: dict[str, Any], providers: Mapping[str, Any] | 
     config = {**(voice.get("config") or {})}
     if voice.get("fingerprint_model") is not None:
         config["fingerprint_model"] = voice["fingerprint_model"]
-    provider = (providers or default_providers()).get(config.get("provider"))
+    name = config.get("provider")
+    if step and FINGERPRINT_STEP.fullmatch(step) and config.get("fingerprint_model") and name != "fake":
+        name = config["fingerprint_model"].get("engine", name)
+    provider = (providers or default_providers()).get(name)
     if provider is None:
         raise VoiceProviderUnavailable("unknown_provider")
     check = "ensure_ready"
@@ -295,7 +302,10 @@ def process_voice_step(
         raise ValueError("unsupported voice step")
     cancellation.check()
     ensure_provider_ready(voice, providers, step=step)
-    provider = (providers or default_providers())[config["provider"]]
+    name = config["provider"]
+    if fingerprint_match and config.get("fingerprint_model") and name != "fake":
+        name = config["fingerprint_model"].get("engine", name)
+    provider = (providers or default_providers())[name]
     if requires_audio(config) and not audio_path:
         raise VoiceProviderUnavailable("audio_missing")
     cancellation.check()  # last point before the provider's opaque call

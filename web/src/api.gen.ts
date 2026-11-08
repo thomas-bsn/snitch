@@ -3654,6 +3654,279 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-engines": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Registre de versions immuables approuvées, visible aux administrateurs. Aucune installation implicite. */
+    get: operations["listVoiceEngines"];
+    put?: never;
+    /** @description Super-administrateur : approuve un manifeste signé Ed25519 par une clé de confiance configurée sur le serveur. Aucun téléchargement. */
+    post: operations["importVoiceEngine"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/{digest}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Super-administrateur : révoque une version et annule ses ordres non encore acquittés. Ne retire aucun runtime installé. */
+    delete: operations["revokeVoiceEngine"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engine-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est livré au Worker qu'une fois les références libérées, sans interrompre aucun job. */
+    post: operations["createVoiceEngineOrders"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/workers": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : pour chaque Worker, les versions d'engine commandées ou présentes avec leur état réel, la progression, la cause et l'historique (rapports tardifs ignorés inclus). */
+    get: operations["listEnginesByWorker"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-engine-orders/{id}/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker accuse réception d'un ordre d'engine après ses contrôles, ou le refuse avec la cause invalid_order. Rejouer l'accusé est sans effet. */
+    post: operations["ackWorkerEngineOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-engines/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker rapporte l'état réel d'une version d'engine en réponse à un ordre. Un rapport tardif (génération plus ancienne, ordre annulé ou terminé, étape déjà dépassée) est ignoré et journalisé sans reculer l'état. */
+    post: operations["postWorkerEngineStatus"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-engines/inventory": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Réconciliation : le Worker liste les runtimes qu'il prouve détenir. Un runtime prêt qui a disparu perd son état prêt. N'ordonne et ne télécharge jamais rien. */
+    post: operations["postWorkerEngineInventory"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-engines/{digest}/retry": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : recommande la même version sur ce Worker, uniquement depuis l'état failed. Nouvelle génération, idempotente sous sa clé ; refusée tant qu'un ordre est ouvert. */
+    post: operations["retryWorkerEngineInstall"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-engines/{digest}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : annule une installation. Un ordre non acquitté est annulé aussitôt (cancelled) ; un ordre en cours est marqué, livré au prochain relevé et confirmé par le Worker à son prochain point sûr (cancelling). Répéter la demande est sans effet. */
+    post: operations["cancelWorkerEngineInstall"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-engines/{digest}/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : demande explicitement au Worker de supprimer les fichiers incomplets d'une installation échouée ou annulée de cette version. Refusée pour une version prête ou un ordre ouvert ; ne supprime ni modèle ni runtime validé. */
+    post: operations["cleanupWorkerEngineInstall"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-engines/cleanup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker confirme qu'il a exécuté un nettoyage demandé (fichiers supprimés ou rien à supprimer). Rejouer la confirmation est sans effet ; une confirmation non demandée est refusée. */
+    post: operations["postWorkerEngineCleanup"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/uninstall-preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : ce qui empêche le retrait d'une version d'engine sur un Worker (modèles liés, jobs engagés, transitions d'empreintes, installation en cours). */
+    get: operations["getEngineUninstallPreview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-model-runtime-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : ordonne la mise à jour du runtime d'un modèle déjà prêt sur un Worker (update), ou le retour à une version déjà installée et approuvée (rollback). Les poids validés sont réutilisés sans téléchargement ; la liaison n'est publiée qu'après une inférence de test réussie, le modèle reste prêt sur l'ancienne liaison entre-temps. Aucun rollback vers une version révoquée. Causes de refus : voice_model_not_ready, runtime_order_in_progress, engine_release_unavailable, engine_release_mismatch, engine_already_bound, engine_not_installed, engine_order_in_progress, idempotency_key_reused, engine_not_found, invalid_runtime_order. */
+    post: operations["createRuntimeOrder"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/bindings": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : pour chaque modèle prêt sur un Worker et fondé sur un engine approuvé, la version liée, la version précédente (retour arrière), l'ordre en cours et l'historique des mises à jour. */
+    get: operations["listRuntimeBindings"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/voice-engines/hardware": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker déclare sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre). Simple observation : n'ordonne et ne télécharge rien. */
+    post: operations["postWorkerHardware"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/engine-group": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** @description Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun téléchargement ni ordre. */
+    put: operations["setWorkerEngineGroup"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5048,6 +5321,10 @@ export interface components {
       models: components["schemas"]["WorkerVoiceModel"][];
       remove: components["schemas"]["WorkerVoiceModel"][];
       orders: components["schemas"]["WorkerModelOrder"][];
+      /** @description Ordres d'installation de runtimes ; un Worker plus ancien ignore cette liste. */
+      engine_orders?: components["schemas"]["EngineOrder"][];
+      /** @description Nettoyages explicitement demandés des fichiers incomplets d'une installation échouée ou annulée ; un Worker plus ancien ignore cette liste. */
+      engine_cleanups?: components["schemas"]["EngineCleanup"][];
     };
     FingerprintTransitionInput: {
       to_model_id: string;
@@ -5093,6 +5370,8 @@ export interface components {
       idempotency_key: string;
       /** @description Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte). */
       replaces_model_id?: string;
+      /** @description Version approuvée exacte du runtime. Sans valeur : dernière version approuvée compatible ; legacy si aucun registre ne couvre cet engine. */
+      runtime_digest?: string;
     };
     WorkerModelOrder: {
       order_id: string;
@@ -5123,6 +5402,12 @@ export interface components {
       hf_token?: string;
       /** Format: date-time */
       created_at: string;
+      runtime?: components["schemas"]["VoiceEngineManifest"];
+      /**
+       * @description install (poids et runtime) ou, pour un modèle déjà prêt, update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés.
+       * @enum {string}
+       */
+      runtime_intent?: "install" | "update" | "rollback";
     };
     VoiceModelRemovalInput: {
       model_id: string;
@@ -6227,7 +6512,7 @@ export interface components {
         repo: string;
         revision: string;
         /** @enum {string} */
-        engine: "pyannote";
+        engine: "pyannote" | "nemo-titanet" | "speechbrain-ecapa";
       };
       pipeline_version: string;
       config: components["schemas"]["VoicePipeline"];
@@ -7185,6 +7470,414 @@ export interface components {
       /** @enum {string} */
       time_base: "clip";
       segments: components["schemas"]["TranscriptManifestSegment"][];
+    };
+    VoiceEngineWheel: {
+      name: string;
+      url: string;
+      sha256: string;
+      /** Format: int64 */
+      size: number;
+    };
+    VoiceEngineManifest: {
+      engine: string;
+      version: string;
+      python: string;
+      platform: string;
+      cuda: string;
+      license: string;
+      kind: string;
+      architecture: string;
+      /** Format: int64 */
+      schema: number;
+      /** Format: int64 */
+      adapter_version: number;
+      /** Format: int64 */
+      disk_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /**
+       * Format: int64
+       * @description Mémoire vive minimale (optionnelle ; absente = aucune contrainte).
+       */
+      ram_bytes?: number;
+      /** @description Capacités déclarées (optionnelles ; absentes = celle du type). La séparation n'est pas une capacité approuvée. */
+      capabilities?: ("diarization" | "fingerprint")[];
+      /** @description Contrat d'entrée déclaré (optionnel). */
+      input_contract?: string;
+      /** @description Contrat de sortie déclaré (optionnel). */
+      output_contract?: string;
+      /** @description Champ historique conservé pour la compatibilité des manifestes. Une exécution CPU exige une release CPU distincte, installée volontairement. */
+      cpu_fallback?: boolean;
+      wheels: components["schemas"]["VoiceEngineWheel"][];
+    };
+    VoiceEngineRelease: {
+      digest: string;
+      manifest: components["schemas"]["VoiceEngineManifest"];
+      revoked: boolean;
+    };
+    VoiceEngineRegistry: {
+      engines: components["schemas"]["VoiceEngineRelease"][];
+    };
+    VoiceEngineImport: {
+      key_id: string;
+      payload: string;
+      signature: string;
+    };
+    VoiceEngineOrderInput: {
+      /** @description Identité signée de la version approuvée (empreinte du registre). */
+      digest: string;
+      /** @enum {string} */
+      intent: "install" | "uninstall";
+      orders: {
+        worker_id: string;
+        idempotency_key: string;
+      }[];
+    };
+    EngineOrder: {
+      order_id: string;
+      worker_id: string;
+      /** @description Identité signée du manifeste approuvé. */
+      digest: string;
+      engine: string;
+      version: string;
+      /** @enum {string} */
+      intent: "install" | "uninstall";
+      /**
+       * Format: int64
+       * @description Par Worker et par engine, strictement croissante : un rapport d'une génération plus ancienne est ignoré.
+       */
+      generation: number;
+      idempotency_key: string;
+      /** @enum {string} */
+      status: "pending" | "acknowledged";
+      runtime: components["schemas"]["VoiceEngineManifest"];
+      /** Format: date-time */
+      created_at: string;
+      /** @description Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme par un rapport failed/cancelled. */
+      cancel_requested?: boolean;
+    };
+    VoiceEngineOrderResult: {
+      worker_id: string;
+      /** @enum {string} */
+      status: "created" | "replayed" | "refused";
+      /** @description Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key) ou de ressources (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk). */
+      cause_code?: string;
+      order?: components["schemas"]["EngineOrder"];
+      blockers?: components["schemas"]["EngineBlockers"];
+    };
+    VoiceEngineOrderResults: {
+      results: components["schemas"]["VoiceEngineOrderResult"][];
+    };
+    WorkerEngineHistoryEntry: {
+      /**
+       * @description uninstall_failed : retrait refusé par le Worker, le runtime reste en place.
+       * @enum {string}
+       */
+      state:
+        | "requested"
+        | "downloading_runtime"
+        | "installing"
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "removing"
+        | "removed"
+        | "uninstall_failed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "disk_full"
+        | "runtime_incompatible"
+        | "hf_network"
+        | "invalid_order"
+        | "runtime_missing"
+        | "cancelled"
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
+      /** Format: int64 */
+      generation: number;
+      /** @description Rapport tardif ignoré et journalisé. */
+      ignored: boolean;
+      reason: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    WorkerEngine: {
+      digest: string;
+      engine: string;
+      version: string;
+      kind: string;
+      /** @enum {string} */
+      state:
+        | "requested"
+        | "downloading_runtime"
+        | "installing"
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "removing"
+        | "removed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "disk_full"
+        | "runtime_incompatible"
+        | "hf_network"
+        | "invalid_order"
+        | "runtime_missing"
+        | "cancelled"
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
+      /** Format: int64 */
+      bytes_received: number;
+      /** Format: int64 */
+      bytes_total: number;
+      order_id: string;
+      /** Format: int64 */
+      generation: number;
+      revoked: boolean;
+      author_name: string;
+      /** Format: date-time */
+      updated_at: string;
+      history: components["schemas"]["WorkerEngineHistoryEntry"][];
+      /** @description Annulation demandée, pas encore confirmée par le Worker. */
+      cancel_requested: boolean;
+      /**
+       * @description Nettoyage explicite des fichiers incomplets : non demandé, demandé ou confirmé.
+       * @enum {string}
+       */
+      cleanup: "" | "requested" | "done";
+      /**
+       * @description Intention du dernier ordre sur cette version.
+       * @enum {string}
+       */
+      order_intent: "" | "install" | "uninstall";
+      /**
+       * @description Résultat du dernier ordre (un retrait refusé laisse le runtime prêt).
+       * @enum {string}
+       */
+      order_status:
+        | ""
+        | "pending"
+        | "acknowledged"
+        | "done"
+        | "failed"
+        | "refused"
+        | "cancelled";
+      /**
+       * @description Cause d'échec du dernier ordre.
+       * @enum {string}
+       */
+      order_cause_code:
+        | ""
+        | "disk_full"
+        | "runtime_incompatible"
+        | "hf_network"
+        | "invalid_order"
+        | "runtime_missing"
+        | "cancelled"
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
+      /** @description Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon. */
+      waiting: components["schemas"]["EngineBlockers"] | null;
+    };
+    WorkerEnginesRow: {
+      worker_id: string;
+      name: string;
+      connected: boolean;
+      hardware?: components["schemas"]["WorkerHardware"];
+      /**
+       * Format: int64
+       * @description Disque déjà réservé par les ordres ouverts du Worker (engines et runtimes de modèles).
+       */
+      disk_reserved_bytes: number;
+      engines: components["schemas"]["WorkerEngine"][];
+      /** @description Groupe administratif nommé ; vide si aucun. Ne crée aucun ordre. */
+      group_name?: string;
+    };
+    WorkerEnginesView: {
+      workers: components["schemas"]["WorkerEnginesRow"][];
+    };
+    WorkerEngineStatus: {
+      order_id: string;
+      digest: string;
+      /** @enum {string} */
+      state:
+        | "downloading_runtime"
+        | "installing"
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "removed";
+      /** @enum {string} */
+      cause_code:
+        | ""
+        | "disk_full"
+        | "runtime_incompatible"
+        | "hf_network"
+        | "invalid_order"
+        | "cancelled"
+        | "runtime_in_use"
+        | "platform_incompatible"
+        | "cuda_incompatible"
+        | "insufficient_ram"
+        | "insufficient_vram";
+      /** Format: int64 */
+      bytes_received?: number;
+      /** Format: int64 */
+      bytes_total?: number;
+      /** @description Identité canonique locale du runtime sur le volume du Worker (obligatoire pour ready) ; distincte de l'identité signée. */
+      local_identity?: string;
+    };
+    WorkerEngineInventory: {
+      runtimes: {
+        engine: string;
+        local_identity: string;
+      }[];
+    };
+    EngineRetryInput: {
+      idempotency_key: string;
+    };
+    EngineRecoveryResult: {
+      /** @enum {string} */
+      status: "cancelled" | "cancelling" | "requested" | "done";
+    };
+    EngineCleanupReport: {
+      order_id: string;
+      digest: string;
+      removed: boolean;
+    };
+    EngineCleanup: {
+      order_id: string;
+      digest: string;
+      runtime: components["schemas"]["VoiceEngineManifest"];
+    };
+    EngineBlockerModel: {
+      model_id: string;
+      label: string;
+      kind: string;
+      state: string;
+      /**
+       * @description bound : le modèle tourne sur cette version (ou une mise à jour vers elle est ouverte) ; previous : version vers laquelle il peut revenir (#352).
+       * @enum {string}
+       */
+      role: "bound" | "previous";
+      /** @description Un job de ce Worker utilise encore le modèle. */
+      busy: boolean;
+      /** @description Le modèle est source ou cible d'une transition d'empreintes ouverte. */
+      in_transition: boolean;
+    };
+    EngineBlockers: {
+      models: components["schemas"]["EngineBlockerModel"][];
+      /** @description Une installation de cette version est encore en cours sur le Worker. */
+      open_order: boolean;
+    };
+    EngineUninstallPreview: {
+      /** @enum {string} */
+      state:
+        | "requested"
+        | "downloading_runtime"
+        | "installing"
+        | "verifying"
+        | "ready"
+        | "failed"
+        | "removing"
+        | "removed";
+      removable: boolean;
+      blockers: components["schemas"]["EngineBlockers"];
+    };
+    RuntimeOrderInput: {
+      worker_id: string;
+      model_id: string;
+      /** @description Identité signée de la version approuvée visée. */
+      digest: string;
+      /** @enum {string} */
+      intent: "update" | "rollback";
+      idempotency_key: string;
+    };
+    RuntimeBindingPending: {
+      order_id: string;
+      /** @enum {string} */
+      intent: "update" | "rollback";
+      digest: string;
+      version: string;
+      /** @enum {string} */
+      status: "pending" | "acknowledged";
+    };
+    RuntimeBindingHistoryEntry: {
+      /** @enum {string} */
+      intent: "update" | "rollback";
+      digest: string;
+      version: string;
+      /** @enum {string} */
+      state: "requested" | "downloading" | "verifying" | "published" | "failed";
+      cause_code: string;
+      /** @description Rapport tardif journalisé sans effet. */
+      ignored: boolean;
+      reason: string;
+      /** Format: date-time */
+      created_at: string;
+    };
+    RuntimeBinding: {
+      worker_id: string;
+      model_id: string;
+      model_label: string;
+      engine: string;
+      kind: string;
+      /** @description Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi). */
+      digest: string;
+      version: string;
+      /** @description La liaison continue de servir avec un avertissement. */
+      revoked: boolean;
+      /** @description Version précédente, cible du retour arrière ; vide si aucune. */
+      previous_digest: string;
+      previous_version: string;
+      /** @description Aucun retour arrière vers une version révoquée. */
+      previous_revoked: boolean;
+      pending?: components["schemas"]["RuntimeBindingPending"];
+      history: components["schemas"]["RuntimeBindingHistoryEntry"][];
+    };
+    RuntimeBindings: {
+      bindings: components["schemas"]["RuntimeBinding"][];
+    };
+    WorkerHardwareReport: {
+      /** @description Version majeure.mineure de Python du Worker. */
+      python: string;
+      /** @description Plateforme, par exemple linux-x86_64. */
+      platform: string;
+      /** @description Version CUDA utilisable ; vide si aucun GPU CUDA n'est utilisable. */
+      cuda: string;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      disk_free_bytes: number;
+      /** @description Configuration du Worker : autorise l'exécution sur le CPU d'une release CUDA dont le contrat l'autorise. */
+      cpu_fallback: boolean;
+    };
+    WorkerHardware: {
+      python: string;
+      platform: string;
+      cuda: string;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      disk_free_bytes: number;
+      cpu_fallback: boolean;
+      /** Format: date-time */
+      reported_at: string;
     };
   };
   responses: never;
@@ -17592,6 +18285,597 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  listVoiceEngines: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEngineRegistry"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  importVoiceEngine: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceEngineImport"];
+      };
+    };
+    responses: {
+      /** @description Résultat */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEngineRelease"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  revokeVoiceEngine: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version révoquée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            revoked: boolean;
+          };
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createVoiceEngineOrders: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceEngineOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Résultat par Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEngineOrderResults"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listEnginesByWorker: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerEnginesView"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerEngineOrder: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerModelOrderAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerEngineStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerEngineStatus"];
+      };
+    };
+    responses: {
+      /** @description Rapport traité ou ignoré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerEngineInventory: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerEngineInventory"];
+      };
+    };
+    responses: {
+      /** @description Inventaire réconcilié */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  retryWorkerEngineInstall: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EngineRetryInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineOrder"];
+        };
+      };
+      /** @description Nouvel ordre */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineOrder"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelWorkerEngineInstall: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineRecoveryResult"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cleanupWorkerEngineInstall: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat (requested ou done) */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineRecoveryResult"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerEngineCleanup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EngineCleanupReport"];
+      };
+    };
+    responses: {
+      /** @description Confirmation enregistrée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getEngineUninstallPreview: {
+    parameters: {
+      query: {
+        worker_id: string;
+        digest: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineUninstallPreview"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 404 engine_not_installed) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createRuntimeOrder: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RuntimeOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Ordre déjà enregistré sous cette clé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Ordre enregistré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerModelOrder"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listRuntimeBindings: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RuntimeBindings"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerHardware: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerHardwareReport"];
+      };
+    };
+    responses: {
+      /** @description Matériel enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  setWorkerEngineGroup: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          group_name: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Affectation enregistrée */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
     };
   };

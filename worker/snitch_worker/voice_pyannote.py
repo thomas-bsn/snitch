@@ -420,6 +420,7 @@ class PyannoteProvider:
             logging.WARNING,
             "voice_fingerprint_failed",
             error_code=reason,
+            refusal=getattr(exc, "detail", None),
             exc_class=type(cause).__name__,
             error_summary=error_summary(cause),
             stage=trace["stage"],

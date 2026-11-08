@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   History,
   ChevronRight,
+  Cpu,
   Fingerprint,
   LibraryBig,
   Server,
@@ -19,6 +20,8 @@ import { ApplyToWorkers } from "./ApplyToWorkers";
 import { OrderHistory, OrderHistoryContent } from "./OrderHistory";
 import { VoiceCatalogue, VoiceReferenceDetails } from "./VoiceCatalogue";
 import { VoiceModelAdd } from "./VoiceModelAdd";
+import { VoiceEngines } from "./VoiceEngines";
+import { WorkerEngines } from "./WorkerEngines";
 import { VoiceHuggingFace } from "./VoiceHuggingFace";
 import { VoiceHeader } from "./VoiceHeader";
 import { VoiceAdvanced } from "./VoiceAdvanced";
@@ -52,7 +55,10 @@ export function VoiceWorkspace({
   const canEdit = user !== null && isSuperAdministrator(user);
   const [params, setParams] = useSearchParams();
   const view = params.get("view");
-  const tab = view === "catalogue" || view === "history" ? view : "workers";
+  const tab =
+    view === "catalogue" || view === "history" || view === "engines"
+      ? view
+      : "workers";
   const [selected, setSelected] = useState<string[]>([]);
   const [applying, setApplying] = useState<{ modelId?: string }>();
   const [details, setDetails] = useState<string>();
@@ -168,17 +174,17 @@ export function VoiceWorkspace({
         role="tablist"
         aria-label={t("voiceAdmin.title")}
         onKeyDown={(e) => {
-          const keys = ["workers", "catalogue", "history"];
+          const keys = ["workers", "catalogue", "history", "engines"];
           const index = keys.indexOf(tab);
           const next =
             e.key === "ArrowRight"
-              ? (index + 1) % 3
+              ? (index + 1) % keys.length
               : e.key === "ArrowLeft"
-                ? (index + 2) % 3
+                ? (index + keys.length - 1) % keys.length
                 : e.key === "Home"
                   ? 0
                   : e.key === "End"
-                    ? 2
+                    ? keys.length - 1
                     : -1;
           if (next < 0) return;
           e.preventDefault();
@@ -186,34 +192,40 @@ export function VoiceWorkspace({
           document.getElementById(`voice-tab-${keys[next]}`)?.focus();
         }}
       >
-        {(["workers", "catalogue", "history"] as const).map((key) => (
-          <button
-            type="button"
-            key={key}
-            id={`voice-tab-${key}`}
-            role="tab"
-            aria-selected={tab === key}
-            aria-controls={`voice-panel-${key}`}
-            tabIndex={tab === key ? 0 : -1}
-            onClick={() => changeTab(key)}
-          >
-            {key === "workers" ? (
-              <Server size={16} aria-hidden />
-            ) : key === "catalogue" ? (
-              <LibraryBig size={16} aria-hidden />
-            ) : (
-              <History size={16} aria-hidden />
-            )}
-            {t(`voiceWorkspace.${key}`)}
-            <span>
-              {key === "workers"
-                ? workers.length
-                : key === "catalogue"
-                  ? catalogue.models.length
-                  : (orderCount ?? "—")}
-            </span>
-          </button>
-        ))}
+        {(["workers", "catalogue", "history", "engines"] as const).map(
+          (key) => (
+            <button
+              type="button"
+              key={key}
+              id={`voice-tab-${key}`}
+              role="tab"
+              aria-selected={tab === key}
+              aria-controls={`voice-panel-${key}`}
+              tabIndex={tab === key ? 0 : -1}
+              onClick={() => changeTab(key)}
+            >
+              {key === "workers" ? (
+                <Server size={16} aria-hidden />
+              ) : key === "catalogue" ? (
+                <LibraryBig size={16} aria-hidden />
+              ) : key === "engines" ? (
+                <Cpu size={16} aria-hidden />
+              ) : (
+                <History size={16} aria-hidden />
+              )}
+              {t(`voiceWorkspace.${key}`)}
+              {key !== "engines" && (
+                <span>
+                  {key === "workers"
+                    ? workers.length
+                    : key === "catalogue"
+                      ? catalogue.models.length
+                      : (orderCount ?? "—")}
+                </span>
+              )}
+            </button>
+          ),
+        )}
       </div>
       <div className="voice-production">
         <span>
@@ -274,6 +286,8 @@ export function VoiceWorkspace({
             onInspect={setDetails}
             onDeploy={(modelId) => setApplying({ modelId })}
           />
+        ) : tab === "engines" ? (
+          <WorkerEngines />
         ) : null}
         <div hidden={tab !== "history"}>
           <OrderHistoryContent
@@ -350,7 +364,10 @@ export function VoiceWorkspace({
         variant="side"
       >
         {settings === "access" ? (
-          <VoiceHuggingFace />
+          <>
+            <VoiceHuggingFace />
+            <VoiceEngines />
+          </>
         ) : settings === "identification" ? (
           <>
             <VoiceHeader

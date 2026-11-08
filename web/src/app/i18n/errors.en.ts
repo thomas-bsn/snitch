@@ -2,6 +2,49 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  engine_trust_unconfigured:
+    "The operator has not configured trusted engine signing keys.",
+  engine_release_untrusted:
+    "The release signature or manifest is not approved.",
+  engine_version_exists: "This engine version already exists and is immutable.",
+  invalid_engine_digest: "Invalid engine release identifier.",
+  engine_not_found: "This engine release does not exist.",
+  engine_release_unavailable: "This engine release is unavailable or revoked.",
+  engine_not_installed:
+    "Import an approved release before installing this model.",
+  invalid_engine_order: "The engine order is not valid.",
+  invalid_engine_status: "This engine status report is not valid.",
+  invalid_engine_inventory: "This engine inventory report is not valid.",
+  engine_order_in_progress:
+    "An order for this engine is already running on this Worker.",
+  engine_in_use:
+    "A model on this Worker still uses this engine release: it cannot be removed.",
+  engine_already_installed:
+    "This engine release is already installed on this Worker.",
+  runtime_order_in_progress:
+    "An order is already running for this model on this Worker.",
+  engine_release_mismatch:
+    "This release does not match the engine of this model.",
+  engine_already_bound: "This model already uses this runtime version.",
+  invalid_runtime_order: "This update order is not valid.",
+  invalid_worker_hardware: "This Worker hardware report is not valid.",
+  platform_incompatible:
+    "This engine does not support this Worker's Python version or platform.",
+  cuda_incompatible:
+    "This engine needs a CUDA version this Worker does not have. A CPU runtime is a separate approved release.",
+  insufficient_ram:
+    "This Worker does not have enough memory (RAM) for this engine.",
+  insufficient_vram:
+    "This Worker does not have enough video memory (VRAM) for this engine.",
+  insufficient_disk:
+    "This Worker does not have enough free disk, counting the orders already in progress.",
+  engine_not_failed:
+    "This engine installation is not failed, so it cannot be retried or cleaned up.",
+  engine_order_not_cancellable:
+    "This engine installation has already ended and cannot be cancelled.",
+  engine_order_not_found:
+    "No engine installation is recorded for this release on this Worker.",
+
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:
     "A clip with several audio tracks is transcribed by an analysis, not by a single task.",

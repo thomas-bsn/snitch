@@ -12,6 +12,8 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
+  from ..models.engine_cleanup import EngineCleanup
+  from ..models.engine_order import EngineOrder
   from ..models.worker_model_order import WorkerModelOrder
   from ..models.worker_voice_model import WorkerVoiceModel
 
@@ -33,6 +35,10 @@ class WorkerVoiceModels:
             orders (list[WorkerModelOrder]):
             held (list[str] | Unset): Modèles que Snitch connaît comme prêts sur ce Worker : un modèle présent sur son
                 volume et absent de cette liste (installé avant les ordres) est rapporté une fois éprouvé.
+            engine_orders (list[EngineOrder] | Unset): Ordres d'installation de runtimes ; un Worker plus ancien ignore
+                cette liste.
+            engine_cleanups (list[EngineCleanup] | Unset): Nettoyages explicitement demandés des fichiers incomplets d'une
+                installation échouée ou annulée ; un Worker plus ancien ignore cette liste.
      """
 
     worker_id: str
@@ -40,6 +46,8 @@ class WorkerVoiceModels:
     remove: list[WorkerVoiceModel]
     orders: list[WorkerModelOrder]
     held: list[str] | Unset = UNSET
+    engine_orders: list[EngineOrder] | Unset = UNSET
+    engine_cleanups: list[EngineCleanup] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -47,6 +55,8 @@ class WorkerVoiceModels:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.engine_cleanup import EngineCleanup # noqa: PLC0415
+        from ..models.engine_order import EngineOrder # noqa: PLC0415
         from ..models.worker_model_order import WorkerModelOrder # noqa: PLC0415
         from ..models.worker_voice_model import WorkerVoiceModel # noqa: PLC0415
         worker_id = self.worker_id
@@ -78,6 +88,24 @@ class WorkerVoiceModels:
 
 
 
+        engine_orders: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.engine_orders, Unset):
+            engine_orders = []
+            for engine_orders_item_data in self.engine_orders:
+                engine_orders_item = engine_orders_item_data.to_dict()
+                engine_orders.append(engine_orders_item)
+
+
+
+        engine_cleanups: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.engine_cleanups, Unset):
+            engine_cleanups = []
+            for engine_cleanups_item_data in self.engine_cleanups:
+                engine_cleanups_item = engine_cleanups_item_data.to_dict()
+                engine_cleanups.append(engine_cleanups_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -89,6 +117,10 @@ class WorkerVoiceModels:
         })
         if held is not UNSET:
             field_dict["held"] = held
+        if engine_orders is not UNSET:
+            field_dict["engine_orders"] = engine_orders
+        if engine_cleanups is not UNSET:
+            field_dict["engine_cleanups"] = engine_cleanups
 
         return field_dict
 
@@ -96,6 +128,8 @@ class WorkerVoiceModels:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.engine_cleanup import EngineCleanup # noqa: PLC0415
+        from ..models.engine_order import EngineOrder # noqa: PLC0415
         from ..models.worker_model_order import WorkerModelOrder # noqa: PLC0415
         from ..models.worker_voice_model import WorkerVoiceModel # noqa: PLC0415
         d = dict(src_dict)
@@ -134,12 +168,38 @@ class WorkerVoiceModels:
         held = cast(list[str], d.pop("held", UNSET))
 
 
+        _engine_orders = d.pop("engine_orders", UNSET)
+        engine_orders: list[EngineOrder] | Unset = UNSET
+        if _engine_orders is not UNSET:
+            engine_orders = []
+            for engine_orders_item_data in _engine_orders:
+                engine_orders_item = EngineOrder.from_dict(engine_orders_item_data)
+
+
+
+                engine_orders.append(engine_orders_item)
+
+
+        _engine_cleanups = d.pop("engine_cleanups", UNSET)
+        engine_cleanups: list[EngineCleanup] | Unset = UNSET
+        if _engine_cleanups is not UNSET:
+            engine_cleanups = []
+            for engine_cleanups_item_data in _engine_cleanups:
+                engine_cleanups_item = EngineCleanup.from_dict(engine_cleanups_item_data)
+
+
+
+                engine_cleanups.append(engine_cleanups_item)
+
+
         worker_voice_models = cls(
             worker_id=worker_id,
             models=models,
             remove=remove,
             orders=orders,
             held=held,
+            engine_orders=engine_orders,
+            engine_cleanups=engine_cleanups,
         )
 
 

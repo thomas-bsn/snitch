@@ -6036,34 +6036,159 @@
         "operationId": "getFolderLogo",
         "description": "Logo d'un dossier : l'image personnalisée choisie par un administrateur quand elle existe, sinon la jaquette du jeu dont le dossier porte le nom, cherchée une fois dans la boutique Steam puis conservée par Snitch (la navigation n'appelle jamais l'extérieur). Seul un nom égal au titre d'un jeu est retenu ; un nom sans jeu, un nom trop court ou la fonction désactivée (FOLDER_LOGOS=off) répondent 404 et le dossier garde son icône. Session requise.",
         "parameters": [
-          {"in": "query", "name": "name", "required": true, "schema": {"type": "string", "maxLength": 255}, "description": "Nom du dossier"},
-          {"in": "query", "name": "path", "schema": {"type": "string", "maxLength": 1024}, "description": "Dossier relatif à la Racine vidéo : cherche d'abord son logo personnalisé"},
-          {"in": "query", "name": "version", "schema": {"type": "integer", "minimum": 1}, "description": "Une image précise de l'historique (ignorée sans path)"}
+          {
+            "in": "query",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 255
+            },
+            "description": "Nom du dossier"
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "Dossier relatif à la Racine vidéo : cherche d'abord son logo personnalisé"
+          },
+          {
+            "in": "query",
+            "name": "version",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Une image précise de l'historique (ignorée sans path)"
+          }
         ],
         "responses": {
-          "200": {"description": "Logo PNG ou JPEG", "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}, "image/jpeg": {"schema": {"type": "string", "format": "binary"}}}},
-          "default": {"description": "Aucun logo pour ce dossier (404), dossier privé refusé (403) ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Logo PNG ou JPEG",
+            "content": {
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Aucun logo pour ce dossier (404), dossier privé refusé (403) ou erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       },
       "put": {
         "operationId": "putFolderLogo",
         "summary": "Choisir un logo personnalisé pour un dossier (administrateur ; Super-administrateur pour un Dossier privé)",
         "description": "Le corps est l'image elle-même (PNG ou JPEG, 2 Mo maximum). La nouvelle image devient le logo courant et entre dans l'historique de quatre versions.",
-        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string", "maxLength": 1024}, "description": "Dossier relatif à la Racine vidéo"}],
-        "requestBody": {"required": true, "content": {"image/png": {"schema": {"type": "string", "format": "binary"}}, "image/jpeg": {"schema": {"type": "string", "format": "binary"}}}},
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "Dossier relatif à la Racine vidéo"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "Nouveau logo courant et historique", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
-          "413": {"description": "folder_logo_too_large", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
-          "default": {"description": "Image invalide, droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Nouveau logo courant et historique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderLogoState"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "folder_logo_too_large",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Image invalide, droits insuffisants ou erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       },
       "delete": {
         "operationId": "clearFolderLogo",
         "summary": "Revenir au logo automatique d'un dossier sans effacer son historique",
-        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string", "maxLength": 1024}}],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          }
+        ],
         "responses": {
-          "204": {"description": "Logo automatique rétabli"},
-          "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "204": {
+            "description": "Logo automatique rétabli"
+          },
+          "default": {
+            "description": "Droits insuffisants ou erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6071,20 +6196,84 @@
       "get": {
         "operationId": "getFolderLogoHistory",
         "summary": "Logo personnalisé d'un dossier et ses trois versions précédentes (administrateur)",
-        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string", "maxLength": 1024}}],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 1024
+            }
+          }
+        ],
         "responses": {
-          "200": {"description": "Logo courant et historique", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
-          "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Logo courant et historique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderLogoState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Droits insuffisants ou erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       },
       "post": {
         "operationId": "restoreFolderLogo",
         "summary": "Sélectionner une version conservée du logo d'un dossier sans dupliquer l'historique (administrateur)",
-        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoRestore"}}}},
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FolderLogoRestore"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "Logo sélectionné et historique sans entrée dupliquée", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/FolderLogoState"}}}},
-          "404": {"description": "folder_logo_version_not_found", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}},
-          "default": {"description": "Droits insuffisants ou erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Logo sélectionné et historique sans entrée dupliquée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FolderLogoState"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "folder_logo_version_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Droits insuffisants ou erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -6316,10 +6505,38 @@
         "operationId": "getExplorerProperties",
         "summary": "Propriétés agrégées d'un dossier ou d'une vidéo de l'explorateur (ADR 0032)",
         "description": "Un dossier agrège tout son sous-arbre : taille sur disque, nombre de vidéos et de sous-dossiers, durée et propriétaires des seuls clips lisibles, date du plus ancien ajout. Une vidéo donne sa durée, son propriétaire et ses dates ; clip:<id> répond pour un clip sans fichier dans la Racine. Les Dossiers privés et les clips non lisibles ne sont jamais comptés pour qui ne peut pas les ouvrir.",
-        "parameters": [{"in": "query", "name": "path", "required": true, "schema": {"type": "string"}, "description": "Chemin relatif, vide pour la Racine, ou clip:<id>"}],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Chemin relatif, vide pour la Racine, ou clip:<id>"
+          }
+        ],
         "responses": {
-          "200": {"description": "Propriétés", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ExplorerProperties"}}}},
-          "default": {"description": "Erreur", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Error"}}}}
+          "200": {
+            "description": "Propriétés",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExplorerProperties"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -15980,6 +16197,844 @@
           }
         }
       }
+    },
+    "/api/admin/voice-engines": {
+      "get": {
+        "operationId": "listVoiceEngines",
+        "description": "Registre de versions immuables approuvées, visible aux administrateurs. Aucune installation implicite.",
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEngineRegistry"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "importVoiceEngine",
+        "description": "Super-administrateur : approuve un manifeste signé Ed25519 par une clé de confiance configurée sur le serveur. Aucun téléchargement.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceEngineImport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEngineRelease"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/{digest}": {
+      "delete": {
+        "operationId": "revokeVoiceEngine",
+        "description": "Super-administrateur : révoque une version et annule ses ordres non encore acquittés. Ne retire aucun runtime installé.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Version révoquée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "revoked"
+                  ],
+                  "properties": {
+                    "revoked": {
+                      "type": "boolean"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engine-orders": {
+      "post": {
+        "operationId": "createVoiceEngineOrders",
+        "description": "Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est livré au Worker qu'une fois les références libérées, sans interrompre aucun job.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceEngineOrderInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Résultat par Worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEngineOrderResults"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/workers": {
+      "get": {
+        "operationId": "listEnginesByWorker",
+        "description": "Administrateur : pour chaque Worker, les versions d'engine commandées ou présentes avec leur état réel, la progression, la cause et l'historique (rapports tardifs ignorés inclus).",
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerEnginesView"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engine-orders/{id}/ack": {
+      "post": {
+        "operationId": "ackWorkerEngineOrder",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker accuse réception d'un ordre d'engine après ses contrôles, ou le refuse avec la cause invalid_order. Rejouer l'accusé est sans effet.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerModelOrderAck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accusé enregistré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/status": {
+      "post": {
+        "operationId": "postWorkerEngineStatus",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker rapporte l'état réel d'une version d'engine en réponse à un ordre. Un rapport tardif (génération plus ancienne, ordre annulé ou terminé, étape déjà dépassée) est ignoré et journalisé sans reculer l'état.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerEngineStatus"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Rapport traité ou ignoré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/inventory": {
+      "post": {
+        "operationId": "postWorkerEngineInventory",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Réconciliation : le Worker liste les runtimes qu'il prouve détenir. Un runtime prêt qui a disparu perd son état prêt. N'ordonne et ne télécharge jamais rien.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerEngineInventory"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Inventaire réconcilié"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/voice-engines/{digest}/retry": {
+      "post": {
+        "operationId": "retryWorkerEngineInstall",
+        "description": "Administrateur : recommande la même version sur ce Worker, uniquement depuis l'état failed. Nouvelle génération, idempotente sous sa clé ; refusée tant qu'un ordre est ouvert.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineRetryInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordre déjà enregistré sous cette clé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineOrder"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Nouvel ordre",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineOrder"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/voice-engines/{digest}/cancel": {
+      "post": {
+        "operationId": "cancelWorkerEngineInstall",
+        "description": "Administrateur : annule une installation. Un ordre non acquitté est annulé aussitôt (cancelled) ; un ordre en cours est marqué, livré au prochain relevé et confirmé par le Worker à son prochain point sûr (cancelling). Répéter la demande est sans effet.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineRecoveryResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/voice-engines/{digest}/cleanup": {
+      "post": {
+        "operationId": "cleanupWorkerEngineInstall",
+        "description": "Administrateur : demande explicitement au Worker de supprimer les fichiers incomplets d'une installation échouée ou annulée de cette version. Refusée pour une version prête ou un ordre ouvert ; ne supprime ni modèle ni runtime validé.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat (requested ou done)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineRecoveryResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_order_not_found, 409 engine_not_failed, engine_order_not_cancellable, engine_order_in_progress)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/cleanup": {
+      "post": {
+        "operationId": "postWorkerEngineCleanup",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker confirme qu'il a exécuté un nettoyage demandé (fichiers supprimés ou rien à supprimer). Rejouer la confirmation est sans effet ; une confirmation non demandée est refusée.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EngineCleanupReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Confirmation enregistrée"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/uninstall-preview": {
+      "get": {
+        "operationId": "getEngineUninstallPreview",
+        "description": "Administrateur : ce qui empêche le retrait d'une version d'engine sur un Worker (modèles liés, jobs engagés, transitions d'empreintes, installation en cours).",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "worker_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineUninstallPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_not_installed)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-model-runtime-orders": {
+      "post": {
+        "operationId": "createRuntimeOrder",
+        "description": "Administrateur : ordonne la mise à jour du runtime d'un modèle déjà prêt sur un Worker (update), ou le retour à une version déjà installée et approuvée (rollback). Les poids validés sont réutilisés sans téléchargement ; la liaison n'est publiée qu'après une inférence de test réussie, le modèle reste prêt sur l'ancienne liaison entre-temps. Aucun rollback vers une version révoquée. Causes de refus : voice_model_not_ready, runtime_order_in_progress, engine_release_unavailable, engine_release_mismatch, engine_already_bound, engine_not_installed, engine_order_in_progress, idempotency_key_reused, engine_not_found, invalid_runtime_order.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeOrderInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordre déjà enregistré sous cette clé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerModelOrder"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Ordre enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerModelOrder"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/bindings": {
+      "get": {
+        "operationId": "listRuntimeBindings",
+        "description": "Administrateur : pour chaque modèle prêt sur un Worker et fondé sur un engine approuvé, la version liée, la version précédente (retour arrière), l'ordre en cours et l'historique des mises à jour.",
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeBindings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/voice-engines/hardware": {
+      "post": {
+        "operationId": "postWorkerHardware",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker déclare sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre). Simple observation : n'ordonne et ne télécharge rien.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerHardwareReport"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Matériel enregistré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/engine-group": {
+      "put": {
+        "operationId": "setWorkerEngineGroup",
+        "description": "Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun téléchargement ni ordre.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "group_name"
+                ],
+                "properties": {
+                  "group_name": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Affectation enregistrée"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -16870,57 +17925,161 @@
       },
       "FolderLogoVersion": {
         "type": "object",
-        "required": ["version", "created_at"],
+        "required": [
+          "version",
+          "created_at"
+        ],
         "properties": {
-          "version": {"type": "integer", "minimum": 1},
-          "created_at": {"type": "string", "format": "date-time"}
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
         }
       },
       "FolderLogoState": {
         "type": "object",
-        "required": ["path", "custom", "versions"],
+        "required": [
+          "path",
+          "custom",
+          "versions"
+        ],
         "properties": {
-          "path": {"type": "string"},
-          "custom": {"type": "boolean", "description": "Faux : le logo automatique est affiché, les versions restent dans l'historique"},
-          "active_version": {"type": "integer", "minimum": 1, "description": "Version actuellement sélectionnée lorsque custom vaut true"},
-          "versions": {"type": "array", "items": {"$ref": "#/components/schemas/FolderLogoVersion"}, "description": "La plus récente d'abord, quatre au maximum"}
+          "path": {
+            "type": "string"
+          },
+          "custom": {
+            "type": "boolean",
+            "description": "Faux : le logo automatique est affiché, les versions restent dans l'historique"
+          },
+          "active_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version actuellement sélectionnée lorsque custom vaut true"
+          },
+          "versions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/FolderLogoVersion"
+            },
+            "description": "La plus récente d'abord, quatre au maximum"
+          }
         }
       },
       "FolderLogoRestore": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["path", "version"],
+        "required": [
+          "path",
+          "version"
+        ],
         "properties": {
-          "path": {"type": "string", "minLength": 1},
-          "version": {"type": "integer", "minimum": 1}
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "ExplorerOwner": {
         "type": "object",
-        "required": ["id", "name", "videos"],
+        "required": [
+          "id",
+          "name",
+          "videos"
+        ],
         "properties": {
-          "id": {"type": "integer", "format": "int64"},
-          "name": {"type": "string"},
-          "videos": {"type": "integer", "minimum": 1}
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "videos": {
+            "type": "integer",
+            "minimum": 1
+          }
         }
       },
       "ExplorerProperties": {
         "type": "object",
-        "required": ["path", "name", "directory", "size_bytes", "video_count", "folder_count", "indexed_count", "owners"],
+        "required": [
+          "path",
+          "name",
+          "directory",
+          "size_bytes",
+          "video_count",
+          "folder_count",
+          "indexed_count",
+          "owners"
+        ],
         "properties": {
-          "path": {"type": "string"},
-          "name": {"type": "string"},
-          "directory": {"type": "boolean"},
-          "size_bytes": {"type": "integer", "format": "int64"},
-          "video_count": {"type": "integer"},
-          "folder_count": {"type": "integer"},
-          "indexed_count": {"type": "integer"},
-          "duration_seconds": {"type": "number", "nullable": true, "description": "Somme des durées des clips lisibles, nulle sans clip indexé"},
-          "added_at": {"type": "string", "format": "date-time", "nullable": true, "description": "Dossier : date du plus ancien clip indexé lisible"},
-          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
-          "game": {"type": "string"},
-          "state": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]},
-          "owners": {"type": "array", "items": {"$ref": "#/components/schemas/ExplorerOwner"}, "description": "Propriétaires des clips lisibles, du plus de vidéos au moins"}
+          "path": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "video_count": {
+            "type": "integer"
+          },
+          "folder_count": {
+            "type": "integer"
+          },
+          "indexed_count": {
+            "type": "integer"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true,
+            "description": "Somme des durées des clips lisibles, nulle sans clip indexé"
+          },
+          "added_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Dossier : date du plus ancien clip indexé lisible"
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "game": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_indexed",
+              "in_progress",
+              "not_analyzed",
+              "transcribed",
+              "analyzed",
+              "failed"
+            ]
+          },
+          "owners": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ExplorerOwner"
+            },
+            "description": "Propriétaires des clips lisibles, du plus de vidéos au moins"
+          }
         }
       },
       "ExplorerEntry": {
@@ -16943,25 +18102,85 @@
           "voices_pending"
         ],
         "properties": {
-          "name": {"type": "string"},
-          "path": {"type": "string", "description": "Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine"},
-          "folder": {"type": "string"},
-          "directory": {"type": "boolean"},
-          "size_bytes": {"type": "integer", "format": "int64"},
-          "private": {"type": "boolean"},
-          "locked": {"type": "boolean"},
-          "state": {"type": "string", "enum": ["not_indexed", "in_progress", "not_analyzed", "transcribed", "analyzed", "failed"]},
-          "clip_id": {"type": "integer", "format": "int64", "nullable": true},
-          "owner_id": {"type": "integer", "format": "int64", "nullable": true},
-          "owner": {"type": "string"},
-          "visibility": {"type": "string"},
-          "duration_seconds": {"type": "number", "nullable": true},
-          "added_at": {"type": "string", "format": "date-time", "nullable": true},
-          "recorded_at": {"type": "string", "format": "date-time", "nullable": true},
-          "game": {"type": "string"},
-          "voices_pending": {"type": "integer"},
-          "match_count": {"type": "integer", "minimum": 1, "description": "Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant"},
-          "logo_version": {"type": "integer", "description": "Version du logo personnalisé actif d'un dossier, absente sans logo personnalisé"}
+          "name": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string",
+            "description": "Chemin relatif à la Racine vidéo, ou clip:<id> pour un clip sans fichier dans la racine"
+          },
+          "folder": {
+            "type": "string"
+          },
+          "directory": {
+            "type": "boolean"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "private": {
+            "type": "boolean"
+          },
+          "locked": {
+            "type": "boolean"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_indexed",
+              "in_progress",
+              "not_analyzed",
+              "transcribed",
+              "analyzed",
+              "failed"
+            ]
+          },
+          "clip_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "owner_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "owner": {
+            "type": "string"
+          },
+          "visibility": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "nullable": true
+          },
+          "added_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "recorded_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "game": {
+            "type": "string"
+          },
+          "voices_pending": {
+            "type": "integer"
+          },
+          "match_count": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Dossiers d'une vue filtrée : vidéos correspondantes qu'il contient, selon les droits de l'appelant"
+          },
+          "logo_version": {
+            "type": "integer",
+            "description": "Version du logo personnalisé actif d'un dossier, absente sans logo personnalisé"
+          }
         }
       },
       "ExplorerListing": {
@@ -20236,6 +21455,20 @@
             "items": {
               "$ref": "#/components/schemas/WorkerModelOrder"
             }
+          },
+          "engine_orders": {
+            "type": "array",
+            "description": "Ordres d'installation de runtimes ; un Worker plus ancien ignore cette liste.",
+            "items": {
+              "$ref": "#/components/schemas/EngineOrder"
+            }
+          },
+          "engine_cleanups": {
+            "type": "array",
+            "description": "Nettoyages explicitement demandés des fichiers incomplets d'une installation échouée ou annulée ; un Worker plus ancien ignore cette liste.",
+            "items": {
+              "$ref": "#/components/schemas/EngineCleanup"
+            }
           }
         }
       },
@@ -20423,6 +21656,11 @@
             "type": "string",
             "maxLength": 64,
             "description": "Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte)."
+          },
+          "runtime_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Version approuvée exacte du runtime. Sans valeur : dernière version approuvée compatible ; legacy si aucun registre ne couvre cet engine."
           }
         }
       },
@@ -20503,6 +21741,18 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/VoiceEngineManifest"
+          },
+          "runtime_intent": {
+            "type": "string",
+            "enum": [
+              "install",
+              "update",
+              "rollback"
+            ],
+            "description": "install (poids et runtime) ou, pour un modèle déjà prêt, update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés."
           }
         }
       },
@@ -23903,7 +25153,9 @@
               "engine": {
                 "type": "string",
                 "enum": [
-                  "pyannote"
+                  "pyannote",
+                  "nemo-titanet",
+                  "speechbrain-ecapa"
                 ]
               }
             }
@@ -27124,6 +28376,1149 @@
             "items": {
               "$ref": "#/components/schemas/TranscriptManifestSegment"
             }
+          }
+        }
+      },
+      "VoiceEngineWheel": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "url",
+          "sha256",
+          "size"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "VoiceEngineManifest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "engine",
+          "version",
+          "python",
+          "platform",
+          "cuda",
+          "license",
+          "kind",
+          "architecture",
+          "schema",
+          "adapter_version",
+          "disk_bytes",
+          "vram_bytes",
+          "wheels"
+        ],
+        "properties": {
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "python": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cuda": {
+            "type": "string"
+          },
+          "license": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "architecture": {
+            "type": "string"
+          },
+          "schema": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "adapter_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disk_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Mémoire vive minimale (optionnelle ; absente = aucune contrainte)."
+          },
+          "capabilities": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "diarization",
+                "fingerprint"
+              ]
+            },
+            "description": "Capacités déclarées (optionnelles ; absentes = celle du type). La séparation n'est pas une capacité approuvée."
+          },
+          "input_contract": {
+            "type": "string",
+            "description": "Contrat d'entrée déclaré (optionnel)."
+          },
+          "output_contract": {
+            "type": "string",
+            "description": "Contrat de sortie déclaré (optionnel)."
+          },
+          "cpu_fallback": {
+            "type": "boolean",
+            "description": "Champ historique conservé pour la compatibilité des manifestes. Une exécution CPU exige une release CPU distincte, installée volontairement."
+          },
+          "wheels": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEngineWheel"
+            }
+          }
+        }
+      },
+      "VoiceEngineRelease": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "digest",
+          "manifest",
+          "revoked"
+        ],
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/VoiceEngineManifest"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "VoiceEngineRegistry": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "engines"
+        ],
+        "properties": {
+          "engines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEngineRelease"
+            }
+          }
+        }
+      },
+      "VoiceEngineImport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "key_id",
+          "payload",
+          "signature"
+        ],
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "payload": {
+            "type": "string"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "VoiceEngineOrderInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "digest",
+          "intent",
+          "orders"
+        ],
+        "properties": {
+          "digest": {
+            "type": "string",
+            "description": "Identité signée de la version approuvée (empreinte du registre)."
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "install",
+              "uninstall"
+            ]
+          },
+          "orders": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "worker_id",
+                "idempotency_key"
+              ],
+              "properties": {
+                "worker_id": {
+                  "type": "string"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 100
+                }
+              }
+            }
+          }
+        }
+      },
+      "EngineOrder": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "worker_id",
+          "digest",
+          "engine",
+          "version",
+          "intent",
+          "generation",
+          "idempotency_key",
+          "status",
+          "runtime",
+          "created_at"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "worker_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Identité signée du manifeste approuvé."
+          },
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "install",
+              "uninstall"
+            ]
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Par Worker et par engine, strictement croissante : un rapport d'une génération plus ancienne est ignoré."
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "acknowledged"
+            ]
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/VoiceEngineManifest"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancel_requested": {
+            "type": "boolean",
+            "description": "Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme par un rapport failed/cancelled."
+          }
+        }
+      },
+      "VoiceEngineOrderResult": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "status"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "created",
+              "replayed",
+              "refused"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "description": "Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key) ou de ressources (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk)."
+          },
+          "order": {
+            "$ref": "#/components/schemas/EngineOrder"
+          },
+          "blockers": {
+            "$ref": "#/components/schemas/EngineBlockers"
+          }
+        }
+      },
+      "VoiceEngineOrderResults": {
+        "type": "object",
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEngineOrderResult"
+            }
+          }
+        }
+      },
+      "WorkerEngineHistoryEntry": {
+        "type": "object",
+        "required": [
+          "state",
+          "cause_code",
+          "generation",
+          "ignored",
+          "reason",
+          "created_at"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed",
+              "removing",
+              "removed",
+              "uninstall_failed"
+            ],
+            "description": "uninstall_failed : retrait refusé par le Worker, le runtime reste en place."
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "runtime_missing",
+              "cancelled",
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
+            ]
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "Rapport tardif ignoré et journalisé."
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "WorkerEngine": {
+        "type": "object",
+        "required": [
+          "digest",
+          "engine",
+          "version",
+          "kind",
+          "state",
+          "cause_code",
+          "bytes_received",
+          "bytes_total",
+          "order_id",
+          "generation",
+          "revoked",
+          "author_name",
+          "updated_at",
+          "history",
+          "cancel_requested",
+          "cleanup",
+          "order_intent",
+          "order_status",
+          "order_cause_code",
+          "waiting"
+        ],
+        "properties": {
+          "digest": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed",
+              "removing",
+              "removed"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "runtime_missing",
+              "cancelled",
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
+            ]
+          },
+          "bytes_received": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "bytes_total": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "order_id": {
+            "type": "string"
+          },
+          "generation": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revoked": {
+            "type": "boolean"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerEngineHistoryEntry"
+            }
+          },
+          "cancel_requested": {
+            "type": "boolean",
+            "description": "Annulation demandée, pas encore confirmée par le Worker."
+          },
+          "cleanup": {
+            "type": "string",
+            "enum": [
+              "",
+              "requested",
+              "done"
+            ],
+            "description": "Nettoyage explicite des fichiers incomplets : non demandé, demandé ou confirmé."
+          },
+          "order_intent": {
+            "type": "string",
+            "enum": [
+              "",
+              "install",
+              "uninstall"
+            ],
+            "description": "Intention du dernier ordre sur cette version."
+          },
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "",
+              "pending",
+              "acknowledged",
+              "done",
+              "failed",
+              "refused",
+              "cancelled"
+            ],
+            "description": "Résultat du dernier ordre (un retrait refusé laisse le runtime prêt)."
+          },
+          "order_cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "runtime_missing",
+              "cancelled",
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
+            ],
+            "description": "Cause d'échec du dernier ordre."
+          },
+          "waiting": {
+            "description": "Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EngineBlockers"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "WorkerEnginesRow": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "name",
+          "connected",
+          "disk_reserved_bytes",
+          "engines"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "connected": {
+            "type": "boolean"
+          },
+          "hardware": {
+            "$ref": "#/components/schemas/WorkerHardware"
+          },
+          "disk_reserved_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Disque déjà réservé par les ordres ouverts du Worker (engines et runtimes de modèles)."
+          },
+          "engines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerEngine"
+            }
+          },
+          "group_name": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Groupe administratif nommé ; vide si aucun. Ne crée aucun ordre."
+          }
+        }
+      },
+      "WorkerEnginesView": {
+        "type": "object",
+        "required": [
+          "workers"
+        ],
+        "properties": {
+          "workers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerEnginesRow"
+            }
+          }
+        }
+      },
+      "WorkerEngineStatus": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "digest",
+          "state",
+          "cause_code"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed",
+              "removed"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "cancelled",
+              "runtime_in_use",
+              "platform_incompatible",
+              "cuda_incompatible",
+              "insufficient_ram",
+              "insufficient_vram"
+            ]
+          },
+          "bytes_received": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "bytes_total": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "local_identity": {
+            "type": "string",
+            "description": "Identité canonique locale du runtime sur le volume du Worker (obligatoire pour ready) ; distincte de l'identité signée."
+          }
+        }
+      },
+      "WorkerEngineInventory": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "runtimes"
+        ],
+        "properties": {
+          "runtimes": {
+            "type": "array",
+            "maxItems": 512,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "engine",
+                "local_identity"
+              ],
+              "properties": {
+                "engine": {
+                  "type": "string"
+                },
+                "local_identity": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "EngineRetryInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idempotency_key"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 100
+          }
+        }
+      },
+      "EngineRecoveryResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "cancelled",
+              "cancelling",
+              "requested",
+              "done"
+            ]
+          }
+        }
+      },
+      "EngineCleanupReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "digest",
+          "removed"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "removed": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EngineCleanup": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "digest",
+          "runtime"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string"
+          },
+          "runtime": {
+            "$ref": "#/components/schemas/VoiceEngineManifest"
+          }
+        }
+      },
+      "EngineBlockerModel": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "label",
+          "kind",
+          "state",
+          "role",
+          "busy",
+          "in_transition"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "bound",
+              "previous"
+            ],
+            "description": "bound : le modèle tourne sur cette version (ou une mise à jour vers elle est ouverte) ; previous : version vers laquelle il peut revenir (#352)."
+          },
+          "busy": {
+            "type": "boolean",
+            "description": "Un job de ce Worker utilise encore le modèle."
+          },
+          "in_transition": {
+            "type": "boolean",
+            "description": "Le modèle est source ou cible d'une transition d'empreintes ouverte."
+          }
+        }
+      },
+      "EngineBlockers": {
+        "type": "object",
+        "required": [
+          "models",
+          "open_order"
+        ],
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EngineBlockerModel"
+            }
+          },
+          "open_order": {
+            "type": "boolean",
+            "description": "Une installation de cette version est encore en cours sur le Worker."
+          }
+        }
+      },
+      "EngineUninstallPreview": {
+        "type": "object",
+        "required": [
+          "state",
+          "removable",
+          "blockers"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed",
+              "removing",
+              "removed"
+            ]
+          },
+          "removable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "$ref": "#/components/schemas/EngineBlockers"
+          }
+        }
+      },
+      "RuntimeOrderInput": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "model_id",
+          "digest",
+          "intent",
+          "idempotency_key"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Identité signée de la version approuvée visée."
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "update",
+              "rollback"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        }
+      },
+      "RuntimeBindingPending": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "intent",
+          "digest",
+          "version",
+          "status"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "update",
+              "rollback"
+            ]
+          },
+          "digest": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "acknowledged"
+            ]
+          }
+        }
+      },
+      "RuntimeBindingHistoryEntry": {
+        "type": "object",
+        "required": [
+          "intent",
+          "digest",
+          "version",
+          "state",
+          "cause_code",
+          "ignored",
+          "reason",
+          "created_at"
+        ],
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "update",
+              "rollback"
+            ]
+          },
+          "digest": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading",
+              "verifying",
+              "published",
+              "failed"
+            ]
+          },
+          "cause_code": {
+            "type": "string"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "Rapport tardif journalisé sans effet."
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RuntimeBinding": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "model_id",
+          "model_label",
+          "engine",
+          "kind",
+          "digest",
+          "version",
+          "revoked",
+          "previous_digest",
+          "previous_version",
+          "previous_revoked",
+          "history"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "model_label": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi)."
+          },
+          "version": {
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean",
+            "description": "La liaison continue de servir avec un avertissement."
+          },
+          "previous_digest": {
+            "type": "string",
+            "description": "Version précédente, cible du retour arrière ; vide si aucune."
+          },
+          "previous_version": {
+            "type": "string"
+          },
+          "previous_revoked": {
+            "type": "boolean",
+            "description": "Aucun retour arrière vers une version révoquée."
+          },
+          "pending": {
+            "$ref": "#/components/schemas/RuntimeBindingPending"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeBindingHistoryEntry"
+            }
+          }
+        }
+      },
+      "RuntimeBindings": {
+        "type": "object",
+        "required": [
+          "bindings"
+        ],
+        "properties": {
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeBinding"
+            }
+          }
+        }
+      },
+      "WorkerHardwareReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "python",
+          "platform",
+          "cuda",
+          "ram_bytes",
+          "vram_bytes",
+          "disk_free_bytes",
+          "cpu_fallback"
+        ],
+        "properties": {
+          "python": {
+            "type": "string",
+            "description": "Version majeure.mineure de Python du Worker."
+          },
+          "platform": {
+            "type": "string",
+            "description": "Plateforme, par exemple linux-x86_64."
+          },
+          "cuda": {
+            "type": "string",
+            "description": "Version CUDA utilisable ; vide si aucun GPU CUDA n'est utilisable."
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "disk_free_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "cpu_fallback": {
+            "type": "boolean",
+            "description": "Configuration du Worker : autorise l'exécution sur le CPU d'une release CUDA dont le contrat l'autorise."
+          }
+        }
+      },
+      "WorkerHardware": {
+        "type": "object",
+        "required": [
+          "python",
+          "platform",
+          "cuda",
+          "ram_bytes",
+          "vram_bytes",
+          "disk_free_bytes",
+          "cpu_fallback",
+          "reported_at"
+        ],
+        "properties": {
+          "python": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cuda": {
+            "type": "string"
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disk_free_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cpu_fallback": {
+            "type": "boolean"
+          },
+          "reported_at": {
+            "type": "string",
+            "format": "date-time"
           }
         }
       }
