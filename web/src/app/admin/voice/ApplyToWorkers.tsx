@@ -76,7 +76,8 @@ export function ApplyToWorkers({
       (cell.replaces_model_id || cell.model_id) !== modelId &&
       (kind === "diarization" ||
         (transition?.to_model_id === modelId &&
-          transition.from_model_id === (cell.replaces_model_id || cell.model_id)))
+          transition.from_model_id ===
+            (cell.replaces_model_id || cell.model_id)))
     )
       return cell.replaces_model_id || cell.model_id;
     return undefined;

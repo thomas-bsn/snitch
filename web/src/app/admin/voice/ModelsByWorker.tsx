@@ -508,8 +508,7 @@ export function ModelsByWorker({
                                       cell.replacement_phase ===
                                         "preparing"))) && (
                                   <>
-                                    {replacementOptions(cell).length >
-                                      0 && (
+                                    {replacementOptions(cell).length > 0 && (
                                       <button
                                         type="button"
                                         className="voice-btn quiet"
@@ -519,8 +518,7 @@ export function ModelsByWorker({
                                           (cell.state === "ready" ||
                                             cell.replaces_model_id)
                                             ? onTransition(
-                                                replacementOptions(cell)[0]
-                                                  .id,
+                                                replacementOptions(cell)[0].id,
                                               )
                                             : open({
                                                 type: "install",
@@ -531,7 +529,9 @@ export function ModelsByWorker({
                                                   (cell.state === "ready"
                                                     ? cell.model_id
                                                     : undefined),
-                                                modelId: replacementOptions(cell)[0].id,
+                                                modelId:
+                                                  replacementOptions(cell)[0]
+                                                    .id,
                                               })
                                         }
                                       >
