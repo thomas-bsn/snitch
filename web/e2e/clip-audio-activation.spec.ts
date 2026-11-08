@@ -272,6 +272,10 @@ test("réanalyse réelle : pertes montrées, confirmation au départ, publicatio
   const dialog = page.getByRole("dialog", {
     name: /^(Launch analysis|Lancer l’analyse)$/,
   });
+  // This journey deliberately replaces the transcript; missing mode preserves corrections.
+  await dialog
+    .getByLabel("Everything again, even where a valid result exists")
+    .check();
   // The real tracks, with their real indices and the diagnoses of the previous plan.
   const tracks = dialog.getByRole("list", { name: "Tracks to analyze" });
   await expect(tracks.getByRole("listitem")).toHaveCount(2);
