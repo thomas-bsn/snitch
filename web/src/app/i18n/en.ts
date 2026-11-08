@@ -2236,6 +2236,8 @@ export const en = {
       analysisPending:
         "{count} analyses requested, {pending} videos are still being indexed: try again in a moment.",
       analysisPartial: "{count} analyses requested, {failed} refused.",
+      analysisAborted:
+        "Analysis stopped: the server refused the request ({code}). {count} analyses were requested before the stop; run it again once fixed, nothing is duplicated.",
     },
     deletedOwner: "Deleted user",
     count: "{count} clips",

@@ -2280,6 +2280,8 @@ export const fr: Messages = {
       analysisPending:
         "{count} analyses demandées, {pending} vidéos sont encore en cours d'indexation : réessayez dans un instant.",
       analysisPartial: "{count} analyses demandées, {failed} refusées.",
+      analysisAborted:
+        "Analyse interrompue : le serveur a refusé la demande ({code}). {count} analyses demandées avant l’arrêt ; relancez après correction, sans doublon.",
     },
     deletedOwner: "Utilisateur supprimé",
     count: "{count} clips",

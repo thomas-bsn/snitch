@@ -417,33 +417,43 @@ export function LibraryPage() {
     }
     // Still indexing after the delay: not a failure, the next click resumes them.
     const pending = waiting.size;
-    for (const id of clips) {
-      const { error: failure } = await api.POST(
+    // A clip can be reached twice (listed and just indexed): ask once per clip.
+    let queued = 0;
+    let aborted: string | undefined;
+    for (const id of new Set(clips)) {
+      // Complete analysis of what is missing: valid results and human work are reused, never replaced.
+      const { error: failure, response } = await api.POST(
         "/api/admin/clips/{id}/analysis",
         {
-          params: {
-            path: { id },
-            header: mutation(csrf),
-          } as never,
+          params: { path: { id }, header: mutation(csrf) },
+          body: { scope: "full", mode: "missing" },
         },
       );
-      if (failure) failed += 1;
+      if (!failure) {
+        queued += 1;
+      } else if (response.status === 409) {
+        // Already running (or its scope is busy): the clip is being analysed, nothing to redo.
+        queued += 1;
+      } else if ([400, 401, 403, 415].includes(response.status)) {
+        // The request itself is invalid or refused: every other clip would fail the same way.
+        aborted = errorCode(failure) ?? String(response.status);
+        break;
+      } else {
+        failed += 1;
+      }
     }
     setAnalysisBusy(false);
     setAnalysisNotice(
-      pending > 0
-        ? t("library.explorer.analysisPending", {
-            count: clips.length - failed,
-            pending,
+      aborted
+        ? t("library.explorer.analysisAborted", {
+            count: queued,
+            code: aborted,
           })
-        : failed === 0
-          ? t("library.explorer.analysisQueued", {
-              count: clips.length,
-            })
-          : t("library.explorer.analysisPartial", {
-              count: clips.length - failed,
-              failed,
-            }),
+        : pending > 0
+          ? t("library.explorer.analysisPending", { count: queued, pending })
+          : failed === 0
+            ? t("library.explorer.analysisQueued", { count: queued })
+            : t("library.explorer.analysisPartial", { count: queued, failed }),
     );
     setAnalysisTarget(null);
   }

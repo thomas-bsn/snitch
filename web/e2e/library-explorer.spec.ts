@@ -348,11 +348,87 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     await expect(dialog).toContainText(
       "Videos not indexed yet (1) are indexed first, then analysed.",
     );
+    const started = page.waitForResponse(
+      (r) =>
+        /\/api\/admin\/clips\/\d+\/analysis$/.test(r.url()) &&
+        r.request().method() === "POST",
+    );
     await dialog.getByRole("button", { name: "Analyse 1 videos" }).click();
+    // #361: the start carries a JSON body asking the complete analysis of what is missing, never a 415.
+    const response = await started;
+    const request = response.request();
+    expect(request.headers()["content-type"]).toContain("application/json");
+    expect(request.postDataJSON()).toEqual({ scope: "full", mode: "missing" });
+    expect([200, 201]).toContain(response.status());
     await expect(dialog).toBeHidden({ timeout: 30000 });
+    await expect(page.getByText("1 analyses requested.")).toBeVisible();
     // The video of the folder now has a clip: it is no longer unindexed.
     await page.goto("/library?folder=league%2F2026%2Fsub");
     await expect(row(page, "inner.mp4")).not.toContainText("Not indexed");
+  });
+
+  test("un refus de contrat arrête le lot avec un message utile au lieu d'une rafale d'erreurs (#361)", async ({
+    page,
+  }) => {
+    let calls = 0;
+    await page.route(/\/api\/admin\/clips\/\d+\/analysis$/, async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      calls += 1;
+      return route.fulfill({
+        status: 415,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "json_required" }),
+      });
+    });
+    await page.goto("/library?folder=league");
+    await row(page, "2026")
+      .getByRole("button", { name: "Actions for folder 2026" })
+      .click();
+    await page
+      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+      .click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: /^Analyse \d+ videos/ })
+      .click();
+    await expect(
+      page.getByText(/Analysis stopped: .*\(json_required\)/),
+    ).toBeVisible();
+    expect(calls).toBe(1);
+  });
+
+  test("le clic droit sur un dossier lance l'analyse complète sans doublon ni 415 (#361)", async ({
+    page,
+  }) => {
+    const posts: { status: number; body: unknown; type: string }[] = [];
+    page.on("response", (r) => {
+      if (
+        r.request().method() === "POST" &&
+        /\/api\/admin\/clips\/\d+\/analysis$/.test(r.url())
+      )
+        posts.push({
+          status: r.status(),
+          body: r.request().postDataJSON(),
+          type: r.request().headers()["content-type"] ?? "",
+        });
+    });
+    await page.goto("/library?folder=league");
+    await row(page, "2026").click({ button: "right" });
+    await page
+      .getByRole("menuitem", { name: "Analyse the unanalysed videos" })
+      .click();
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: /^Analyse \d+ videos/ })
+      .click();
+    await expect(page.getByRole("alertdialog")).toBeHidden({ timeout: 30000 });
+    await expect(page.getByText(/^\d+ analyses requested\.$/)).toBeVisible();
+    expect(posts.length).toBeGreaterThan(0);
+    for (const post of posts) {
+      expect(post.type).toContain("application/json");
+      expect(post.body).toEqual({ scope: "full", mode: "missing" });
+      expect([200, 201, 409]).toContain(post.status);
+    }
   });
 
   test("un dossier nommé d'après un jeu montre sa jaquette, les autres gardent l'icône", async ({
@@ -470,7 +546,8 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     });
     await expect(videoDialog).toBeVisible();
     await expect(videoDialog).toContainText("Video");
-    await expect(videoDialog).toContainText("Not analysed");
+    // The state depends on the analyses the tests before asked for (#361): only its presence matters here.
+    await expect(videoDialog).toContainText("State");
     await expect(videoDialog).toContainText("Size");
   });
 

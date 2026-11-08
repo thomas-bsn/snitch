@@ -81,6 +81,25 @@ func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPost, "/api/admin/clips/99999/analysis", map[string]any{}, http.StatusNotFound)
 	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{"scope": "everything"}, http.StatusBadRequest)
 
+	// The strict JSON contract (#361): a start without a JSON content type, or without a body, is refused
+	// and leaves no run; only a valid JSON body starts the complete analysis of what is missing.
+	for name, contentType := range map[string]string{"no content type": "", "wrong content type": "text/plain"} {
+		req, _ := http.NewRequest(http.MethodPost, h.ts.URL+h.analysisPath(), bytes.NewReader(mustJSON(t, map[string]any{"scope": "full", "mode": "missing"})))
+		req.Header.Set("Origin", h.ts.URL)
+		req.Header.Set("X-CSRF-Token", h.csrf)
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+		h.do(h.admin, req, http.StatusUnsupportedMediaType)
+		if h.analysis() != nil {
+			t.Fatalf("%s: a refused start must not leave a run", name)
+		}
+	}
+	emptyBody, _ := http.NewRequest(http.MethodPost, h.ts.URL+h.analysisPath(), nil)
+	emptyBody.Header.Set("Origin", h.ts.URL)
+	emptyBody.Header.Set("X-CSRF-Token", h.csrf)
+	h.do(h.admin, emptyBody, http.StatusUnsupportedMediaType)
+
 	// Voice detection never transcribes: without a valid transcription it explains the prerequisite.
 	h.adminCall(http.MethodPost, h.analysisPath(), map[string]any{"scope": "voice"}, http.StatusConflict)
 	if h.analysis() != nil {
