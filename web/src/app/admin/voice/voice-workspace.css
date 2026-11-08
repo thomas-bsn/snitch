@@ -1041,6 +1041,10 @@
   color: var(--warn-fg);
   font-size: 12px;
 }
+.engine-blockers {
+  margin: 4px 0 8px;
+  padding-left: 18px;
+}
 .engine-note,
 .engine-empty {
   color: var(--mute);

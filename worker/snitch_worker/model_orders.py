@@ -36,7 +36,7 @@ _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote", "nemo-titanet", "speechbrain-ecapa"}, "vad": {"silero-jit"}}
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
-ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network"}
+ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "runtime_in_use"}
 # The inventory is observed on every pull but only sent when it changed or this long after the last send.
 INVENTORY_REFRESH_SECONDS = 60.0
 STATE_NAME = "orders.json"
@@ -184,7 +184,7 @@ class OrderExecutor:
         runtime, engine = order.get("runtime"), order.get("engine")
         generation = order.get("generation")
         if not (
-            order.get("intent") == "install"
+            order.get("intent") in ("install", "uninstall")
             and isinstance(engine, str)
             and isinstance(order.get("digest"), str)
             and bool(_DIGEST.fullmatch(order["digest"]))
@@ -259,11 +259,16 @@ class OrderExecutor:
             if stage in steps:
                 self._post_engine(http, order_id, digest, steps[stage])
 
-        log.emit(logging.INFO, "engine_order_started", order_id=order_id, engine=order["engine"], version=order["version"])
+        log.emit(logging.INFO, "engine_order_started", order_id=order_id, engine=order["engine"], version=order["version"], intent=order["intent"])
         identity, cause, final = "", "", "ready"
         try:
-            self._install_runtime(runtime, self._env, report, True)
-            identity = engine_runtime.identity(runtime)
+            if order["intent"] == "uninstall":
+                # Only the explicitly designated release goes, and never one a model still points to.
+                final = "removed"
+                engine_runtime.uninstall(runtime, self._env)
+            else:
+                self._install_runtime(runtime, self._env, report, True)
+                identity = engine_runtime.identity(runtime)
         except engine_runtime.RuntimeFailed as error:
             final, cause = "failed", error.cause if error.cause in ENGINE_CAUSES else "runtime_incompatible"
         except Exception:  # noqa: BLE001 - an order that cannot run must end as failed, not stay open

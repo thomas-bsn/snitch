@@ -21,6 +21,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_engine_inventory: "Cet inventaire d’engines n’est pas valide.",
   engine_order_in_progress:
     "Un ordre pour cet engine est déjà en cours sur ce Worker.",
+  engine_in_use:
+    "Un modèle de ce Worker utilise encore cette version du moteur : elle ne peut pas être retirée.",
   engine_already_installed:
     "Cette version de l’engine est déjà installée sur ce Worker.",
 

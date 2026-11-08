@@ -5,6 +5,7 @@ class WorkerEngineHistoryEntryCauseCode(StrEnum):
     HF_NETWORK = "hf_network"
     INVALID_ORDER = "invalid_order"
     RUNTIME_INCOMPATIBLE = "runtime_incompatible"
+    RUNTIME_IN_USE = "runtime_in_use"
     RUNTIME_MISSING = "runtime_missing"
     VALUE_0 = ""
 

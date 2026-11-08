@@ -16348,7 +16348,7 @@
     "/api/admin/voice-engine-orders": {
       "post": {
         "operationId": "createVoiceEngineOrders",
-        "description": "Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable).",
+        "description": "Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est livré au Worker qu'une fois les références libérées, sans interrompre aucun job.",
         "parameters": [
           {
             "in": "header",
@@ -16538,6 +16538,52 @@
           },
           "default": {
             "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/uninstall-preview": {
+      "get": {
+        "operationId": "getEngineUninstallPreview",
+        "description": "Administrateur : ce qui empêche le retrait d'une version d'engine sur un Worker (modèles liés, jobs engagés, transitions d'empreintes, installation en cours).",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "worker_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "digest",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineUninstallPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission, 404 engine_not_installed)",
             "content": {
               "application/json": {
                 "schema": {
@@ -28039,7 +28085,8 @@
           "intent": {
             "type": "string",
             "enum": [
-              "install"
+              "install",
+              "uninstall"
             ]
           },
           "orders": {
@@ -28102,7 +28149,8 @@
           "intent": {
             "type": "string",
             "enum": [
-              "install"
+              "install",
+              "uninstall"
             ]
           },
           "generation": {
@@ -28149,10 +28197,13 @@
           },
           "cause_code": {
             "type": "string",
-            "description": "Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, idempotency_key_reused, worker_not_found, invalid_idempotency_key)."
+            "description": "Cause stable d'un refus (engine_not_found, engine_release_unavailable, engine_order_in_progress, engine_already_installed, engine_not_installed, engine_in_use, idempotency_key_reused, worker_not_found, invalid_idempotency_key)."
           },
           "order": {
             "$ref": "#/components/schemas/EngineOrder"
+          },
+          "blockers": {
+            "$ref": "#/components/schemas/EngineBlockers"
           }
         }
       },
@@ -28189,8 +28240,12 @@
               "installing",
               "verifying",
               "ready",
-              "failed"
-            ]
+              "failed",
+              "removing",
+              "removed",
+              "uninstall_failed"
+            ],
+            "description": "uninstall_failed : retrait refusé par le Worker, le runtime reste en place."
           },
           "cause_code": {
             "type": "string",
@@ -28200,7 +28255,8 @@
               "runtime_incompatible",
               "hf_network",
               "invalid_order",
-              "runtime_missing"
+              "runtime_missing",
+              "runtime_in_use"
             ]
           },
           "generation": {
@@ -28236,7 +28292,11 @@
           "revoked",
           "author_name",
           "updated_at",
-          "history"
+          "history",
+          "order_intent",
+          "order_status",
+          "order_cause_code",
+          "waiting"
         ],
         "properties": {
           "digest": {
@@ -28259,7 +28319,9 @@
               "installing",
               "verifying",
               "ready",
-              "failed"
+              "failed",
+              "removing",
+              "removed"
             ]
           },
           "cause_code": {
@@ -28270,7 +28332,8 @@
               "runtime_incompatible",
               "hf_network",
               "invalid_order",
-              "runtime_missing"
+              "runtime_missing",
+              "runtime_in_use"
             ]
           },
           "bytes_received": {
@@ -28303,6 +28366,52 @@
             "items": {
               "$ref": "#/components/schemas/WorkerEngineHistoryEntry"
             }
+          },
+          "order_intent": {
+            "type": "string",
+            "enum": [
+              "",
+              "install",
+              "uninstall"
+            ],
+            "description": "Intention du dernier ordre sur cette version."
+          },
+          "order_status": {
+            "type": "string",
+            "enum": [
+              "",
+              "pending",
+              "acknowledged",
+              "done",
+              "failed",
+              "refused",
+              "cancelled"
+            ],
+            "description": "Résultat du dernier ordre (un retrait refusé laisse le runtime prêt)."
+          },
+          "order_cause_code": {
+            "type": "string",
+            "enum": [
+              "",
+              "disk_full",
+              "runtime_incompatible",
+              "hf_network",
+              "invalid_order",
+              "runtime_missing",
+              "runtime_in_use"
+            ],
+            "description": "Cause d'échec du dernier ordre."
+          },
+          "waiting": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EngineBlockers"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon."
           }
         }
       },
@@ -28369,7 +28478,8 @@
               "installing",
               "verifying",
               "ready",
-              "failed"
+              "failed",
+              "removed"
             ]
           },
           "cause_code": {
@@ -28379,7 +28489,8 @@
               "disk_full",
               "runtime_incompatible",
               "hf_network",
-              "invalid_order"
+              "invalid_order",
+              "runtime_in_use"
             ]
           },
           "bytes_received": {
@@ -28424,6 +28535,87 @@
                 }
               }
             }
+          }
+        }
+      },
+      "EngineBlockerModel": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "label",
+          "kind",
+          "state",
+          "busy",
+          "in_transition"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "busy": {
+            "type": "boolean",
+            "description": "Un job de ce Worker utilise encore le modèle."
+          },
+          "in_transition": {
+            "type": "boolean",
+            "description": "Le modèle est source ou cible d'une transition d'empreintes ouverte."
+          }
+        }
+      },
+      "EngineBlockers": {
+        "type": "object",
+        "required": [
+          "models",
+          "open_order"
+        ],
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EngineBlockerModel"
+            }
+          },
+          "open_order": {
+            "type": "boolean",
+            "description": "Une installation de cette version est encore en cours sur le Worker."
+          }
+        }
+      },
+      "EngineUninstallPreview": {
+        "type": "object",
+        "required": [
+          "state",
+          "removable",
+          "blockers"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading_runtime",
+              "installing",
+              "verifying",
+              "ready",
+              "failed",
+              "removing",
+              "removed"
+            ]
+          },
+          "removable": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "$ref": "#/components/schemas/EngineBlockers"
           }
         }
       }

@@ -241,6 +241,37 @@ def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
     return found
 
 
+def referenced(manifest: Mapping[str, Any], environ: Mapping[str, str]) -> bool:
+    """Whether a model on this volume is still bound to this exact runtime. Read-only."""
+    wanted = identity(manifest)
+    try:
+        bindings = list(Path(voice_models.models_root(environ)).rglob(".snitch-runtime.json"))
+    except OSError:
+        return True  # what cannot be read cannot prove that the runtime is free
+    for binding in bindings:
+        try:
+            if identity(json.loads(binding.read_text())) == wanted:
+                return True
+        except (OSError, ValueError, TypeError):
+            continue
+    return False
+
+
+def uninstall(manifest: dict[str, Any], environ: Mapping[str, str]) -> None:
+    """Remove the one runtime the manifest designates. Idempotent: an absent runtime is already removed.
+
+    Refused while a model still points to it. Other releases of the engine, wheels and models are untouched."""
+    validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
+    target = location(manifest, environ)
+    with _LOCK, _volume_lock(target.parent):
+        if referenced(manifest, environ):
+            raise RuntimeFailed("runtime_in_use")
+        if target.is_symlink():
+            raise RuntimeFailed()
+        if target.exists():
+            shutil.rmtree(target)
+
+
 def model_binding(path: str) -> dict[str, Any] | None:
     try:
         value = json.loads((Path(path) / ".snitch-runtime.json").read_text())

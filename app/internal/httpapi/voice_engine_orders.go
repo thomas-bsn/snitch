@@ -20,8 +20,8 @@ import (
 // what Snitch and the order carry. The local identity is the canonical hash the Worker computes for the
 // runtime it holds on its volume; it is stored beside the digest, only as the Worker's proof of presence.
 
-var engineStates = map[string]int{"requested": 0, "downloading_runtime": 1, "installing": 2, "verifying": 3, "ready": 4, "failed": 4}
-var engineFailureCauses = map[string]bool{"disk_full": true, "runtime_incompatible": true, "hf_network": true, "invalid_order": true, "runtime_missing": true}
+var engineStates = map[string]int{"requested": 0, "downloading_runtime": 1, "installing": 2, "verifying": 3, "ready": 4, "failed": 4, "removed": 4}
+var engineFailureCauses = map[string]bool{"disk_full": true, "runtime_incompatible": true, "hf_network": true, "invalid_order": true, "runtime_missing": true, "runtime_in_use": true}
 var localIdentity = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type engineOrderView struct {
@@ -49,6 +49,7 @@ func scanEngineOrder(row pgx.Row) (engineOrderView, error) {
 func (s *Server) registerVoiceEngineOrderRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/voice-engine-orders", s.protected(true, http.HandlerFunc(s.createVoiceEngineOrders)))
 	mux.Handle("GET /api/admin/voice-engines/workers", s.protected(true, http.HandlerFunc(s.listEnginesByWorker)))
+	mux.Handle("GET /api/admin/voice-engines/uninstall-preview", s.protected(true, http.HandlerFunc(s.uninstallPreview)))
 	mux.Handle("POST /api/worker/voice-engine-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerEngineOrder)))
 	mux.Handle("POST /api/worker/voice-engines/status", s.workerOnly(http.HandlerFunc(s.postWorkerEngineStatus)))
 	mux.Handle("POST /api/worker/voice-engines/inventory", s.workerOnly(http.HandlerFunc(s.postWorkerEngineInventory)))
@@ -59,6 +60,8 @@ type engineOrderResult struct {
 	Status    string           `json:"status"`
 	CauseCode string           `json:"cause_code,omitempty"`
 	Order     *engineOrderView `json:"order,omitempty"`
+	// Blockers explain an engine_in_use refusal of an uninstall: the models, jobs and transitions in the way.
+	Blockers *engineBlockers `json:"blockers,omitempty"`
 }
 
 // createVoiceEngineOrders orders one release on several Workers. Each Worker is decided on its own: a refusal
@@ -75,19 +78,34 @@ func (s *Server) createVoiceEngineOrders(w http.ResponseWriter, r *http.Request)
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.Intent != "install" || len(input.Orders) == 0 || len(input.Orders) > 100 {
+	if (input.Intent != "install" && input.Intent != "uninstall") || len(input.Orders) == 0 || len(input.Orders) > 100 {
 		fail(w, http.StatusBadRequest, "invalid_engine_order")
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
 	results := make([]engineOrderResult, 0, len(input.Orders))
 	for _, item := range input.Orders {
-		order, created, err := s.installEngineOrder(r.Context(), ss, item.WorkerID, input.Digest, item.IdempotencyKey)
+		var order engineOrderView
+		var created bool
+		var err error
+		if input.Intent == "uninstall" {
+			order, created, err = s.uninstallEngineOrder(r.Context(), ss, item.WorkerID, input.Digest, item.IdempotencyKey)
+		} else {
+			order, created, err = s.installEngineOrder(r.Context(), ss, item.WorkerID, input.Digest, item.IdempotencyKey)
+		}
 		result := engineOrderResult{WorkerID: item.WorkerID}
 		var f orderFailure
 		switch {
 		case errors.As(err, &f):
 			result.Status, result.CauseCode = "refused", f.Code
+			if f.Code == "engine_in_use" {
+				b, berr := engineBlockersIn(r.Context(), s.Pool, item.WorkerID, input.Digest)
+				if berr != nil {
+					s.internal(w, berr)
+					return
+				}
+				result.Blockers = &b
+			}
 		case err != nil:
 			s.internal(w, err)
 			return
@@ -159,7 +177,7 @@ func (s *Server) installEngineOrder(ctx context.Context, author session, workerI
 		}
 		var state string
 		switch err = tx.QueryRow(ctx, `SELECT state FROM worker_engine_inventory WHERE worker_id=$1 AND digest=$2`, workerID, digest).Scan(&state); {
-		case errors.Is(err, pgx.ErrNoRows), err == nil && state == "failed":
+		case errors.Is(err, pgx.ErrNoRows), err == nil && (state == "failed" || state == "removed"):
 		case err != nil:
 			return err
 		case state == "ready":
@@ -201,15 +219,34 @@ func (s *Server) pendingEngineOrders(ctx context.Context, workerID string) ([]en
 		return nil, err
 	}
 	defer rows.Close()
-	out := []engineOrderView{}
+	all := []engineOrderView{}
 	for rows.Next() {
 		o, err := scanEngineOrder(rows)
 		if err != nil {
 			return nil, err
 		}
+		all = append(all, o)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	rows.Close()
+	// The drain: a removal is handed to the Worker only while nothing depends on the release. Until then it stays
+	// recorded and is evaluated again at each pull, so it survives any restart and kills no job.
+	out := make([]engineOrderView, 0, len(all))
+	for _, o := range all {
+		if o.Intent == "uninstall" && o.Status == "pending" {
+			blockers, err := engineBlockersIn(ctx, s.Pool, workerID, o.Digest)
+			if err != nil {
+				return nil, err
+			}
+			if blockers.any() {
+				continue
+			}
+		}
 		out = append(out, o)
 	}
-	return out, rows.Err()
+	return out, nil
 }
 
 // ackWorkerEngineOrder records that the Worker received the order, or refused it after its own checks.
@@ -227,9 +264,9 @@ func (s *Server) ackWorkerEngineOrder(w http.ResponseWriter, r *http.Request) {
 	}
 	worker := currentWorker(r)
 	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		var status, digest string
+		var status, digest, intent string
 		var generation int64
-		err := tx.QueryRow(r.Context(), `SELECT status,digest,generation FROM worker_engine_orders WHERE id=$1 AND worker_id=$2`, r.PathValue("id"), worker.ID).Scan(&status, &digest, &generation)
+		err := tx.QueryRow(r.Context(), `SELECT status,digest,generation,intent FROM worker_engine_orders WHERE id=$1 AND worker_id=$2`, r.PathValue("id"), worker.ID).Scan(&status, &digest, &generation, &intent)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "voice_order_not_found"}
 		}
@@ -245,6 +282,13 @@ func (s *Server) ackWorkerEngineOrder(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err = tx.Exec(r.Context(), `UPDATE worker_engine_orders SET status='refused',cause_code='invalid_order',acked_at=now(),finished_at=now() WHERE id=$1`, r.PathValue("id")); err != nil {
 			return err
+		}
+		if intent == "uninstall" {
+			// The Worker did not take the removal: the runtime is still there, nothing was removed.
+			if err = restoreAfterFailedUninstall(r.Context(), tx, worker.ID, digest, r.PathValue("id")); err != nil {
+				return err
+			}
+			return engineEvent(r.Context(), tx, worker.ID, digest, r.PathValue("id"), generation, "uninstall_failed", "invalid_order", false, "")
 		}
 		tag, err := tx.Exec(r.Context(), `UPDATE worker_engine_inventory SET state='failed',cause_code='invalid_order',updated_at=now() WHERE worker_id=$1 AND digest=$2 AND order_id=$3`, worker.ID, digest, r.PathValue("id"))
 		if err != nil || tag.RowsAffected() == 0 {
@@ -287,9 +331,9 @@ func (s *Server) postWorkerEngineStatus(w http.ResponseWriter, r *http.Request) 
 	}
 	worker := currentWorker(r)
 	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		var status, digest, engine string
+		var status, digest, engine, intent string
 		var generation int64
-		err := tx.QueryRow(r.Context(), `SELECT status,digest,engine,generation FROM worker_engine_orders WHERE id=$1 AND worker_id=$2`, input.OrderID, worker.ID).Scan(&status, &digest, &engine, &generation)
+		err := tx.QueryRow(r.Context(), `SELECT status,digest,engine,generation,intent FROM worker_engine_orders WHERE id=$1 AND worker_id=$2`, input.OrderID, worker.ID).Scan(&status, &digest, &engine, &generation, &intent)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "voice_order_not_found"}
 		}
@@ -297,6 +341,12 @@ func (s *Server) postWorkerEngineStatus(w http.ResponseWriter, r *http.Request) 
 			return err
 		}
 		if digest != input.Digest {
+			return orderFailure{http.StatusBadRequest, "invalid_engine_status"}
+		}
+		// An installation reports installation steps, a removal reports only its end; "runtime_in_use" is the
+		// one cause only a removal can have.
+		uninstall := intent == "uninstall"
+		if uninstall && input.State != "removed" && input.State != "failed" || !uninstall && (input.State == "removed" || input.CauseCode == "runtime_in_use") {
 			return orderFailure{http.StatusBadRequest, "invalid_engine_status"}
 		}
 		ignore := func(reason string) error {
@@ -308,7 +358,7 @@ func (s *Server) postWorkerEngineStatus(w http.ResponseWriter, r *http.Request) 
 		}
 		if status == "done" || status == "failed" || status == "refused" {
 			// Repeating the recorded outcome is accepted without effect, anything else is late.
-			if (status == "done" && input.State == "ready") || (status == "failed" && failed) {
+			if (status == "done" && (input.State == "ready" || input.State == "removed")) || (status == "failed" && failed) {
 				return nil
 			}
 			return ignore("order_finished")
@@ -327,15 +377,31 @@ func (s *Server) postWorkerEngineStatus(w http.ResponseWriter, r *http.Request) 
 			}
 			return err
 		}
-		if rank < engineStates[current] {
+		if rank < engineStates[current] && !uninstall {
 			return ignore("stale_step")
 		}
 		next := "acknowledged"
 		switch input.State {
-		case "ready":
+		case "ready", "removed":
 			next = "done"
 		case "failed":
 			next = "failed"
+		}
+		if uninstall {
+			if _, err = tx.Exec(r.Context(), `UPDATE worker_engine_orders SET status=$2,cause_code=$3,acked_at=COALESCE(acked_at,now()),finished_at=now() WHERE id=$1`, input.OrderID, next, input.CauseCode); err != nil {
+				return err
+			}
+			if input.State == "removed" {
+				// The release is absent from the Worker; the row stays as the trace of the result.
+				if _, err = tx.Exec(r.Context(), `UPDATE worker_engine_inventory SET state='removed',cause_code='',bytes_received=0,bytes_total=0,local_identity='',updated_at=now() WHERE worker_id=$1 AND digest=$2 AND order_id=$3`, worker.ID, digest, input.OrderID); err != nil {
+					return err
+				}
+				return engineEvent(r.Context(), tx, worker.ID, digest, input.OrderID, generation, "removed", "", false, "")
+			}
+			if err = restoreAfterFailedUninstall(r.Context(), tx, worker.ID, digest, input.OrderID); err != nil {
+				return err
+			}
+			return engineEvent(r.Context(), tx, worker.ID, digest, input.OrderID, generation, "uninstall_failed", input.CauseCode, false, "")
 		}
 		if _, err = tx.Exec(r.Context(), `UPDATE worker_engine_orders SET status=$2,cause_code=$3,acked_at=COALESCE(acked_at,now()),finished_at=CASE WHEN $2 IN ('done','failed') THEN now() END WHERE id=$1`, input.OrderID, next, input.CauseCode); err != nil {
 			return err
@@ -435,20 +501,26 @@ type engineHistoryEntry struct {
 }
 
 type workerEngineEntry struct {
-	Digest        string               `json:"digest"`
-	Engine        string               `json:"engine"`
-	Version       string               `json:"version"`
-	Kind          string               `json:"kind"`
-	State         string               `json:"state"`
-	CauseCode     string               `json:"cause_code"`
-	BytesReceived int64                `json:"bytes_received"`
-	BytesTotal    int64                `json:"bytes_total"`
-	OrderID       string               `json:"order_id"`
-	Generation    int64                `json:"generation"`
-	Revoked       bool                 `json:"revoked"`
-	AuthorName    string               `json:"author_name"`
-	UpdatedAt     time.Time            `json:"updated_at"`
-	History       []engineHistoryEntry `json:"history"`
+	Digest        string    `json:"digest"`
+	Engine        string    `json:"engine"`
+	Version       string    `json:"version"`
+	Kind          string    `json:"kind"`
+	State         string    `json:"state"`
+	CauseCode     string    `json:"cause_code"`
+	BytesReceived int64     `json:"bytes_received"`
+	BytesTotal    int64     `json:"bytes_total"`
+	OrderID       string    `json:"order_id"`
+	Generation    int64     `json:"generation"`
+	Revoked       bool      `json:"revoked"`
+	AuthorName    string    `json:"author_name"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	// The last order on this release: its intent, outcome and cause (a refused removal keeps the runtime ready).
+	OrderIntent    string `json:"order_intent"`
+	OrderStatus    string `json:"order_status"`
+	OrderCauseCode string `json:"order_cause_code"`
+	// Waiting names what a recorded removal still waits for; null once nothing is in the way.
+	Waiting *engineBlockers      `json:"waiting"`
+	History []engineHistoryEntry `json:"history"`
 }
 
 type workerEnginesRow struct {
@@ -468,7 +540,7 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT i.worker_id,i.digest,i.engine,i.version,COALESCE(g.manifest->>'kind',''),i.state,i.cause_code,i.bytes_received,i.bytes_total,COALESCE(i.order_id,''),i.generation,g.revoked,COALESCE(o.author_name,''),i.updated_at
+	rows, err := s.Pool.Query(r.Context(), `SELECT i.worker_id,i.digest,i.engine,i.version,COALESCE(g.manifest->>'kind',''),i.state,i.cause_code,i.bytes_received,i.bytes_total,COALESCE(i.order_id,''),i.generation,g.revoked,COALESCE(o.author_name,''),i.updated_at,COALESCE(o.intent,''),COALESCE(o.status,''),COALESCE(o.cause_code,'')
 		FROM worker_engine_inventory i JOIN voice_engine_registry g ON g.digest=i.digest LEFT JOIN worker_engine_orders o ON o.id=i.order_id ORDER BY i.engine,i.version`)
 	if err != nil {
 		s.internal(w, err)
@@ -478,7 +550,7 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var workerID string
 		var e workerEngineEntry
-		if err = rows.Scan(&workerID, &e.Digest, &e.Engine, &e.Version, &e.Kind, &e.State, &e.CauseCode, &e.BytesReceived, &e.BytesTotal, &e.OrderID, &e.Generation, &e.Revoked, &e.AuthorName, &e.UpdatedAt); err != nil {
+		if err = rows.Scan(&workerID, &e.Digest, &e.Engine, &e.Version, &e.Kind, &e.State, &e.CauseCode, &e.BytesReceived, &e.BytesTotal, &e.OrderID, &e.Generation, &e.Revoked, &e.AuthorName, &e.UpdatedAt, &e.OrderIntent, &e.OrderStatus, &e.OrderCauseCode); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
@@ -500,6 +572,16 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 		}
 		row := workerEnginesRow{WorkerID: item.ID, Name: item.Name, Connected: item.Connected, Engines: []workerEngineEntry{}}
 		for _, e := range byWorker[item.ID] {
+			if e.State == "removing" && e.OrderStatus == "pending" {
+				b, err := engineBlockersIn(r.Context(), s.Pool, item.ID, e.Digest)
+				if err != nil {
+					s.internal(w, err)
+					return
+				}
+				if b.any() {
+					e.Waiting = &b
+				}
+			}
 			hist, err := s.Pool.Query(r.Context(), `SELECT state,cause_code,generation,ignored,reason,created_at FROM worker_engine_events WHERE worker_id=$1 AND digest=$2 ORDER BY id DESC LIMIT $3`, item.ID, e.Digest, engineHistoryLimit)
 			if err != nil {
 				s.internal(w, err)

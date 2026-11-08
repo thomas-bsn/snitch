@@ -80,10 +80,12 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoiceEngineOrderResults]:
-    """  Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs
-    Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous
-    une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une
-    cause stable).
+    """  Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un
+    ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et
+    intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou
+    refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker
+    lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est
+    livré au Worker qu'une fois les références libérées, sans interrompre aucun job.
 
     Args:
         origin (str):
@@ -120,10 +122,12 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | VoiceEngineOrderResults | None:
-    """  Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs
-    Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous
-    une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une
-    cause stable).
+    """  Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un
+    ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et
+    intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou
+    refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker
+    lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est
+    livré au Worker qu'une fois les références libérées, sans interrompre aucun job.
 
     Args:
         origin (str):
@@ -155,10 +159,12 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoiceEngineOrderResults]:
-    """  Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs
-    Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous
-    une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une
-    cause stable).
+    """  Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un
+    ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et
+    intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou
+    refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker
+    lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est
+    livré au Worker qu'une fois les références libérées, sans interrompre aucun job.
 
     Args:
         origin (str):
@@ -195,10 +201,12 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | VoiceEngineOrderResults | None:
-    """  Administrateur : ordonne explicitement l'installation d'une version approuvée sur un ou plusieurs
-    Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et intention sous
-    une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou refused avec une
-    cause stable).
+    """  Administrateur : ordonne explicitement l'installation ou le retrait d'une version approuvée sur un
+    ou plusieurs Workers, indépendamment des poids de modèles. Chaque ordre fige version, manifeste et
+    intention sous une clé idempotente ; chaque Worker est décidé séparément (created, replayed ou
+    refused avec une cause stable). Un retrait est refusé (engine_in_use) tant qu'un modèle du Worker
+    lui est lié, avec les modèles, jobs engagés et transitions d'empreintes en cause ; accepté, il n'est
+    livré au Worker qu'une fois les références libérées, sans interrompre aucun job.
 
     Args:
         origin (str):

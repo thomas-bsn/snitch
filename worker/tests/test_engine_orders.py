@@ -227,6 +227,49 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(snitch.inventories, [{"runtimes": []}])
         self.assertEqual(h.installed, [])
 
+    def _present(self, h, version="1.0.0"):
+        path = engine_runtime.location(manifest(version), h.env)
+        (path / "bin").mkdir(parents=True)
+        (path / "bin/python").touch()
+        (path / ".ready").write_text(engine_runtime.identity(manifest(version)))
+        return path
+
+    def test_an_uninstall_removes_only_the_designated_release_and_reports_it(self):
+        h = Harness(self)
+        target, other = self._present(h), self._present(h, "2.0.0")
+        snitch = Snitch([order(intent="uninstall", idempotency_key="engine-uninstall-001")])
+        h.sync(snitch)
+        self.assertEqual(snitch.states(), ["removed"])
+        self.assertEqual((snitch.reports[0]["cause_code"], h.installed), ("", []))
+        self.assertFalse(target.exists())
+        self.assertTrue((other / ".ready").exists())
+
+    def test_an_uninstall_is_idempotent_and_never_repeated_after_a_restart(self):
+        h = Harness(self)
+        self._present(h)
+        snitch = Snitch([order(intent="uninstall", idempotency_key="engine-uninstall-001")])
+        h.sync(snitch)
+        restarted = Harness(self, h.directory)
+        restarted.sync(snitch)
+        self.assertEqual(snitch.states(), ["removed", "removed"])
+        # An absent runtime is already removed: the same removal under another order succeeds without error.
+        again = Snitch([order(order_id="ord_synthetic_engine_order_0002", intent="uninstall", generation=2, idempotency_key="engine-uninstall-002")])
+        restarted.sync(again)
+        self.assertEqual(again.states(), ["removed"])
+
+    def test_a_runtime_a_model_is_still_bound_to_is_not_removed(self):
+        h = Harness(self)
+        target = self._present(h)
+        model = os.path.join(h.directory.name, "models")
+        bound = os.path.join(model, "catalog", "org__repo", "rev1")
+        os.makedirs(bound)
+        engine_runtime.bind(bound, manifest())
+        snitch = Snitch([order(intent="uninstall", idempotency_key="engine-uninstall-001")])
+        h.sync(snitch)
+        self.assertEqual((snitch.states(), snitch.reports[0]["cause_code"]), (["failed"], "runtime_in_use"))
+        self.assertTrue((target / ".ready").exists())
+        self.assertTrue(os.path.exists(os.path.join(bound, ".snitch-runtime.json")))
+
 
 if __name__ == "__main__":
     unittest.main()

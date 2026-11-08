@@ -121,6 +121,16 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		if err != nil {
 			return err
 		}
+		// A release that is being removed from this Worker (or already is) cannot take a new model.
+		if runtime != nil {
+			var leaving bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders o WHERE o.worker_id=$1 AND o.intent='uninstall' AND o.status IN ('pending','acknowledged') AND o.manifest=$2::jsonb)`, workerID, runtime).Scan(&leaving); err != nil {
+				return err
+			}
+			if leaving {
+				return orderFailure{http.StatusConflict, "engine_release_unavailable"}
+			}
+		}
 		id := "ord_" + auth.Token()[:32]
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9)`,
 			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username, runtime); err != nil {

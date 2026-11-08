@@ -5,6 +5,8 @@ class WorkerEngineState(StrEnum):
     FAILED = "failed"
     INSTALLING = "installing"
     READY = "ready"
+    REMOVED = "removed"
+    REMOVING = "removing"
     REQUESTED = "requested"
     VERIFYING = "verifying"
 

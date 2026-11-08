@@ -26,7 +26,8 @@ T = TypeVar("T", bound="WorkerEngineHistoryEntry")
 class WorkerEngineHistoryEntry:
     """
         Attributes:
-            state (WorkerEngineHistoryEntryState):
+            state (WorkerEngineHistoryEntryState): uninstall_failed : retrait refusé par le Worker, le runtime reste en
+                place.
             cause_code (WorkerEngineHistoryEntryCauseCode):
             generation (int):
             ignored (bool): Rapport tardif ignoré et journalisé.

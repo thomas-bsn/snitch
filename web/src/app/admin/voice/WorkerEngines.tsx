@@ -6,6 +6,7 @@ import { ErrorAlert } from "../../components/Alert";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import { WorkerEngineAdd } from "./WorkerEngineAdd";
+import { WorkerEngineUninstall } from "./WorkerEngineUninstall";
 import {
   engineSteps,
   inProgress,
@@ -65,6 +66,7 @@ export function WorkerEngines() {
   const [picked, setPicked] = useState<string[]>([]);
   const [scope, setScope] = useState<"this" | "checked">("this");
   const [adding, setAdding] = useState(false);
+  const [uninstalling, setUninstalling] = useState<EngineEntry>();
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<string>();
   const [outcome, setOutcome] = useState<string[]>([]);
@@ -161,6 +163,37 @@ export function WorkerEngines() {
       setOutcome(refused);
       setBusy(false);
       setPicked([]);
+      reloadView();
+    }
+  }
+
+  /** An explicit removal of one release on one Worker; the Worker acts once nothing depends on it. */
+  async function uninstall(entry: EngineEntry, key: string) {
+    if (!current) return;
+    setBusy(true);
+    setFailure(undefined);
+    setOutcome([]);
+    try {
+      const result = await api.POST("/api/admin/voice-engine-orders", {
+        params: { header: mutation(session?.csrf_token) },
+        body: {
+          digest: entry.digest,
+          intent: "uninstall",
+          orders: [{ worker_id: current.worker_id, idempotency_key: key }],
+        },
+      });
+      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else
+        setOutcome(
+          result.data.results
+            .filter((r) => r.status === "refused" && r.cause_code)
+            .map((r) => error(r.cause_code ?? "unknown")),
+        );
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+      setUninstalling(undefined);
       reloadView();
     }
   }
@@ -343,6 +376,11 @@ export function WorkerEngines() {
                         entry={e}
                         checked={picked.includes(e.digest)}
                         selectable={e.state === "failed"}
+                        onUninstall={
+                          e.state === "ready" || e.state === "failed"
+                            ? () => setUninstalling(e)
+                            : undefined
+                        }
                         onCheck={(on) =>
                           setPicked((p) =>
                             on
@@ -392,6 +430,15 @@ export function WorkerEngines() {
           </section>
         </div>
       )}
+      {uninstalling && current && (
+        <WorkerEngineUninstall
+          worker={current}
+          entry={uninstalling}
+          busy={busy}
+          onClose={() => setUninstalling(undefined)}
+          onConfirm={(key) => uninstall(uninstalling, key)}
+        />
+      )}
       {adding && current && (
         <WorkerEngineAdd
           worker={current}
@@ -418,11 +465,13 @@ function EngineRow({
   checked,
   selectable,
   onCheck,
+  onUninstall,
 }: {
   entry: EngineEntry;
   checked: boolean;
   selectable: boolean;
   onCheck: (on: boolean) => void;
+  onUninstall?: () => void;
 }) {
   const { t } = useI18n();
   const step = engineSteps.indexOf(entry.state as (typeof engineSteps)[number]);
@@ -447,6 +496,24 @@ function EngineRow({
         </span>
         {entry.revoked && (
           <span className="engine-warn">{t("workerEngines.revoked")}</span>
+        )}
+        {entry.order_intent === "uninstall" && (
+          <span className="engine-sub">
+            {entry.state === "removing" &&
+              (entry.waiting && entry.waiting.models.length > 0
+                ? t("workerEngines.uninstall.waiting", {
+                    models: entry.waiting.models.map((m) => m.label).join(", "),
+                  })
+                : t("workerEngines.uninstall.waitingOrder"))}
+            {entry.state === "removed" && t("workerEngines.uninstall.done")}
+            {entry.order_status === "failed" &&
+              entry.order_cause_code !== "" &&
+              t("workerEngines.uninstall.refused", {
+                cause: t(`workerEngines.cause.${entry.order_cause_code}`),
+              })}
+            {entry.author_name &&
+              ` · ${t("workerEngines.uninstall.author", { name: entry.author_name })}`}
+          </span>
         )}
         <details>
           <summary>{t("workerEngines.history")}</summary>
@@ -487,6 +554,11 @@ function EngineRow({
               <span className="engine-sub">{t("workerEngines.delivery")}</span>
             )}
           </>
+        )}
+        {onUninstall && (
+          <button type="button" className="voice-btn" onClick={onUninstall}>
+            {t("workerEngines.uninstall.action")}
+          </button>
         )}
         {entry.state === "failed" && entry.cause_code && (
           <span className="engine-error">

@@ -49,6 +49,9 @@ export const fr: Messages = {
       verifying: "Vérification",
       ready: "Prêt",
       failed: "Échec",
+      removing: "Retrait en cours",
+      removed: "Retiré",
+      uninstall_failed: "Retrait refusé",
     },
     cause: {
       disk_full: "Le disque du Worker est plein.",
@@ -58,11 +61,35 @@ export const fr: Messages = {
         "Les paquets du runtime n’ont pas pu être téléchargés depuis ce Worker.",
       invalid_order: "Le Worker a refusé l’ordre.",
       runtime_missing: "Le runtime n’est plus sur le volume du Worker.",
+      runtime_in_use:
+        "Un modèle du Worker utilise encore ce runtime : il n’a pas été retiré.",
     },
     refusal: {
       engine_release_unavailable: "version révoquée",
       engine_already_installed: "déjà installé",
       engine_order_in_progress: "un ordre est déjà en cours",
+    },
+    uninstall: {
+      action: "Désinstaller",
+      title: "Désinstaller {engine} de {worker}",
+      lead: "Seule cette version est retirée du Worker. Aucun modèle n’est supprimé et aucun job n’est interrompu.",
+      checking: "Vérification des dépendances…",
+      removable:
+        "Rien n’utilise cette version : le Worker peut la retirer à sa prochaine récupération d’ordres.",
+      blocked:
+        "Cette version ne peut pas être retirée : un modèle du Worker en dépend. Changez ou retirez d’abord ce modèle.",
+      models: "Modèles liés",
+      busy: "job en cours",
+      transition: "transition d’empreintes ouverte",
+      openOrder: "Une installation de cette version est encore en cours.",
+      confirm: "Désinstaller",
+      waiting:
+        "Retrait enregistré, en attente de la libération de : {models}. Il sera livré au Worker dès que plus rien ne l’utilise.",
+      waitingOrder: "Retrait enregistré, en attente de livraison au Worker.",
+      done: "Retiré du Worker.",
+      refused:
+        "Le Worker a refusé le retrait (cause : {cause}). Le runtime reste en place.",
+      author: "Retrait ordonné par {name}",
     },
     scope: "Appliquer à",
     scopeOn: "Sur",

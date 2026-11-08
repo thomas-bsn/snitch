@@ -48,6 +48,9 @@ export const en = {
       verifying: "Verifying",
       ready: "Ready",
       failed: "Failed",
+      removing: "Removing",
+      removed: "Removed",
+      uninstall_failed: "Removal refused",
     },
     cause: {
       disk_full: "The Worker disk is full.",
@@ -57,11 +60,35 @@ export const en = {
         "The runtime packages could not be downloaded from this Worker.",
       invalid_order: "The Worker refused the order.",
       runtime_missing: "The runtime is no longer on the Worker volume.",
+      runtime_in_use:
+        "A model on the Worker still uses this runtime: it was not removed.",
     },
     refusal: {
       engine_release_unavailable: "release revoked",
       engine_already_installed: "already installed",
       engine_order_in_progress: "an order is already running",
+    },
+    uninstall: {
+      action: "Uninstall",
+      title: "Uninstall {engine} from {worker}",
+      lead: "Only this version is removed from the Worker. No model is deleted and no job is interrupted.",
+      checking: "Checking dependencies…",
+      removable:
+        "Nothing uses this version: the Worker can remove it the next time it fetches its orders.",
+      blocked:
+        "This version cannot be removed: a model on the Worker depends on it. Change or remove that model first.",
+      models: "Linked models",
+      busy: "job running",
+      transition: "fingerprint transition open",
+      openOrder: "An installation of this version is still running.",
+      confirm: "Uninstall",
+      waiting:
+        "Removal recorded, waiting for these to be released: {models}. It is delivered to the Worker as soon as nothing uses it.",
+      waitingOrder: "Removal recorded, waiting to be delivered to the Worker.",
+      done: "Removed from the Worker.",
+      refused:
+        "The Worker refused the removal (cause: {cause}). The runtime stays in place.",
+      author: "Removal ordered by {name}",
     },
     scope: "Apply to",
     scopeOn: "On",
