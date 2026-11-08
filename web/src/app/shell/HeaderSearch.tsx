@@ -1,5 +1,5 @@
 import { Search } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useLayoutEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { useI18n } from "../i18n";
 
@@ -10,8 +10,8 @@ export function HeaderSearch() {
   const location = useLocation();
   const [query, setQuery] = useState("");
 
-  // On the search screen the field shows what is being searched.
-  useEffect(() => {
+  // Synchronize before paint: a delayed effect could erase typing after navigation.
+  useLayoutEffect(() => {
     if (location.pathname === "/search") {
       setQuery(new URLSearchParams(location.search).get("q") ?? "");
     }
