@@ -2,6 +2,17 @@
 // HTTP handlers). An unknown code falls back to a generic message that shows the code.
 
 export const errorsEn = {
+  engine_trust_unconfigured:
+    "The operator has not configured trusted engine signing keys.",
+  engine_release_untrusted:
+    "The release signature or manifest is not approved.",
+  engine_version_exists: "This engine version already exists and is immutable.",
+  invalid_engine_digest: "Invalid engine release identifier.",
+  engine_not_found: "This engine release does not exist.",
+  engine_release_unavailable: "This engine release is unavailable or revoked.",
+  engine_not_installed:
+    "Import an approved release before installing this model.",
+
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:
     "A clip with several audio tracks is transcribed by an analysis, not by a single task.",

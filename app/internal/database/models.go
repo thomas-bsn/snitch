@@ -840,6 +840,21 @@ type VoiceDispositionEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceEngineRegistry struct {
+	Digest        string             `json:"digest"`
+	Engine        string             `json:"engine"`
+	Version       string             `json:"version"`
+	Kind          string             `json:"kind"`
+	KeyID         string             `json:"key_id"`
+	SignedPayload string             `json:"signed_payload"`
+	Signature     string             `json:"signature"`
+	Manifest      []byte             `json:"manifest"`
+	Revoked       bool               `json:"revoked"`
+	AuthorID      pgtype.Int8        `json:"author_id"`
+	AuthorName    string             `json:"author_name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceFingerprint struct {
 	ID               int64              `json:"id"`
 	LocalSpeakerID   int64              `json:"local_speaker_id"`
@@ -1057,6 +1072,7 @@ type WorkerModelOrder struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	AckedAt        pgtype.Timestamptz `json:"acked_at"`
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	Runtime        []byte             `json:"runtime"`
 }
 
 type WorkerModelReplacement struct {

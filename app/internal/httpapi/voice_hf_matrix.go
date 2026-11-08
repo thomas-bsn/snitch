@@ -11,9 +11,11 @@ import (
 // Approved adapters, in the order that decides when several fit the same repository (first match wins, so the
 // answer is deterministic and does not depend on tag order or on the user):
 //
-//  1. nemo      - diarization only (the Sortformer family). Fits a repository declaring the NeMo library or the
-//     "nemo" tag, or shipping a *.nemo file.
-//  2. pyannote  - diarization and fingerprint. Fits a repository declaring the pyannote-audio library or tag.
+//  1. nemo-titanet / speechbrain-ecapa - fingerprint, with explicit family tags.
+//  2. nemo - diarization, for repositories declaring NeMo or a *.nemo artifact.
+//  3. pyannote - diarization and fingerprint, with a pyannote library/tag.
+//
+// Metadata proposes an adapter; only its successful local inference proves readiness.
 //
 // Transformers is in the target matrix but has no Worker adapter yet: a repository that only fits it stays
 // unsupported until an adapter is implemented and tested. Separation has no adapter before #268.
@@ -26,6 +28,12 @@ type hfAdapter struct {
 }
 
 var hfAdapters = []hfAdapter{
+	{"nemo-titanet", []string{"fingerprint"}, func(m hfMetadata) bool {
+		return (m.LibraryName == "nemo" || slices.Contains(m.Tags, "nemo")) && slices.Contains(m.Tags, "titanet")
+	}},
+	{"speechbrain-ecapa", []string{"fingerprint"}, func(m hfMetadata) bool {
+		return (m.LibraryName == "speechbrain" || slices.Contains(m.Tags, "speechbrain")) && slices.Contains(m.Tags, "ecapa-tdnn")
+	}},
 	{"nemo", []string{"diarization"}, func(m hfMetadata) bool {
 		if m.LibraryName == "nemo" || slices.Contains(m.Tags, "nemo") {
 			return true

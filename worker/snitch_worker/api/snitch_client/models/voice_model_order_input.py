@@ -28,11 +28,14 @@ class VoiceModelOrderInput:
             replaces_model_id (str | Unset): Modèle prêt du même type que ce Worker remplace : le nouveau est installé à
                 côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement
                 (voice_replacement_kind_unsupported pour l'empreinte).
+            runtime_digest (str | Unset): Version approuvée exacte du runtime. Sans valeur : dernière version approuvée
+                compatible ; legacy si aucun registre ne couvre cet engine.
      """
 
     model_id: str
     idempotency_key: str
     replaces_model_id: str | Unset = UNSET
+    runtime_digest: str | Unset = UNSET
 
 
 
@@ -45,6 +48,8 @@ class VoiceModelOrderInput:
 
         replaces_model_id = self.replaces_model_id
 
+        runtime_digest = self.runtime_digest
+
 
         field_dict: dict[str, Any] = {}
 
@@ -54,6 +59,8 @@ class VoiceModelOrderInput:
         })
         if replaces_model_id is not UNSET:
             field_dict["replaces_model_id"] = replaces_model_id
+        if runtime_digest is not UNSET:
+            field_dict["runtime_digest"] = runtime_digest
 
         return field_dict
 
@@ -68,10 +75,13 @@ class VoiceModelOrderInput:
 
         replaces_model_id = d.pop("replaces_model_id", UNSET)
 
+        runtime_digest = d.pop("runtime_digest", UNSET)
+
         voice_model_order_input = cls(
             model_id=model_id,
             idempotency_key=idempotency_key,
             replaces_model_id=replaces_model_id,
+            runtime_digest=runtime_digest,
         )
 
         return voice_model_order_input

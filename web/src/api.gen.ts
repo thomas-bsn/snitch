@@ -3654,6 +3654,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-engines": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Registre de versions immuables approuvées, visible aux administrateurs. Aucune installation implicite. */
+    get: operations["listVoiceEngines"];
+    put?: never;
+    /** @description Super-administrateur : approuve un manifeste signé Ed25519 par une clé de confiance configurée sur le serveur. Aucun téléchargement. */
+    post: operations["importVoiceEngine"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/{digest}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Super-administrateur : révoque une version et annule ses ordres non encore acquittés. Ne retire aucun runtime installé. */
+    delete: operations["revokeVoiceEngine"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5090,6 +5125,8 @@ export interface components {
       idempotency_key: string;
       /** @description Modèle prêt du même type que ce Worker remplace : le nouveau est installé à côté sans bascule, puis Snitch décide la bascule et ordonne le retrait de l'ancien. Diarisation seulement (voice_replacement_kind_unsupported pour l'empreinte). */
       replaces_model_id?: string;
+      /** @description Version approuvée exacte du runtime. Sans valeur : dernière version approuvée compatible ; legacy si aucun registre ne couvre cet engine. */
+      runtime_digest?: string;
     };
     WorkerModelOrder: {
       order_id: string;
@@ -5120,6 +5157,7 @@ export interface components {
       hf_token?: string;
       /** Format: date-time */
       created_at: string;
+      runtime?: components["schemas"]["VoiceEngineManifest"];
     };
     VoiceModelRemovalInput: {
       model_id: string;
@@ -6224,7 +6262,7 @@ export interface components {
         repo: string;
         revision: string;
         /** @enum {string} */
-        engine: "pyannote";
+        engine: "pyannote" | "nemo-titanet" | "speechbrain-ecapa";
       };
       pipeline_version: string;
       config: components["schemas"]["VoicePipeline"];
@@ -7182,6 +7220,45 @@ export interface components {
       /** @enum {string} */
       time_base: "clip";
       segments: components["schemas"]["TranscriptManifestSegment"][];
+    };
+    VoiceEngineWheel: {
+      name: string;
+      url: string;
+      sha256: string;
+      /** Format: int64 */
+      size: number;
+    };
+    VoiceEngineManifest: {
+      engine: string;
+      version: string;
+      python: string;
+      platform: string;
+      cuda: string;
+      license: string;
+      kind: string;
+      architecture: string;
+      /** Format: int64 */
+      schema: number;
+      /** Format: int64 */
+      adapter_version: number;
+      /** Format: int64 */
+      disk_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      wheels: components["schemas"]["VoiceEngineWheel"][];
+    };
+    VoiceEngineRelease: {
+      digest: string;
+      manifest: components["schemas"]["VoiceEngineManifest"];
+      revoked: boolean;
+    };
+    VoiceEngineRegistry: {
+      engines: components["schemas"]["VoiceEngineRelease"][];
+    };
+    VoiceEngineImport: {
+      key_id: string;
+      payload: string;
+      signature: string;
     };
   };
   responses: never;
@@ -17589,6 +17666,109 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+    };
+  };
+  listVoiceEngines: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Résultat */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEngineRegistry"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  importVoiceEngine: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceEngineImport"];
+      };
+    };
+    responses: {
+      /** @description Résultat */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEngineRelease"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  revokeVoiceEngine: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        digest: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Version révoquée */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            revoked: boolean;
+          };
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
       };
     };
   };

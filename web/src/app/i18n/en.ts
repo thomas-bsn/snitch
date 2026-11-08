@@ -4,6 +4,25 @@
 import { errorsEn } from "./errors.en";
 
 export const en = {
+  voiceEngines: {
+    title: "Approved engines",
+    lead: "Import a release signed by a trusted publisher, then choose it when installing a model on Workers. Importing does not download or activate anything.",
+    empty:
+      "No signed release registered. Existing bundled engines remain available.",
+    envelope: "Signed release (JSON: key_id, payload, signature)",
+    import: "Import approved release",
+    revoke: "Revoke release",
+    revoked: "Revoked",
+    cancel: "Cancel",
+    revokeHint:
+      "Block new installations and cancel pending orders for this release. Installed engines and running jobs are kept.",
+    constraints:
+      "Disk budget: {disk} MiB · VRAM minimum: {vram} MiB · {license}",
+    select: "Engine version",
+    bundled: "Bundled engine (legacy)",
+    unavailable: "No approved release available for this engine.",
+    loading: "Loading approved engines…",
+  },
   voiceWorkspace: {
     online: "Online",
     offline: "Offline",

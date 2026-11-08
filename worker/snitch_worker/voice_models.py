@@ -298,7 +298,30 @@ class ModelManager:
             post({"model_id": model_id, "state": state, "cause_code": cause, "bytes_received": received, "bytes_total": total})
 
         target = model_path(self._env, repo, revision)
-        if is_ready(self._env, repo, revision):
+        location = _legacy_path(self._env, repo, revision, kind_of(item)) or target
+        runtime = item.get("runtime")
+        was_ready = is_ready(self._env, repo, revision)
+        if runtime is not None:
+            from snitch_worker import engine_runtime
+            try:
+                engine_runtime.validate(runtime, item.get("engine", ""), kind_of(item))
+                engine_runtime.install(runtime, self._env, say)
+                if was_ready and engine_runtime.model_binding(location) == runtime:
+                    say("ready")
+                    return
+            except engine_runtime.RuntimeFailed as error:
+                say("failed", error.cause)
+                return
+        if was_ready and runtime is None:
+            from snitch_worker import engine_runtime
+            try:
+                binding = engine_runtime.model_binding(location)
+                if binding is not None and not engine_runtime.installed(binding, self._env):
+                    say("failed", "runtime_incompatible")
+                    return
+            except engine_runtime.RuntimeFailed as error:
+                say("failed", error.cause)
+                return
             say("ready")
             return
         kind = kind_of(item)
@@ -308,7 +331,7 @@ class ModelManager:
         verify = self._verify_fingerprint if kind == "fingerprint" else self._verify
         legacy = _legacy_path(self._env, repo, revision, kind)
         location = legacy or target
-        if not legacy:
+        if not legacy and not was_ready:
             say("downloading")
             last = [0.0]
             reached = [0]
@@ -340,7 +363,12 @@ class ModelManager:
                 return
         say("verifying")
         try:
-            verify(location, inference_environment(self._env))
+            if runtime is None:
+                verify(location, inference_environment(self._env))
+            else:
+                from snitch_worker import voice_runtime
+                voice_runtime.call(runtime, location, self._env, operation="verify")
+                engine_runtime.bind(location, runtime)
             os.makedirs(target, exist_ok=True)
             with open(os.path.join(target, READY_MARKER), "w", encoding="utf-8") as handle:
                 handle.write(revision)
@@ -402,7 +430,20 @@ def _reconcile_held(desired: Mapping[str, Any], manager: ModelManager, http: Any
         return  # a server that does not say what it knows: nothing to compare with
     ordered = {o.get("model_id") for o in desired.get("orders") or [] if isinstance(o, dict)}
     for item in desired.get("models") or []:
-        if not isinstance(item, dict) or item.get("model_id") in known or item.get("model_id") in ordered:
+        if not isinstance(item, dict) or item.get("model_id") in ordered:
+            continue
+        if item.get("model_id") in known:
+            # A ready declaration must not outlive its isolated runtime. Checking the
+            # local proof costs no inference and never provisions dependencies.
+            from snitch_worker import engine_runtime
+            location = _legacy_path(manager._env, item.get("repo", ""), item.get("revision", ""), kind_of(item)) or model_path(manager._env, item.get("repo", ""), item.get("revision", ""))
+            try:
+                binding = engine_runtime.model_binding(location)
+                unavailable = binding is not None and not engine_runtime.installed(binding, manager._env)
+            except engine_runtime.RuntimeFailed:
+                unavailable = True
+            if unavailable:
+                http.post("/api/worker/voice-models/status", json={"model_id": item["model_id"], "revision": item["revision"], "state": "failed", "cause_code": "runtime_incompatible", "bytes_received": 0, "bytes_total": 0, "occupied_bytes": 0}).raise_for_status()
             continue
         proof = (str(item.get("model_id")), str(item.get("revision")))
         if proof in manager.failed_proofs or not manager.holds(item):
@@ -448,6 +489,11 @@ def _inference_verify(path: str, environ: Mapping[str, str]) -> None:  # pragma:
     from snitch_worker.voice_nemo import NemoProvider
     from snitch_worker.voice_pyannote import PyannoteProvider
 
+    from snitch_worker import engine_runtime, voice_runtime
+    runtime = engine_runtime.model_binding(path)
+    if runtime is not None:
+        voice_runtime.call(runtime, path, environ, operation="verify")
+        return
     engine = engine_of(path)
     provider = (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=dict(environ) | {voice_manifest.DIARIZATION_PATH_ENV: path})
     voice_selftest.diarize_synthetic(provider, engine)
@@ -458,6 +504,11 @@ def _fingerprint_verify(path: str, environ: Mapping[str, str]) -> None:  # pragm
     from snitch_worker import voice_selftest
     from snitch_worker.voice_pyannote import PyannoteProvider
 
+    from snitch_worker import engine_runtime, voice_runtime
+    runtime = engine_runtime.model_binding(path)
+    if runtime is not None:
+        voice_runtime.call(runtime, path, environ, operation="verify")
+        return
     provider = PyannoteProvider(environ=dict(environ) | {voice_manifest.EMBEDDING_PATH_ENV: path})
     voice_selftest.embed_synthetic(provider)
 

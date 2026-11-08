@@ -14,16 +14,17 @@ import (
 )
 
 type modelOrder struct {
-	OrderID        string `json:"order_id"`
-	WorkerID       string `json:"worker_id"`
-	Kind           string `json:"kind"`
-	Action         string `json:"action"`
-	ModelID        string `json:"model_id"`
-	Engine         string `json:"engine"`
-	Repo           string `json:"repo"`
-	Revision       string `json:"revision"`
-	IdempotencyKey string `json:"idempotency_key"`
-	HFToken        string `json:"hf_token"`
+	Runtime        json.RawMessage `json:"runtime"`
+	OrderID        string          `json:"order_id"`
+	WorkerID       string          `json:"worker_id"`
+	Kind           string          `json:"kind"`
+	Action         string          `json:"action"`
+	ModelID        string          `json:"model_id"`
+	Engine         string          `json:"engine"`
+	Repo           string          `json:"repo"`
+	Revision       string          `json:"revision"`
+	IdempotencyKey string          `json:"idempotency_key"`
+	HFToken        string          `json:"hf_token"`
 }
 
 func (h *voiceHarness) workerOrders() []modelOrder {

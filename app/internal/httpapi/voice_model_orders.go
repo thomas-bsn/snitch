@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -43,12 +44,13 @@ type voiceModelOrderView struct {
 	HFToken   string    `json:"hf_token,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	// SizeBytes is the size the catalogue announces: the Worker checks its free disk against it before downloading.
-	SizeBytes int64 `json:"size_bytes"`
+	SizeBytes int64           `json:"size_bytes"`
+	Runtime   json.RawMessage `json:"runtime,omitempty"`
 }
 
 // installOrder records an order to install modelID on a Worker, or returns the one already recorded under the
 // same key. It runs under the voice model lock so that what it read is still true when it writes.
-func (s *Server) installOrder(ctx context.Context, author session, workerID, modelID, key, replaces string) (voiceModelOrderView, bool, error) {
+func (s *Server) installOrder(ctx context.Context, author session, workerID, modelID, key, replaces string, runtimeDigest ...string) (voiceModelOrderView, bool, error) {
 	if !idempotencyKeyFormat.MatchString(key) {
 		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_idempotency_key"}
 	}
@@ -71,6 +73,15 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 				return orderFailure{http.StatusConflict, "idempotency_key_reused"}
 			}
 			out, err = orderByID(ctx, tx, prior)
+			if err == nil && len(runtimeDigest) > 0 && runtimeDigest[0] != "" {
+				var same bool
+				if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_engine_registry WHERE digest=$1 AND manifest=$2::jsonb)`, runtimeDigest[0], out.Runtime).Scan(&same); err != nil {
+					return err
+				}
+				if !same {
+					return orderFailure{http.StatusConflict, "idempotency_key_reused"}
+				}
+			}
 			return err
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
@@ -106,9 +117,13 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		if occupied {
 			return orderFailure{http.StatusConflict, "voice_model_type_occupied"}
 		}
+		runtime, err := approvedEngine(ctx, tx, entry.Engine, entry.Kind, runtimeDigest...)
+		if err != nil {
+			return err
+		}
 		id := "ord_" + auth.Token()[:32]
-		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8)`,
-			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9)`,
+			id, workerID, entry.Kind, entry.ID, entry.Revision, key, author.User.ID, author.User.Username, runtime); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_voice_models(worker_id,model_id,state,cause_code,bytes_received,bytes_total,occupied_bytes,revision,order_id) VALUES($1,$2,'requested','',0,0,0,$3,$4)
@@ -133,11 +148,11 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 	return out, created, err
 }
 
-const orderColumns = `o.id,o.worker_id,o.kind,o.action,o.model_id,c.engine,c.repo,o.revision,o.idempotency_key,o.status,o.created_at,c.size_bytes`
+const orderColumns = `o.id,o.worker_id,o.kind,o.action,o.model_id,c.engine,c.repo,o.revision,o.idempotency_key,o.status,o.created_at,c.size_bytes,o.runtime`
 
 func scanOrder(row pgx.Row) (voiceModelOrderView, error) {
 	var o voiceModelOrderView
-	err := row.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes)
+	err := row.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &o.Runtime)
 	return o, err
 }
 
@@ -159,12 +174,13 @@ func (s *Server) createVoiceModelOrder(w http.ResponseWriter, r *http.Request) {
 		ModelID        string `json:"model_id"`
 		IdempotencyKey string `json:"idempotency_key"`
 		ReplacesModel  string `json:"replaces_model_id"`
+		RuntimeDigest  string `json:"runtime_digest"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
 	ss := r.Context().Value(sessionKey{}).(session)
-	order, created, err := s.installOrder(r.Context(), ss, r.PathValue("id"), input.ModelID, input.IdempotencyKey, input.ReplacesModel)
+	order, created, err := s.installOrder(r.Context(), ss, r.PathValue("id"), input.ModelID, input.IdempotencyKey, input.ReplacesModel, input.RuntimeDigest)
 	if err != nil {
 		if !s.writeOrderFailure(w, err) {
 			s.internal(w, err)
@@ -192,7 +208,7 @@ func (s *Server) pendingOrders(ctx context.Context, workerID string) ([]voiceMod
 	for rows.Next() {
 		var o voiceModelOrderView
 		var g bool
-		if err = rows.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &g); err != nil {
+		if err = rows.Scan(&o.OrderID, &o.WorkerID, &o.Kind, &o.Action, &o.ModelID, &o.Engine, &o.Repo, &o.Revision, &o.IdempotencyKey, &o.Status, &o.CreatedAt, &o.SizeBytes, &o.Runtime, &g); err != nil {
 			return nil, err
 		}
 		out = append(out, o)

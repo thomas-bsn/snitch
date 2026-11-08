@@ -4,6 +4,25 @@ import type { Messages } from "./messages";
 import { errorsFr } from "./errors.fr";
 
 export const fr: Messages = {
+  voiceEngines: {
+    title: "Moteurs approuvés",
+    lead: "Importez une version signée par un éditeur de confiance, puis sélectionnez-la lors de l’installation d’un modèle sur les Workers. L’import ne télécharge et n’active rien.",
+    empty:
+      "Aucune version signée enregistrée. Les moteurs embarqués restent disponibles.",
+    envelope: "Version signée (JSON : key_id, payload, signature)",
+    import: "Importer une version approuvée",
+    revoke: "Révoquer la version",
+    revoked: "Révoquée",
+    cancel: "Annuler",
+    revokeHint:
+      "Bloquer les nouvelles installations et annuler les ordres en attente de cette version. Les moteurs installés et les jobs en cours sont conservés.",
+    constraints:
+      "Budget disque : {disk} Mio · VRAM minimum : {vram} Mio · {license}",
+    select: "Version du moteur",
+    bundled: "Moteur embarqué (legacy)",
+    unavailable: "Aucune version approuvée disponible pour ce moteur.",
+    loading: "Chargement des moteurs approuvés…",
+  },
   voiceWorkspace: {
     online: "En ligne",
     offline: "Hors ligne",

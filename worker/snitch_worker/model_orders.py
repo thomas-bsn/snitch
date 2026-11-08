@@ -32,7 +32,7 @@ _WORKER_ID = re.compile(r"^wk_[A-Za-z0-9_-]{20,60}$")
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{8,100}$")
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 # Engines an approved adapter exists for, by type (separation has none yet).
-ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"}, "vad": {"silero-jit"}}
+ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote", "nemo-titanet", "speechbrain-ecapa"}, "vad": {"silero-jit"}}
 STATE_NAME = "orders.json"
 # A download needs room for the whole model; this margin covers what the archive and the cache add on top.
 DISK_MARGIN = 1.1
@@ -104,11 +104,24 @@ class OrderExecutor:
     # -- reception ---------------------------------------------------------------------------------------------
 
     @staticmethod
+    def _valid_runtime(order: Mapping[str, Any]) -> bool:
+        from snitch_worker import engine_runtime
+        runtime = order.get("runtime")
+        if runtime is None:
+            return order.get("engine") not in {"nemo-titanet", "speechbrain-ecapa"}
+        try:
+            engine_runtime.validate(runtime, order.get("engine", ""), order.get("kind", ""))
+            return True
+        except engine_runtime.RuntimeFailed:
+            return False
+
+    @staticmethod
     def _well_formed(order: Mapping[str, Any]) -> bool:
         kind, engine = order.get("kind"), order.get("engine")
         repo, revision = order.get("repo"), order.get("revision")
         return (
             order.get("action") in ("install", "remove")
+            and (order.get("action") == "remove" or OrderExecutor._valid_runtime(order))
             and isinstance(kind, str)
             and kind in ENGINES
             and isinstance(engine, str)
@@ -151,10 +164,10 @@ class OrderExecutor:
         token = order.get("hf_token") if order.get("action") == "install" else None
         key = order.get("idempotency_key")
         seen = state["keys"].get(key) if isinstance(key, str) else None
-        content = {name: order.get(name) for name in ("model_id", "repo", "revision", "action", "kind", "engine")}
+        content = {name: order.get(name) for name in ("model_id", "repo", "revision", "action", "kind", "engine", "runtime")}
         # Older volumes recorded only the pinned identity; preserve their restart semantics.
         recorded = seen.get("content", {}) if isinstance(seen, dict) else {}
-        same_content = all(content.get(name) == value for name, value in recorded.items())
+        same_content = all(content.get(name) == value for name, value in recorded.items()) and ("runtime" in recorded or content["runtime"] is None)
         valid = (
             order.get("worker_id") == worker_id
             and self._well_formed(order)
@@ -273,7 +286,7 @@ class OrderExecutor:
 
     def _install(self, order: dict[str, Any], post: Any) -> None:
         model_id, revision = order["model_id"], order["revision"]
-        self._manager.prepare({"model_id": model_id, "kind": order["kind"], "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False}, post)
+        self._manager.prepare({"model_id": model_id, "kind": order["kind"], "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False, "engine": order["engine"], "runtime": order.get("runtime")}, post)
 
     @staticmethod
     def _repeat_outcome(http: Any, order_id: str, content: Mapping[str, Any], outcome: Mapping[str, Any]) -> None:

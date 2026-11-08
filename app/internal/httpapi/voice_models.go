@@ -16,6 +16,7 @@ import (
 // what it really holds. Snitch never trusts a typed string to claim a model is available.
 
 func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
+	s.registerVoiceEngineRoutes(mux)
 	s.registerVoiceModelAddRoutes(mux)
 	s.registerFingerprintTransitionRoutes(mux)
 	mux.Handle("GET /api/admin/voice-models", s.protected(true, http.HandlerFunc(s.listVoiceModels)))

@@ -4,6 +4,19 @@
 import type { errorsEn } from "./errors.en";
 
 export const errorsFr: Record<keyof typeof errorsEn, string> = {
+  engine_trust_unconfigured:
+    "L’opérateur n’a pas configuré les clés de signature des moteurs.",
+  engine_release_untrusted:
+    "La signature ou le manifeste de cette version n’est pas approuvé.",
+  engine_version_exists:
+    "Cette version du moteur existe déjà et ne peut pas être modifiée.",
+  invalid_engine_digest: "Identifiant de version du moteur invalide.",
+  engine_not_found: "Cette version du moteur n’existe pas.",
+  engine_release_unavailable:
+    "Cette version du moteur est indisponible ou révoquée.",
+  engine_not_installed:
+    "Importez une version approuvée avant d’installer ce modèle.",
+
   invalid_plan_id: "Cet identifiant de plan audio n’est pas valide.",
   audio_plan_required:
     "Un clip à plusieurs pistes audio est transcrit par une analyse, pas par une tâche isolée.",

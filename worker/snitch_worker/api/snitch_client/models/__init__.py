@@ -301,6 +301,7 @@ from .reprocess_clip_metadata_response_200 import ReprocessClipMetadataResponse2
 from .request_worker_transcription_test_response_200 import RequestWorkerTranscriptionTestResponse200
 from .reset_member_password_response_200 import ResetMemberPasswordResponse200
 from .retry_clip_analysis_step_step import RetryClipAnalysisStepStep
+from .revoke_voice_engine_response_200 import RevokeVoiceEngineResponse200
 from .revoke_worker_body import RevokeWorkerBody
 from .scan_source_body import ScanSourceBody
 from .scan_video_selection_body import ScanVideoSelectionBody
@@ -425,6 +426,11 @@ from .voice_disposition_input import VoiceDispositionInput
 from .voice_disposition_input_disposition import VoiceDispositionInputDisposition
 from .voice_disposition_view import VoiceDispositionView
 from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
+from .voice_engine_import import VoiceEngineImport
+from .voice_engine_manifest import VoiceEngineManifest
+from .voice_engine_registry import VoiceEngineRegistry
+from .voice_engine_release import VoiceEngineRelease
+from .voice_engine_wheel import VoiceEngineWheel
 from .voice_fingerprint import VoiceFingerprint
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
@@ -881,6 +887,7 @@ __all__ = (
     "RequestWorkerTranscriptionTestResponse200",
     "ResetMemberPasswordResponse200",
     "RetryClipAnalysisStepStep",
+    "RevokeVoiceEngineResponse200",
     "RevokeWorkerBody",
     "ScanSourceBody",
     "ScanVideoSelectionBody",
@@ -1005,6 +1012,11 @@ __all__ = (
     "VoiceDispositionInputDisposition",
     "VoiceDispositionView",
     "VoiceDispositionViewDisposition",
+    "VoiceEngineImport",
+    "VoiceEngineManifest",
+    "VoiceEngineRegistry",
+    "VoiceEngineRelease",
+    "VoiceEngineWheel",
     "VoiceFingerprint",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
