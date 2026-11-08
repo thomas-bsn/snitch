@@ -53,8 +53,7 @@ type engineManifest struct {
 	Capabilities   []string `json:"capabilities,omitempty"`
 	InputContract  string   `json:"input_contract,omitempty"`
 	OutputContract string   `json:"output_contract,omitempty"`
-	// CPUFallback is the contract's authorization to run a CUDA release on the CPU. It never installs anything:
-	// the Worker's own configuration must also allow it.
+	// CPUFallback is retained for manifest compatibility. CPU execution requires a distinct CPU release.
 	CPUFallback bool `json:"cpu_fallback,omitempty"`
 }
 

@@ -114,9 +114,15 @@ export function planOrders(
   // Disk is cumulated per Worker: what each accepted release claims is no longer free for the next one.
   const items = workers.flatMap((worker) => {
     let claimed = 0;
+    const claimedEngines = new Set<string>();
     return releases.map((release) => {
-      const refusal = refusalFor(release, worker, claimed);
-      if (!refusal) claimed += release.manifest.disk_bytes;
+      const refusal = claimedEngines.has(release.manifest.engine)
+        ? "engine_order_in_progress"
+        : refusalFor(release, worker, claimed);
+      if (!refusal) {
+        claimed += release.manifest.disk_bytes;
+        claimedEngines.add(release.manifest.engine);
+      }
       return { worker, release, refusal };
     });
   });

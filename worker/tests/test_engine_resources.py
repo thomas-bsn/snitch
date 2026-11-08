@@ -168,8 +168,10 @@ class InferenceDeviceTests(unittest.TestCase):
         with self.assertRaises(VoiceProviderUnavailable):
             self.device(manifest(), ("11.8", 8 * GIB, 8 * GIB))
 
-    def test_unassessable_gpu_keeps_the_configured_device(self):
-        self.assertIsNone(self.device(manifest(), None))
+    def test_unassessable_gpu_cannot_keep_auto_or_cpu_configuration(self):
+        for configured in ("auto", "cpu", "cuda"):
+            with self.subTest(configured=configured):
+                self.assertEqual(self.device(manifest(), None, {"SNITCH_VOICE_DEVICE": configured}), "cuda")
 
     def test_call_passes_the_decided_device_and_installs_nothing(self):
         with tempfile.TemporaryDirectory() as directory:

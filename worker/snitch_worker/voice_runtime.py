@@ -18,13 +18,13 @@ def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) ->
 
     A CPU runtime is its own approved release and runs on the CPU. A CUDA release needs its GPU and the VRAM it
     declares: when the free VRAM is short the job fails with `gpu_out_of_memory` (it never degrades silently). CPU execution requires a distinct approved CPU release. Nothing is installed.
-    None when the GPU cannot be assessed: the configured device then applies unchanged.
+    When GPU telemetry is unavailable, force CUDA so the adapter refuses a missing GPU.
     """
     if manifest["cuda"] == "cpu":
         return "cpu"
     state = (gpu or engine_runtime.gpu_state)()
     if state is None:
-        return None
+        return "cuda"
     cuda, _total, free = state
     if not cuda:
         raise VoiceProviderUnavailable("cuda_unavailable")

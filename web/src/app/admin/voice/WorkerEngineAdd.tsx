@@ -63,7 +63,7 @@ export function WorkerEngineAdd({
         a.manifest.engine.localeCompare(b.manifest.engine),
     );
   const targets =
-    scope === "checked" && checked.length
+    scope === "checked"
       ? workers.filter((w) => checked.includes(w.worker_id))
       : [worker];
   const plan = planOrders(

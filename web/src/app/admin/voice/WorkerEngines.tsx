@@ -119,7 +119,7 @@ export function WorkerEngines() {
           : current.engines.length;
 
   const targets = (
-    scope === "checked" && checked.length
+    scope === "checked"
       ? workers.filter((w) => checked.includes(w.worker_id))
       : current
         ? [current]

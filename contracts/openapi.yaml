@@ -28423,7 +28423,7 @@
           },
           "cpu_fallback": {
             "type": "boolean",
-            "description": "Autorisation du contrat d'exécuter cette release CUDA sur le CPU ; la configuration du Worker doit aussi l'autoriser. N'installe jamais rien."
+            "description": "Champ historique conservé pour la compatibilité des manifestes. Une exécution CPU exige une release CPU distincte, installée volontairement."
           },
           "wheels": {
             "type": "array",

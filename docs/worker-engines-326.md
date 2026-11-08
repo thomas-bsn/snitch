@@ -117,6 +117,8 @@ La revue porte sur la branche d’intégration depuis `origin/main` (`cb74b5e644
 | --- | --- | --- |
 | Dispatch resté sur le runtime d’installation après publication d’une mise à jour | Haute | La liaison publiée devient prioritaire dans la clause SQL commune ; régression avec ancien runtime perdu et nouveau prêt. |
 | Release CUDA utilisable sur CPU via deux indicateurs historiques | Haute | Refus cohérent dans Go, le plan TypeScript, l’installation et l’inférence Python. Une release CPU distincte est nécessaire. Tests de ressources d’abord rouges puis verts. |
+| Télémétrie GPU inconnue conservant `auto` ou `cpu` pour une release CUDA | Haute | Le runtime force CUDA ; l’adaptateur refuse alors un GPU absent. Test de régression rouge puis 23 tests de ressources verts. |
+| Portée cochée vide ciblant implicitement le Worker courant ; plan acceptant deux versions du même engine | Moyenne | Une sélection vide reste vide ; le plan réserve un seul ordre par famille et Worker, comme le serveur. Régressions ajoutées aux E2E CI ; contrôle ciblé du plan rouge puis vert. |
 | Budget disque ECAPA inférieur aux roues et à leur décompression | Haute | Facteur 3 et manifeste régénéré ; test contre la mesure consignée, sans prétendre avoir installé les roues. |
 | Schéma `type: null` incompatible avec OpenAPI 3.0.3 | Haute | `nullable` et référence composée, clients régénérés ; validation des requêtes/réponses des suites engines et runtimes. |
 | Manifeste ECAPA contrôlé seulement par le Worker | Moyenne | Test Go important le manifeste exact commité, signé avec une clé éphémère, et validant ses 50 roues et ses contrats. |

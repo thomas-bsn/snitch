@@ -45,8 +45,8 @@ class VoiceEngineManifest:
                 celle du type). La séparation n'est pas une capacité approuvée.
             input_contract (str | Unset): Contrat d'entrée déclaré (optionnel).
             output_contract (str | Unset): Contrat de sortie déclaré (optionnel).
-            cpu_fallback (bool | Unset): Autorisation du contrat d'exécuter cette release CUDA sur le CPU ; la configuration
-                du Worker doit aussi l'autoriser. N'installe jamais rien.
+            cpu_fallback (bool | Unset): Champ historique conservé pour la compatibilité des manifestes. Une exécution CPU
+                exige une release CPU distincte, installée volontairement.
      """
 
     engine: str

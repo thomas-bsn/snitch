@@ -7489,7 +7489,7 @@ export interface components {
       input_contract?: string;
       /** @description Contrat de sortie déclaré (optionnel). */
       output_contract?: string;
-      /** @description Autorisation du contrat d'exécuter cette release CUDA sur le CPU ; la configuration du Worker doit aussi l'autoriser. N'installe jamais rien. */
+      /** @description Champ historique conservé pour la compatibilité des manifestes. Une exécution CPU exige une release CPU distincte, installée volontairement. */
       cpu_fallback?: boolean;
       wheels: components["schemas"]["VoiceEngineWheel"][];
     };

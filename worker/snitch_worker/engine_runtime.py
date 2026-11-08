@@ -139,7 +139,7 @@ def gpu_state(exists: Any = os.path.exists) -> tuple[str, int, int] | None:  # p
 
 
 def cpu_fallback_enabled(environ: Mapping[str, str]) -> bool:
-    """The Worker's own configuration; it is never enough alone, the release contract must allow it too."""
+    """Historical setting reported for compatibility; it never permits a CUDA release to run on CPU."""
     return environ.get(CPU_FALLBACK_ENV, "").strip() == "1"
 
 
