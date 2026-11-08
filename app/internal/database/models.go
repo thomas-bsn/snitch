@@ -1053,22 +1053,25 @@ type WorkerEngineInventory struct {
 }
 
 type WorkerEngineOrder struct {
-	ID             string             `json:"id"`
-	WorkerID       string             `json:"worker_id"`
-	Digest         string             `json:"digest"`
-	Engine         string             `json:"engine"`
-	Version        string             `json:"version"`
-	Intent         string             `json:"intent"`
-	Manifest       []byte             `json:"manifest"`
-	Generation     int64              `json:"generation"`
-	IdempotencyKey string             `json:"idempotency_key"`
-	AuthorID       pgtype.Int8        `json:"author_id"`
-	AuthorName     string             `json:"author_name"`
-	Status         string             `json:"status"`
-	CauseCode      string             `json:"cause_code"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	AckedAt        pgtype.Timestamptz `json:"acked_at"`
-	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	ID                 string             `json:"id"`
+	WorkerID           string             `json:"worker_id"`
+	Digest             string             `json:"digest"`
+	Engine             string             `json:"engine"`
+	Version            string             `json:"version"`
+	Intent             string             `json:"intent"`
+	Manifest           []byte             `json:"manifest"`
+	Generation         int64              `json:"generation"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	AuthorID           pgtype.Int8        `json:"author_id"`
+	AuthorName         string             `json:"author_name"`
+	Status             string             `json:"status"`
+	CauseCode          string             `json:"cause_code"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	AckedAt            pgtype.Timestamptz `json:"acked_at"`
+	FinishedAt         pgtype.Timestamptz `json:"finished_at"`
+	CancelRequestedAt  pgtype.Timestamptz `json:"cancel_requested_at"`
+	CleanupRequestedAt pgtype.Timestamptz `json:"cleanup_requested_at"`
+	CleanedAt          pgtype.Timestamptz `json:"cleaned_at"`
 }
 
 type WorkerHfToken struct {

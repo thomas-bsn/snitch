@@ -419,6 +419,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineOrders(t, pool)
 	})
+	t.Run("voice engine recovery", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineRecovery(t, pool)
+	})
 	t.Run("voice model order creation", func(t *testing.T) {
 		reset(t)
 		testVoiceModelOrderCreation(t, pool)

@@ -39,6 +39,32 @@ class RuntimeFailed(RuntimeError):
         self.cause = cause
 
 
+class Cancelled(RuntimeFailed):
+    """The operator asked to stop this installation; it stopped at a safe point, leaving only its own files."""
+
+    def __init__(self) -> None:
+        super().__init__("cancelled")
+
+
+# Cooperative cancellation (#351): the thread that runs an install tells which question to ask between steps.
+_STOP = threading.local()
+
+
+@contextlib.contextmanager
+def stop_when(predicate: Any) -> Any:
+    _STOP.predicate = predicate
+    try:
+        yield
+    finally:
+        _STOP.predicate = None
+
+
+def checkpoint() -> None:
+    predicate = getattr(_STOP, "predicate", None)
+    if predicate is not None and predicate():
+        raise Cancelled()
+
+
 def validate(manifest: Any, engine: str, kind: str) -> None:
     """Defense in depth on an authenticated server order; never interpret an import path."""
     def require(condition: Any) -> None:
@@ -108,6 +134,7 @@ def _download(wheel: Mapping[str, Any], destination: Path) -> None:
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect())
         with opener.open(wheel["url"], timeout=30) as response, destination.open("xb") as out:
             while chunk := response.read(1 << 20):
+                checkpoint()
                 received += len(chunk)
                 if received > wheel["size"]:
                     raise RuntimeFailed()
@@ -186,19 +213,24 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
             with tempfile.TemporaryDirectory(dir=target.parent, prefix=".wheels-") as temporary:
                 wheels = Path(temporary)
                 for wheel in manifest["wheels"]:
+                    checkpoint()
                     _download(wheel, wheels / wheel["name"])
                 _wheel_budget(wheels, manifest["disk_bytes"] - sum(w["size"] for w in manifest["wheels"]))
                 # A model order reports one "verifying" step; an engine order tells installing and verifying apart.
+                checkpoint()
                 report("installing" if detailed else "verifying")
                 subprocess.run([sys.executable, "-m", "venv", str(target)], env=env, check=True,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                checkpoint()
                 python = str(target / "bin/python")
                 # Wheel paths are explicit and already hashed. --no-deps forbids a second resolver.
                 subprocess.run([python, "-I", "-m", "pip", "--isolated", "install", "--no-index", "--no-deps",
                                 "--only-binary=:all:", *[str(wheels / w["name"]) for w in manifest["wheels"]]],
                                env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1800)
+                checkpoint()
                 subprocess.run([python, "-I", "-m", "pip", "--isolated", "check"], env=env, check=True,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+                checkpoint()
                 if detailed:
                     report("verifying")
                 # Protocol import proves the approved adapter is usable before recording the runtime.
@@ -210,6 +242,7 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
                 probe = "import sys,torch; cuda=sys.argv[1]; need=int(sys.argv[2]); valid = cuda == 'cpu' or (torch.cuda.is_available() and torch.version.cuda == cuda and torch.cuda.get_device_properties(0).total_memory >= need); sys.exit(0 if valid else 1)"
                 subprocess.run([python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"])], env=env, check=True,
                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            checkpoint()
             (target / ".ready").write_text(identity(manifest))
         except RuntimeFailed:
             raise
@@ -218,6 +251,28 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
         except (subprocess.SubprocessError, ValueError):
             raise RuntimeFailed() from None
     return target
+
+
+def cleanup(manifest: dict[str, Any], environ: Mapping[str, str]) -> bool:
+    """Remove the incomplete directory of this exact release, and nothing else.
+
+    Attributable files are those under the digest-qualified location of the manifest. A validated runtime (ready
+    marker matching its identity, interpreter present) is never removed, nor is anything outside the runtime
+    root. Temporary wheel directories are shared by every install of an engine and are not attributable.
+    Returns whether something was removed."""
+    validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
+    target = location(manifest, environ)
+    base = root(environ).resolve()
+    with _LOCK, _volume_lock(target.parent):
+        if installed(manifest, environ) or not (target.exists() or target.is_symlink()):
+            return False
+        if target.is_symlink():
+            target.unlink()
+            return True
+        if base not in target.resolve().parents:
+            return False
+        shutil.rmtree(target)
+        return True
 
 
 def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
