@@ -542,18 +542,25 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	engineCleanups, err := s.pendingEngineCleanups(r.Context(), worker.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	out := struct {
 		Models []workerVoiceModel    `json:"models"`
 		Remove []workerVoiceModel    `json:"remove"`
 		Orders []voiceModelOrderView `json:"orders"`
 		// EngineOrders install approved runtimes; an older Worker ignores this list.
 		EngineOrders []engineOrderView `json:"engine_orders"`
+		// EngineCleanups ask the Worker to remove the incomplete files of a failed or cancelled install (#351).
+		EngineCleanups []engineCleanupView `json:"engine_cleanups"`
 		// WorkerID is the identity Snitch gives this Worker: it pins it on its volume and checks every order against it.
 		WorkerID string `json:"worker_id"`
 		// Held are the models Snitch already knows as ready on this Worker: a model the Worker holds on its volume
 		// and that is not listed here (installed before orders existed) is reported by the Worker once proven.
 		Held []string `json:"held"`
-	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders, EngineOrders: engineOrders}
+	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders, EngineOrders: engineOrders, EngineCleanups: engineCleanups}
 	add := func(list *[]workerVoiceModel, id, role string) {
 		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
 			err = lookupErr

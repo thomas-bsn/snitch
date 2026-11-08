@@ -5,11 +5,14 @@ import { useI18n } from "../../i18n";
 import {
   planOrders,
   refusalFor,
+  type EngineEntry,
   type EngineWorker,
   type Release,
 } from "./engineOrders";
 
 type Props = {
+  /** A failed installation being replaced: only the other releases of the same engine are offered. */
+  replacing?: EngineEntry;
   worker: EngineWorker;
   workers: EngineWorker[];
   checked: string[];
@@ -26,6 +29,7 @@ const mebibytes = (bytes: number) => Math.ceil(bytes / 1024 ** 2);
 
 /** The registry of approved releases, seen from one Worker. Nothing starts before the confirmation. */
 export function WorkerEngineAdd({
+  replacing,
   worker,
   workers,
   checked,
@@ -40,6 +44,12 @@ export function WorkerEngineAdd({
   const [picked, setPicked] = useState<string[]>([]);
   const [scope, setScope] = useState<"this" | "checked">("this");
   const shown = releases
+    .filter(
+      (r) =>
+        !replacing ||
+        (r.manifest.engine === replacing.engine &&
+          r.digest !== replacing.digest),
+    )
     .filter((r) =>
       `${r.manifest.engine} ${r.manifest.version}`
         .toLowerCase()
@@ -66,7 +76,11 @@ export function WorkerEngineAdd({
       closeLabel={t("voiceModels.byWorker.close")}
       variant="wide"
     >
-      <p className="text-mute">{t("workerEngines.addLead")}</p>
+      <p className="text-mute">
+        {replacing
+          ? t("workerEngines.action.replaceLead", { engine: replacing.engine })
+          : t("workerEngines.addLead")}
+      </p>
       {registryError && <ErrorAlert>{error(registryError)}</ErrorAlert>}
       <input
         type="search"

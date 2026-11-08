@@ -19,6 +19,12 @@ export const errorsEn = {
     "An order for this engine is already running on this Worker.",
   engine_already_installed:
     "This engine release is already installed on this Worker.",
+  engine_not_failed:
+    "This engine installation is not failed, so it cannot be retried or cleaned up.",
+  engine_order_not_cancellable:
+    "This engine installation has already ended and cannot be cancelled.",
+  engine_order_not_found:
+    "No engine installation is recorded for this release on this Worker.",
 
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:
