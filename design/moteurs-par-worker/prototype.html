@@ -1,0 +1,293 @@
+<!doctype html>
+<!--
+PROTOTYPE JETABLE (#326 / spec #348) — ne jamais copier tel quel dans web/, ne pas fusionner dans main.
+Question : comment montrer l'état de chaque version d'engine sur chaque Worker, et les actions possibles
+(Installer, Annuler, Réessayer, Remplacer, Mettre à jour, Désinstaller) avec la raison de chaque refus ?
+Trois variantes structurellement différentes, mêmes données synthétiques en mémoire, mêmes règles d'actions.
+Variantes : A matrice versions × Workers · B Worker par Worker · C version par version (maître/détail).
+Choix à trancher : voir README.md.
+-->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snitch — Engines par Worker (prototype jetable)</title>
+<style>
+:root{color-scheme:dark;--bg:#0e0e11;--surface:#17171c;--line:#2a2a31;--ink:#e8e8ee;--mute:#9a9aa6;--accent:#8f8ff5;
+--ok:#3ecf8e;--run:#6ea8fe;--bad:#ff7a7a;--warn:#f0b35a;--off:#6b6b76}
+*{box-sizing:border-box}
+body{margin:0;font:13px Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:90px}
+button,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1280px;margin:auto;padding:20px 24px}
+h1{font-size:17px;margin:0}
+.top{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:flex-start;margin-bottom:14px}
+.mute{color:var(--mute)}
+.sim{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 10px;border:1px dashed var(--line);border-radius:10px;font-size:12px;margin-bottom:16px}
+.sim b{color:var(--warn);margin-right:4px}
+.btn{border:1px solid #3a3a44;background:var(--surface);padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;min-height:28px}
+.btn:hover{border-color:var(--accent)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#10102a}
+.btn.dng:hover{border-color:var(--bad);color:var(--bad)}
+.btn[aria-disabled=true]{opacity:.4;cursor:not-allowed}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;background:#22222a;color:var(--off)}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.s-ready{color:var(--ok);background:#12281f}.s-failed{color:var(--bad);background:#2d1717}
+.s-requested,.s-downloading_runtime,.s-installing,.s-verifying{color:var(--run);background:#14233a}
+.s-draining{color:var(--warn);background:#2e2412}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mute);margin-right:4px}
+.tag.rev{color:var(--bad);border-color:#5a2a2a}.tag.bound{color:var(--accent);border-color:#3b3b78}
+.prog{height:4px;background:var(--line);border-radius:4px;margin-top:6px;overflow:hidden}.prog i{display:block;height:100%;background:var(--run)}
+.err{color:var(--bad);font-size:11px;margin-top:5px}
+.note{color:var(--mute);font-size:11px;margin-top:4px;line-height:1.4}
+.why{color:var(--warn);font-size:11px;margin-top:3px}
+.acts{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+table{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+th,td{padding:12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{font-size:11px;color:var(--mute);font-weight:600}
+td.cell{min-width:200px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.split{display:grid;grid-template-columns:300px 1fr;gap:14px}
+@media(max-width:800px){.split{grid-template-columns:1fr}}
+.item{display:block;width:100%;text-align:left;border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:10px 12px;margin-bottom:8px}
+.item[aria-current=true]{border-color:var(--accent)}
+.steps{display:flex;gap:4px;margin:8px 0 2px}
+.steps span{flex:1;font-size:10px;text-align:center;padding:3px 0;border-radius:5px;background:#1d1d24;color:var(--off)}
+.steps span.done{background:#12281f;color:var(--ok)}.steps span.cur{background:#14233a;color:var(--run);font-weight:700}.steps span.bad{background:#2d1717;color:var(--bad)}
+.bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#ececf0;color:#101014;padding:8px 14px;border-radius:999px;box-shadow:0 8px 30px #000a;z-index:50}
+.bar button{border:0;background:#d4d4dc;border-radius:50%;width:30px;height:30px;font-weight:700}
+.toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#2a2412;color:var(--warn);border:1px solid #5a4a1c;padding:9px 14px;border-radius:9px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:90vw}
+.toast.on{opacity:1}
+.log{margin-top:22px;font:11px ui-monospace,monospace;color:var(--mute);border-top:1px solid var(--line);padding-top:10px;max-height:150px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <h1>Administration → Voix → Engines <span class="tag">PROTOTYPE</span></h1>
+      <p class="mute" id="variantNote" style="margin:4px 0 0"></p>
+    </div>
+  </div>
+  <div class="sim" id="sim"></div>
+  <div id="stage"></div>
+  <div class="log" id="log" aria-live="polite"></div>
+</div>
+<div class="bar" id="bar"><button id="prev" aria-label="Variante précédente">←</button><span id="label"></span><button id="next" aria-label="Variante suivante">→</button></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===================== données synthétiques et règles (partagées) ===================== */
+const WORKERS = [
+  {id:"w1", name:"Atelier RTX 4070", online:true,  cuda:"12.8", vram:12288, disk:"61 Go libres"},
+  {id:"w2", name:"NAS (CPU)",        online:true,  cuda:"cpu",  vram:0,     disk:"212 Go libres"},
+  {id:"w3", name:"Portable",         online:false, cuda:"12.8", vram:4096,  disk:"9 Go libres"},
+];
+const RELEASES = [
+  {id:"r1", family:"ecapa-gpu", engine:"speechbrain-ecapa", version:"1.1.2", rank:2, cuda:"12.8", disk:4800, vram:1500, revoked:false},
+  {id:"r2", family:"ecapa-gpu", engine:"speechbrain-ecapa", version:"1.1.1", rank:1, cuda:"12.8", disk:4700, vram:1500, revoked:true},
+  {id:"r4", family:"ecapa-cpu", engine:"speechbrain-ecapa", version:"1.1.2 (CPU)", rank:2, cuda:"cpu", disk:2100, vram:0, revoked:false},
+  {id:"r3", family:"titanet",   engine:"nemo-titanet",      version:"3.0.0", rank:1, cuda:"12.8", disk:7200, vram:2500, revoked:false},
+];
+const SCENARIOS = {
+  "Dérive entre Workers": () => ({
+    "r2|w1":{state:"ready", bound:["ECAPA-TDNN (empreinte)"], jobs:0},
+    "r3|w1":{state:"downloading_runtime", progress:40},
+    "r3|w2":{state:"failed", cause:"disk_full"},
+    "r4|w2":{state:"ready", bound:["ECAPA-TDNN (empreinte)"], jobs:2},
+    "r1|w3":{state:"requested"},
+  }),
+  "Tout vide": () => ({}),
+  "Pannes": () => ({
+    "r1|w1":{state:"failed", cause:"cuda_incompatible"},
+    "r3|w1":{state:"failed", cause:"network"},
+    "r4|w2":{state:"failed", cause:"oom"},
+  }),
+};
+const CAUSES = {disk_full:"Disque insuffisant (4,8 Go requis, 1,2 Go libres)", network:"Réseau : files.pythonhosted.org injoignable",
+  cuda_incompatible:"CUDA 12.4 détecté, 12.8 requis", oom:"Mémoire insuffisante pendant la vérification"};
+const STATE_LABEL = {not_installed:"Absent", requested:"Demandé", downloading_runtime:"Téléchargement", installing:"Installation",
+  verifying:"Vérification", ready:"Prêt", failed:"Échec", draining:"Drainage"};
+const STEPS = ["requested","downloading_runtime","installing","verifying","ready"];
+const IN_PROGRESS = ["requested","downloading_runtime","installing","verifying"];
+
+let cells = {}, scenario = "Dérive entre Workers", logLines = [];
+const key = (r,w) => r+"|"+w;
+const rel = id => RELEASES.find(r=>r.id===id), wk = id => WORKERS.find(w=>w.id===id);
+const cell = (r,w) => cells[key(r,w)] || {state:"not_installed"};
+const set = (r,w,c) => { cells[key(r,w)] = c; };
+function log(m){ logLines.unshift(new Date().toLocaleTimeString("fr")+"  "+m); logLines = logLines.slice(0,40); }
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast.h); toast.h=setTimeout(()=>t.classList.remove("on"),2600); }
+
+// Une cible de mise à jour : même famille, rang supérieur, non révoquée, compatible, pas déjà installée sur ce Worker.
+function updateTarget(r,w){
+  return RELEASES.find(o=>o.family===r.family && o.rank>r.rank && !o.revoked && !compat(o,w) && cell(o.id,w.id).state==="not_installed");
+}
+function compat(r,w){ // renvoie la raison d'incompatibilité, ou "" si compatible
+  if (r.cuda!=="cpu" && w.cuda==="cpu") return "Ce Worker n'a pas de GPU CUDA";
+  if (r.vram>w.vram && r.cuda!=="cpu") return "VRAM insuffisante ("+(w.vram/1024)+" Go < "+(r.vram/1024).toFixed(1)+" Go)";
+  return "";
+}
+// Toutes les actions d'une cellule, avec la raison exacte quand elle est refusée (jamais un bouton muet).
+function actions(r,w){
+  const c = cell(r.id,w.id), out = [];
+  const add = (k,label,why="",cls="") => out.push({k,label,why,cls});
+  if (c.state==="not_installed"){
+    const why = r.revoked ? "Version révoquée : plus aucune nouvelle installation" : compat(r,w);
+    add("install","Installer", why, "pri");
+    if (!why && !w.online) out[out.length-1].hint = "Worker hors ligne : l'ordre sera livré à sa reconnexion";
+  } else if (IN_PROGRESS.includes(c.state)){
+    add("cancel","Annuler");
+  } else if (c.state==="failed"){
+    add("retry","Réessayer","", "pri");
+    const alt = RELEASES.find(o=>o.id!==r.id && o.family!==r.family && o.engine===r.engine && !o.revoked && !compat(o,w) && cell(o.id,w.id).state==="not_installed");
+    add("replace", alt ? "Remplacer par "+alt.version : "Remplacer", alt ? "" : "Aucune autre version compatible de cet engine pour ce Worker");
+    add("clean","Nettoyer les fichiers incomplets");
+  } else if (c.state==="ready" || c.state==="draining"){
+    const up = updateTarget(r,w);
+    if (up && (c.bound||[]).length) add("update","Mettre à jour → "+up.version,"", r.revoked?"pri":"");
+    if (c.prev) { const p=rel(c.prev); add("rollback","Revenir à "+p.version, p.revoked ? "Version "+p.version+" révoquée : retour arrière interdit" : ""); }
+    let why = "";
+    if (c.state==="draining") why = "Drainage déjà en cours";
+    else if ((c.bound||[]).length) why = "Lié au modèle « "+c.bound.join(", ")+" » : désinstallez d'abord le modèle";
+    add("uninstall","Désinstaller", why, "dng");
+    if (!why && c.jobs>0) out[out.length-1].hint = c.jobs+" job(s) en cours : drainage, aucun job interrompu";
+  }
+  return out;
+}
+function perform(rid,wid,k){
+  const r=rel(rid), w=wk(wid), c=cell(rid,wid), a=actions(r,w).find(x=>x.k===k);
+  if (!a) return;
+  if (a.why){ toast("Refusé : "+a.why); log("REFUSÉ "+r.engine+" "+r.version+" @ "+w.name+" — "+k+" — "+a.why); return; }
+  const tag = r.engine+" "+r.version+" @ "+w.name;
+  if (k==="install"){ set(rid,wid,{state:w.online?"downloading_runtime":"requested",progress:0}); log("ORDRE install "+tag); }
+  if (k==="cancel"){ set(rid,wid,{state:"not_installed"}); log("ORDRE annulé "+tag); }
+  if (k==="retry"){ set(rid,wid,{state:"downloading_runtime",progress:0}); log("ORDRE retry "+tag+" (même ordre, pas de doublon)"); }
+  if (k==="clean"){ set(rid,wid,{state:"not_installed"}); log("Nettoyage borné des fichiers de l'ordre "+tag); }
+  if (k==="replace"){
+    const alt = RELEASES.find(o=>o.id!==r.id && o.family!==r.family && o.engine===r.engine && !o.revoked && !compat(o,w) && cell(o.id,w.id).state==="not_installed");
+    set(rid,wid,{state:"not_installed"}); set(alt.id,wid,{state:"downloading_runtime",progress:0}); log("REMPLACEMENT "+tag+" → "+alt.version);
+  }
+  if (k==="update"){ const up=updateTarget(r,w); set(up.id,wid,{state:"downloading_runtime",progress:0,from:rid}); log("MISE À JOUR "+tag+" → "+up.version+" : l'ancienne version reste liée jusqu'à validation"); }
+  if (k==="rollback"){
+    const p=c.prev; set(p,wid,{...cell(p,wid),state:"ready",bound:c.bound,jobs:0}); set(rid,wid,{...c,bound:[],prev:undefined}); log("ROLLBACK "+tag+" → "+rel(p).version);
+  }
+  if (k==="uninstall"){
+    if (c.jobs>0){ set(rid,wid,{...c,state:"draining"}); log("DRAINAGE "+tag+" : "+c.jobs+" job(s)"); }
+    else { set(rid,wid,{state:"not_installed"}); log("ORDRE remove "+tag); }
+  }
+  render();
+}
+function tick(){ // avance chaque opération d'un cran
+  for (const k of Object.keys(cells)){
+    const [rid,wid]=k.split("|"), c=cells[k], w=wk(wid);
+    if (c.state==="requested" && w.online) c.state="downloading_runtime", c.progress=0;
+    else if (c.state==="downloading_runtime"){ c.progress=(c.progress||0)+35; if (c.progress>=100) c.state="installing"; }
+    else if (c.state==="installing") c.state="verifying";
+    else if (c.state==="verifying"){
+      c.state="ready"; c.bound=[]; c.jobs=0; delete c.progress;
+      if (c.from){ const old=cells[key(c.from,wid)]; c.bound=old.bound||[]; c.prev=c.from; old.bound=[]; log("LIAISON basculée "+rel(c.from).version+" → "+rel(rid).version+" après inférence de test réussie"); delete c.from; }
+    }
+    else if (c.state==="draining"){ c.jobs=Math.max(0,c.jobs-1); if (c.jobs===0){ delete cells[k]; log("Drainage terminé, runtime retiré"); } }
+  }
+  log("— tick —"); render();
+}
+function failOne(cause){
+  const k=Object.keys(cells).find(k=>IN_PROGRESS.includes(cells[k].state)&&cells[k].state!=="requested");
+  if(!k){ toast("Aucune opération en cours à faire échouer"); return; }
+  cells[k]={state:"failed",cause}; const [rid,wid]=k.split("|"); log("ÉCHEC "+rel(rid).version+" @ "+wk(wid).name+" : "+cause); render();
+}
+function load(name){ scenario=name; cells=SCENARIOS[name](); logLines=[]; log("Scénario : "+name); render(); }
+
+/* ===================== pièces communes de rendu ===================== */
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function badge(c){ return `<span class="badge s-${c.state}">${STATE_LABEL[c.state]}</span>`; }
+function extras(c){
+  let h="";
+  if (c.state==="downloading_runtime") h+=`<div class="prog"><i style="width:${c.progress||0}%"></i></div>`;
+  if (c.state==="failed") h+=`<div class="err">${esc(CAUSES[c.cause]||c.cause)}</div>`;
+  if (c.state==="requested") h+=`<div class="note">En attente : sera livré à la reconnexion du Worker</div>`;
+  if (c.state==="draining") h+=`<div class="note">${c.jobs} job(s) en cours à terminer avant retrait</div>`;
+  if ((c.bound||[]).length) h+=`<div style="margin-top:5px">${c.bound.map(b=>`<span class="tag bound">lié : ${esc(b)}</span>`).join("")}</div>`;
+  if (c.jobs>0 && c.state==="ready") h+=`<div class="note">${c.jobs} job(s) en cours</div>`;
+  return h;
+}
+function buttons(r,w,showWhy=false){
+  const list = actions(r,w); if(!list.length) return "";
+  return `<div class="acts">${list.map(a=>`<button class="btn ${a.cls||""}" aria-disabled="${!!a.why}" title="${esc(a.why||a.hint||"")}" data-r="${r.id}" data-w="${w.id}" data-k="${a.k}">${esc(a.label)}</button>`).join("")}</div>`
+   + (showWhy ? list.filter(a=>a.why||a.hint).map(a=>`<div class="${a.why?"why":"note"}">${esc(a.label)} : ${esc(a.why||a.hint)}</div>`).join("") : "");
+}
+function relTitle(r){ return `<strong>${esc(r.engine)}</strong> ${esc(r.version)} ${r.revoked?'<span class="tag rev">révoquée</span>':""}<div class="note">CUDA ${r.cuda} · disque ${(r.disk/1024).toFixed(1)} Go · VRAM ${(r.vram/1024).toFixed(1)} Go</div>`; }
+function wTitle(w){ return `<strong>${esc(w.name)}</strong> <span class="badge ${w.online?"s-ready":""}">${w.online?"En ligne":"Hors ligne"}</span><div class="note">${w.cuda==="cpu"?"CPU seul":"CUDA "+w.cuda+" · VRAM "+w.vram/1024+" Go"} · ${w.disk}</div>`; }
+
+/* ===================== Variante A : matrice versions × Workers ===================== */
+function variantA(){
+  return `<table><thead><tr><th>Version d'engine</th>${WORKERS.map(w=>`<th>${wTitle(w)}</th>`).join("")}</tr></thead><tbody>`+
+  RELEASES.map(r=>`<tr><td>${relTitle(r)}</td>${WORKERS.map(w=>{const c=cell(r.id,w.id);
+    return `<td class="cell">${badge(c)}${extras(c)}${buttons(r,w)}</td>`;}).join("")}</tr>`).join("")+`</tbody></table>
+    <p class="note">Les boutons grisés restent cliquables : le refus donne la raison exacte. Survol = info-bulle.</p>`;
+}
+
+/* ===================== Variante B : Worker par Worker ===================== */
+function variantB(){
+  return WORKERS.map(w=>{
+    const installed = RELEASES.filter(r=>cell(r.id,w.id).state!=="not_installed");
+    const addable = RELEASES.filter(r=>cell(r.id,w.id).state==="not_installed");
+    return `<div class="card"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">${wTitle(w)}
+      <span class="mute">${installed.filter(r=>cell(r.id,w.id).state==="ready").length} prêt(s) · ${installed.filter(r=>IN_PROGRESS.includes(cell(r.id,w.id).state)).length} en cours · ${installed.filter(r=>cell(r.id,w.id).state==="failed").length} en échec</span></div>`+
+      (installed.length? installed.map(r=>{const c=cell(r.id,w.id);return `<div class="row"><div>${relTitle(r)}${extras(c)}</div><div style="text-align:right">${badge(c)}${buttons(r,w,true)}</div></div>`;}).join("")
+        : `<div class="row"><span class="mute">Aucun engine sur ce Worker.</span></div>`)+
+      `<div class="row"><div><span class="mute">Ajouter un engine :</span></div><div>`+
+      addable.map(r=>{const why=actions(r,w)[0].why;return `<button class="btn" aria-disabled="${!!why}" title="${esc(why)}" data-r="${r.id}" data-w="${w.id}" data-k="install">${esc(r.engine)} ${esc(r.version)}</button>${why?`<span class="why" style="margin:0 8px 0 4px">${esc(why)}</span>`:""}`;}).join(" ")+
+      `</div></div></div>`;
+  }).join("");
+}
+
+/* ===================== Variante C : version par version (maître / détail) ===================== */
+let selectedRelease = "r1";
+function stepper(c){
+  if (c.state==="not_installed") return "";
+  const idx = STEPS.indexOf(c.state==="draining"?"ready":c.state);
+  return `<div class="steps">${STEPS.map((s,i)=>`<span class="${c.state==="failed"?(i===0?"done":i===1?"bad":""):i<idx?"done":i===idx?"cur":""}">${STATE_LABEL[s]}</span>`).join("")}</div>`;
+}
+function variantC(){
+  const r = rel(selectedRelease);
+  const master = RELEASES.map(o=>{const ready=WORKERS.filter(w=>cell(o.id,w.id).state==="ready").length, fail=WORKERS.filter(w=>cell(o.id,w.id).state==="failed").length;
+    return `<button class="item" data-pick="${o.id}" aria-current="${o.id===selectedRelease}">${relTitle(o)}<div class="note">${ready}/${WORKERS.length} Workers prêts${fail?` · <span style="color:var(--bad)">${fail} en échec</span>`:""}</div></button>`;}).join("");
+  const detail = `<div class="card"><h2 style="margin:0 0 4px;font-size:15px">${esc(r.engine)} ${esc(r.version)}</h2>${r.revoked?'<div class="why">Révoquée : aucune nouvelle installation. Les runtimes déjà installés restent utilisables.</div>':""}`+
+    WORKERS.map(w=>{const c=cell(r.id,w.id);return `<div class="row"><div style="flex:1;min-width:240px">${wTitle(w)}${stepper(c)}${extras(c)}</div><div style="min-width:260px">${badge(c)}${buttons(r,w,true)}</div></div>`;}).join("")+`</div>`;
+  return `<div class="split"><div>${master}</div><div>${detail}</div></div>`;
+}
+
+/* ===================== câblage ===================== */
+const VARIANTS = {A:["Matrice versions × Workers",variantA,"Une ligne par version, une colonne par Worker : on repère d'un coup d'œil les écarts entre Workers."],
+  B:["Worker par Worker",variantB,"On part de la machine : « que porte ce Worker, que peut-on y ajouter ? »."],
+  C:["Version par version",variantC,"On part de la release : stepper de progression et raisons de refus écrites en clair."]};
+function current(){ const v=new URLSearchParams(location.search).get("variant"); return VARIANTS[v]?v:"A"; }
+function render(){
+  const v=current(), [name,fn,note]=VARIANTS[v];
+  document.getElementById("label").textContent=v+" · "+name;
+  document.getElementById("variantNote").textContent=note;
+  document.getElementById("stage").innerHTML=fn();
+  document.getElementById("log").innerHTML=logLines.map(esc).join("<br>");
+}
+function go(d){ const keys=Object.keys(VARIANTS), i=(keys.indexOf(current())+d+keys.length)%keys.length;
+  const u=new URL(location); u.searchParams.set("variant",keys[i]); history.replaceState(null,"",u); render(); }
+document.getElementById("prev").onclick=()=>go(-1); document.getElementById("next").onclick=()=>go(1);
+addEventListener("keydown",e=>{ if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return; if(e.key==="ArrowLeft")go(-1); if(e.key==="ArrowRight")go(1); });
+document.getElementById("stage").addEventListener("click",e=>{
+  const p=e.target.closest("[data-pick]"); if(p){ selectedRelease=p.dataset.pick; render(); return; }
+  const b=e.target.closest("[data-k]"); if(b) perform(b.dataset.r,b.dataset.w,b.dataset.k);
+});
+document.getElementById("sim").innerHTML = `<b>Simulateur</b><button class="btn" id="tick">Avancer d'un cran</button>
+  <button class="btn" data-fail="network">Faire échouer : réseau</button><button class="btn" data-fail="disk_full">disque</button><button class="btn" data-fail="oom">mémoire</button>
+  <span class="mute" style="margin-left:8px">Scénario :</span>`+Object.keys(SCENARIOS).map(n=>`<button class="btn" data-sc="${esc(n)}">${esc(n)}</button>`).join("");
+document.getElementById("sim").addEventListener("click",e=>{
+  if(e.target.id==="tick")tick(); if(e.target.dataset.fail)failOne(e.target.dataset.fail); if(e.target.dataset.sc)load(e.target.dataset.sc); });
+load(scenario);
+</script>
+</body>
+</html>

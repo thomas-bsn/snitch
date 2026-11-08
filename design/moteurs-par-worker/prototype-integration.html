@@ -1,0 +1,305 @@
+<!doctype html>
+<!--
+PROTOTYPE JETABLE v4 (#326 / spec #348) — ne jamais copier tel quel dans web/, ne pas fusionner dans main.
+Question : où intégrer la gestion des engines dans Administration → Voix ?
+  A  sous-onglet « Engines » (maître/détail Worker d'abord)
+  B  tiroir « Engines » ouvert depuis chaque ligne de la matrice des Workers
+  C  ligne de Worker dépliable dans la matrice (puces + actions rapides)
+L'en-tête, les onglets, la bande de production et la matrice imitent l'onglet Voix réel (mêmes jetons de couleur,
+clair et sombre). Données synthétiques (graine fixe), tout en mémoire. ?variant=A|B|C, flèches ← → du clavier.
+-->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snitch — Voix · intégration des engines (prototype)</title>
+<style>
+:root{color-scheme:light dark;--side:#f7f7f8;--surface:#fff;--bg:#fff;--line:#e8e8ec;--line-strong:#dcdce2;--ink:#1b1b1f;--mute:#6b6b76;--accent:#5b5bd6;--accent-solid:#5b5bd6;--accent-fg:#fff;--accent-bg:#ececfb;
+--ok-bg:#e6f6ec;--ok-fg:#1e6a3c;--bad-bg:#fdecec;--bad-fg:#8a1f1f;--warn-bg:#fdf3df;--warn-fg:#8a5a00;--run-bg:#e6eefc;--run-fg:#1f4fa0}
+@media(prefers-color-scheme:dark){:root{--side:#16161a;--surface:#1b1b20;--bg:#111114;--line:#2a2a31;--line-strong:#3a3a43;--ink:#ececf0;--mute:#9a9aa6;--accent:#8f8ff5;--accent-bg:#26264a;
+--ok-bg:#16301f;--ok-fg:#7fd69a;--bad-bg:#3a1a1a;--bad-fg:#f0a0a0;--warn-bg:#3a2d12;--warn-fg:#f2c27a;--run-bg:#162640;--run-fg:#8ab4ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,sans-serif}
+button,select,input{font:inherit;color:inherit}button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.shell{max-width:1240px;margin:auto;padding:28px 32px 120px}
+h2,h3,h4,p{margin:0}h2{font-size:28px;font-weight:650;letter-spacing:-.03em;line-height:1.3}p{color:var(--mute);font-size:13px;line-height:1.65}
+.heading{display:flex;justify-content:space-between;gap:35px;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap}
+.heading p{margin-top:8px;max-width:580px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{min-height:38px;border:1px solid var(--line-strong);border-radius:7px;padding:8px 12px;display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--surface);font-size:12px;font-weight:500}
+.btn:hover{background:var(--side);border-color:var(--mute)}.btn.pri{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--accent-fg)}
+.btn.sm{min-height:30px;padding:4px 10px}.btn.dng:hover{border-color:var(--bad-fg);color:var(--bad-fg)}.btn[aria-disabled=true]{opacity:.45;cursor:not-allowed}
+.btn.link{border-color:transparent;background:transparent;color:var(--accent)}
+.tabs{display:flex;gap:25px;border-bottom:1px solid var(--line);margin-bottom:22px;overflow-x:auto}
+.tabs>button{display:flex;gap:8px;align-items:center;min-height:48px;padding:8px 4px 15px;border-bottom:2px solid transparent;color:var(--mute);font-size:13px;white-space:nowrap}
+.tabs>button[aria-selected=true]{border-color:var(--accent);color:var(--ink);font-weight:600}
+.tabs>button>span{border-radius:4px;background:var(--side);color:var(--mute);padding:2px 5px;font-size:10px;font-weight:400}
+.tabs>button.new::after{content:"nouveau";font-size:9px;font-weight:700;color:var(--accent-fg);background:var(--accent-solid);border-radius:4px;padding:1px 5px;margin-left:2px}
+.prod{display:grid;grid-template-columns:120px repeat(3,minmax(0,1fr));align-items:center;gap:20px;background:var(--side);border-radius:8px;padding:17px 20px;margin-bottom:26px}
+.prod>span{font-size:12px;font-weight:600;color:var(--ok-fg)}.prod>div{display:flex;flex-direction:column;gap:4px}.prod>div span{font-size:11px;color:var(--mute)}.prod strong{font-size:12px}
+@media(max-width:800px){.prod{grid-template-columns:1fr 1fr}}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px 2px 7px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap;background:var(--side);color:var(--mute)}
+.badge::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.b-ok{background:var(--ok-bg);color:var(--ok-fg)}.b-bad{background:var(--bad-bg);color:var(--bad-fg)}.b-warn{background:var(--warn-bg);color:var(--warn-fg)}.b-run{background:var(--run-bg);color:var(--run-fg)}
+.scroll{border:1px solid var(--line);border-radius:9px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:900px;text-align:left}
+thead{background:var(--side);color:var(--mute);font-size:11px}thead th{font-weight:500;padding:13px 15px}
+tbody th,tbody td{padding:12px 15px;border-top:1px solid var(--line);vertical-align:middle;font-weight:400}
+tbody th{width:230px}tbody th strong{display:flex;gap:8px;align-items:center;font-size:13px}
+.dot{width:8px;height:8px;border-radius:50%;background:#2fb872;flex:none}.dot.off{background:var(--line-strong)}
+.cellname{font-size:12px;font-weight:500}.cellmeta{font-size:11px;color:var(--mute)}
+tr.open>*{background:var(--side)}
+.exp{padding:0!important;background:var(--side)}
+.expin{padding:14px 20px 18px 45px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.chipx{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 6px 5px 10px;font-size:12px}
+.chipx b{font-weight:600}
+.chipx .btn{min-height:24px;padding:2px 8px;font-size:11px}
+/* maître / détail (A) */
+.split{display:grid;grid-template-columns:320px 1fr;gap:20px;align-items:start}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.panel{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.wl{max-height:640px;display:flex;flex-direction:column}.wl-head{padding:12px;border-bottom:1px solid var(--line);display:grid;gap:8px}
+.search{width:100%;height:38px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);padding:0 12px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}.pill{border:1px solid var(--line-strong);border-radius:999px;padding:0 11px;height:30px;font-size:12px;color:var(--mute)}
+.pill[aria-pressed=true]{background:var(--accent-bg);border-color:var(--accent);color:var(--ink)}
+.wl-body{overflow:auto;padding:4px 6px 10px}
+.gt{display:flex;justify-content:space-between;padding:10px 8px 4px;color:var(--mute);font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.w{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:0 8px;min-height:50px;border-radius:8px;border:1px solid transparent}
+.w:hover{background:var(--side)}.w[aria-current=true]{background:var(--accent-bg);border-color:var(--accent)}
+.w .wb{text-align:left;padding:7px 0;min-width:0}.wn{font-weight:600;display:flex;gap:8px;align-items:center;font-size:13px}.wm{font-size:11px;color:var(--mute)}
+.wchips{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+input[type=checkbox]{width:17px;height:17px;accent-color:var(--accent-solid)}
+.pick{display:grid;place-items:center;height:36px}
+.dh{padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+.dh h3{font-size:17px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:6px;color:var(--mute);font-size:12px}.meta b{color:var(--ink);font-weight:600}
+.disk{height:5px;border-radius:5px;background:var(--side);margin-top:10px;overflow:hidden;display:flex}.disk i{display:block;height:100%}
+.etabs{display:flex;gap:4px;padding:6px 14px 0;border-bottom:1px solid var(--line)}
+.etab{padding:9px 10px;color:var(--mute);border-bottom:2px solid transparent;font-size:13px;min-height:42px}.etab[aria-selected=true]{color:var(--ink);border-color:var(--accent);font-weight:600}
+.etab span{margin-left:5px;font-size:11px}
+.fam{display:grid;grid-template-columns:26px minmax(150px,1.2fr) minmax(190px,1.4fr) minmax(120px,auto);gap:12px;align-items:center;padding:11px 18px;border-bottom:1px solid var(--line);min-height:60px}
+.fam.sel{background:var(--accent-bg)}.fname{font-weight:600;font-size:13px}.fsub{font-size:11px;color:var(--mute)}
+.note{font-size:11px;color:var(--mute);margin-top:3px}.why{font-size:11px;color:var(--warn-fg);margin-top:3px}.err{font-size:11px;color:var(--bad-fg);margin-top:3px}
+.prog{height:4px;background:var(--side);border-radius:4px;margin-top:7px;overflow:hidden}.prog i{display:block;height:100%;background:var(--run-fg)}
+.steps{display:flex;gap:3px;margin-top:7px}.steps i{height:4px;flex:1;border-radius:3px;background:var(--side)}.steps i.d{background:var(--ok-fg)}.steps i.c{background:var(--run-fg)}
+.ver{height:30px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);padding:0 6px;max-width:170px;font-size:12px}
+.empty{padding:34px 20px;text-align:center;color:var(--mute)}
+.abar{position:sticky;bottom:0;background:var(--surface);border-top:2px solid var(--accent);padding:12px 18px;display:grid;gap:8px}
+.row{display:flex;gap:10px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+.refs{font-size:11px;color:var(--warn-fg);display:grid;gap:2px}
+.scope{height:34px;border:1px solid var(--line-strong);border-radius:7px;background:var(--bg);padding:0 8px;font-size:12px}
+/* tiroir (B) et dialogue d'ajout */
+.veil{position:fixed;inset:0;background:#0007;z-index:40;display:flex}
+.veil.center{justify-content:center;align-items:flex-start;padding:6vh 16px;overflow:auto}
+.veil.side{justify-content:flex-end}
+.drawer{width:min(620px,100%);height:100%;background:var(--surface);border-left:1px solid var(--line-strong);display:flex;flex-direction:column}
+.drawer .body{flex:1;overflow:auto}
+.modal{background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;width:min(800px,100%);overflow:hidden}
+.mbody{max-height:44vh;overflow:auto}
+.switch{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#ececf0;color:#101014;padding:8px 14px;border-radius:999px;box-shadow:0 8px 30px #0008;z-index:60;font-size:13px;font-weight:600}
+.switch button{background:#d4d4dc;border-radius:50%;width:30px;height:30px;font-weight:700;color:#101014}
+.toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:9px;font-weight:600;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:70;max-width:92vw}.toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+details.sim{margin-top:26px;color:var(--mute);font-size:12px}details.sim summary{cursor:pointer}.simrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+</style>
+</head>
+<body>
+<div class="shell">
+  <div id="app"></div>
+  <details class="sim"><summary>Simulateur (hors maquette)</summary><div class="simrow"><button class="btn" id="tick">Avancer d'un cran</button><button class="btn" id="fail">Faire échouer 4 opérations</button><button class="btn" id="reset">Régénérer la flotte</button></div></details>
+</div>
+<div class="switch"><button id="prev" aria-label="Variante précédente">←</button><span id="vlabel"></span><button id="next" aria-label="Variante suivante">→</button></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ============ flotte synthétique, états, plan (même logique que prototype-worker.html) ============ */
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let R,WORKERS=[],RELEASES=[],FAMILIES=[],cells={},pick={};
+const CAUSES={disk_full:"Disque insuffisant",network:"Réseau : files.pythonhosted.org injoignable",cuda_incompatible:"CUDA incompatible avec la release",oom:"Mémoire insuffisante pendant la vérification"};
+const IN_PROGRESS=["requested","downloading_runtime","installing","verifying"],STEPS=["requested","downloading_runtime","installing","verifying"];
+const STEPNAME={requested:"Demandé",downloading_runtime:"Téléchargement",installing:"Installation",verifying:"Vérification"};
+const key=(r,w)=>r+"|"+w,rel=id=>RELEASES.find(r=>r.id===id),wk=id=>WORKERS.find(w=>w.id===id),cell=(r,w)=>cells[key(r,w)]||{state:"not_installed"};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])),gb=mb=>(mb/1024).toFixed(1).replace(".",",")+" Go";
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),3600);}
+function compat(r,w){if(r.cuda!=="cpu"&&w.cuda==="cpu")return "Pas de GPU CUDA sur ce Worker";if(r.cuda!=="cpu"&&r.vram>w.vram)return "VRAM insuffisante ("+(w.vram/1024)+" Go < "+(r.vram/1024).toFixed(1)+" Go)";return "";}
+const relsOf=f=>RELEASES.filter(r=>r.family===f).sort((a,b)=>b.rank-a.rank);
+function famState(f,w){
+  const rs=relsOf(f),cur=rs.find(r=>{const s=cell(r.id,w.id).state;return IN_PROGRESS.includes(s)||s==="failed";})||rs.find(r=>["ready","draining"].includes(cell(r.id,w.id).state))||null;
+  const latest=rs.find(r=>!r.revoked&&!compat(r,w))||null,c=cur?cell(cur.id,w.id):null,ready=rs.find(r=>["ready","draining"].includes(cell(r.id,w.id).state))||null;
+  let status;if(!cur)status=latest?"available":"ineligible";else if(IN_PROGRESS.includes(c.state))status="progress";else if(c.state==="failed")status="failed";
+  else status=latest&&latest.rank>cur.rank&&cell(latest.id,w.id).state==="not_installed"?"update":"ok";
+  return{f,cur,c,latest,status,ready,rs,revoked:!!(cur&&cur.revoked)};
+}
+function wsum(w){const o={failed:0,update:0,progress:0,ok:0};FAMILIES.forEach(f=>{const s=famState(f,w);if(s.status==="failed")o.failed++;else if(s.status==="update"||s.revoked)o.update++;else if(s.status==="progress")o.progress++;else if(s.status==="ok")o.ok++;});return o;}
+function planFor(intent,targets,fams){
+  const items=[],used={};
+  for(const wid of targets){const w=wk(wid);for(const f of fams){const s=famState(f,w);let it=null;
+    if(intent==="upgrade"){const t=pick[f]?rel(pick[f]):s.latest;
+      if(s.status==="available"||s.status==="update"){let why="";
+        if(!t)why="Aucune version compatible pour ce Worker";else if(t.revoked)why="Version "+t.version+" révoquée";else if(compat(t,w))why=compat(t,w);
+        else if(s.cur&&t.rank<=s.cur.rank)why="Version "+t.version+" non plus récente que celle en place";else if(cell(t.id,w.id).state!=="not_installed")why="Déjà demandée sur ce Worker";
+        if(!why){used[wid]=(used[wid]||0)+t.disk;if(used[wid]>w.diskFree)why="Disque insuffisant ("+gb(used[wid])+" requis, "+gb(w.diskFree)+" libres)";}
+        it={w,f,kind:s.status==="update"?"update":"install",from:s.cur,t,why};}
+      else if(s.status==="failed")it={w,f,kind:"retry",from:s.cur,t:s.cur,why:""};}
+    else if(intent==="cancel"){if(s.status==="progress"||s.status==="failed")it={w,f,kind:"cancel",from:s.cur,why:""};}
+    else if(intent==="uninstall"&&s.ready){const c=cell(s.ready.id,w.id);it={w,f,kind:"uninstall",from:s.ready,why:c.state==="draining"?"Drainage déjà en cours":(c.bound||[]).length?"Lié au modèle « "+c.bound.join(", ")+" » : désinstallez d'abord le modèle":""};}
+    if(it)items.push(it);}}
+  return items;
+}
+function execute(it){const w=it.w;
+  if(it.kind==="install")cells[key(it.t.id,w.id)]={state:w.online?"downloading_runtime":"requested",progress:0};
+  if(it.kind==="update")cells[key(it.t.id,w.id)]={state:w.online?"downloading_runtime":"requested",progress:0,from:it.from.id};
+  if(it.kind==="retry")cells[key(it.from.id,w.id)]={state:"downloading_runtime",progress:0};
+  if(it.kind==="cancel")delete cells[key(it.from.id,w.id)];
+  if(it.kind==="uninstall"){const c=cell(it.from.id,w.id);if(c.jobs>0)cells[key(it.from.id,w.id)]={...c,state:"draining"};else delete cells[key(it.from.id,w.id)];}}
+function tick(){for(const k of Object.keys(cells)){const[rid,wid]=k.split("|"),c=cells[k],w=wk(wid);
+  if(c.state==="requested"&&w.online){c.state="downloading_runtime";c.progress=0;}
+  else if(c.state==="downloading_runtime"){c.progress=(c.progress||0)+35;if(c.progress>=100)c.state="installing";}
+  else if(c.state==="installing")c.state="verifying";
+  else if(c.state==="verifying"){c.state="ready";c.bound=[];c.jobs=0;delete c.progress;if(c.from){const o=cells[key(c.from,wid)];if(o){c.bound=o.bound||[];o.bound=[];}delete c.from;}}
+  else if(c.state==="draining"){c.jobs=Math.max(0,c.jobs-1);if(!c.jobs)delete cells[k];}}render();}
+function failSome(){let n=0;for(const k of Object.keys(cells)){if(["downloading_runtime","installing","verifying"].includes(cells[k].state)&&n<4){cells[k]={state:"failed",cause:["network","disk_full","oom"][n%3]};n++;}}toast(n?n+" opération(s) en échec":"Rien en cours à faire échouer");render();}
+function build(){
+  R=rng(7);WORKERS=[];RELEASES=[];cells={};pick={};
+  [["Atelier",6,"12.8",[12288,24576],.97,400],["Studio",12,"12.8",[8192],.9,300],["NAS",4,"cpu",[0],1,800],["Portables",8,"12.8",[4096],.5,120]].forEach(([g,n,cuda,vr,on,disk])=>{for(let i=1;i<=n;i++)WORKERS.push({id:"w"+(WORKERS.length+1),group:g,name:g+" "+i,online:R()<on,cuda,vram:vr[Math.floor(R()*vr.length)],diskTotal:disk*1024});});
+  FAMILIES=["speechbrain-ecapa","nemo-titanet","wespeaker-resnet34","wespeaker-campp","pyannote-embedding","pyannote-segmentation","nemo-sortformer","nemo-msdd","speechbrain-sepformer","pyannote-pixit","ecapa2","redimnet","eres2net","silero-vad"];
+  FAMILIES.forEach((f,fi)=>{const cpu=f==="silero-vad"||f==="nemo-msdd",nv=fi<12?3:2;for(let v=1;v<=nv;v++)RELEASES.push({id:"r"+(RELEASES.length+1),family:f,version:"1."+(v-1)+".0",rank:v,cuda:cpu?"cpu":"12.8",disk:1800+Math.floor(R()*5500),vram:cpu?0:800+Math.floor(R()*2400),revoked:v===1&&R()<.45});});
+  const top={};RELEASES.forEach(r=>top[r.family]=Math.max(top[r.family]||0,r.rank));
+  for(const w of WORKERS)for(const f of FAMILIES){const x=R(),rs=relsOf(f).filter(r=>!compat(r,w));if(!rs.length)continue;const older=rs[rs.length-1],newer=rs[0];
+    if(x<.38){const r=R()<.5?older:newer;cells[key(r.id,w.id)]={state:"ready",bound:r.rank===top[f]&&R()<.4?["modèle actif"]:(r.revoked?["modèle actif"]:[]),jobs:R()<.15?1+Math.floor(R()*3):0};}
+    else if(x<.43)cells[key(newer.id,w.id)]={state:"failed",cause:["disk_full","network","oom","cuda_incompatible"][Math.floor(R()*4)]};
+    else if(x<.48&&w.online)cells[key(newer.id,w.id)]={state:"downloading_runtime",progress:Math.floor(R()*90)};
+    else if(x<.51&&!w.online)cells[key(newer.id,w.id)]={state:"requested"};}
+  WORKERS.forEach(w=>{const used=Object.keys(cells).filter(k=>k.endsWith("|"+w.id)).reduce((a,k)=>a+rel(k.split("|")[0]).disk,0);w.diskFree=Math.max(2048,w.diskTotal-used);w.diskUsed=used;
+    w.diar=w.online?["pyannote community-1","Sortformer v2.1"][Math.floor(R()*2)]:"—";w.fp=w.online?"WeSpeaker ResNet34":"—";});
+}
+
+/* ============ pièces partagées : panneau d'engines d'un Worker, dialogue d'ajout ============ */
+let ui={variant:"A",tab:"workers",worker:"",wq:"",wf:"all",etab:"all",sel:new Set(),checked:new Set(),scope:"this",adding:false,add:new Set(),aq:"",drawer:"",open:new Set()};
+const variant=()=>{const v=new URLSearchParams(location.search).get("variant");return["A","B","C"].includes(v)?v:"A";};
+function targets(w){if(ui.scope==="checked"&&ui.checked.size&&variant()==="A")return[...ui.checked];if(ui.scope==="group")return WORKERS.filter(x=>x.group===w.group).map(x=>x.id);return[w.id];}
+function statusBadge(s){const c=s.c;
+  if(s.status==="ok")return `<span class="badge b-ok">Prêt · ${s.cur.version}</span>`;
+  if(s.status==="update"){const t=pick[s.f]?rel(pick[s.f]):s.latest;return `<span class="badge b-warn">${s.cur.version} → ${t?t.version:"?"}</span>`;}
+  if(s.status==="progress")return `<span class="badge b-run">${STEPNAME[c.state]} · ${s.cur.version}</span>`;
+  if(s.status==="failed")return `<span class="badge b-bad">Échec · ${s.cur.version}</span>`;return "";}
+function detailBits(s){const c=s.c;let h="";
+  if(s.status==="progress"){const i=STEPS.indexOf(c.state);h+=`<div class="steps">${STEPS.map((x,j)=>`<i class="${j<i?"d":j===i?"c":""}"></i>`).join("")}</div>`+(c.state==="downloading_runtime"?`<div class="prog"><i style="width:${c.progress||0}%"></i></div>`:"")+(c.state==="requested"?`<div class="note">Livré à la reconnexion du Worker</div>`:"")+(c.from?`<div class="note">Mise à jour : l'ancienne version reste liée jusqu'à validation</div>`:"");}
+  if(s.status==="failed")h+=`<div class="err">${esc(CAUSES[c.cause]||c.cause)}</div>`+(s.ready?`<div class="note">La version ${s.ready.version} reste en service</div>`:"");
+  if(s.revoked&&s.status==="ok")h+=`<div class="why">Version révoquée encore installée : mise à jour ou retrait conseillés</div>`;return h;}
+const presentOf=w=>FAMILIES.map(f=>famState(f,w)).filter(s=>["ok","update","progress","failed"].includes(s.status));
+const todoOf=s=>s.status==="failed"||s.status==="update"||s.revoked;
+function enginePanel(w){
+  const present=presentOf(w),prio={failed:0,progress:1,update:2,ok:3};
+  const tabs=[["all","Installés",present.length],["todo","À traiter",present.filter(todoOf).length],["progress","En cours",present.filter(s=>s.status==="progress").length]];
+  const shown=present.filter(s=>ui.etab==="all"||(ui.etab==="todo"&&todoOf(s))||(ui.etab==="progress"&&s.status==="progress")).sort((a,b)=>prio[a.status]-prio[b.status]||a.f.localeCompare(b.f));
+  const T=targets(w),upg=planFor("upgrade",T,ui.sel),can=planFor("cancel",T,ui.sel),uni=planFor("uninstall",T,ui.sel),okU=upg.filter(i=>!i.why),mb=okU.filter(i=>i.kind!=="retry").reduce((a,i)=>a+i.t.disk,0);
+  const cnt=(a,k)=>a.filter(i=>i.kind===k&&!i.why).length,refs={};[...upg,...can,...uni].filter(i=>i.why).forEach(i=>{refs[i.why]=(refs[i.why]||0)+1;});
+  const pct=Math.min(100,w.diskUsed/w.diskTotal*100),add=Math.min(100-pct,okU.filter(i=>i.w.id===w.id&&i.kind!=="retry").reduce((a,i)=>a+i.t.disk,0)/w.diskTotal*100);
+  const head=`<div class="dh"><div class="row"><h3><span class="dot ${w.online?"":"off"}"></span>${esc(w.name)}<span class="badge">${w.group}</span></h3><button class="btn pri sm" data-add-open="${w.id}">+ Ajouter un engine</button></div>
+    <div class="meta"><span>${w.cuda==="cpu"?"<b>CPU seul</b>":"<b>CUDA "+w.cuda+"</b> · VRAM <b>"+w.vram/1024+" Go</b>"}</span><span>Disque libre <b>${gb(w.diskFree)}</b> / ${gb(w.diskTotal)}</span>${w.online?"":`<span class="badge b-warn">Hors ligne : ordres livrés à la reconnexion</span>`}</div>
+    <div class="disk"><i style="width:${pct}%;background:var(--line-strong)"></i><i style="width:${add}%;background:var(--accent)"></i></div></div>
+    <div class="etabs" role="tablist">${tabs.map(([k,l,n])=>`<button class="etab" role="tab" data-etab="${k}" aria-selected="${ui.etab===k}">${l}<span>${n}</span></button>`).join("")}</div>`;
+  const rows=shown.map(s=>{const sel=ui.sel.has(s.f),el=s.rs.filter(r=>!r.revoked&&!compat(r,w)),pk=(s.status==="update"&&el.length>1)?`<select class="ver" data-pick="${esc(s.f)}" aria-label="Version cible de ${esc(s.f)}"><option value="">Dernière (${el[0].version})</option>${el.map(r=>`<option value="${r.id}" ${pick[s.f]===r.id?"selected":""}>${r.version}</option>`).join("")}</select>`:"";
+    return `<div class="fam ${sel?"sel":""}"><label class="pick"><input type="checkbox" data-fam="${esc(s.f)}" ${sel?"checked":""} aria-label="Sélectionner ${esc(s.f)}"></label><div><div class="fname">${esc(s.f)}</div>${s.c&&(s.c.bound||[]).length?`<div class="fsub">Lié : ${esc(s.c.bound.join(", "))}${s.c.jobs?` · ${s.c.jobs} job(s) en cours`:""}</div>`:""}</div><div>${statusBadge(s)}${detailBits(s)}</div><div style="text-align:right">${pk}</div></div>`;}).join("");
+  const empty=present.length?`<p class="empty">Rien dans cet onglet.</p>`:`<div class="empty"><p>Aucun engine installé sur ce Worker.</p><p style="margin-top:10px"><button class="btn pri" data-add-open="${w.id}">+ Ajouter un engine</button></p></div>`;
+  const bar=ui.sel.size?`<div class="abar"><div class="row"><span style="font-size:13px"><b>${ui.sel.size}</b> sélectionné(s) · ${cnt(upg,"install")} install. · ${cnt(upg,"update")} màj · ${cnt(upg,"retry")} réessai(s)${mb?` · <b>${gb(mb)}</b>`:""}</span>
+    <label style="font-size:12px;color:var(--mute)">Appliquer à <select class="scope" data-scope><option value="this" ${ui.scope==="this"?"selected":""}>Ce Worker</option>${variant()==="A"?`<option value="checked" ${ui.scope==="checked"?"selected":""}>Workers cochés (${ui.checked.size})</option>`:""}<option value="group" ${ui.scope==="group"?"selected":""}>Groupe ${w.group} (${WORKERS.filter(x=>x.group===w.group).length})</option></select></label></div>
+    ${Object.keys(refs).length?`<div class="refs">${Object.entries(refs).map(([k,n])=>`<span>${n} refusé(s) : ${esc(k)}</span>`).join("")}</div>`:""}
+    <div class="row"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-go="upgrade:${w.id}" aria-disabled="${!okU.length}">Appliquer (${okU.length})</button><button class="btn" data-go="cancel:${w.id}" aria-disabled="${!cnt(can,"cancel")}">Annuler (${cnt(can,"cancel")})</button><button class="btn dng" data-go="uninstall:${w.id}" aria-disabled="${!cnt(uni,"uninstall")}">Désinstaller (${cnt(uni,"uninstall")})</button></div><button class="btn link sm" data-clearsel>Tout désélectionner</button></div></div>`:"";
+  return head+`<div>${rows||empty}</div>`+bar;
+}
+function addDialog(w){
+  const q=ui.aq.toLowerCase(),states=FAMILIES.map(f=>famState(f,w)),cand=states.filter(s=>(s.status==="available"||s.status==="ineligible")&&s.f.includes(q)).sort((a,b)=>(a.status==="ineligible")-(b.status==="ineligible")||a.f.localeCompare(b.f));
+  const T=targets(w),items=planFor("upgrade",T,ui.add),ok=items.filter(i=>!i.why),mb=ok.reduce((a,i)=>a+i.t.disk,0),refs={};items.filter(i=>i.why).forEach(i=>{refs[i.why]=(refs[i.why]||0)+1;});
+  const rows=cand.map(s=>{const f=s.f,dis=s.status==="ineligible",el=s.rs.filter(r=>!r.revoked&&!compat(r,w)),t=pick[f]?rel(pick[f]):s.latest;
+    const why=dis?(s.rs.every(r=>r.revoked)?"Toutes les versions sont révoquées":compat(s.rs.find(r=>!r.revoked)||s.rs[0],w)||"Aucune version compatible"):"";
+    return `<div class="fam ${ui.add.has(f)?"sel":""}" style="${dis?"opacity:.6":""}"><label class="pick"><input type="checkbox" data-addfam="${esc(f)}" ${ui.add.has(f)?"checked":""} ${dis?"disabled":""} aria-label="Ajouter ${esc(f)}"></label>
+      <div><div class="fname">${esc(f)}</div>${t?`<div class="fsub">${gb(t.disk)} · VRAM ${t.vram?gb(t.vram):"aucune"} · CUDA ${t.cuda}</div>`:""}</div><div>${dis?`<div class="why" style="margin:0">${esc(why)}</div>`:`<span class="fsub">Version ${t.version}</span>`}</div>
+      <div style="text-align:right">${!dis&&el.length>1?`<select class="ver" data-pick="${esc(f)}" aria-label="Version de ${esc(f)}"><option value="">Dernière (${el[0].version})</option>${el.map(r=>`<option value="${r.id}" ${pick[f]===r.id?"selected":""}>${r.version}</option>`).join("")}</select>`:""}</div></div>`;}).join("");
+  return `<div class="veil center" role="dialog" aria-modal="true" aria-label="Ajouter un engine"><div class="modal"><div class="dh"><div class="row"><h3>Ajouter un engine à ${esc(w.name)}</h3><button class="btn link sm" data-add-close>Fermer</button></div>
+    <p style="margin-top:4px">Registre des engines approuvés (versions signées). Rien ne démarre avant la validation.</p><input class="search" type="search" id="aq" placeholder="Rechercher un engine" value="${esc(ui.aq)}" aria-label="Rechercher un engine" style="margin-top:10px"></div>
+    <div class="mbody">${rows||`<p class="empty">Aucun engine à ajouter${q?" pour cette recherche":" : tout le registre compatible est installé"}.</p>`}</div>
+    <div class="abar" style="position:static"><div class="row"><span style="font-size:13px"><b>${ui.add.size}</b> engine(s) · ${ok.length} installation(s)${mb?` · <b>${gb(mb)}</b>`:""} · disque libre ${gb(w.diskFree)}</span>
+      <label style="font-size:12px;color:var(--mute)">Sur <select class="scope" data-scope><option value="this" ${ui.scope==="this"?"selected":""}>Ce Worker</option>${variant()==="A"?`<option value="checked" ${ui.scope==="checked"?"selected":""}>Workers cochés (${ui.checked.size})</option>`:""}<option value="group" ${ui.scope==="group"?"selected":""}>Groupe ${w.group}</option></select></label></div>
+      ${Object.keys(refs).length?`<div class="refs">${Object.entries(refs).map(([k,n])=>`<span>${n} refusé(s) : ${esc(k)}</span>`).join("")}</div>`:""}${!w.online&&T.length===1?`<div class="note">Worker hors ligne : ordre livré à sa reconnexion.</div>`:""}
+      <div class="row"><button class="btn" data-add-close>Annuler</button><button class="btn pri" data-add-go="${w.id}" aria-disabled="${!ok.length}">Installer ${ok.length} engine(s)</button></div></div></div></div>`;
+}
+
+/* ============ page Voix imitée : en-tête, bande de production, onglets, matrice ============ */
+function chrome(inner,withEngineTab){
+  const tabs=[["workers","Workers",WORKERS.length],["catalogue","Catalogue",9],["history","Historique",42],...(withEngineTab?[["engines","Engines",FAMILIES.length]]:[])];
+  return `<div class="heading"><div><h2>Traitement vocal</h2><p>Gérez les modèles de voix de chaque Worker : installation, remplacement et suivi des ordres, sans jamais modifier la production tant qu'un modèle n'est pas activé.</p></div>
+    <div class="actions"><button class="btn">Historique des ordres</button><button class="btn">Appliquer à plusieurs Workers</button><button class="btn pri">Ajouter un modèle</button></div></div>
+    <div class="prod"><span>Production</span><div><span>Diarisation</span><strong>pyannote community-1</strong></div><div><span>Empreinte</span><strong>WeSpeaker ResNet34</strong></div><div><span>Séparation</span><strong>Indisponible (#268)</strong></div></div>
+    <div class="tabs" role="tablist">${tabs.map(([k,l,n])=>`<button role="tab" class="${k==="engines"?"new":""}" data-tab="${k}" aria-selected="${ui.tab===k}">${l}<span>${n}</span></button>`).join("")}</div>${inner}`;
+}
+function matrix(mode){
+  const ws=WORKERS;
+  return `<div class="scroll"><table><thead><tr><th>Worker</th><th>Diarisation</th><th>Empreinte</th><th>Séparation</th><th>Engines</th>${mode==="B"?"<th></th>":""}</tr></thead><tbody>`+ws.map(w=>{
+    const s=wsum(w),open=mode==="C"&&ui.open.has(w.id);
+    const sum=`${s.failed?`<span class="badge b-bad">${s.failed} échec${s.failed>1?"s":""}</span> `:""}${s.update?`<span class="badge b-warn">${s.update} màj</span> `:""}${s.progress?`<span class="badge b-run">${s.progress} en cours</span> `:""}${!s.failed&&!s.update&&!s.progress?`<span class="badge b-ok">${s.ok} à jour</span>`:""}`;
+    let r=`<tr class="${open?"open":""}"><th scope="row"><strong>${mode==="C"?`<button data-toggle="${w.id}" aria-expanded="${open}" aria-label="${open?"Replier":"Déplier"} les engines de ${esc(w.name)}" style="width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface)">${open?"−":"+"}</button>`:""}<span class="dot ${w.online?"":"off"}"></span>${esc(w.name)}</strong><div class="cellmeta" style="margin-left:${mode==="C"?"30":"16"}px">${w.online?"En ligne":"Hors ligne"} · ${w.cuda==="cpu"?"CPU":w.vram/1024+" Go VRAM"}</div></th>
+      <td><div class="cellname">${w.diar}</div>${w.online?`<span class="badge b-ok">Prêt</span>`:""}</td><td><div class="cellname">${w.fp}</div>${w.online?`<span class="badge b-ok">Prêt</span>`:""}</td><td><div class="cellmeta">Indisponible</div></td><td>${sum}</td>${mode==="B"?`<td style="text-align:right"><button class="btn sm" data-drawer="${w.id}">Engines</button></td>`:""}</tr>`;
+    if(open){const present=presentOf(w);
+      r+=`<tr class="open"><td class="exp" colspan="5"><div class="expin"><div class="chips">${present.map(st=>{const act=st.status==="failed"?["retry","Réessayer"]:st.status==="update"?["update","Mettre à jour"]:st.status==="progress"?["cancel","Annuler"]:null;
+        return `<span class="chipx"><b>${esc(st.f)}</b>${statusBadge(st)}${act?`<button class="btn" data-quick="${act[0]}:${w.id}:${esc(st.f)}">${act[1]}</button>`:""}</span>`;}).join("")||`<span class="mute" style="font-size:12px">Aucun engine installé.</span>`}</div>
+        <button class="btn pri sm" data-add-open="${w.id}">+ Ajouter un engine</button> <span class="note">Pour la sélection multiple et le détail, voir variante A ou B.</span></div></td></tr>`;}
+    return r;}).join("")+`</tbody></table></div>`;
+}
+function variantA(){
+  if(ui.tab!=="engines")return chrome(ui.tab==="workers"?matrix("A"):`<p class="empty">(Onglet ${ui.tab} inchangé)</p>`,true);
+  if(!ui.worker)ui.worker=WORKERS.find(w=>wsum(w).failed&&wsum(w).update)?.id||WORKERS[0].id;
+  const q=ui.wq.toLowerCase(),vis=WORKERS.filter(w=>w.name.toLowerCase().includes(q)&&(ui.wf==="all"||(ui.wf==="todo"&&(wsum(w).failed||wsum(w).update))||(ui.wf==="off"&&!w.online)));
+  const todo=WORKERS.filter(w=>wsum(w).failed||wsum(w).update).length,off=WORKERS.filter(w=>!w.online).length;
+  const list=[...new Set(WORKERS.map(w=>w.group))].map(g=>{const gw=vis.filter(w=>w.group===g);return gw.length?`<div class="gt"><span>${g}</span><span>${gw.length}</span></div>`+gw.map(w=>{const s=wsum(w);
+    return `<div class="w" aria-current="${ui.worker===w.id}"><label class="pick"><input type="checkbox" data-check="${w.id}" ${ui.checked.has(w.id)?"checked":""} aria-label="Inclure ${esc(w.name)} dans l'application en lot"></label><button class="wb" data-worker="${w.id}"><div class="wn"><span class="dot ${w.online?"":"off"}"></span>${esc(w.name)}</div><div class="wm">${w.online?"En ligne":"Hors ligne"} · ${w.cuda==="cpu"?"CPU":w.vram/1024+" Go VRAM"}</div></button>
+      <div class="wchips">${s.failed?`<span class="badge b-bad">${s.failed}</span>`:""}${s.update?`<span class="badge b-warn">${s.update}</span>`:""}${s.progress?`<span class="badge b-run">${s.progress}</span>`:""}${!s.failed&&!s.update&&!s.progress?`<span class="badge b-ok">${s.ok}</span>`:""}</div></div>`;}).join(""):"";}).join("")||`<p class="empty">Aucun Worker.</p>`;
+  return chrome(`<div class="split"><aside class="panel wl"><div class="wl-head"><input class="search" type="search" id="wq" placeholder="Rechercher un Worker" value="${esc(ui.wq)}" aria-label="Rechercher un Worker"><div class="pills">${[["all","Tous ("+WORKERS.length+")"],["todo","À traiter ("+todo+")"],["off","Hors ligne ("+off+")"]].map(([k,l])=>`<button class="pill" data-wf="${k}" aria-pressed="${ui.wf===k}">${l}</button>`).join("")}</div></div><div class="wl-body">${list}</div></aside>
+    <main class="panel">${enginePanel(wk(ui.worker))}</main></div>`,true);
+}
+const variantB=()=>chrome(matrix("B"),false)+(ui.drawer?`<div class="veil side" data-veil><aside class="drawer" role="dialog" aria-modal="true" aria-label="Engines de ${esc(wk(ui.drawer).name)}"><div class="row" style="padding:10px 14px;border-bottom:1px solid var(--line)"><span class="mute" style="font-size:12px">Engines du Worker</span><button class="btn link sm" data-drawer-close>Fermer</button></div><div class="body">${enginePanel(wk(ui.drawer))}</div></aside></div>`:"");
+const variantC=()=>chrome(matrix("C"),false);
+const VARIANTS={A:["Sous-onglet « Engines »",variantA],B:["Tiroir depuis la matrice",variantB],C:["Ligne dépliable",variantC]};
+function render(){
+  const ae=document.activeElement,id=ae&&ae.id,pos=ae&&ae.selectionStart,v=variant();
+  document.getElementById("vlabel").textContent=v+" · "+VARIANTS[v][0];
+  let h=VARIANTS[v][1]();if(ui.adding)h+=addDialog(wk(ui.adding));
+  document.getElementById("app").innerHTML=h;
+  if(id){const n=document.getElementById(id);if(n){n.focus();if(pos!=null&&n.setSelectionRange)try{n.setSelectionRange(pos,pos)}catch(e){}}}
+}
+function go(d){const ks=["A","B","C"],u=new URL(location);u.searchParams.set("variant",ks[(ks.indexOf(variant())+d+3)%3]);history.replaceState(null,"",u);ui.drawer="";ui.adding=false;ui.sel.clear();ui.scope="this";ui.tab=variant()==="A"?ui.tab:"workers";render();}
+document.getElementById("prev").onclick=()=>go(-1);document.getElementById("next").onclick=()=>go(1);
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){if(ui.adding){ui.adding=false;ui.add.clear();render();}else if(ui.drawer){ui.drawer="";render();}return;}
+  if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)||ui.adding||ui.drawer)return;if(e.key==="ArrowLeft")go(-1);if(e.key==="ArrowRight")go(1);});
+document.addEventListener("input",e=>{if(e.target.id==="wq"){ui.wq=e.target.value;render();}if(e.target.id==="aq"){ui.aq=e.target.value;render();}});
+document.addEventListener("change",e=>{const t=e.target;
+  if(t.dataset.check){t.checked?ui.checked.add(t.dataset.check):ui.checked.delete(t.dataset.check);if(!ui.checked.size&&ui.scope==="checked")ui.scope="this";render();}
+  else if(t.dataset.fam){t.checked?ui.sel.add(t.dataset.fam):ui.sel.delete(t.dataset.fam);render();}
+  else if(t.dataset.addfam){t.checked?ui.add.add(t.dataset.addfam):ui.add.delete(t.dataset.addfam);render();}
+  else if(t.dataset.pick!==undefined){pick[t.dataset.pick]=t.value;render();}
+  else if(t.dataset.scope!==undefined){ui.scope=t.value;render();}});
+document.addEventListener("click",e=>{
+  if(e.target.matches("[data-veil]")){ui.drawer="";render();return;}
+  const t=e.target.closest("button");if(!t)return;const d=t.dataset;
+  if(d.tab){ui.tab=d.tab;render();}
+  else if(d.wf){ui.wf=d.wf;render();}
+  else if(d.worker){ui.worker=d.worker;ui.sel.clear();ui.etab="all";ui.scope="this";render();}
+  else if(d.etab){ui.etab=d.etab;render();}
+  else if(d.drawer){ui.drawer=d.drawer;ui.sel.clear();ui.etab="all";ui.scope="this";render();}
+  else if(d.drawerClose!==undefined){ui.drawer="";render();}
+  else if(d.toggle){ui.open.has(d.toggle)?ui.open.delete(d.toggle):ui.open.add(d.toggle);render();}
+  else if(d.clearsel!==undefined){ui.sel.clear();render();}
+  else if(d.addOpen){ui.adding=d.addOpen;ui.add.clear();ui.aq="";ui.scope="this";render();}
+  else if(d.addClose!==undefined){ui.adding=false;ui.add.clear();render();}
+  else if(d.addGo){if(t.getAttribute("aria-disabled")==="true"){toast("Aucun engine à installer");return;}const w=wk(d.addGo),items=planFor("upgrade",targets(w),ui.add),ok=items.filter(i=>!i.why);ok.forEach(execute);ui.adding=false;ui.add.clear();toast(ok.length+" ordre(s) d'installation créé(s)"+(items.length-ok.length?" · "+(items.length-ok.length)+" refusé(s)":""));render();}
+  else if(d.go){if(t.getAttribute("aria-disabled")==="true"){toast("Rien à appliquer pour cette action");return;}const[intent,wid]=d.go.split(":"),w=wk(wid),items=planFor(intent,targets(w),ui.sel),ok=items.filter(i=>!i.why);ok.forEach(execute);ui.sel.clear();toast(ok.length+" ordre(s) créé(s)"+(items.length-ok.length?" · "+(items.length-ok.length)+" refusé(s)":""));render();}
+  else if(d.quick){const[k,wid,f]=d.quick.split(":"),w=wk(wid);const items=planFor(k==="cancel"?"cancel":"upgrade",[wid],new Set([f])).filter(i=>!i.why);items.forEach(execute);toast(items.length?"Ordre créé":"Action refusée");render();}
+});
+document.getElementById("tick").onclick=tick;document.getElementById("fail").onclick=failSome;document.getElementById("reset").onclick=()=>{ui.sel.clear();ui.checked.clear();ui.open.clear();build();render();};
+build();render();
+</script>
+</body>
+</html>

@@ -1,0 +1,338 @@
+<!doctype html>
+<!--
+PROTOTYPE JETABLE v3 (#326 / spec #348) — ne jamais copier tel quel dans web/, ne pas fusionner dans main.
+Question : peut-on gérer les engines en partant du Worker (maître = liste des Workers, détail = ses engines),
+en cochant des engines puis en appliquant l'installation / la mise à jour, y compris sur plusieurs Workers ?
+Choix de design : une ligne par FAMILLE d'engine (14) et non par version (40) ; l'action découle de l'état
+(absent → installer, ancien → mettre à jour, échec → réessayer) ; le plan chiffre disque et refus avant d'appliquer.
+Données synthétiques générées (graine fixe).
+-->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snitch — Engines par Worker (prototype v3)</title>
+<style>
+:root{color-scheme:dark;--bg:#0f0f13;--panel:#16161c;--panel2:#1c1c24;--line:#26262f;--line2:#33333f;--ink:#ececf1;--mute:#9494a3;--accent:#8f8ff5;--accent-bg:#1f1f3d;
+--ok:#46d19a;--ok-bg:#112a21;--run:#74aaff;--run-bg:#14233b;--bad:#ff8080;--bad-bg:#2e1818;--warn:#f2b866;--warn-bg:#2d2312}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button,select,input{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.page{max-width:1400px;margin:auto;padding:24px}
+.top{display:flex;justify-content:space-between;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:18px}
+h1{font-size:20px;margin:0;letter-spacing:-.01em}.sub{color:var(--mute);margin:4px 0 0;font-size:13px}
+.tag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line2);color:var(--mute);vertical-align:middle}
+.layout{display:grid;grid-template-columns:340px 1fr;gap:20px;align-items:start}
+@media(max-width:980px){.layout{grid-template-columns:1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px}
+/* liste des Workers */
+.wl{position:sticky;top:16px;display:flex;flex-direction:column;max-height:calc(100vh - 40px)}
+.wl-head{padding:14px;border-bottom:1px solid var(--line);display:flex;flex-direction:column;gap:10px}
+.search{width:100%;background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:0 12px;height:40px}
+.pills{display:flex;gap:6px;flex-wrap:wrap}
+.pill{border:1px solid var(--line2);background:transparent;border-radius:999px;padding:0 12px;height:32px;font-size:13px;color:var(--mute)}
+.pill[aria-pressed=true]{background:var(--accent-bg);border-color:var(--accent);color:var(--ink)}
+.wl-body{overflow:auto;padding:6px 8px 12px}
+.grp>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;padding:12px 8px 6px;color:var(--mute);font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.grp>summary::-webkit-details-marker{display:none}
+.w{display:grid;grid-template-columns:28px 1fr auto;gap:10px;align-items:center;padding:0 8px;min-height:52px;border-radius:10px;border:1px solid transparent}
+.w:hover{background:var(--panel2)}.w[aria-current=true]{background:var(--accent-bg);border-color:var(--accent)}
+.w .pick{display:grid;place-items:center;height:40px}
+.wbtn{all:unset;display:block;cursor:pointer;padding:8px 0;min-width:0}
+.wbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+.wname{font-weight:600;display:flex;gap:8px;align-items:center}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--ok);flex:none}.dot.off{background:#5b5b68}
+.wmeta{font-size:12px;color:var(--mute)}
+.chips{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.chip{font-size:11px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.c-bad{background:var(--bad-bg);color:var(--bad)}.c-warn{background:var(--warn-bg);color:var(--warn)}.c-run{background:var(--run-bg);color:var(--run)}.c-ok{background:var(--ok-bg);color:var(--ok)}
+input[type=checkbox]{width:18px;height:18px;accent-color:#8f8ff5}
+/* détail */
+.dh{padding:20px 20px 16px;border-bottom:1px solid var(--line)}
+.dh h2{margin:0;font-size:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.meta{display:flex;gap:18px;flex-wrap:wrap;margin-top:8px;color:var(--mute);font-size:13px}
+.meta b{color:var(--ink);font-weight:600}
+.disk{height:6px;border-radius:6px;background:var(--panel2);margin-top:12px;overflow:hidden;display:flex}.disk i{display:block;height:100%}
+.tabs{display:flex;gap:4px;padding:10px 14px 0;border-bottom:1px solid var(--line);overflow-x:auto}
+.tab{border:0;background:transparent;padding:10px 12px;color:var(--mute);border-bottom:2px solid transparent;white-space:nowrap;min-height:44px}
+.tab[aria-selected=true]{color:var(--ink);border-color:var(--accent);font-weight:600}
+.tab span{margin-left:6px;font-size:12px;color:var(--mute)}
+.fam{display:grid;grid-template-columns:28px minmax(180px,1.3fr) minmax(200px,1.4fr) minmax(150px,auto);gap:14px;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line);min-height:64px}
+.fam:hover{background:#191920}.fam.sel{background:#1a1a30}
+.fam.dis{opacity:.55}
+.fname{font-weight:600}.fsub{font-size:12px;color:var(--mute)}
+.st{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px}
+.st svg{width:13px;height:13px}
+.st-ok{background:var(--ok-bg);color:var(--ok)}.st-run{background:var(--run-bg);color:var(--run)}.st-bad{background:var(--bad-bg);color:var(--bad)}.st-warn{background:var(--warn-bg);color:var(--warn)}.st-none{background:var(--panel2);color:var(--mute)}
+.prog{height:4px;background:var(--panel2);border-radius:4px;margin-top:8px;overflow:hidden}.prog i{display:block;height:100%;background:var(--run)}
+.steps{display:flex;gap:3px;margin-top:8px}.steps i{height:4px;flex:1;border-radius:3px;background:var(--panel2)}.steps i.d{background:var(--ok)}.steps i.c{background:var(--run)}.steps i.b{background:var(--bad)}
+.note{font-size:12px;color:var(--mute);margin-top:4px}.why{font-size:12px;color:var(--warn);margin-top:4px}.err{font-size:12px;color:var(--bad);margin-top:4px}
+.ver{background:var(--bg);border:1px solid var(--line2);border-radius:8px;height:32px;padding:0 8px;max-width:190px}
+.empty{padding:36px 20px;color:var(--mute);text-align:center}
+.veil{position:fixed;inset:0;background:#000a;display:flex;justify-content:center;align-items:flex-start;padding:5vh 16px;z-index:40;overflow:auto}
+.modal{background:var(--panel);border:1px solid var(--line2);border-radius:14px;width:min(820px,100%);overflow:hidden}
+.mbody{max-height:46vh;overflow:auto}
+/* barre d'action */
+.actionbar{position:sticky;bottom:0;background:#1a1a26;border-top:1px solid var(--accent);border-radius:0 0 14px 14px;padding:14px 20px;display:grid;gap:10px}
+.ab-row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.btn{border:1px solid var(--line2);background:var(--panel2);border-radius:10px;padding:0 16px;height:40px;font-weight:600}
+.btn:hover{border-color:var(--accent)}.btn.pri{background:var(--accent);border-color:var(--accent);color:#10102a}
+.btn.dng:hover{border-color:var(--bad);color:var(--bad)}.btn[aria-disabled=true]{opacity:.4;cursor:not-allowed}
+.btn.link{background:transparent;border-color:transparent;color:var(--accent);padding:0 8px}
+.scope{background:var(--bg);border:1px solid var(--line2);border-radius:10px;height:40px;padding:0 10px}
+.plan{font-size:13px}.plan b{font-weight:600}
+.refusals{font-size:12px;color:var(--warn);display:grid;gap:2px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line2);padding:12px 18px;border-radius:12px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:92vw}.toast.on{opacity:1}
+@media(prefers-reduced-motion:reduce){.toast{transition:none}}
+details.sim{margin-top:24px;color:var(--mute);font-size:12px}details.sim summary{cursor:pointer}
+.simrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.log{font:11px ui-monospace,monospace;max-height:120px;overflow:auto;border-top:1px solid var(--line);padding-top:8px}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="top"><div><h1>Administration → Voix → Engines <span class="tag">PROTOTYPE v3</span></h1>
+  <p class="sub" id="fleet"></p></div></div>
+  <div class="layout">
+    <aside class="panel wl" aria-label="Workers"><div class="wl-head">
+      <input class="search" type="search" id="wq" placeholder="Rechercher un Worker" aria-label="Rechercher un Worker">
+      <div class="pills" id="wfilters"></div></div><div class="wl-body" id="wlist"></div></aside>
+    <main class="panel" id="detail" style="overflow:hidden"></main>
+  </div>
+  <details class="sim"><summary>Simulateur (hors maquette)</summary><div class="simrow">
+    <button class="btn" id="tick">Avancer d'un cran</button><button class="btn" id="fail">Faire échouer 4 opérations en cours</button><button class="btn" id="reset">Régénérer la flotte</button></div>
+    <div class="log" id="log" aria-live="polite"></div></details>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===================== flotte synthétique et règles ===================== */
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let R,WORKERS=[],RELEASES=[],FAMILIES=[],cells={},logLines=[];
+const CAUSES={disk_full:"Disque insuffisant",network:"Réseau : files.pythonhosted.org injoignable",cuda_incompatible:"CUDA détecté incompatible avec la release",oom:"Mémoire insuffisante pendant la vérification"};
+const IN_PROGRESS=["requested","downloading_runtime","installing","verifying"];
+const STEPLIST=["requested","downloading_runtime","installing","verifying"],STEPNAME={requested:"Demandé",downloading_runtime:"Téléchargement",installing:"Installation",verifying:"Vérification"};
+const key=(r,w)=>r+"|"+w,rel=id=>RELEASES.find(r=>r.id===id),wk=id=>WORKERS.find(w=>w.id===id);
+const cell=(r,w)=>cells[key(r,w)]||{state:"not_installed"};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const gb=mb=>(mb/1024).toFixed(1).replace(".",",")+" Go";
+function log(m){logLines.unshift(new Date().toLocaleTimeString("fr")+"  "+m);logLines=logLines.slice(0,30);}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),3800);}
+function compat(r,w){
+  if(r.cuda!=="cpu"&&w.cuda==="cpu")return "Pas de GPU CUDA sur ce Worker";
+  if(r.cuda!=="cpu"&&r.vram>w.vram)return "VRAM insuffisante ("+(w.vram/1024)+" Go < "+(r.vram/1024).toFixed(1)+" Go)";
+  return "";
+}
+const relsOf=f=>RELEASES.filter(r=>r.family===f).sort((a,b)=>b.rank-a.rank);
+/* État d'une famille d'engine sur un Worker : ce qui est en place, ce qui est possible. */
+function famState(f,w){
+  const rs=relsOf(f),cur=rs.find(r=>{const s=cell(r.id,w.id).state;return IN_PROGRESS.includes(s)||s==="failed";})||rs.find(r=>["ready","draining"].includes(cell(r.id,w.id).state))||null;
+  const latest=rs.find(r=>!r.revoked&&!compat(r,w))||null,c=cur?cell(cur.id,w.id):null;
+  let status;
+  if(!cur)status=latest?"available":"ineligible";
+  else if(IN_PROGRESS.includes(c.state))status="progress";
+  else if(c.state==="failed")status="failed";
+  else status=latest&&latest.rank>cur.rank&&cell(latest.id,w.id).state==="not_installed"?"update":"ok";
+  const ready=rs.find(r=>["ready","draining"].includes(cell(r.id,w.id).state))||null;
+  return{f,cur,c,latest,status,ready,rs,revoked:!!(cur&&cur.revoked)||(status!=="ok"&&!!(ready&&ready.revoked))};
+}
+let pick={};  // famille -> id de release choisie ("" = dernière compatible)
+function wsum(w){const o={failed:0,update:0,progress:0,ok:0};FAMILIES.forEach(f=>{const s=famState(f,w);if(s.status==="failed")o.failed++;else if(s.status==="update"||s.revoked)o.update++;else if(s.status==="progress")o.progress++;else if(s.status==="ok")o.ok++;});return o;}
+/* ===== plan : ce que « Appliquer » ferait, avec raisons de refus et budget disque cumulé ===== */
+function planFor(intent,targets,fams){
+  const items=[],used={};
+  for(const wid of targets){const w=wk(wid);for(const f of fams){const s=famState(f,w);let it=null;
+    if(intent==="upgrade"){
+      const t=pick[f]?rel(pick[f]):s.latest;
+      if(s.status==="available"||s.status==="update"){
+        let why="";
+        if(!t)why="Aucune version compatible pour ce Worker";
+        else if(t.revoked)why="Version "+t.version+" révoquée";
+        else if(compat(t,w))why=compat(t,w);
+        else if(s.cur&&t.rank<=s.cur.rank)why="Version "+t.version+" non plus récente que la version en place";
+        else if(cell(t.id,w.id).state!=="not_installed")why="Déjà demandée sur ce Worker";
+        if(!why){used[wid]=(used[wid]||0)+t.disk;if(used[wid]>w.diskFree)why="Disque insuffisant ("+gb(used[wid])+" requis, "+gb(w.diskFree)+" libres)";}
+        it={w,f,kind:s.status==="update"?"update":"install",from:s.cur,t,why};
+      }else if(s.status==="failed")it={w,f,kind:"retry",from:s.cur,t:s.cur,why:""};
+    }else if(intent==="cancel"){if(s.status==="progress"||s.status==="failed")it={w,f,kind:"cancel",from:s.cur,why:""};}
+    else if(intent==="uninstall"&&s.ready){const a=(function(){const c=cell(s.ready.id,w.id);if(c.state==="draining")return "Drainage déjà en cours";if((c.bound||[]).length)return "Lié au modèle « "+c.bound.join(", ")+" » : désinstallez d'abord le modèle";return "";})();it={w,f,kind:"uninstall",from:s.ready,why:a};}
+    if(it)items.push(it);}}
+  return items;
+}
+function execute(it){
+  const w=it.w;
+  if(it.kind==="install")cells[key(it.t.id,w.id)]={state:w.online?"downloading_runtime":"requested",progress:0};
+  if(it.kind==="update")cells[key(it.t.id,w.id)]={state:w.online?"downloading_runtime":"requested",progress:0,from:it.from.id};
+  if(it.kind==="retry")cells[key(it.from.id,w.id)]={state:"downloading_runtime",progress:0};
+  if(it.kind==="cancel")delete cells[key(it.from.id,w.id)];
+  if(it.kind==="uninstall"){const c=cell(it.from.id,w.id);if(c.jobs>0)cells[key(it.from.id,w.id)]={...c,state:"draining"};else delete cells[key(it.from.id,w.id)];}
+}
+function tick(){
+  for(const k of Object.keys(cells)){const[rid,wid]=k.split("|"),c=cells[k],w=wk(wid);
+    if(c.state==="requested"&&w.online){c.state="downloading_runtime";c.progress=0;}
+    else if(c.state==="downloading_runtime"){c.progress=(c.progress||0)+35;if(c.progress>=100)c.state="installing";}
+    else if(c.state==="installing")c.state="verifying";
+    else if(c.state==="verifying"){c.state="ready";c.bound=[];c.jobs=0;delete c.progress;if(c.from){const old=cells[key(c.from,wid)];if(old){c.bound=old.bound||[];old.bound=[];}c.prev=c.from;delete c.from;}}
+    else if(c.state==="draining"){c.jobs=Math.max(0,c.jobs-1);if(!c.jobs)delete cells[k];}}
+  log("— tick —");render();
+}
+function failSome(){let n=0;for(const k of Object.keys(cells)){if(["downloading_runtime","installing","verifying"].includes(cells[k].state)&&n<4){cells[k]={state:"failed",cause:["network","disk_full","oom"][n%3]};n++;}}toast(n?n+" opération(s) en échec":"Rien en cours à faire échouer");render();}
+function build(){
+  R=rng(7);WORKERS=[];RELEASES=[];cells={};pick={};
+  [["Atelier",6,"12.8",[12288,24576],.97,400],["Studio",12,"12.8",[8192],.9,300],["NAS",4,"cpu",[0],1,800],["Portables",8,"12.8",[4096],.5,120]].forEach(([g,n,cuda,vr,on,disk])=>{for(let i=1;i<=n;i++)WORKERS.push({id:"w"+(WORKERS.length+1),group:g,name:g+" "+i,online:R()<on,cuda,vram:vr[Math.floor(R()*vr.length)],diskTotal:disk*1024});});
+  const FAM=["speechbrain-ecapa","nemo-titanet","wespeaker-resnet34","wespeaker-campp","pyannote-embedding","pyannote-segmentation","nemo-sortformer","nemo-msdd","speechbrain-sepformer","pyannote-pixit","ecapa2","redimnet","eres2net","silero-vad"];
+  FAMILIES=FAM;
+  FAM.forEach((f,fi)=>{const cpu=f==="silero-vad"||f==="nemo-msdd",nv=fi<12?3:2;
+    for(let v=1;v<=nv;v++)RELEASES.push({id:"r"+(RELEASES.length+1),family:f,engine:f,version:"1."+(v-1)+".0",rank:v,cuda:cpu?"cpu":"12.8",disk:1800+Math.floor(R()*5500),vram:cpu?0:800+Math.floor(R()*2400),revoked:v===1&&R()<.45});});
+  const top={};RELEASES.forEach(r=>top[r.family]=Math.max(top[r.family]||0,r.rank));
+  for(const w of WORKERS){const fam={};
+    for(const f of FAM){const x=R(),rs=relsOf(f).filter(r=>!compat(r,w));if(!rs.length)continue;
+      const older=rs[rs.length-1],newer=rs[0];
+      if(x<.38){const r=R()<.5?older:newer;cells[key(r.id,w.id)]={state:"ready",bound:r.rank===top[f]&&R()<.4?["modèle actif"]:(r.revoked?["modèle actif"]:[]),jobs:R()<.15?1+Math.floor(R()*3):0};}
+      else if(x<.43)cells[key(newer.id,w.id)]={state:"failed",cause:["disk_full","network","oom","cuda_incompatible"][Math.floor(R()*4)]};
+      else if(x<.48&&w.online)cells[key(newer.id,w.id)]={state:"downloading_runtime",progress:Math.floor(R()*90)};
+      else if(x<.51&&!w.online)cells[key(newer.id,w.id)]={state:"requested"};}}
+  WORKERS.forEach(w=>{const used=Object.keys(cells).filter(k=>k.endsWith("|"+w.id)).reduce((a,k)=>a+rel(k.split("|")[0]).disk,0);w.diskFree=Math.max(2048,w.diskTotal-used);w.diskUsed=used;});
+  logLines=[];log("Flotte : "+RELEASES.length+" versions, "+FAMILIES.length+" familles, "+WORKERS.length+" Workers");
+}
+
+/* ===================== interface ===================== */
+let ui={worker:"",wq:"",wf:"all",tab:"all",sel:new Set(),checked:new Set(),scope:"this",adding:false,add:new Set(),aq:""};
+const ICON={ok:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 8.5l3 3 7-7"/></svg>',
+  run:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M8 10v4M2 8h4M10 8h4" opacity=".8"/></svg>',
+  bad:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v6M8 12.2v.1"/></svg>',
+  up:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 13V3M4 7l4-4 4 4"/></svg>',
+  none:'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h8"/></svg>'};
+function visibleWorkers(){const q=ui.wq.toLowerCase();return WORKERS.filter(w=>w.name.toLowerCase().includes(q)&&(ui.wf==="all"||(ui.wf==="todo"&&(wsum(w).failed||wsum(w).update))||(ui.wf==="off"&&!w.online)));}
+function renderList(){
+  const ws=visibleWorkers(),groups=[...new Set(WORKERS.map(w=>w.group))];
+  const todo=WORKERS.filter(w=>wsum(w).failed||wsum(w).update).length,off=WORKERS.filter(w=>!w.online).length;
+  document.getElementById("wfilters").innerHTML=[["all","Tous ("+WORKERS.length+")"],["todo","À traiter ("+todo+")"],["off","Hors ligne ("+off+")"]].map(([k,l])=>`<button class="pill" data-wf="${k}" aria-pressed="${ui.wf===k}">${l}</button>`).join("");
+  document.getElementById("wlist").innerHTML=groups.map(g=>{const gw=ws.filter(w=>w.group===g);if(!gw.length)return"";
+    return `<details class="grp" open><summary><span>${g}</span><span>${gw.length}</span></summary>${gw.map(w=>{const s=wsum(w);
+      return `<div class="w" aria-current="${ui.worker===w.id}"><label class="pick"><input type="checkbox" data-check="${w.id}" ${ui.checked.has(w.id)?"checked":""} aria-label="Inclure ${esc(w.name)} dans l'application en lot"></label>
+      <button class="wbtn" data-worker="${w.id}"><div class="wname"><span class="dot ${w.online?"":"off"}"></span>${esc(w.name)}</div><div class="wmeta">${w.online?"En ligne":"Hors ligne"} · ${w.cuda==="cpu"?"CPU":w.vram/1024+" Go VRAM"}</div></button>
+      <div class="chips">${s.failed?`<span class="chip c-bad">${s.failed} échec${s.failed>1?"s":""}</span>`:""}${s.update?`<span class="chip c-warn">${s.update} à mettre à jour</span>`:""}${s.progress?`<span class="chip c-run">${s.progress} en cours</span>`:""}${!s.failed&&!s.update&&!s.progress?`<span class="chip c-ok">${s.ok} à jour</span>`:""}</div></div>`;}).join("")}</details>`;}).join("")||`<p class="empty">Aucun Worker ne correspond.</p>`;
+}
+function rowFor(s,w){
+  const f=s.f,sel=ui.sel.has(f),dis=s.status==="ineligible";
+  let state="",extra="",tgt="";
+  const t=pick[f]?rel(pick[f]):s.latest;
+  if(s.status==="ok")state=`<span class="st st-ok">${ICON.ok}Prêt · ${s.cur.version}</span>`;
+  if(s.status==="update")state=`<span class="st st-warn">${ICON.up}${s.cur.version} → ${t?t.version:"?"}</span>`;
+  if(s.status==="progress"){const c=s.c,i=STEPLIST.indexOf(c.state);state=`<span class="st st-run">${ICON.run}${STEPNAME[c.state]} · ${s.cur.version}</span>`;
+    extra=`<div class="steps">${STEPLIST.map((x,j)=>`<i class="${j<i?"d":j===i?"c":""}"></i>`).join("")}</div>`+(c.state==="downloading_runtime"?`<div class="prog"><i style="width:${c.progress||0}%"></i></div>`:"")+(c.state==="requested"?`<div class="note">Livré à la reconnexion du Worker</div>`:"")+(c.from?`<div class="note">Mise à jour : la version précédente reste liée jusqu'à validation</div>`:"");}
+  if(s.status==="failed"){state=`<span class="st st-bad">${ICON.bad}Échec · ${s.cur.version}</span>`;extra=`<div class="err">${esc(CAUSES[s.c.cause]||s.c.cause)}</div>`+(s.ready?`<div class="note">La version ${s.ready.version} reste en service</div>`:"");}
+  if(s.status==="available")state=`<span class="st st-none">${ICON.none}Non installé</span>`;
+  if(s.status==="ineligible"){const r0=s.rs[0];state=`<span class="st st-none">${ICON.none}Non éligible</span>`;extra=`<div class="why">${esc(r0.revoked&&s.rs.every(r=>r.revoked)?"Toutes les versions sont révoquées":compat(s.rs.find(r=>!r.revoked)||r0,w)||"Aucune version compatible")}</div>`;}
+  if(s.revoked&&s.status==="ok")extra+=`<div class="why">Version révoquée encore installée : aucune nouvelle installation, retrait ou mise à jour conseillés</div>`;
+  const eligible=s.rs.filter(r=>!r.revoked&&!compat(r,w));
+  if((s.status==="available"||s.status==="update")&&eligible.length>1)tgt=`<select class="ver" data-pick="${f}" aria-label="Version de ${esc(f)} à installer"><option value="">Dernière (${eligible[0].version})</option>${eligible.map(r=>`<option value="${r.id}" ${pick[f]===r.id?"selected":""}>${r.version}</option>`).join("")}</select>`;
+  else if(s.status==="available"&&eligible.length===1)tgt=`<span class="fsub">Version ${eligible[0].version}</span>`;
+  const bound=s.c&&(s.c.bound||[]).length?`<div class="fsub">Lié : ${esc(s.c.bound.join(", "))}${s.c.jobs?` · ${s.c.jobs} job(s) en cours`:""}</div>`:"";
+  return `<div class="fam ${sel?"sel":""} ${dis?"dis":""}"><label class="pick"><input type="checkbox" data-fam="${esc(f)}" ${sel?"checked":""} ${dis?"disabled":""} aria-label="Sélectionner ${esc(f)}"></label>
+    <div><div class="fname">${esc(f)}</div>${bound}</div><div>${state}${extra}</div><div style="text-align:right">${tgt}</div></div>`;
+}
+function targets(){
+  if(ui.scope==="checked"&&ui.checked.size)return[...ui.checked];
+  if(ui.scope==="group"&&ui.worker)return WORKERS.filter(w=>w.group===wk(ui.worker).group).map(w=>w.id);
+  return[ui.worker];
+}
+function renderDetail(){
+  const el=document.getElementById("detail");
+  if(!ui.worker){el.innerHTML=`<div class="empty"><h2 style="font-size:16px;color:var(--ink)">Choisissez un Worker</h2><p>Cliquez sur une machine à gauche pour voir ses engines, puis cochez ceux à installer ou mettre à jour.</p></div>`;return;}
+  const w=wk(ui.worker),states=FAMILIES.map(f=>famState(f,w));
+  const present=states.filter(s=>["ok","update","progress","failed"].includes(s.status));
+  const todoOf=s=>s.status==="failed"||s.status==="update"||s.revoked;
+  const tabs=[["all","Installés",present.length],["todo","À traiter",present.filter(todoOf).length],["progress","En cours",present.filter(s=>s.status==="progress").length]];
+  const prio={failed:0,progress:1,update:2,ok:3};
+  const shown=present.filter(s=>ui.tab==="all"||(ui.tab==="todo"&&todoOf(s))||(ui.tab==="progress"&&s.status==="progress")).sort((a,b)=>prio[a.status]-prio[b.status]||a.f.localeCompare(b.f));
+  const upg=planFor("upgrade",targets(),ui.sel),can=planFor("cancel",targets(),ui.sel),uni=planFor("uninstall",targets(),ui.sel);
+  const okU=upg.filter(i=>!i.why),mb=okU.filter(i=>i.kind!=="retry").reduce((a,i)=>a+i.t.disk,0);
+  const planPct=Math.min(100,(w.diskTotal-w.diskFree)/w.diskTotal*100),addPct=Math.min(100-planPct,(ui.scope==="this"?mb:okU.filter(i=>i.w.id===w.id&&i.kind!=="retry").reduce((a,i)=>a+i.t.disk,0))/w.diskTotal*100);
+  const count=(arr,k)=>arr.filter(i=>i.kind===k&&!i.why).length;
+  const refs={};[...upg,...can,...uni].filter(i=>i.why).forEach(i=>{refs[i.why]=(refs[i.why]||0)+1;});
+  const nT=targets().length;
+  el.innerHTML=`<div class="dh"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:flex-start"><h2><span class="dot ${w.online?"":"off"}"></span>${esc(w.name)}<span class="tag">${w.group}</span>${w.online?"":`<span class="chip c-warn">Hors ligne : les ordres seront livrés à sa reconnexion</span>`}</h2><button class="btn pri" data-add-open>+ Ajouter un engine</button></div>
+    <div class="meta"><span>${w.cuda==="cpu"?"<b>CPU seul</b>":"<b>CUDA "+w.cuda+"</b> · VRAM <b>"+w.vram/1024+" Go</b>"}</span><span>Disque libre <b>${gb(w.diskFree)}</b> sur ${gb(w.diskTotal)}</span><span><b>${states.filter(s=>["ok","update"].includes(s.status)).length}</b> engines prêts</span></div>
+    <div class="disk" role="img" aria-label="Occupation du disque"><i style="width:${planPct}%;background:#4a4a5a"></i><i style="width:${addPct}%;background:var(--accent)"></i></div></div>
+    <div class="tabs" role="tablist">${tabs.map(([k,l,n])=>`<button class="tab" role="tab" data-tab="${k}" aria-selected="${ui.tab===k}">${l}<span>${n}</span></button>`).join("")}</div>
+    <div>${shown.map(s=>rowFor(s,w)).join("")||(present.length?`<p class="empty">Rien dans cet onglet.</p>`:`<div class="empty"><p>Aucun engine installé sur ce Worker.</p><button class="btn pri" data-add-open>+ Ajouter un engine</button></div>`)}</div>
+    ${ui.sel.size?`<div class="actionbar"><div class="ab-row"><div class="plan"><b>${ui.sel.size}</b> engine(s) sélectionné(s) · ${count(upg,"install")} installation(s) · ${count(upg,"update")} mise(s) à jour · ${count(upg,"retry")} réessai(s)${mb?` · <b>${gb(mb)}</b> à télécharger`:""}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="note" style="margin:0" for="scope">Appliquer à</label><select class="scope" id="scope"><option value="this" ${ui.scope==="this"?"selected":""}>Ce Worker</option><option value="checked" ${ui.scope==="checked"?"selected":""}>Workers cochés (${ui.checked.size})</option><option value="group" ${ui.scope==="group"?"selected":""}>Tout le groupe ${w.group} (${WORKERS.filter(x=>x.group===w.group).length})</option></select></div></div>
+      ${nT>1?`<div class="note" style="margin:0">Le plan s'applique à ${nT} Workers ; la liste montre ${esc(w.name)}.</div>`:""}
+      ${Object.keys(refs).length?`<div class="refusals">${Object.entries(refs).map(([why,n])=>`<span>${n} refusé(s) : ${esc(why)}</span>`).join("")}</div>`:""}
+      <div class="ab-row"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn pri" data-go="upgrade" aria-disabled="${!okU.length}">Appliquer (${okU.length})</button>
+        <button class="btn" data-go="cancel" aria-disabled="${!count(can,"cancel")}">Annuler les opérations (${count(can,"cancel")})</button>
+        <button class="btn dng" data-go="uninstall" aria-disabled="${!count(uni,"uninstall")}">Désinstaller (${count(uni,"uninstall")})</button></div>
+        <button class="btn link" data-clearsel>Tout désélectionner</button></div></div>`:""}${ui.adding?addDialog(w,states):""}`;
+}
+/* Dialogue « Ajouter un engine » : le catalogue des engines approuvés, ce que ce Worker n'a pas encore. */
+function addDialog(w,states){
+  const q=(ui.aq||"").toLowerCase(),cand=states.filter(s=>(s.status==="available"||s.status==="ineligible")&&s.f.includes(q)).sort((a,b)=>(a.status==="ineligible")-(b.status==="ineligible")||a.f.localeCompare(b.f));
+  const items=planFor("upgrade",targets(),ui.add),ok=items.filter(i=>!i.why),mb=ok.reduce((a,i)=>a+i.t.disk,0);
+  const refs={};items.filter(i=>i.why).forEach(i=>{refs[i.why]=(refs[i.why]||0)+1;});
+  const rows=cand.map(s=>{const f=s.f,dis=s.status==="ineligible",el=s.rs.filter(r=>!r.revoked&&!compat(r,w)),t=pick[f]?rel(pick[f]):s.latest;
+    const why=dis?(s.rs.every(r=>r.revoked)?"Toutes les versions sont révoquées":compat(s.rs.find(r=>!r.revoked)||s.rs[0],w)||"Aucune version compatible"):"";
+    return `<div class="fam ${dis?"dis":""} ${ui.add.has(f)?"sel":""}" style="padding:12px 20px"><label class="pick"><input type="checkbox" data-addfam="${esc(f)}" ${ui.add.has(f)?"checked":""} ${dis?"disabled":""} aria-label="Ajouter ${esc(f)}"></label>
+      <div><div class="fname">${esc(f)}</div>${t?`<div class="fsub">${gb(t.disk)} · VRAM ${t.vram?gb(t.vram):"aucune"} · CUDA ${t.cuda}</div>`:""}</div>
+      <div>${dis?`<div class="why" style="margin:0">${esc(why)}</div>`:`<span class="fsub">Version ${t.version}</span>`}</div>
+      <div style="text-align:right">${!dis&&el.length>1?`<select class="ver" data-pick="${esc(f)}" aria-label="Version de ${esc(f)}"><option value="">Dernière (${el[0].version})</option>${el.map(r=>`<option value="${r.id}" ${pick[f]===r.id?"selected":""}>${r.version}</option>`).join("")}</select>`:""}</div></div>`;}).join("");
+  const nT=targets().length;
+  return `<div class="veil" role="dialog" aria-modal="true" aria-label="Ajouter un engine"><div class="modal"><div class="dh"><div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><h2>Ajouter un engine à ${esc(w.name)}</h2><button class="btn link" data-add-close>Fermer</button></div>
+    <p class="note">Catalogue des engines approuvés (versions signées). L'installation ne démarre qu'à la validation ci-dessous.</p>
+    <input class="search" type="search" id="aq" placeholder="Rechercher un engine" value="${esc(ui.aq||"")}" aria-label="Rechercher un engine" style="margin-top:10px"></div>
+    <div class="mbody">${rows||`<p class="empty">Aucun engine à ajouter${q?" pour cette recherche":" : tout le catalogue compatible est déjà installé"}.</p>`}</div>
+    <div class="actionbar" style="position:static;border-radius:0 0 14px 14px"><div class="ab-row"><div class="plan"><b>${ui.add.size}</b> engine(s) · ${ok.length} installation(s)${mb?` · <b>${gb(mb)}</b> à télécharger`:""} · disque libre ${gb(w.diskFree)}</div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><label class="note" style="margin:0" for="scope">Sur</label><select class="scope" id="scope"><option value="this" ${ui.scope==="this"?"selected":""}>Ce Worker</option><option value="checked" ${ui.scope==="checked"?"selected":""}>Workers cochés (${ui.checked.size})</option><option value="group" ${ui.scope==="group"?"selected":""}>Tout le groupe ${w.group} (${WORKERS.filter(x=>x.group===w.group).length})</option></select></div></div>
+      ${nT>1?`<div class="note" style="margin:0">S'applique à ${nT} Workers.</div>`:""}${!w.online&&nT===1?`<div class="note" style="margin:0">Worker hors ligne : ordre livré à sa reconnexion.</div>`:""}
+      ${Object.keys(refs).length?`<div class="refusals">${Object.entries(refs).map(([why,n])=>`<span>${n} refusé(s) : ${esc(why)}</span>`).join("")}</div>`:""}
+      <div class="ab-row"><button class="btn" data-add-close>Annuler</button><button class="btn pri" data-add-go aria-disabled="${!ok.length}">Installer ${ok.length} engine(s)</button></div></div></div></div>`;
+}
+function render(){
+  const ae=document.activeElement,id=ae&&ae.id,pos=ae&&ae.selectionStart;
+  document.getElementById("fleet").textContent=WORKERS.length+" Workers · "+FAMILIES.length+" familles d'engine · "+RELEASES.length+" versions approuvées (données synthétiques)";
+  renderList();renderDetail();document.getElementById("log").innerHTML=logLines.map(esc).join("<br>");
+  if(id){const n=document.getElementById(id);if(n){n.focus();if(pos!=null&&n.setSelectionRange)try{n.setSelectionRange(pos,pos)}catch(e){}}}
+}
+document.getElementById("wq").addEventListener("input",e=>{ui.wq=e.target.value;renderList();});
+document.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.wf){ui.wf=t.dataset.wf;renderList();return;}
+  if(t.dataset.worker){ui.worker=t.dataset.worker;ui.sel.clear();ui.tab="all";ui.scope="this";ui.adding=false;render();return;}
+  if(t.dataset.addOpen!==undefined){ui.adding=true;ui.add.clear();ui.aq="";render();return;}
+  if(t.dataset.addClose!==undefined){ui.adding=false;ui.add.clear();render();return;}
+  if(t.dataset.addGo!==undefined){
+    if(t.getAttribute("aria-disabled")==="true"){toast("Aucun engine à installer");return;}
+    const items=planFor("upgrade",targets(),ui.add),ok=items.filter(i=>!i.why),ref=items.filter(i=>i.why);
+    ok.forEach(execute);ui.adding=false;ui.add.clear();
+    const msg=ok.length+" ordre(s) d'installation créé(s)"+(ref.length?" · "+ref.length+" refusé(s)":"");log("add — "+msg);toast(msg);render();return;
+  }
+  if(t.dataset.tab){ui.tab=t.dataset.tab;render();return;}
+  if(t.dataset.clearsel!==undefined){ui.sel.clear();render();return;}
+  if(t.dataset.go){
+    if(t.getAttribute("aria-disabled")==="true"){toast("Rien à appliquer pour cette action");return;}
+    const items=planFor(t.dataset.go,targets(),ui.sel),ok=items.filter(i=>!i.why),ref=items.filter(i=>i.why);
+    ok.forEach(execute);ui.sel.clear();
+    const msg=ok.length+" ordre(s) créé(s)"+(ref.length?" · "+ref.length+" refusé(s)":"")+(ok.some(i=>!i.w.online)?" · "+new Set(ok.filter(i=>!i.w.online).map(i=>i.w.id)).size+" Worker(s) hors ligne : livraison à la reconnexion":"");
+    log(t.dataset.go+" — "+msg);toast(msg);render();
+  }
+});
+document.addEventListener("change",e=>{
+  const t=e.target;
+  if(t.dataset.check){t.checked?ui.checked.add(t.dataset.check):ui.checked.delete(t.dataset.check);if(!ui.checked.size&&ui.scope==="checked")ui.scope="this";render();return;}
+  if(t.dataset.fam){t.checked?ui.sel.add(t.dataset.fam):ui.sel.delete(t.dataset.fam);render();return;}
+  if(t.dataset.addfam){t.checked?ui.add.add(t.dataset.addfam):ui.add.delete(t.dataset.addfam);render();return;}
+  if(t.dataset.pick){pick[t.dataset.pick]=t.value;render();return;}
+  if(t.id==="scope"){ui.scope=t.value;render();}
+});
+document.addEventListener("input",e=>{if(e.target.id==="aq"){ui.aq=e.target.value;render();}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&ui.adding){ui.adding=false;ui.add.clear();render();}});
+document.getElementById("tick").onclick=tick;document.getElementById("fail").onclick=failSome;
+document.getElementById("reset").onclick=()=>{ui.sel.clear();ui.checked.clear();build();render();};
+build();
+ui.worker=WORKERS.find(w=>wsum(w).failed&&wsum(w).update)?.id||WORKERS[0].id;
+render();
+</script>
+</body>
+</html>

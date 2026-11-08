@@ -1,0 +1,302 @@
+<!doctype html>
+<!--
+PROTOTYPE JETABLE v2 (#326 / spec #348) — ne jamais copier tel quel dans web/, ne pas fusionner dans main.
+Question : l'écran de gestion des engines tient-il à l'échelle (40 engines × 30 Workers = 1 200 combinaisons) ?
+Principe : l'écran grandit avec les PROBLÈMES, pas avec la taille de la flotte ; actions en lot avec raisons de refus regroupées.
+Variantes : D À traiter (exceptions d'abord) · E Carte de la flotte + sélection · F Déploiement par version.
+Données synthétiques générées (graine fixe). Mêmes règles d'actions que la v1.
+-->
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snitch — Engines à l'échelle (prototype jetable)</title>
+<style>
+:root{color-scheme:dark;--bg:#0e0e11;--surface:#17171c;--line:#2a2a31;--ink:#e8e8ee;--mute:#9a9aa6;--accent:#8f8ff5;--ok:#3ecf8e;--run:#6ea8fe;--bad:#ff7a7a;--warn:#f0b35a;--off:#6b6b76}
+*{box-sizing:border-box}
+body{margin:0;font:13px Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);padding-bottom:90px}
+button,select,input{font:inherit;color:inherit}button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1360px;margin:auto;padding:20px 24px}
+h1{font-size:17px;margin:0}h2{font-size:14px;margin:0}
+.mute{color:var(--mute)}.note{color:var(--mute);font-size:11px;margin-top:3px;line-height:1.4}
+.why{color:var(--warn);font-size:11px;margin-top:3px}.err{color:var(--bad);font-size:11px}
+.sim{display:flex;gap:6px;flex-wrap:wrap;align-items:center;padding:8px 10px;border:1px dashed var(--line);border-radius:10px;font-size:12px;margin:12px 0 16px}
+.sim b{color:var(--warn)}
+.btn{border:1px solid #3a3a44;background:var(--surface);padding:5px 10px;border-radius:7px;font-size:12px;font-weight:600;min-height:30px}
+.btn:hover{border-color:var(--accent)}.btn.pri{background:var(--accent);border-color:var(--accent);color:#10102a}
+.btn.dng:hover{border-color:var(--bad);color:var(--bad)}.btn[aria-disabled=true]{opacity:.4;cursor:not-allowed}
+.btn.sm{padding:2px 8px;min-height:24px;font-size:11px}
+input[type=search],select{background:var(--surface);border:1px solid #3a3a44;border-radius:7px;padding:6px 10px;min-height:32px}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font-size:11px;font-weight:700;white-space:nowrap;background:#22222a;color:var(--off)}
+.badge::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor}
+.s-ready{color:var(--ok);background:#12281f}.s-failed{color:var(--bad);background:#2d1717}
+.s-requested,.s-downloading_runtime,.s-installing,.s-verifying{color:var(--run);background:#14233a}.s-draining{color:var(--warn);background:#2e2412}
+.tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:5px;border:1px solid var(--line);color:var(--mute);margin-right:4px}
+.tag.rev{color:var(--bad);border-color:#5a2a2a}.tag.bound{color:var(--accent);border-color:#3b3b78}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi strong{display:block;font-size:24px;line-height:1.1}.kpi.bad strong{color:var(--bad)}.kpi.run strong{color:var(--run)}.kpi.warn strong{color:var(--warn)}.kpi.ok strong{color:var(--ok)}
+.head{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.chips{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}.chips span{font-size:11px;padding:2px 8px;border-radius:6px;background:#1d1d24;color:var(--mute)}
+details summary{cursor:pointer;color:var(--accent);font-size:12px;margin-top:8px}
+.seg{display:flex;height:10px;border-radius:5px;overflow:hidden;background:#1d1d24;min-width:160px}
+.seg i{display:block;height:100%}.g-ok{background:var(--ok)}.g-run{background:var(--run)}.g-bad{background:var(--bad)}.g-none{background:#3a3a44}.g-inc{background:repeating-linear-gradient(45deg,#2a2a31 0 3px,#1d1d24 3px 6px)}
+.legend{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.lg{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:transparent;border-radius:999px;padding:3px 10px;font-size:11px}
+.lg[aria-pressed=true]{border-color:var(--accent);background:#1d1d3a}
+.sw{width:11px;height:11px;border-radius:3px;display:inline-block}
+.map{overflow:auto;max-height:560px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.grid{display:grid;grid-template-columns:230px repeat(30,19px);gap:2px;padding:0 8px 8px;width:max-content}
+.grid>*{min-height:19px}
+.corner,.rowl{position:sticky;left:0;background:var(--surface);z-index:2}
+.rowl{font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;border:0;padding:0 4px;line-height:19px;border-radius:4px}
+.rowl:hover{background:#22222a}.rowl[aria-pressed=true]{background:#1d1d3a}
+.gh{position:sticky;top:0;z-index:3;background:var(--surface);font-size:10px;text-align:center;border:0;border-bottom:2px solid;color:var(--mute);padding:4px 0;overflow:hidden}
+.gh.corner{z-index:4}
+.hc{border:0;padding:0;border-radius:4px;background:#1b1b21}
+.hc-ready{background:var(--ok)}.hc-in{background:var(--run)}.hc-failed{background:var(--bad)}.hc-drain{background:var(--warn)}
+.hc-none{background:#26262d}.hc-inc{background:repeating-linear-gradient(45deg,#2a2a31 0 2px,#17171c 2px 4px)}
+.hc-off{box-shadow:inset 0 -3px 0 #0008}.hc-rev{box-shadow:inset 0 0 0 2px #ff7a7a}
+.hc.sel{outline:2px solid #fff;outline-offset:1px;z-index:1}.hc.dim{opacity:.18}
+.split{display:grid;grid-template-columns:1fr 340px;gap:14px;align-items:start}
+@media(max-width:1000px){.split{grid-template-columns:1fr}}
+.side{position:sticky;top:12px}
+.rel{display:grid;grid-template-columns:minmax(220px,1.2fr) minmax(200px,1fr) auto;gap:14px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--line)}
+.rel:hover{background:#1b1b21}
+.row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:7px 0;border-top:1px solid var(--line);align-items:center}
+.acts{display:flex;gap:5px;flex-wrap:wrap}
+.bar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:10px;align-items:center;background:#ececf0;color:#101014;padding:8px 14px;border-radius:999px;box-shadow:0 8px 30px #000a;z-index:50}
+.bar button{border:0;background:#d4d4dc;border-radius:50%;width:30px;height:30px;font-weight:700}
+.toast{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);background:#2a2412;color:var(--warn);border:1px solid #5a4a1c;padding:9px 14px;border-radius:9px;font-weight:600;opacity:0;pointer-events:none;transition:opacity .2s;z-index:60;max-width:90vw}.toast.on{opacity:1}
+.log{margin-top:20px;font:11px ui-monospace,monospace;color:var(--mute);border-top:1px solid var(--line);padding-top:10px;max-height:120px;overflow:auto}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Administration → Voix → Engines <span class="tag">PROTOTYPE v2 · échelle</span></h1>
+  <p class="mute" id="fleet" style="margin:4px 0 0"></p>
+  <p class="mute" id="variantNote" style="margin:2px 0 0"></p>
+  <div class="sim" id="sim"></div>
+  <div id="stage"></div>
+  <div class="log" id="log" aria-live="polite"></div>
+</div>
+<div class="bar"><button id="prev" aria-label="Variante précédente">←</button><span id="label"></span><button id="next" aria-label="Variante suivante">→</button></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ===================== flotte synthétique : 30 Workers, 40 versions d'engine ===================== */
+function rng(a){return()=>{a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+let R, WORKERS=[], RELEASES=[], cells={}, logLines=[];
+const GROUP_COLOR={Atelier:"#8f8ff5",Studio:"#3ecf8e",NAS:"#f0b35a",Portables:"#ff7a7a"};
+const CAUSES={disk_full:"Disque insuffisant",network:"Réseau : files.pythonhosted.org injoignable",cuda_incompatible:"CUDA détecté incompatible avec la release",oom:"Mémoire insuffisante pendant la vérification"};
+const STATE_LABEL={not_installed:"Absent",requested:"Demandé",downloading_runtime:"Téléchargement",installing:"Installation",verifying:"Vérification",ready:"Prêt",failed:"Échec",draining:"Drainage"};
+const IN_PROGRESS=["requested","downloading_runtime","installing","verifying"];
+const key=(r,w)=>r+"|"+w, rel=id=>RELEASES.find(r=>r.id===id), wk=id=>WORKERS.find(w=>w.id===id);
+const cell=(r,w)=>cells[key(r,w)]||{state:"not_installed"};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function log(m){logLines.unshift(new Date().toLocaleTimeString("fr")+"  "+m);logLines=logLines.slice(0,30);}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),3200);}
+
+function compat(r,w){
+  if(r.cuda!=="cpu"&&w.cuda==="cpu")return "Ce Worker n'a pas de GPU CUDA";
+  if(r.cuda!=="cpu"&&r.vram>w.vram)return "VRAM insuffisante ("+(w.vram/1024)+" Go < "+(r.vram/1024).toFixed(1)+" Go)";
+  return "";
+}
+function updateTarget(r,w){return RELEASES.find(o=>o.family===r.family&&o.rank>r.rank&&!o.revoked&&!compat(o,w)&&cell(o.id,w.id).state==="not_installed");}
+function actions(r,w){
+  const c=cell(r.id,w.id),out=[],add=(k,label,why="",cls="")=>out.push({k,label,why,cls});
+  if(c.state==="not_installed"){add("install","Installer",r.revoked?"Version révoquée : plus aucune nouvelle installation":compat(r,w),"pri");}
+  else if(IN_PROGRESS.includes(c.state))add("cancel","Annuler");
+  else if(c.state==="failed"){add("retry","Réessayer","","pri");add("clean","Nettoyer les fichiers incomplets");}
+  else if(c.state==="ready"||c.state==="draining"){
+    const up=updateTarget(r,w);if(up&&(c.bound||[]).length)add("update","Mettre à jour → "+up.version,"",r.revoked?"pri":"");
+    let why="";if(c.state==="draining")why="Drainage déjà en cours";else if((c.bound||[]).length)why="Lié au modèle « "+c.bound.join(", ")+" » : désinstallez d'abord le modèle";
+    add("uninstall","Désinstaller",why,"dng");
+  }
+  return out;
+}
+function apply(rid,wid,k){
+  const r=rel(rid),w=wk(wid),c=cell(rid,wid),K=key(rid,wid);
+  if(k==="install")cells[K]={state:w.online?"downloading_runtime":"requested",progress:0};
+  if(k==="cancel"||k==="clean")delete cells[K];
+  if(k==="retry")cells[K]={state:"downloading_runtime",progress:0};
+  if(k==="update"){const up=updateTarget(r,w);cells[key(up.id,wid)]={state:"downloading_runtime",progress:0,from:rid};}
+  if(k==="uninstall"){if(c.jobs>0)cells[K]={...c,state:"draining"};else delete cells[K];}
+}
+function bulkPlan(keys,k){const ok=[],refused={};for(const ck of keys){const[r,w]=ck.split("|");const a=actions(rel(r),wk(w)).find(x=>x.k===k);if(!a)continue;if(a.why)refused[a.why]=(refused[a.why]||0)+1;else ok.push(ck);}return{ok,refused};}
+function bulkApply(keys,k,label){
+  const p=bulkPlan(keys,k);p.ok.forEach(ck=>{const[r,w]=ck.split("|");apply(r,w,k);});
+  const ref=Object.entries(p.refused).map(([why,n])=>n+"× "+why).join(" · ");
+  const msg=p.ok.length+" appliqué(s)"+(ref?" · refusé(s) : "+ref:"");
+  log((label||k)+" — "+msg);toast(msg);render();
+}
+function tick(){
+  for(const k of Object.keys(cells)){const[rid,wid]=k.split("|"),c=cells[k],w=wk(wid);
+    if(c.state==="requested"&&w.online){c.state="downloading_runtime";c.progress=0;}
+    else if(c.state==="downloading_runtime"){c.progress=(c.progress||0)+35;if(c.progress>=100)c.state="installing";}
+    else if(c.state==="installing")c.state="verifying";
+    else if(c.state==="verifying"){c.state="ready";c.bound=[];c.jobs=0;delete c.progress;
+      if(c.from){const old=cells[key(c.from,wid)];if(old){c.bound=old.bound||[];old.bound=[];}delete c.from;}}
+    else if(c.state==="draining"){c.jobs=Math.max(0,c.jobs-1);if(!c.jobs)delete cells[k];}}
+  log("— tick —");render();
+}
+function failSome(){let n=0;for(const k of Object.keys(cells)){if(["downloading_runtime","installing","verifying"].includes(cells[k].state)&&n<4){cells[k]={state:"failed",cause:["network","disk_full","oom"][n%3]};n++;}}toast(n?n+" opération(s) en échec":"Rien en cours à faire échouer");render();}
+function build(){
+  R=rng(7);WORKERS=[];RELEASES=[];cells={};
+  [["Atelier",6,"12.8",[12288,24576],.97],["Studio",12,"12.8",[8192],.9],["NAS",4,"cpu",[0],1],["Portables",8,"12.8",[4096],.5]].forEach(([g,n,cuda,vr,on])=>{for(let i=1;i<=n;i++)WORKERS.push({id:"w"+(WORKERS.length+1),group:g,name:g+" "+i,online:R()<on,cuda,vram:vr[Math.floor(R()*vr.length)]});});
+  const FAM=["speechbrain-ecapa","nemo-titanet","wespeaker-resnet34","wespeaker-campp","pyannote-embedding","pyannote-segmentation","nemo-sortformer","nemo-msdd","speechbrain-sepformer","pyannote-pixit","ecapa2","redimnet","eres2net","silero-vad"];
+  FAM.forEach((f,fi)=>{const cpu=f==="silero-vad"||f==="nemo-msdd",nv=fi<12?3:2;
+    for(let v=1;v<=nv;v++)RELEASES.push({id:"r"+(RELEASES.length+1),family:f,engine:f,version:"1."+(v-1)+".0",rank:v,cuda:cpu?"cpu":"12.8",disk:1800+Math.floor(R()*5500),vram:cpu?0:800+Math.floor(R()*2400),revoked:v===1&&R()<.45});});
+  const top={};RELEASES.forEach(r=>top[r.family]=Math.max(top[r.family]||0,r.rank));
+  for(const r of RELEASES)for(const w of WORKERS){const x=R(),k=key(r.id,w.id);if(compat(r,w))continue;
+    if(r.revoked){if(x<.3)cells[k]={state:"ready",bound:["modèle actif"],jobs:0};continue;}
+    if(x<.30)cells[k]={state:"ready",bound:r.rank===top[r.family]&&R()<.4?["modèle actif"]:[],jobs:R()<.15?1+Math.floor(R()*3):0};
+    else if(x<.34)cells[k]={state:"failed",cause:["disk_full","network","oom","cuda_incompatible"][Math.floor(R()*4)]};
+    else if(x<.38&&w.online)cells[k]={state:"downloading_runtime",progress:Math.floor(R()*90)};
+    else if(x<.41&&!w.online)cells[k]={state:"requested"};}
+  logLines=[];log("Flotte générée : "+RELEASES.length+" versions × "+WORKERS.length+" Workers");
+}
+function relStats(r){const o={ready:0,prog:0,failed:0,none:0,inc:0};WORKERS.forEach(w=>{const c=cell(r.id,w.id);
+  if(c.state==="ready"||c.state==="draining")o.ready++;else if(IN_PROGRESS.includes(c.state))o.prog++;else if(c.state==="failed")o.failed++;else if(r.revoked||compat(r,w))o.inc++;else o.none++;});return o;}
+function segBar(s){const t=WORKERS.length;return `<div class="seg" title="${s.ready} prêts · ${s.prog} en cours · ${s.failed} échecs · ${s.none} absents · ${s.inc} non éligibles"><i class="g-ok" style="width:${s.ready/t*100}%"></i><i class="g-run" style="width:${s.prog/t*100}%"></i><i class="g-bad" style="width:${s.failed/t*100}%"></i><i class="g-none" style="width:${s.none/t*100}%"></i><i class="g-inc" style="width:${s.inc/t*100}%"></i></div>`;}
+const relName=r=>`<strong>${esc(r.engine)}</strong> ${esc(r.version)} ${r.revoked?'<span class="tag rev">révoquée</span>':""}`;
+const sentence=(items,f)=>items.slice(0,5).map(f).join(" · ")+(items.length>5?" · +"+(items.length-5):"");
+let BULK=[];const reg=(keys,k,label)=>{BULK.push({keys,k,label});return BULK.length-1;};
+const bulkBtn=(keys,k,label,cls="")=>{const p=bulkPlan(keys,k);const refused=Object.values(p.refused).reduce((a,b)=>a+b,0);
+  return `<button class="btn ${cls}" aria-disabled="${!p.ok.length}" data-bulk="${reg(keys,k,label)}" title="${esc(Object.entries(p.refused).map(([w,n])=>n+"× "+w).join("\n"))}">${esc(label)} (${p.ok.length}${refused?` · ${refused} refusé(s)`:""})</button>`;};
+
+/* ===================== D — À traiter : exceptions d'abord ===================== */
+function variantD(){
+  const all=[];for(const r of RELEASES)for(const w of WORKERS){const c=cell(r.id,w.id);if(c.state!=="not_installed")all.push({r,w,c,k:key(r.id,w.id)});}
+  const failed=all.filter(x=>x.c.state==="failed"),prog=all.filter(x=>["downloading_runtime","installing","verifying"].includes(x.c.state)),
+    waiting=all.filter(x=>x.c.state==="requested"),revBound=all.filter(x=>x.r.revoked&&x.c.state==="ready"&&(x.c.bound||[]).length),offline=WORKERS.filter(w=>!w.online);
+  const by=(arr,f)=>{const m=new Map();arr.forEach(x=>{const k=f(x);(m.get(k)||m.set(k,[]).get(k)).push(x);});return[...m.entries()];};
+  const items=(arr)=>`<div class="chips">${arr.slice(0,6).map(x=>`<span>${esc(x.r.engine)} ${esc(x.r.version)} @ ${esc(x.w.name)}</span>`).join("")}${arr.length>6?`<span>+${arr.length-6}</span>`:""}</div>
+    ${arr.length>6?`<details><summary>Voir les ${arr.length}</summary><div class="chips">${arr.slice(6).map(x=>`<span>${esc(x.r.engine)} ${esc(x.r.version)} @ ${esc(x.w.name)}</span>`).join("")}</div></details>`:""}`;
+  const ready=all.filter(x=>x.c.state==="ready").length;
+  let h=`<div class="kpis"><div class="kpi bad"><strong>${failed.length}</strong>échecs à traiter</div><div class="kpi run"><strong>${prog.length}</strong>installations en cours</div>
+   <div class="kpi warn"><strong>${waiting.length}</strong>ordres en attente (${offline.length} Workers hors ligne)</div><div class="kpi warn"><strong>${revBound.length}</strong>liaisons sur version révoquée</div><div class="kpi ok"><strong>${ready}</strong>runtimes prêts, rien à signaler</div></div>`;
+  h+=`<h2 style="margin:6px 0 10px">Échecs, regroupés par cause</h2>`;
+  h+=failed.length?by(failed,x=>x.c.cause).map(([cause,arr])=>`<div class="card"><div class="head"><div><strong>${esc(CAUSES[cause]||cause)}</strong> <span class="mute">· ${arr.length} installation(s), ${new Set(arr.map(x=>x.w.id)).size} Worker(s)</span></div>
+    <div class="acts">${bulkBtn(arr.map(x=>x.k),"retry","Réessayer tout","pri")}${bulkBtn(arr.map(x=>x.k),"clean","Nettoyer tout")}</div></div>${items(arr)}</div>`).join(""):`<p class="mute">Aucun échec.</p>`;
+  h+=`<h2 style="margin:18px 0 10px">En cours, regroupé par version</h2>`;
+  h+=prog.length?by(prog,x=>x.r.id).map(([rid,arr])=>{const r=rel(rid),s=relStats(r);return `<div class="card"><div class="head"><div>${relName(r)} <span class="mute">· ${arr.length} Worker(s)</span></div>${bulkBtn(arr.map(x=>x.k),"cancel","Annuler tout")}</div><div style="margin-top:8px;max-width:360px">${segBar(s)}</div></div>`;}).join(""):`<p class="mute">Rien en cours.</p>`;
+  h+=`<h2 style="margin:18px 0 10px">Liaisons sur version révoquée</h2>`;
+  h+=revBound.length?by(revBound,x=>x.r.id).map(([rid,arr])=>`<div class="card"><div class="head"><div>${relName(rel(rid))} <span class="mute">· encore liée sur ${arr.length} Worker(s)</span></div>${bulkBtn(arr.map(x=>x.k),"update","Mettre à jour tout","pri")}</div>${items(arr)}</div>`).join(""):`<p class="mute">Aucune.</p>`;
+  h+=`<h2 style="margin:18px 0 10px">Ordres en attente d'un Worker hors ligne</h2>`;
+  h+=waiting.length?by(waiting,x=>x.w.id).map(([wid,arr])=>`<div class="card"><div class="head"><div><strong>${esc(wk(wid).name)}</strong> <span class="mute">hors ligne · ${arr.length} ordre(s) livrés à sa reconnexion</span></div>${bulkBtn(arr.map(x=>x.k),"cancel","Annuler ces ordres")}</div></div>`).join(""):`<p class="mute">Aucun.</p>`;
+  h+=`<p class="note" style="margin-top:20px">Le reste de la flotte est sain. <a href="?variant=E" style="color:var(--accent)">Ouvrir la carte complète (E)</a> pour déployer ou explorer.</p>`;
+  return h;
+}
+
+/* ===================== E — Carte de la flotte + sélection ===================== */
+let flt={q:"",grp:"",st:""}, sel=new Set();
+function hcClass(r,w){const c=cell(r.id,w.id);
+  if(c.state==="ready")return "hc-ready"+(r.revoked?" hc-rev":"");if(c.state==="draining")return "hc-drain";
+  if(c.state==="failed")return "hc-failed";if(IN_PROGRESS.includes(c.state))return "hc-in";
+  return (r.revoked||compat(r,w))?"hc-inc":"hc-none";}
+const stOf=(r,w)=>{const c=cell(r.id,w.id).state;return c==="ready"?"ready":c==="failed"?"failed":IN_PROGRESS.includes(c)?"prog":c==="draining"?"ready":(r.revoked||compat(r,w))?"inc":"none";};
+function variantE(){
+  const rels=RELEASES.filter(r=>(r.engine+" "+r.version).includes(flt.q.toLowerCase())&&(!flt.st||WORKERS.some(w=>stOf(r,w)===flt.st)));
+  const ws=WORKERS.filter(w=>!flt.grp||w.group===flt.grp);
+  const groups=[...new Set(WORKERS.map(w=>w.group))];
+  const legend=[["ready","Prêt","var(--ok)"],["prog","En cours","var(--run)"],["failed","Échec","var(--bad)"],["none","Absent, installable","#26262d"],["inc","Non éligible","#3a3a44"]];
+  let h=`<div class="split"><div><div class="head" style="margin-bottom:8px"><div class="acts"><input type="search" id="q" placeholder="Rechercher une version (ex. titanet)" value="${esc(flt.q)}" aria-label="Rechercher"><select id="grp" aria-label="Groupe"><option value="">Tous les groupes</option>${groups.map(g=>`<option ${flt.grp===g?"selected":""}>${g}</option>`).join("")}</select></div>
+    <span class="mute">${rels.length} versions × ${ws.length} Workers affichés</span></div>
+    <div class="legend">${legend.map(([k,l,c])=>`<button class="lg" data-st="${k}" aria-pressed="${flt.st===k}"><span class="sw" style="background:${c}"></span>${l}</button>`).join("")}<span class="note" style="align-self:center">Clic cellule = sélection · clic nom de version = toute la ligne · clic groupe = toute la colonne-groupe</span></div>
+    <div class="map" tabindex="0" aria-label="Carte de la flotte"><div class="grid" style="grid-template-columns:230px repeat(${ws.length},19px)"><div class="corner gh" style="border-color:transparent"></div>`;
+  h+=ws.map(w=>`<button class="gh" style="border-color:${GROUP_COLOR[w.group]}" data-grp-col="${w.group}" title="${esc(w.name)} · ${w.online?"en ligne":"HORS LIGNE"} · ${w.cuda==="cpu"?"CPU":"CUDA "+w.cuda+", "+w.vram/1024+" Go"}">${w.online?"":"·"}${w.id.slice(1)}</button>`).join("");
+  rels.forEach(r=>{const keys=ws.map(w=>key(r.id,w.id)),all=keys.every(k=>sel.has(k));
+    h+=`<button class="rowl" aria-pressed="${all}" data-row="${r.id}" title="${esc(r.engine)} ${esc(r.version)}">${esc(r.engine)} <span class="mute">${esc(r.version)}</span>${r.revoked?' <span style="color:var(--bad)">révoquée</span>':""}</button>`;
+    ws.forEach(w=>{const k=key(r.id,w.id),dim=flt.st&&stOf(r,w)!==flt.st;
+      h+=`<button class="hc ${hcClass(r,w)} ${w.online?"":"hc-off"} ${sel.has(k)?"sel":""} ${dim?"dim":""}" data-cell="${k}" aria-label="${esc(r.engine+" "+r.version+" sur "+w.name+" : "+STATE_LABEL[cell(r.id,w.id).state])}" title="${esc(r.engine+" "+r.version+" @ "+w.name+" — "+STATE_LABEL[cell(r.id,w.id).state])}"></button>`;});});
+  h+=`</div></div></div><aside class="side card">${panelE()}</aside></div>`;
+  return h;
+}
+function panelE(){
+  const keys=[...sel];if(!keys.length)return `<h2>Sélection</h2><p class="mute">Rien de sélectionné. Choisissez des cellules, une ligne (version) ou un groupe de Workers pour agir en lot.</p>`;
+  const rs=new Set(keys.map(k=>k.split("|")[0])),wsn=new Set(keys.map(k=>k.split("|")[1]));
+  let h=`<div class="head"><h2>${keys.length} cellule(s)</h2><button class="btn sm" data-clear>Tout désélectionner</button></div><p class="note">${rs.size} version(s) × ${wsn.size} Worker(s)</p>`;
+  if(keys.length===1){const[r,w]=keys[0].split("|"),c=cell(r,w);h+=`<div class="card" style="background:#1b1b21;margin:8px 0">${relName(rel(r))}<div class="note">@ ${esc(wk(w).name)} ${wk(w).online?"":"(hors ligne)"}</div><div style="margin-top:6px"><span class="badge s-${c.state}">${STATE_LABEL[c.state]}</span></div>${c.state==="failed"?`<div class="err" style="margin-top:6px">${esc(CAUSES[c.cause]||c.cause)}</div>`:""}${(c.bound||[]).map(b=>`<span class="tag bound">lié : ${esc(b)}</span>`).join("")}</div>`;}
+  const defs=[["install","Installer","pri"],["retry","Réessayer",""],["cancel","Annuler",""],["update","Mettre à jour",""],["clean","Nettoyer",""],["uninstall","Désinstaller","dng"]];
+  const rows=defs.map(([k,l,c])=>({k,l,c,p:bulkPlan(keys,k)})).filter(x=>x.p.ok.length||Object.keys(x.p.refused).length);
+  h+=rows.length?rows.map(x=>`<div style="margin-top:10px"><button class="btn ${x.c}" style="width:100%" aria-disabled="${!x.p.ok.length}" data-bulk="${reg(keys,x.k,x.l)}">${x.l} — ${x.p.ok.length} possible(s)</button>${Object.entries(x.p.refused).map(([w,n])=>`<div class="why">${n} refusé(s) : ${esc(w)}</div>`).join("")}</div>`).join(""):`<p class="mute">Aucune action possible sur cette sélection.</p>`;
+  return h;
+}
+
+/* ===================== F — Déploiement par version ===================== */
+let ff="all", open="", target="all";
+function variantF(){
+  const q=flt.q.toLowerCase();
+  const pass=r=>{const s=relStats(r);return(r.engine+" "+r.version).includes(q)&&(ff==="all"||(ff==="fail"&&s.failed)||(ff==="prog"&&s.prog)||(ff==="rev"&&r.revoked&&s.ready)||(ff==="undep"&&!s.ready&&!s.prog&&!r.revoked));};
+  const rels=RELEASES.filter(pass),chips=[["all","Toutes"],["fail","Avec échecs"],["prog","En cours"],["rev","Révoquées encore installées"],["undep","Non déployées"]];
+  let h=`<div class="head" style="margin-bottom:8px"><div class="acts"><input type="search" id="q" placeholder="Rechercher une version" value="${esc(flt.q)}" aria-label="Rechercher">${chips.map(([k,l])=>`<button class="lg" data-ff="${k}" aria-pressed="${ff===k}">${l}</button>`).join("")}</div><span class="mute">${rels.length}/${RELEASES.length} versions</span></div>
+   <div class="card" style="padding:0">`;
+  h+=rels.map(r=>{const s=relStats(r),isOpen=open===r.id;
+    return `<div class="rel"><div>${relName(r)}<div class="note">CUDA ${r.cuda} · disque ${(r.disk/1024).toFixed(1)} Go · VRAM ${(r.vram/1024).toFixed(1)} Go</div></div>
+      <div>${segBar(s)}<div class="note">${s.ready} prêts · ${s.prog} en cours${s.failed?` · <span class="err">${s.failed} échec(s)</span>`:""}</div></div>
+      <button class="btn ${isOpen?"pri":""}" data-open="${r.id}">${isOpen?"Fermer":"Déployer / gérer"}</button></div>${isOpen?drawerF(r):""}`;}).join("")||`<p class="mute" style="padding:14px">Aucune version ne correspond.</p>`;
+  return h+`</div>`;
+}
+function targetKeys(r,val){
+  let ws=WORKERS.filter(w=>cell(r.id,w.id).state==="not_installed"&&!compat(r,w));
+  if(val==="pilot"){const best=ws.filter(w=>w.online).sort((a,b)=>b.vram-a.vram)[0];ws=best?[best]:[];}
+  else if(val!=="all")ws=ws.filter(w=>w.group===val);
+  return ws.map(w=>key(r.id,w.id));
+}
+function drawerF(r){
+  const groups=[...new Set(WORKERS.map(w=>w.group))],opts=[["all","Tous les Workers compatibles"],["pilot","1 Worker pilote d'abord (le mieux équipé en ligne)"],...groups.map(g=>[g,"Groupe "+g])];
+  const keys=targetKeys(r,target),off=keys.filter(k=>!wk(k.split("|")[1]).online).length;
+  const problem=WORKERS.filter(w=>{const c=cell(r.id,w.id);return c.state!=="not_installed"&&c.state!=="ready"||(r.revoked&&c.state==="ready");});
+  const inc=WORKERS.filter(w=>cell(r.id,w.id).state==="not_installed"&&(r.revoked||compat(r,w)));
+  let h=`<div style="background:#1b1b21;padding:14px 16px;border-bottom:1px solid var(--line)"><div class="head"><div><strong>Déployer ${esc(r.version)}</strong>
+    <select id="tgt" style="margin-left:8px">${opts.map(([v,l])=>`<option value="${esc(v)}" ${target===v?"selected":""}>${esc(l)}</option>`).join("")}</select></div>
+    <button class="btn pri" aria-disabled="${!keys.length||r.revoked}" data-bulk="${reg(keys,"install","Installer")}">Installer sur ${keys.length} Worker(s)</button></div>
+    ${r.revoked?`<div class="why">Version révoquée : plus aucune nouvelle installation.</div>`:""}${off&&!r.revoked?`<div class="note">${off} Worker(s) hors ligne : ordre livré à leur reconnexion.</div>`:""}
+    <div class="note">Non éligibles : ${inc.length} (${esc([...new Set(inc.map(w=>r.revoked?"version révoquée":compat(r,w)))].join(" ; ")||"—")})</div>
+    <h2 style="margin:14px 0 4px">À surveiller sur cette version (${problem.length})</h2>`;
+  h+=problem.length?problem.map(w=>{const c=cell(r.id,w.id),acts=actions(r,w);return `<div class="row"><div><strong>${esc(w.name)}</strong> <span class="badge s-${c.state}">${STATE_LABEL[c.state]}</span>${c.state==="failed"?`<span class="err"> ${esc(CAUSES[c.cause]||c.cause)}</span>`:""}${(c.bound||[]).map(b=>`<span class="tag bound">lié : ${esc(b)}</span>`).join("")}</div>
+    <div class="acts">${acts.map(a=>`<button class="btn sm ${a.cls}" aria-disabled="${!!a.why}" title="${esc(a.why)}" data-one="${key(r.id,w.id)}" data-k="${a.k}">${esc(a.label)}</button>`).join("")}</div></div>${acts.filter(a=>a.why).map(a=>`<div class="why">${esc(a.label)} : ${esc(a.why)}</div>`).join("")}`;}).join(""):`<p class="mute">Rien à signaler. Les ${relStats(r).ready} Workers prêts ne sont pas listés.</p>`;
+  return h+`</div>`;
+}
+
+/* ===================== câblage ===================== */
+const VARIANTS={D:["À traiter (exceptions d'abord)",variantD,"L'écran ne montre que ce qui demande une décision, regroupé par cause. Les 1 200 combinaisons saines restent invisibles."],
+  E:["Carte de la flotte + sélection",variantE,"Toute la flotte en un coup d'œil (1 case = 1 version sur 1 Worker). On sélectionne, puis on agit en lot dans le panneau."],
+  F:["Déploiement par version",variantF,"Une ligne par version avec sa barre de santé sur 30 Workers ; on déploie par cible (groupe, pilote), on ne voit que les Workers à problème."]};
+const current=()=>{const v=new URLSearchParams(location.search).get("variant");return VARIANTS[v]?v:"D";};
+function render(){
+  const ae=document.activeElement,id=ae&&ae.id,pos=ae&&ae.selectionStart;BULK=[];
+  const v=current(),[name,fn,note]=VARIANTS[v];
+  document.getElementById("label").textContent=v+" · "+name;document.getElementById("variantNote").textContent=note;
+  document.getElementById("fleet").textContent=RELEASES.length+" versions d'engine × "+WORKERS.length+" Workers = "+RELEASES.length*WORKERS.length+" combinaisons (données synthétiques)";
+  document.getElementById("stage").innerHTML=fn();
+  document.getElementById("log").innerHTML=logLines.map(esc).join("<br>");
+  if(id){const n=document.getElementById(id);if(n){n.focus();if(pos!=null&&n.setSelectionRange)try{n.setSelectionRange(pos,pos)}catch(e){}}}
+}
+function go(d){const ks=Object.keys(VARIANTS),i=(ks.indexOf(current())+d+ks.length)%ks.length,u=new URL(location);u.searchParams.set("variant",ks[i]);history.replaceState(null,"",u);render();}
+document.getElementById("prev").onclick=()=>go(-1);document.getElementById("next").onclick=()=>go(1);
+addEventListener("keydown",e=>{if(/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName))return;if(e.key==="ArrowLeft")go(-1);if(e.key==="ArrowRight")go(1);});
+const stage=document.getElementById("stage");
+stage.addEventListener("input",e=>{if(e.target.id==="q"){flt.q=e.target.value;render();}});
+stage.addEventListener("change",e=>{if(e.target.id==="grp"){flt.grp=e.target.value;render();}if(e.target.id==="tgt"){target=e.target.value;render();}});
+stage.addEventListener("click",e=>{
+  const t=e.target.closest("button");if(!t)return;
+  if(t.dataset.bulk!==undefined){const b=BULK[+t.dataset.bulk];if(t.getAttribute("aria-disabled")==="true"){toast("Aucune action possible dans ce lot");return;}bulkApply(b.keys,b.k,b.label);return;}
+  if(t.dataset.cell){sel.has(t.dataset.cell)?sel.delete(t.dataset.cell):sel.add(t.dataset.cell);render();return;}
+  if(t.dataset.row){const ws=WORKERS.filter(w=>!flt.grp||w.group===flt.grp),keys=ws.map(w=>key(t.dataset.row,w.id)),all=keys.every(k=>sel.has(k));keys.forEach(k=>all?sel.delete(k):sel.add(k));render();return;}
+  if(t.dataset.grpCol){const rels=RELEASES.filter(r=>(r.engine+" "+r.version).includes(flt.q.toLowerCase())),keys=[];rels.forEach(r=>WORKERS.filter(w=>w.group===t.dataset.grpCol).forEach(w=>keys.push(key(r.id,w.id))));const all=keys.every(k=>sel.has(k));keys.forEach(k=>all?sel.delete(k):sel.add(k));render();return;}
+  if(t.dataset.clear!==undefined){sel.clear();render();return;}
+  if(t.dataset.st){flt.st=flt.st===t.dataset.st?"":t.dataset.st;render();return;}
+  if(t.dataset.ff){ff=t.dataset.ff;render();return;}
+  if(t.dataset.open){open=open===t.dataset.open?"":t.dataset.open;render();return;}
+  if(t.dataset.one){const a=actions(rel(t.dataset.one.split("|")[0]),wk(t.dataset.one.split("|")[1])).find(x=>x.k===t.dataset.k);if(a&&a.why){toast("Refusé : "+a.why);return;}bulkApply([t.dataset.one],t.dataset.k,a.label);}
+});
+document.getElementById("sim").innerHTML=`<b>Simulateur</b><button class="btn" id="tick">Avancer d'un cran</button><button class="btn" id="fail">Faire échouer 4 opérations en cours</button><button class="btn" id="reset">Régénérer la flotte</button>`;
+document.getElementById("sim").addEventListener("click",e=>{if(e.target.id==="tick")tick();if(e.target.id==="fail")failSome();if(e.target.id==="reset"){sel.clear();build();render();}});
+build();render();
+</script>
+</body>
+</html>
