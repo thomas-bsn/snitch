@@ -50,7 +50,9 @@ version=$(sed -n 's/.*"target_version":"\([^"]*\)".*/\1/p' "$resp" | head -n1)
 
 # Only a released version of the same repository as the installed image is accepted.
 if ! [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then exit 0; fi
-if [ "$target" != "${current%:*}:$version" ]; then report failed "$version" "" target_mismatch; exit 0; fi
+repository=${current%@*}
+if [[ "${repository##*/}" == *:* ]]; then repository=${repository%:*}; fi
+if [ "$target" != "$repository:$version" ]; then report failed "$version" "" target_mismatch; exit 0; fi
 [ "$target" != "$current" ] || { rm -f "$deferred_file"; exit 0; }
 
 # A version that failed is not retried at once: under a latest target the same bad version would be pulled and
@@ -71,6 +73,8 @@ rm -f "$deferred_file"
 
 previous_id=$(docker inspect -f '{{.Image}}' "$container" 2>/dev/null || true)
 previous_version=${current##*:}
+# A digest has no release version: report the attempted release if rollback is needed.
+if [[ "$current" == *@* ]]; then previous_version=$version; fi
 # Rollback only to an image whose digest is known (ADR 0036): remember it before the container is replaced.
 previous_digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$previous_id" 2>/dev/null | sed 's/^[^@]*@//' || true)
 if ! [[ "$previous_digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then previous_id=''; fi
@@ -79,6 +83,8 @@ report pulling "$version" "" ""
 if ! docker pull "$target" >/dev/null 2>&1; then report failed "$version" "" image_pull_failed; exit 0; fi
 digest=$(docker image inspect -f '{{index .RepoDigests 0}}' "$target" 2>/dev/null | sed 's/^[^@]*@//' || true)
 if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then printf '%s' "$version" > "$failed_file"; report failed "$version" "" digest_unknown; exit 0; fi
+# Updates start by digest; subsequent polls must recognise the installed digest.
+if [ "$current" = "$repository@$digest" ]; then report updated "$version" "$digest" ""; exit 0; fi
 
 gpu=()
 if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi >/dev/null 2>&1; then gpu=(--gpus all); fi

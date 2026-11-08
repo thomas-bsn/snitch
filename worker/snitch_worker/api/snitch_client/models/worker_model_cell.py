@@ -11,7 +11,9 @@ from ..types import UNSET, Unset
 from ..models.worker_model_cell_blocked import WorkerModelCellBlocked
 from ..models.worker_model_cell_cause_code import WorkerModelCellCauseCode
 from ..models.worker_model_cell_kind import WorkerModelCellKind
+from ..models.worker_model_cell_replacement_phase import WorkerModelCellReplacementPhase
 from ..models.worker_model_cell_state import WorkerModelCellState
+from ..types import UNSET, Unset
 
 
 
@@ -44,6 +46,8 @@ class WorkerModelCell:
             replaces_model_id (str): Modèle que celui-ci remplace sur ce Worker ; vide hors remplacement. L'ancien reste
                 actif et installé jusqu'à son retrait.
             waiting_for_jobs (bool): Le retrait de l'ancien modèle est différé parce qu'un travail en cours l'utilise.
+            replacement_phase (WorkerModelCellReplacementPhase | Unset): Phase du remplacement ; absente en dehors d’un
+                remplacement.
      """
 
     kind: WorkerModelCellKind
@@ -61,6 +65,7 @@ class WorkerModelCell:
     blocked: WorkerModelCellBlocked
     replaces_model_id: str
     waiting_for_jobs: bool
+    replacement_phase: WorkerModelCellReplacementPhase | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -98,6 +103,11 @@ class WorkerModelCell:
 
         waiting_for_jobs = self.waiting_for_jobs
 
+        replacement_phase: str | Unset = UNSET
+        if not isinstance(self.replacement_phase, Unset):
+            replacement_phase = self.replacement_phase.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -118,6 +128,8 @@ class WorkerModelCell:
             "replaces_model_id": replaces_model_id,
             "waiting_for_jobs": waiting_for_jobs,
         })
+        if replacement_phase is not UNSET:
+            field_dict["replacement_phase"] = replacement_phase
 
         return field_dict
 
@@ -168,6 +180,16 @@ class WorkerModelCell:
 
         waiting_for_jobs = d.pop("waiting_for_jobs")
 
+        _replacement_phase = d.pop("replacement_phase", UNSET)
+        replacement_phase: WorkerModelCellReplacementPhase | Unset
+        if isinstance(_replacement_phase,  Unset):
+            replacement_phase = UNSET
+        else:
+            replacement_phase = WorkerModelCellReplacementPhase(_replacement_phase)
+
+
+
+
         worker_model_cell = cls(
             kind=kind,
             supported=supported,
@@ -184,6 +206,7 @@ class WorkerModelCell:
             blocked=blocked,
             replaces_model_id=replaces_model_id,
             waiting_for_jobs=waiting_for_jobs,
+            replacement_phase=replacement_phase,
         )
 
 

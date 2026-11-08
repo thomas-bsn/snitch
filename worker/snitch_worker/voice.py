@@ -262,13 +262,20 @@ def default_providers() -> dict[str, Any]:
     return _default_providers
 
 
-def ensure_provider_ready(voice: dict[str, Any], providers: Mapping[str, Any] | None = None) -> None:
+def ensure_provider_ready(voice: dict[str, Any], providers: Mapping[str, Any] | None = None, *, step: str | None = None) -> None:
     """Cheap pre-flight (no model load, no media): fail before downloading anything."""
-    config = voice.get("config") or {}
+    config = {**(voice.get("config") or {})}
+    if voice.get("fingerprint_model") is not None:
+        config["fingerprint_model"] = voice["fingerprint_model"]
     provider = (providers or default_providers()).get(config.get("provider"))
     if provider is None:
         raise VoiceProviderUnavailable("unknown_provider")
-    provider.ensure_ready(config)
+    check = "ensure_ready"
+    if step and DIARIZATION_STEP.fullmatch(step):
+        check = "ensure_diarization_ready"
+    elif step and FINGERPRINT_STEP.fullmatch(step):
+        check = "ensure_fingerprint_ready"
+    getattr(provider, check, provider.ensure_ready)(config)
 
 
 def process_voice_step(
@@ -279,13 +286,15 @@ def process_voice_step(
     providers: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compute the result of a leased voice step from its pinned input only."""
-    config = voice.get("config") or {}
+    config = {**(voice.get("config") or {})}
+    if voice.get("fingerprint_model") is not None:
+        config["fingerprint_model"] = voice["fingerprint_model"]
     diarization_match = DIARIZATION_STEP.fullmatch(step)
     fingerprint_match = FINGERPRINT_STEP.fullmatch(step)
     if not diarization_match and not (fingerprint_match and voice.get("diarization")):
         raise ValueError("unsupported voice step")
     cancellation.check()
-    ensure_provider_ready(voice, providers)
+    ensure_provider_ready(voice, providers, step=step)
     provider = (providers or default_providers())[config["provider"]]
     if requires_audio(config) and not audio_path:
         raise VoiceProviderUnavailable("audio_missing")

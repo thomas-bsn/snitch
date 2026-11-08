@@ -91,3 +91,12 @@ L’administration présente les traitements par clip, les trois derniers clips 
 Le Super-administrateur peut supprimer un clip depuis son menu. Après confirmation, Snitch efface ses fichiers indexés et ses données, y compris les transcriptions et corrections. La suppression est irréversible. Si une copie est absente, a changé, ou ne peut pas être supprimée, l’opération échoue ; des copies peuvent déjà avoir été supprimées en cas d’erreur pendant l’opération. Les sources montées en lecture seule doivent être traitées manuellement.
 
 Le [bilan de l’analyse multipiste #274](docs/issue-274-report.md) précise les validations, corrections de revue et limites sur données synthétiques.
+
+Les modèles vocaux installés depuis Snitch sont résolus par dépôt et révision dans
+`/models/catalog/` (ou `SNITCH_WORKER_MODELS_DIR/catalog/`). Les jobs d’empreintes
+reçoivent leur référence propre ; la diarisation ne requiert pas l’embedder. Les
+installations legacy restent compatibles et les modèles validés ne sont pas
+retéléchargés. Un remplacement échoué conserve son prédécesseur et permet un
+nouvel essai, un autre candidat, l’annulation ou la désinstallation explicite des
+fichiers partiels. Voir le [rapport d’audit des Workers](docs/worker-audit-2026-11.md)
+pour les corrections, validations et limites.

@@ -55,6 +55,7 @@ export function ApplyToWorkers({
     useState<components["schemas"]["FingerprintTransition"]>();
   useEffect(() => {
     let current = true;
+    setTransition(undefined);
     if (kind !== "fingerprint") return;
     api
       .GET("/api/admin/voice-models/fingerprint-transition")
@@ -70,19 +71,25 @@ export function ApplyToWorkers({
     const cell = w.models.find((m) => m.kind === kind);
     if (!cell || cell.state === "not_installed") return undefined;
     if (
-      cell.state === "ready" &&
-      !cell.replaces_model_id &&
-      cell.model_id !== modelId &&
+      (cell.state === "ready" ||
+        (cell.state === "failed" && cell.replacement_phase === "preparing")) &&
+      (cell.replaces_model_id || cell.model_id) !== modelId &&
       (kind === "diarization" ||
         (transition?.to_model_id === modelId &&
-          transition.from_model_id === cell.model_id))
+          transition.from_model_id === (cell.replaces_model_id || cell.model_id)))
     )
-      return cell.model_id;
+      return cell.replaces_model_id || cell.model_id;
     return undefined;
   }
   function reason(w: Row) {
     const cell = w.models.find((m) => m.kind === kind);
-    if (!cell || cell.state === "not_installed" || replacement(w)) return "";
+    if (
+      !cell ||
+      cell.state === "not_installed" ||
+      replacement(w) ||
+      (cell.state === "failed" && !cell.replaces_model_id)
+    )
+      return "";
     if (cell.model_id === modelId && cell.state === "ready")
       return t("voiceWorkspace.alreadyReady");
     return t(

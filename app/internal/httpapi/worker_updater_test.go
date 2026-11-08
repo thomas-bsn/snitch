@@ -252,3 +252,25 @@ func TestUpdaterDoesNotRetryAFailedVersionInALoop(t *testing.T) {
 		t.Fatalf("a version failed more than 24h ago must be retried:\n%s", log)
 	}
 }
+
+func TestWorkerUpdaterDigestInstalled(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+"@"+digestFixture, newerTarget, "")
+	r.run(t)
+	if log := r.calls(); strings.Contains(log, "rm -f") || strings.Contains(log, "run -d") {
+		t.Fatalf("an already installed digest must not restart: %s", log)
+	}
+	if !strings.Contains(r.reported(), `"state":"updated"`) {
+		t.Fatal(r.reported())
+	}
+}
+
+func TestWorkerUpdaterUpgradeFromDigest(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+"@sha256:"+strings.Repeat("a", 64), newerTarget, "")
+	r.run(t)
+	if !strings.Contains(r.reported(), `"state":"updated"`) {
+		t.Fatal(r.reported())
+	}
+	if !strings.Contains(r.calls(), "run -d") {
+		t.Fatal("new digest must be started")
+	}
+}

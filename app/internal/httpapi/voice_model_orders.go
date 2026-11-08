@@ -64,10 +64,10 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		}
 		// The key first: a replay is answered with the recorded order whatever changed since.
 		var prior string
-		var priorWorker, priorModel string
-		err := tx.QueryRow(ctx, `SELECT id,worker_id,model_id FROM worker_model_orders WHERE idempotency_key=$1`, key).Scan(&prior, &priorWorker, &priorModel)
+		var priorWorker, priorModel, priorAction string
+		err := tx.QueryRow(ctx, `SELECT id,worker_id,model_id,action FROM worker_model_orders WHERE idempotency_key=$1`, key).Scan(&prior, &priorWorker, &priorModel, &priorAction)
 		if err == nil {
-			if priorWorker != workerID || priorModel != modelID {
+			if priorWorker != workerID || priorModel != modelID || priorAction != "install" {
 				return orderFailure{http.StatusConflict, "idempotency_key_reused"}
 			}
 			out, err = orderByID(ctx, tx, prior)
@@ -282,8 +282,9 @@ type workerModelCell struct {
 	Blocked string `json:"blocked"`
 	// ReplacesModelID is the model this one is replacing on the Worker; WaitingForJobs says the removal of that
 	// old model waits for a running job.
-	ReplacesModelID string `json:"replaces_model_id"`
-	WaitingForJobs  bool   `json:"waiting_for_jobs"`
+	ReplacesModelID  string `json:"replaces_model_id"`
+	ReplacementPhase string `json:"replacement_phase,omitempty"`
+	WaitingForJobs   bool   `json:"waiting_for_jobs"`
 }
 
 type workerModelsRow struct {

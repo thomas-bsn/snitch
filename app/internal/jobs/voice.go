@@ -34,9 +34,10 @@ func VoiceInputVersion(inputVersion string) (pipeline string, diarizationJobID i
 }
 
 type voiceInputPayload struct {
-	PipelineVersion string          `json:"pipeline_version"`
-	Config          json.RawMessage `json:"config"`
-	Diarization     json.RawMessage `json:"diarization,omitempty"`
+	PipelineVersion  string          `json:"pipeline_version"`
+	Config           json.RawMessage `json:"config"`
+	Diarization      json.RawMessage `json:"diarization,omitempty"`
+	FingerprintModel json.RawMessage `json:"fingerprint_model,omitempty"`
 }
 
 // voiceInput gives a leased voice step its pinned configuration and, for
@@ -51,6 +52,23 @@ func (s *Service) voiceInput(ctx context.Context, input *Input) error {
 		return fmt.Errorf("read voice pipeline snapshot: %w", err)
 	}
 	if diarizationID > 0 {
+		// The embedding model is independent of the diarization engine. Send the
+		// exact catalog reference, including for candidate benchmark jobs.
+		var config map[string]json.RawMessage
+		if err := json.Unmarshal(payload.Config, &config); err != nil {
+			return fmt.Errorf("decode voice pipeline snapshot: %w", err)
+		}
+		if string(config["provider"]) != `"fake"` {
+			var reference []byte
+			err := s.pool.QueryRow(ctx, `SELECT jsonb_build_object('repo',c.repo,'revision',c.revision,'engine',c.engine)
+FROM voice_model_catalog c WHERE c.id=COALESCE((SELECT requested_model_id FROM jobs WHERE id=$1),(SELECT model_id FROM voice_active_model WHERE kind='fingerprint'))`, input.Job.ID).Scan(&reference)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return fmt.Errorf("read fingerprint catalog reference: %w", err)
+			}
+			if err == nil {
+				payload.FingerprintModel = reference
+			}
+		}
 		var raw []byte
 		err := s.pool.QueryRow(ctx, `SELECT COALESCE(jsonb_agg(jsonb_build_object('label',ls.label,'turns',COALESCE((SELECT jsonb_agg(jsonb_build_object('index',st.turn_index,'start',st.start_seconds,'end',st.end_seconds) ORDER BY st.turn_index) FROM speaker_turns st WHERE st.local_speaker_id=ls.id),'[]'::jsonb)) ORDER BY ls.ordinal),'[]'::jsonb) FROM local_speakers ls WHERE ls.diarization_job_id=$1`, diarizationID).Scan(&raw)
 		if err != nil {

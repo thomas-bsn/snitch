@@ -80,7 +80,7 @@ def run_selftest(providers: Mapping[str, Any] | None = None, report: list[str] |
     """True when diarization ran end to end on synthetic audio; ``report`` receives the stable failure code."""
     available = providers or voice.default_providers()
     try:
-        voice.ensure_provider_ready({"config": CONFIG}, available)
+        voice.ensure_provider_ready({"config": CONFIG}, available, step="voice.diarization.0")
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "synthetic.wav")
             write_synthetic_audio(path)

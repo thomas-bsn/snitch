@@ -20639,6 +20639,15 @@
           "waiting_for_jobs"
         ],
         "properties": {
+          "replacement_phase": {
+            "type": "string",
+            "enum": [
+              "preparing",
+              "switching",
+              "removing"
+            ],
+            "description": "Phase du remplacement ; absente en dehors d’un remplacement."
+          },
           "kind": {
             "type": "string",
             "enum": [
@@ -23860,6 +23869,30 @@
           "config"
         ],
         "properties": {
+          "fingerprint_model": {
+            "type": "object",
+            "description": "Référence locale du modèle d’empreinte actif ou demandé, indépendante du moteur de diarisation. Absente uniquement pour les anciens serveurs et le fournisseur factice.",
+            "required": [
+              "repo",
+              "revision",
+              "engine"
+            ],
+            "properties": {
+              "repo": {
+                "type": "string"
+              },
+              "revision": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{40}$"
+              },
+              "engine": {
+                "type": "string",
+                "enum": [
+                  "pyannote"
+                ]
+              }
+            }
+          },
           "pipeline_version": {
             "type": "string"
           },

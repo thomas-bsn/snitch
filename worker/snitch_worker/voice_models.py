@@ -53,7 +53,7 @@ class DownloadFailed(Exception):
 
 
 def valid_model(repo: str, revision: str) -> bool:
-    return bool(_REPO.match(repo)) and bool(_REVISION.match(revision))
+    return bool(_REPO.fullmatch(repo)) and bool(_REVISION.fullmatch(revision))
 
 
 def models_root(environ: Mapping[str, str]) -> str:
@@ -109,7 +109,9 @@ def kind_of(item: Mapping[str, Any]) -> str:
 
 
 def _legacy_path(environ: Mapping[str, str], repo: str, revision: str, kind: str = "diarization") -> str:
-    key, variable, default = _LEGACY.get(kind, _LEGACY["diarization"])
+    if kind not in _LEGACY:
+        return ""
+    key, variable, default = _LEGACY[kind]
     entry = (voice_manifest.read_manifest(environ) or {}).get(key)
     if not isinstance(entry, dict) or entry.get("repo") != repo or entry.get("revision") != revision:
         return ""
@@ -118,6 +120,17 @@ def _legacy_path(environ: Mapping[str, str], repo: str, revision: str, kind: str
         return path if os.path.isdir(path) and os.listdir(path) else ""
     except OSError:
         return ""
+
+
+def ready_path(environ: Mapping[str, str], repo: str, revision: str, kind: str) -> str:
+    """Resolve a validated reference, including proofs made against legacy weights.
+
+    Older installers wrote the proof in the catalog even when inference used the
+    legacy directory. Keep those installations usable without copying or fetching.
+    """
+    if not is_ready(environ, repo, revision):
+        return ""
+    return _legacy_path(environ, repo, revision, kind) or model_path(environ, repo, revision)
 
 
 # Closed vocabulary of the download subprocess (stdout, one JSON line per event): the launcher keeps
@@ -164,6 +177,11 @@ def _cause_of_verification(error: BaseException) -> str:
 
 
 _active_repo = ""
+_active_references: dict[str, dict[str, str]] = {}
+
+
+def active_references() -> dict[str, dict[str, str]]:
+    return {kind: dict(reference) for kind, reference in _active_references.items()}
 
 
 def active_repo() -> str:
@@ -196,10 +214,17 @@ class ModelManager:
 
     def note_active(self, desired: Mapping[str, Any]) -> None:
         """Remember which repository Snitch holds as active: it only labels the declaration, nothing is fetched."""
-        global _active_repo
+        global _active_repo, _active_references
         # Only the diarization model labels the declaration (the fingerprint model is listed too, with its kind).
         models = [m for m in desired.get("models") or [] if isinstance(m, dict) and m.get("kind", "diarization") == "diarization"]
         _active_repo = next((m["repo"] for m in models if m.get("role") == "active" and isinstance(m.get("repo"), str)), "")
+        _active_references = {
+            kind_of(m): {"repo": m["repo"], "revision": m["revision"]}
+            for m in desired.get("models") or []
+            if isinstance(m, dict) and m.get("role") == "active"
+            and isinstance(m.get("repo"), str) and isinstance(m.get("revision"), str)
+            and valid_model(m["repo"], m["revision"])
+        }
 
     def prepare(self, item: dict[str, Any], report: Report) -> None:
         """Prepare one model now, in the calling thread (an order runs on its own thread)."""
@@ -228,6 +253,12 @@ class ModelManager:
         if not (isinstance(repo, str) and isinstance(revision, str) and isinstance(model_id, str) and valid_model(repo, revision)):
             return
         path = model_path(self._env, repo, revision)
+        legacy = _legacy_path(self._env, repo, revision, kind_of(item))
+        if legacy:
+            shutil.rmtree(legacy, ignore_errors=True)
+            if os.path.exists(legacy):
+                post({"model_id": model_id, "state": "failed", "cause_code": "models_volume_unwritable", "bytes_received": 0, "bytes_total": 0})
+                return
         shutil.rmtree(path, ignore_errors=True)
         if os.path.exists(path):
             # Never claim a removal that did not happen: Snitch keeps the model and offers Retry.

@@ -101,6 +101,12 @@ test("un administrateur remplace le modèle de diarisation d'un Worker, de l'éc
   await report(install, { state: "failed", cause_code: "disk_full" });
   await page.reload();
   await expect(cell).toContainText("Failed");
+  await expect(
+    cell.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+  await expect(
+    cell.getByRole("button", { name: "Uninstall", exact: true }),
+  ).toBeVisible();
   await cell.getByRole("button", { name: "Cancel the replacement" }).click();
   await expect(cell).toContainText("Ready");
   await expect(cell.getByRole("button", { name: "Change" })).toBeVisible();
@@ -125,6 +131,69 @@ test("un administrateur remplace le modèle de diarisation d'un Worker, de l'éc
   await expect(cell).toContainText("nvidia/diar_streaming_sortformer");
   await expect(cell.getByText("Replacing")).toHaveCount(0);
 
+  await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
+  await context.close();
+  await admin.dispose();
+});
+
+test("un modèle échoué sans prédécesseur peut être remplacé", async ({
+  browser,
+}) => {
+  const session = await sessionFor(ADMIN);
+  const origin = process.env.SNITCH_TEST_URL!;
+  const admin = await request.newContext({
+    baseURL: origin,
+    storageState: session,
+    extraHTTPHeaders: { Origin: origin },
+  });
+  const me = await (await admin.get("/api/auth/me")).json();
+  const csrf = { "X-CSRF-Token": me.csrf_token };
+  const { id, token } = await (
+    await admin.post("/api/admin/workers", {
+      headers: csrf,
+      data: { name: "worker-failed-replace", max_concurrency: 1 },
+    })
+  ).json();
+  const bearer = { Authorization: `Bearer ${token}` };
+  expect(
+    (
+      await admin.post("/api/worker/voice-models/status", {
+        headers: bearer,
+        data: {
+          model_id: OLD,
+          state: "failed",
+          cause_code: "hf_access_denied",
+        },
+      })
+    ).status(),
+  ).toBe(204);
+  const context = await browser.newContext({ storageState: session });
+  const page = await context.newPage();
+  await page.goto("/admin/voice");
+  const cell = page
+    .getByRole("region", { name: "Models per Worker" })
+    .getByRole("row", { name: /worker-failed-replace/ })
+    .locator("td")
+    .nth(1);
+  await expect(cell).toContainText("Failed");
+  await expect(
+    cell.getByRole("button", { name: "Retry", exact: true }),
+  ).toBeVisible();
+  await expect(
+    cell.getByRole("button", { name: "Uninstall", exact: true }),
+  ).toBeVisible();
+  await cell.getByRole("button", { name: "Change", exact: true }).click();
+  await page
+    .getByRole("alertdialog")
+    .getByRole("button", { name: "Order the installation" })
+    .click();
+  await expect(cell).toContainText("Requested");
+  const { orders } = await (
+    await admin.get("/api/worker/voice-models", { headers: bearer })
+  ).json();
+  expect(orders).toHaveLength(1);
+  expect(orders[0].model_id).toBe(NEW);
+  expect(orders[0].action).toBe("install");
   await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
   await context.close();
   await admin.dispose();

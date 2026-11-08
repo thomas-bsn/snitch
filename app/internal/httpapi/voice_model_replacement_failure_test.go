@@ -32,6 +32,21 @@ func testVoiceModelReplacementFailure(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("nothing is removed or retried silently: %+v", orders)
 	}
 
+	// Retarget a failed replacement without dropping the functional predecessor.
+	const thirdID = "test-diarization-third"
+	if _, err := pool.Exec(t.Context(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision) VALUES($1,'diarization','pyannote','synthetic/third',$2)`, thirdID, secondRevision); err != nil {
+		t.Fatal(err)
+	}
+	alternate := h.replace(workerID, thirdID, communityID, "replace-third-0001", http.StatusCreated)
+	h.ack(alternate.OrderID, true, "", http.StatusNoContent)
+	h.reportOrder(alternate.OrderID, thirdID, "failed", "inference_failed", 0, 0, 0, http.StatusNoContent)
+	if h.modelRowState(workerID, communityID) != "ready" || h.modelRowState(workerID, secondID) != "failed" {
+		t.Fatal("retarget must preserve predecessor and abandoned partial inventory")
+	}
+	o = h.replace(workerID, secondID, communityID, "replace-return-0001", http.StatusCreated)
+	h.ack(o.OrderID, true, "", http.StatusNoContent)
+	h.reportOrder(o.OrderID, secondID, "failed", "disk_full", 0, 0, 10, http.StatusNoContent)
+
 	// Retry orders the installation again, still as the replacement of the old model.
 	again := h.retry(workerID, secondID, "retry-key-0001", http.StatusCreated)
 	if again.OrderID == o.OrderID || again.Action != "install" {
@@ -46,14 +61,14 @@ func testVoiceModelReplacementFailure(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("a failed test is reported: %+v", c)
 	}
 
-	// Cancelling the replacement drops the failed attempt and leaves the old model alone.
+	// Cancelling detaches the attempt but preserves its partial-file inventory.
 	h.cancelReplacement(workerID, "diarization", http.StatusNoContent)
 	h.cancelReplacement(workerID, "diarization", http.StatusNotFound)
 	if c := h.cells(workerID)["diarization"]; c.State != "ready" || c.ModelID != communityID || c.ReplacesModelID != "" {
 		t.Fatalf("the old model is back on its own: %+v", c)
 	}
-	if h.modelRowState(workerID, secondID) != "absent" || h.pipelineVersion() != before {
-		t.Fatal("cancelling leaves the old model active and the failed attempt forgotten")
+	if h.modelRowState(workerID, secondID) != "failed" || h.pipelineVersion() != before {
+		t.Fatal("cancelling keeps the old model active and the partial files tracked for cleanup")
 	}
 	// A requested replacement that the Worker has not received yet is cancelled with its order.
 	pending := h.replace(workerID, secondID, communityID, "replace-b-0002", http.StatusCreated)

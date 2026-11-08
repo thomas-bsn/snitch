@@ -250,6 +250,14 @@ class ReceptionChecksTests(unittest.TestCase):
         self.assertEqual(snitch.acks, [(other["order_id"], {"accepted": False, "cause_code": "invalid_order"})])
         self.assertEqual(len(h.downloads), 1)
 
+    def test_the_same_identity_cannot_change_its_action(self):
+        h = Harness(self)
+        h.sync(FakeSnitch([ORDER]))
+        snitch = FakeSnitch([order(action="remove")])
+        h.sync(snitch)
+        self.assertEqual(snitch.acks, [(ORDER["order_id"], {"accepted": False, "cause_code": "invalid_order"})])
+        self.assertEqual(len(h.downloads), 1)
+
     def test_the_volume_is_pinned_to_the_first_identity_it_sees(self):
         h = Harness(self)
         h.sync(FakeSnitch([ORDER]))

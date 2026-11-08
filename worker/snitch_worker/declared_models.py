@@ -71,7 +71,7 @@ def _model(
     return declared
 
 
-def declared_models(env: Mapping[str, str], active_diarization: str = "") -> WorkerModels:
+def declared_models(env: Mapping[str, str], active_diarization: str = "", references: Mapping[str, Mapping[str, str]] | None = None) -> WorkerModels:
     """Build the declaration from the worker environment; absent roles stay unset."""
     models = WorkerModels()
     transcription = _model(
@@ -96,6 +96,15 @@ def declared_models(env: Mapping[str, str], active_diarization: str = "") -> Wor
         if voice is not None:
             models.diarization = voice
     for role, manifest_key, prefix, default_name in voice_roles:
+        reference = (references or {}).get(role)
+        if reference:
+            repo, revision = reference["repo"], reference["revision"]
+            location = voice_models.ready_path(env, repo, revision, role)
+            if location:
+                value = _model("pyannote" if role == "fingerprint" else voice_models.engine_of(location), repo, revision[:_REVISION_LENGTH])
+                if value is not None:
+                    setattr(models, role, value)
+            continue
         if role == "diarization" and held:
             continue
         if not env.get(prefix + "_MODEL_PATH", "").strip():
