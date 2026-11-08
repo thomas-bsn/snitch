@@ -31,7 +31,7 @@ if [[ "${SNITCH_E2E:-}" == 1 && -z "${SNITCH_E2E_SHARD:-}" && $# -eq 0 ]]; then
   run_lot() {
     local label="$1"
     shift
-    "$@" 2>&1 | sed -u "s/^/[$label] /"
+    "$@" 2>&1 | sed -u "s|^|[$label] |"
   }
   run_lot go env SNITCH_E2E=0 bash scripts/test.sh &
   pids+=("$!")
