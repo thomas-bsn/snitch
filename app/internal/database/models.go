@@ -1123,6 +1123,7 @@ type WorkerModelOrder struct {
 	AckedAt        pgtype.Timestamptz `json:"acked_at"`
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
 	Runtime        []byte             `json:"runtime"`
+	RuntimeIntent  string             `json:"runtime_intent"`
 }
 
 type WorkerModelReplacement struct {
@@ -1137,6 +1138,29 @@ type WorkerModelReplacement struct {
 	AuthorName    string             `json:"author_name"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkerModelRuntimeBinding struct {
+	WorkerID       string             `json:"worker_id"`
+	ModelID        string             `json:"model_id"`
+	Digest         string             `json:"digest"`
+	PreviousDigest pgtype.Text        `json:"previous_digest"`
+	OrderID        pgtype.Text        `json:"order_id"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkerModelRuntimeEvent struct {
+	ID        int64              `json:"id"`
+	WorkerID  string             `json:"worker_id"`
+	ModelID   string             `json:"model_id"`
+	OrderID   pgtype.Text        `json:"order_id"`
+	Intent    string             `json:"intent"`
+	Digest    string             `json:"digest"`
+	State     string             `json:"state"`
+	CauseCode string             `json:"cause_code"`
+	Ignored   bool               `json:"ignored"`
+	Reason    string             `json:"reason"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type WorkerRestartCommand struct {

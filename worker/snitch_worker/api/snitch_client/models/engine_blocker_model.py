@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.engine_blocker_model_role import EngineBlockerModelRole
 
 
 
@@ -26,6 +27,8 @@ class EngineBlockerModel:
             label (str):
             kind (str):
             state (str):
+            role (EngineBlockerModelRole): bound : le modèle tourne sur cette version (ou une mise à jour vers elle est
+                ouverte) ; previous : version vers laquelle il peut revenir (#352).
             busy (bool): Un job de ce Worker utilise encore le modèle.
             in_transition (bool): Le modèle est source ou cible d'une transition d'empreintes ouverte.
      """
@@ -34,6 +37,7 @@ class EngineBlockerModel:
     label: str
     kind: str
     state: str
+    role: EngineBlockerModelRole
     busy: bool
     in_transition: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -51,6 +55,8 @@ class EngineBlockerModel:
 
         state = self.state
 
+        role = self.role.value
+
         busy = self.busy
 
         in_transition = self.in_transition
@@ -63,6 +69,7 @@ class EngineBlockerModel:
             "label": label,
             "kind": kind,
             "state": state,
+            "role": role,
             "busy": busy,
             "in_transition": in_transition,
         })
@@ -82,6 +89,11 @@ class EngineBlockerModel:
 
         state = d.pop("state")
 
+        role = EngineBlockerModelRole(d.pop("role"))
+
+
+
+
         busy = d.pop("busy")
 
         in_transition = d.pop("in_transition")
@@ -91,6 +103,7 @@ class EngineBlockerModel:
             label=label,
             kind=kind,
             state=state,
+            role=role,
             busy=busy,
             in_transition=in_transition,
         )

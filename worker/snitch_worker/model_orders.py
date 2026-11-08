@@ -36,6 +36,8 @@ _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote", "nemo-titanet", "speechbrain-ecapa"}, "vad": {"silero-jit"}}
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
+# Intents of a model order: "install" (weights and runtime), or a runtime-only "update" / "rollback" (#352).
+RUNTIME_INTENTS = {"install", "update", "rollback"}
 ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use"}
 # The inventory is observed on every pull but only sent when it changed or this long after the last send.
 INVENTORY_REFRESH_SECONDS = 60.0
@@ -130,12 +132,21 @@ class OrderExecutor:
             return False
 
     @staticmethod
+    def _valid_intent(order: Mapping[str, Any]) -> bool:
+        """An update or a rollback only changes the runtime of a model already here: it needs a runtime to bind."""
+        intent = order.get("runtime_intent") or "install"
+        if intent == "install":
+            return True
+        return intent in RUNTIME_INTENTS and order.get("action") == "install" and isinstance(order.get("runtime"), dict)
+
+    @staticmethod
     def _well_formed(order: Mapping[str, Any]) -> bool:
         kind, engine = order.get("kind"), order.get("engine")
         repo, revision = order.get("repo"), order.get("revision")
         return (
             order.get("action") in ("install", "remove")
             and (order.get("action") == "remove" or OrderExecutor._valid_runtime(order))
+            and OrderExecutor._valid_intent(order)
             and isinstance(kind, str)
             and kind in ENGINES
             and isinstance(engine, str)
@@ -359,6 +370,7 @@ class OrderExecutor:
         key = order.get("idempotency_key")
         seen = state["keys"].get(key) if isinstance(key, str) else None
         content = {name: order.get(name) for name in ("model_id", "repo", "revision", "action", "kind", "engine", "runtime")}
+        content["runtime_intent"] = order.get("runtime_intent") or "install"
         # Older volumes recorded only the pinned identity; preserve their restart semantics.
         recorded = seen.get("content", {}) if isinstance(seen, dict) else {}
         same_content = all(content.get(name) == value for name, value in recorded.items()) and ("runtime" in recorded or content["runtime"] is None)
@@ -477,7 +489,7 @@ class OrderExecutor:
 
     def _install(self, order: dict[str, Any], post: Any) -> None:
         model_id, revision = order["model_id"], order["revision"]
-        self._manager.prepare({"model_id": model_id, "kind": order["kind"], "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False, "engine": order["engine"], "runtime": order.get("runtime")}, post)
+        self._manager.prepare({"model_id": model_id, "kind": order["kind"], "repo": order["repo"], "revision": revision, "role": "ordered", "retry": False, "engine": order["engine"], "runtime": order.get("runtime"), "runtime_intent": order.get("runtime_intent") or "install"}, post)
 
     @staticmethod
     def _repeat_outcome(http: Any, order_id: str, content: Mapping[str, Any], outcome: Mapping[str, Any]) -> None:

@@ -91,7 +91,7 @@ func TestFoundation(t *testing.T) {
 	})
 	reset := func(t *testing.T) {
 		t.Helper()
-		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; DELETE FROM transcription_settings; DELETE FROM worker_engine_events; DELETE FROM worker_engine_inventory; DELETE FROM worker_engine_orders; DELETE FROM voice_engine_registry; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE clip_metadata_settings SET country='',timezone=''; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
+		_, e := pool.Exec(ctx, `UPDATE embedding_index_state SET active_profile_id=NULL,candidate_profile_id=NULL WHERE id=1; DELETE FROM transcript_embeddings; DELETE FROM embedding_tasks; DELETE FROM embedding_profiles; DELETE FROM transcription_settings; DELETE FROM worker_model_runtime_events; DELETE FROM worker_model_runtime_bindings; DELETE FROM worker_engine_events; DELETE FROM worker_engine_inventory; DELETE FROM worker_engine_orders; DELETE FROM voice_engine_registry; TRUNCATE sessions,oauth_states,settings,users,transcription_vocabulary_terms,transcription_vocabulary_versions RESTART IDENTITY CASCADE; TRUNCATE workers RESTART IDENTITY CASCADE; UPDATE job_control SET paused=false,max_concurrency=1,updated_at=now() WHERE id=true; DELETE FROM setup_steps; UPDATE clip_metadata_settings SET country='',timezone=''; UPDATE installation SET initialized=false,bootstrap_hash=NULL,bootstrap_expires=NULL,registration_approval=true,setup_banner_dismissed=false`)
 		if e != nil {
 			t.Fatal(e)
 		}
@@ -419,6 +419,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineOrders(t, pool)
 	})
+	t.Run("voice model runtime update", func(t *testing.T) {
+		reset(t)
+		testVoiceModelRuntimeUpdate(t, pool)
+	})
 	t.Run("voice engine recovery", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineRecovery(t, pool)
@@ -434,6 +438,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice engine cancel uninstall", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineCancelUninstall(t, pool)
+	})
+	t.Run("voice engine runtime uninstall", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineRuntimeUninstall(t, pool)
 	})
 	t.Run("voice model order creation", func(t *testing.T) {
 		reset(t)

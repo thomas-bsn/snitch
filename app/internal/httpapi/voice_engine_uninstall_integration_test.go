@@ -15,6 +15,7 @@ const wespeakerID = "pyannote-wespeaker-resnet34"
 type gotBlockers struct {
 	Models []struct {
 		ModelID      string `json:"model_id"`
+		Role         string `json:"role"`
 		Busy         bool   `json:"busy"`
 		InTransition bool   `json:"in_transition"`
 	} `json:"models"`

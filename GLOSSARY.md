@@ -119,6 +119,8 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Inventaire du Worker** : Ce qu'un Worker détient réellement de chaque Release d'engine : non installée, demandée, en téléchargement, en installation, en vérification, prête ou en échec, avec la cause et l'historique. Il ne change que par un ordre explicite de l'Administrateur ou par le constat du Worker ; une reconnexion n'installe jamais rien.
 
+**Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.
+
 **Annulation et nettoyage d'une installation** : Sortir d'une installation d'engine en échec ou en cours sans perdre ce qui fonctionne. L'annulation est coopérative : le Worker s'arrête à son prochain point sûr et le confirme. Le nettoyage est une demande explicite qui ne supprime que les fichiers incomplets de l'installation concernée, jamais un modèle ni un runtime validé. Un échec de préparation ne touche pas la Release déjà prête du même engine ; remplacer revient à ordonner une autre Release compatible.
 
 **Retrait d'une Release** : La désinstallation explicite d'une Release d'engine sur un Worker. Elle est refusée tant qu'un modèle du Worker lui est lié (avec ses jobs engagés et ses transitions d'empreintes), n'est livrée au Worker qu'une fois les références libérées, n'interrompt aucun job et ne supprime que la version désignée, jamais un modèle.

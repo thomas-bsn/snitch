@@ -21,6 +21,13 @@ export const errorsEn = {
     "A model on this Worker still uses this engine release: it cannot be removed.",
   engine_already_installed:
     "This engine release is already installed on this Worker.",
+  runtime_order_in_progress:
+    "An order is already running for this model on this Worker.",
+  engine_release_mismatch:
+    "This release does not match the engine of this model.",
+  engine_already_bound: "This model already uses this runtime version.",
+  invalid_runtime_order: "This update order is not valid.",
+
   engine_not_failed:
     "This engine installation is not failed, so it cannot be retried or cleaned up.",
   engine_order_not_cancellable:

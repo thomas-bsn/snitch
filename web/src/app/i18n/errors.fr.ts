@@ -25,6 +25,13 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Un modèle de ce Worker utilise encore cette version du moteur : elle ne peut pas être retirée.",
   engine_already_installed:
     "Cette version de l’engine est déjà installée sur ce Worker.",
+  runtime_order_in_progress:
+    "Un ordre est déjà en cours pour ce modèle sur ce Worker.",
+  engine_release_mismatch:
+    "Cette version ne correspond pas à l’engine de ce modèle.",
+  engine_already_bound: "Ce modèle utilise déjà cette version du runtime.",
+  invalid_runtime_order: "Cet ordre de mise à jour n’est pas valide.",
+
   engine_not_failed:
     "Cette installation d’engine n’est pas en échec : elle ne peut être ni relancée ni nettoyée.",
   engine_order_not_cancellable:

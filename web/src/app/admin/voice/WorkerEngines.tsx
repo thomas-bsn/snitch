@@ -6,6 +6,7 @@ import { ErrorAlert } from "../../components/Alert";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import { WorkerEngineAdd } from "./WorkerEngineAdd";
+import { WorkerEngineModels } from "./WorkerEngineModels";
 import { WorkerEngineUninstall } from "./WorkerEngineUninstall";
 import {
   engineSteps,
@@ -460,6 +461,10 @@ export function WorkerEngines() {
                     ))}
                   </div>
                 ))}
+                <WorkerEngineModels
+                  workerId={current.worker_id}
+                  releases={releases}
+                />
                 {picked.length > 0 && (
                   <div className="engine-bar">
                     <label>

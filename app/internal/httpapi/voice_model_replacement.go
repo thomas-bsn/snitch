@@ -234,6 +234,9 @@ func removalDone(ctx context.Context, tx pgx.Tx, workerID, modelID string) error
 	if _, err := tx.Exec(ctx, `DELETE FROM worker_voice_models WHERE worker_id=$1 AND model_id=$2`, workerID, modelID); err != nil {
 		return err
 	}
+	if _, err := tx.Exec(ctx, `DELETE FROM worker_model_runtime_bindings WHERE worker_id=$1 AND model_id=$2`, workerID, modelID); err != nil {
+		return err
+	}
 	_, err := tx.Exec(ctx, `DELETE FROM worker_model_replacements WHERE worker_id=$1 AND old_model_id=$2`, workerID, modelID)
 	return err
 }

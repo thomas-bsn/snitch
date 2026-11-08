@@ -16839,6 +16839,100 @@
           }
         }
       }
+    },
+    "/api/admin/voice-model-runtime-orders": {
+      "post": {
+        "operationId": "createRuntimeOrder",
+        "description": "Administrateur : ordonne la mise à jour du runtime d'un modèle déjà prêt sur un Worker (update), ou le retour à une version déjà installée et approuvée (rollback). Les poids validés sont réutilisés sans téléchargement ; la liaison n'est publiée qu'après une inférence de test réussie, le modèle reste prêt sur l'ancienne liaison entre-temps. Aucun rollback vers une version révoquée. Causes de refus : voice_model_not_ready, runtime_order_in_progress, engine_release_unavailable, engine_release_mismatch, engine_already_bound, engine_not_installed, engine_order_in_progress, idempotency_key_reused, engine_not_found, invalid_runtime_order.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RuntimeOrderInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Ordre déjà enregistré sous cette clé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerModelOrder"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Ordre enregistré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerModelOrder"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/bindings": {
+      "get": {
+        "operationId": "listRuntimeBindings",
+        "description": "Administrateur : pour chaque modèle prêt sur un Worker et fondé sur un engine approuvé, la version liée, la version précédente (retour arrière), l'ordre en cours et l'historique des mises à jour.",
+        "responses": {
+          "200": {
+            "description": "Résultat",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RuntimeBindings"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -21548,6 +21642,15 @@
           },
           "runtime": {
             "$ref": "#/components/schemas/VoiceEngineManifest"
+          },
+          "runtime_intent": {
+            "type": "string",
+            "enum": [
+              "install",
+              "update",
+              "rollback"
+            ],
+            "description": "install (poids et runtime) ou, pour un modèle déjà prêt, update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés."
           }
         }
       },
@@ -28890,6 +28993,7 @@
           "label",
           "kind",
           "state",
+          "role",
           "busy",
           "in_transition"
         ],
@@ -28905,6 +29009,14 @@
           },
           "state": {
             "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "bound",
+              "previous"
+            ],
+            "description": "bound : le modèle tourne sur cette version (ou une mise à jour vers elle est ouverte) ; previous : version vers laquelle il peut revenir (#352)."
           },
           "busy": {
             "type": "boolean",
@@ -28961,6 +29073,204 @@
           },
           "blockers": {
             "$ref": "#/components/schemas/EngineBlockers"
+          }
+        }
+      },
+      "RuntimeOrderInput": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "model_id",
+          "digest",
+          "intent",
+          "idempotency_key"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Identité signée de la version approuvée visée."
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "update",
+              "rollback"
+            ]
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        }
+      },
+      "RuntimeBindingPending": {
+        "type": "object",
+        "required": [
+          "order_id",
+          "intent",
+          "digest",
+          "version",
+          "status"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string"
+          },
+          "intent": {
+            "type": "string",
+            "enum": [
+              "update",
+              "rollback"
+            ]
+          },
+          "digest": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "acknowledged"
+            ]
+          }
+        }
+      },
+      "RuntimeBindingHistoryEntry": {
+        "type": "object",
+        "required": [
+          "intent",
+          "digest",
+          "version",
+          "state",
+          "cause_code",
+          "ignored",
+          "reason",
+          "created_at"
+        ],
+        "properties": {
+          "intent": {
+            "type": "string",
+            "enum": [
+              "update",
+              "rollback"
+            ]
+          },
+          "digest": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "requested",
+              "downloading",
+              "verifying",
+              "published",
+              "failed"
+            ]
+          },
+          "cause_code": {
+            "type": "string"
+          },
+          "ignored": {
+            "type": "boolean",
+            "description": "Rapport tardif journalisé sans effet."
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "RuntimeBinding": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "model_id",
+          "model_label",
+          "engine",
+          "kind",
+          "digest",
+          "version",
+          "revoked",
+          "previous_digest",
+          "previous_version",
+          "previous_revoked",
+          "history"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "model_label": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "digest": {
+            "type": "string",
+            "description": "Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi)."
+          },
+          "version": {
+            "type": "string"
+          },
+          "revoked": {
+            "type": "boolean",
+            "description": "La liaison continue de servir avec un avertissement."
+          },
+          "previous_digest": {
+            "type": "string",
+            "description": "Version précédente, cible du retour arrière ; vide si aucune."
+          },
+          "previous_version": {
+            "type": "string"
+          },
+          "previous_revoked": {
+            "type": "boolean",
+            "description": "Aucun retour arrière vers une version révoquée."
+          },
+          "pending": {
+            "$ref": "#/components/schemas/RuntimeBindingPending"
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeBindingHistoryEntry"
+            }
+          }
+        }
+      },
+      "RuntimeBindings": {
+        "type": "object",
+        "required": [
+          "bindings"
+        ],
+        "properties": {
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RuntimeBinding"
+            }
           }
         }
       }

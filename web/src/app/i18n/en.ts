@@ -98,6 +98,10 @@ export const en = {
       blocked:
         "This version cannot be removed: a model on the Worker depends on it. Change or remove that model first.",
       models: "Linked models",
+      role: {
+        bound: "in use",
+        previous: "rollback version",
+      },
       busy: "job running",
       transition: "fingerprint transition open",
       openOrder: "An installation of this version is still running.",
@@ -126,6 +130,49 @@ export const en = {
     constraints: "{kind} · disk {disk} MiB · VRAM {vram} MiB · CUDA {cuda}",
     install: "Install {count} engine(s)",
     cancel: "Cancel",
+    models: {
+      title: "Bound models",
+      lead: "Update the runtime of a ready model, or go back to the previous version. Weights already installed are reused, nothing is downloaded again, and the model keeps serving until the new runtime has passed a test inference.",
+      none: "No ready model on an approved engine for this Worker.",
+      bound: "Bound runtime: {version}",
+      unknown: "Bound runtime: not tracked",
+      update: "Update",
+      target: "Target version for {model}",
+      choose: "Choose a version",
+      noTarget: "No other approved version.",
+      plan: "Update to {version}: {disk} MiB of disk for the runtime, weights reused, binding published after a successful test inference.",
+      confirm: "Confirm the update",
+      rollback: "Go back to {version}",
+      rollbackPlan: "Back to {version}: already installed, no download.",
+      rollbackBlocked:
+        "The previous version ({version}) is revoked: no rollback.",
+      pending: "{intent} to {version}: {status}",
+      intent: { update: "Update", rollback: "Rollback" },
+      status: {
+        pending: "waiting for the Worker",
+        acknowledged: "in progress",
+      },
+      state: {
+        requested: "Requested",
+        downloading: "Installing the runtime",
+        verifying: "Test inference",
+        published: "Binding published",
+        failed: "Failed, previous binding kept",
+      },
+      cause: {
+        disk_full: "The Worker disk is full.",
+        runtime_incompatible:
+          "This runtime cannot be used with this model on this Worker.",
+        inference_failed: "The test inference failed with this runtime.",
+        invalid_order: "The Worker refused the order.",
+        hf_network:
+          "The runtime packages could not be downloaded from this Worker.",
+      },
+      notHeld: "This version is not installed on this Worker.",
+      revoked: "Revoked version: it keeps serving, no new installation.",
+      history: "Update history",
+      ignored: "late report ignored ({reason})",
+    },
   },
   voiceWorkspace: {
     engines: "Engines",

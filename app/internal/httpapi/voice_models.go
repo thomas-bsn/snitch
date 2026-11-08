@@ -19,6 +19,7 @@ import (
 func (s *Server) registerVoiceModelRoutes(mux *http.ServeMux) {
 	s.registerVoiceEngineRoutes(mux)
 	s.registerVoiceEngineOrderRoutes(mux)
+	s.registerRuntimeUpdateRoutes(mux)
 	s.registerVoiceModelAddRoutes(mux)
 	s.registerFingerprintTransitionRoutes(mux)
 	mux.Handle("GET /api/admin/voice-models", s.protected(true, http.HandlerFunc(s.listVoiceModels)))

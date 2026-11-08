@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 from ..models.worker_model_order_action import WorkerModelOrderAction
 from ..models.worker_model_order_kind import WorkerModelOrderKind
+from ..models.worker_model_order_runtime_intent import WorkerModelOrderRuntimeIntent
 from ..models.worker_model_order_status import WorkerModelOrderStatus
 from ..types import UNSET, Unset
 from typing import cast
@@ -46,6 +47,8 @@ class WorkerModelOrder:
             hf_token (str | Unset): Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge
                 un modèle sous accès restreint.
             runtime (VoiceEngineManifest | Unset):
+            runtime_intent (WorkerModelOrderRuntimeIntent | Unset): install (poids et runtime) ou, pour un modèle déjà prêt,
+                update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés.
      """
 
     order_id: str
@@ -62,6 +65,7 @@ class WorkerModelOrder:
     created_at: datetime.datetime
     hf_token: str | Unset = UNSET
     runtime: VoiceEngineManifest | Unset = UNSET
+    runtime_intent: WorkerModelOrderRuntimeIntent | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -100,6 +104,11 @@ class WorkerModelOrder:
         if not isinstance(self.runtime, Unset):
             runtime = self.runtime.to_dict()
 
+        runtime_intent: str | Unset = UNSET
+        if not isinstance(self.runtime_intent, Unset):
+            runtime_intent = self.runtime_intent.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -121,6 +130,8 @@ class WorkerModelOrder:
             field_dict["hf_token"] = hf_token
         if runtime is not UNSET:
             field_dict["runtime"] = runtime
+        if runtime_intent is not UNSET:
+            field_dict["runtime_intent"] = runtime_intent
 
         return field_dict
 
@@ -178,6 +189,16 @@ class WorkerModelOrder:
 
 
 
+        _runtime_intent = d.pop("runtime_intent", UNSET)
+        runtime_intent: WorkerModelOrderRuntimeIntent | Unset
+        if isinstance(_runtime_intent,  Unset):
+            runtime_intent = UNSET
+        else:
+            runtime_intent = WorkerModelOrderRuntimeIntent(_runtime_intent)
+
+
+
+
         worker_model_order = cls(
             order_id=order_id,
             worker_id=worker_id,
@@ -193,6 +214,7 @@ class WorkerModelOrder:
             created_at=created_at,
             hf_token=hf_token,
             runtime=runtime,
+            runtime_intent=runtime_intent,
         )
 
 

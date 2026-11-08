@@ -75,6 +75,9 @@ export function WorkerEngineUninstall({
                 {preview.blockers.models.map((m) => (
                   <li key={m.model_id}>
                     <strong>{m.label}</strong> ({m.kind})
+                    <span className="engine-badge run">
+                      {t(`workerEngines.uninstall.role.${m.role}`)}
+                    </span>
                     {m.busy && (
                       <span className="engine-badge run">
                         {t("workerEngines.uninstall.busy")}

@@ -20,10 +20,13 @@ import (
 
 // engineBlockerModel is a model of the Worker bound to the release, with what keeps it in use.
 type engineBlockerModel struct {
-	ModelID      string `json:"model_id"`
-	Label        string `json:"label"`
-	Kind         string `json:"kind"`
-	State        string `json:"state"`
+	ModelID string `json:"model_id"`
+	Label   string `json:"label"`
+	Kind    string `json:"kind"`
+	State   string `json:"state"`
+	// Role is "bound" when the model runs on this release (or an update to it is open), "previous" when the release
+	// is the version the model can go back to (#352): removing it would make the rollback impossible.
+	Role         string `json:"role"`
 	Busy         bool   `json:"busy"`
 	InTransition bool   `json:"in_transition"`
 }
@@ -42,12 +45,15 @@ func (b engineBlockers) any() bool { return len(b.Models) > 0 || b.OpenOrder }
 // job of this Worker still uses the model, InTransition that it belongs to an open fingerprint transition.
 func engineBlockersIn(ctx context.Context, db pgQuerier, workerID, digest string) (engineBlockers, error) {
 	out := engineBlockers{Models: []engineBlockerModel{}}
-	rows, err := db.Query(ctx, `SELECT m.model_id,m.state FROM worker_voice_models m
-		WHERE m.worker_id=$1 AND m.state<>'failed' AND EXISTS (
+	rows, err := db.Query(ctx, `SELECT m.model_id,m.state,CASE WHEN b.previous_digest=$2 AND b.digest<>$2 AND NOT EXISTS (
+				SELECT 1 FROM worker_model_orders o WHERE o.worker_id=m.worker_id AND o.model_id=m.model_id AND o.action='install' AND o.status IN ('pending','acknowledged','done') AND o.runtime=(SELECT manifest FROM voice_engine_registry WHERE digest=$2)
+				AND o.id=(SELECT x.id FROM worker_model_orders x WHERE x.worker_id=m.worker_id AND x.model_id=m.model_id AND x.action='install' AND x.status IN ('pending','acknowledged','done') ORDER BY x.created_at DESC,x.id DESC LIMIT 1)) THEN 'previous' ELSE 'bound' END
+		FROM worker_voice_models m LEFT JOIN worker_model_runtime_bindings b ON b.worker_id=m.worker_id AND b.model_id=m.model_id
+		WHERE m.worker_id=$1 AND m.state<>'failed' AND (b.digest=$2 OR b.previous_digest=$2 OR EXISTS (
 			SELECT 1 FROM worker_model_orders o
 			WHERE o.worker_id=m.worker_id AND o.model_id=m.model_id AND o.action='install' AND o.status IN ('pending','acknowledged','done')
 			AND o.runtime=(SELECT manifest FROM voice_engine_registry WHERE digest=$2)
-			AND o.id=(SELECT x.id FROM worker_model_orders x WHERE x.worker_id=m.worker_id AND x.model_id=m.model_id AND x.action='install' AND x.status IN ('pending','acknowledged','done') ORDER BY x.created_at DESC,x.id DESC LIMIT 1))
+			AND o.id=(SELECT x.id FROM worker_model_orders x WHERE x.worker_id=m.worker_id AND x.model_id=m.model_id AND x.action='install' AND x.status IN ('pending','acknowledged','done') ORDER BY x.created_at DESC,x.id DESC LIMIT 1)))
 		ORDER BY m.model_id`, workerID, digest)
 	if err != nil {
 		return out, err
@@ -55,7 +61,7 @@ func engineBlockersIn(ctx context.Context, db pgQuerier, workerID, digest string
 	var bound []engineBlockerModel
 	for rows.Next() {
 		var m engineBlockerModel
-		if err = rows.Scan(&m.ModelID, &m.State); err != nil {
+		if err = rows.Scan(&m.ModelID, &m.State, &m.Role); err != nil {
 			rows.Close()
 			return out, err
 		}

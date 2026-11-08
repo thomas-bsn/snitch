@@ -1059,6 +1059,24 @@
 .engine-history .ignored {
   color: var(--warn-fg);
 }
+.engine-models {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.engine-model {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+.engine-model-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
 .engine-bar {
   display: flex;
   flex-direction: column;
