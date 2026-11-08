@@ -178,13 +178,26 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		// then the earliest, so the pick is deterministic.
 		matches = "SELECT DISTINCT ON (clip_id,job_id,idx) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,job_id,idx,CASE WHEN wn=" + phraseNorm + " THEN 0 ELSE 1 END,timestamp"
 	}
-	enrich := " FROM matches m" + segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx") + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
+	speakerJoin := segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx")
+	enrich := " FROM matches m" + speakerJoin + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
 	withMatches := baseQuery + ", matches AS (" + matches + ") "
+	order := " ORDER BY CASE m.match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,m.recorded_at DESC NULLS LAST,m.clip_id DESC,m.timestamp"
+	pageLimit := " LIMIT $12 OFFSET $13"
 	countQuery := withMatches + "SELECT count(*)" + enrich
-	query := withMatches + "SELECT m.clip_id,m.clip_name,m.visibility,m.recorded_at,m.status,m.sources,m.context,COALESCE(m.matched_text,''),m.timestamp,m.match_type,m.corrected,spk.person_id,spk.person_name,COALESCE(spk.level,'unknown')" + enrich + " ORDER BY CASE m.match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,m.recorded_at DESC NULLS LAST,m.clip_id DESC,m.timestamp LIMIT $12 OFFSET $13"
 	args := []any{queryNorm, ss.User.ID, admin, visibility, sourceID, from, to, status}
+	countArgs := append(append([]any{}, args...), 0.30, person.PersonID, person.Unknown)
+	if person.PersonID == 0 && !person.Unknown {
+		// Without a Person filter, voices cannot affect the total or page membership.
+		// Resolve them only for this page: multiplying the estimated word rows by
+		// the speaker lookup cost otherwise triggers expensive JIT on tiny searches.
+		countQuery = withMatches + "SELECT count(*) FROM matches"
+		countArgs = append(append([]any{}, args...), 0.30)
+		enrich = " FROM (SELECT * FROM matches m" + order + pageLimit + ") m" + speakerJoin + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
+		pageLimit = ""
+	}
+	query := withMatches + "SELECT m.clip_id,m.clip_name,m.visibility,m.recorded_at,m.status,m.sources,m.context,COALESCE(m.matched_text,''),m.timestamp,m.match_type,m.corrected,spk.person_id,spk.person_name,COALESCE(spk.level,'unknown')" + enrich + order + pageLimit
 	var total int
-	if err = s.Pool.QueryRow(r.Context(), countQuery, append(args, 0.30, person.PersonID, person.Unknown)...).Scan(&total); err != nil {
+	if err = s.Pool.QueryRow(r.Context(), countQuery, countArgs...).Scan(&total); err != nil {
 		s.internal(w, err)
 		return
 	}
