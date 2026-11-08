@@ -59,7 +59,9 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
       "true",
     );
     await page.getByRole("searchbox", { name: "Search a Worker" }).fill(name);
-    await page.getByRole("button", { name }).click();
+    await page
+      .getByRole("button", { name: `${name} Offline`, exact: true })
+      .click();
     await expect(
       page.getByText("No engine has been ordered or installed on this Worker."),
     ).toBeVisible();
@@ -83,7 +85,9 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     ).toBeVisible();
     await page.reload();
     await page.getByRole("searchbox", { name: "Search a Worker" }).fill(name);
-    await page.getByRole("button", { name }).click();
+    await page
+      .getByRole("button", { name: `${name} Offline`, exact: true })
+      .click();
     await expect(
       page.getByRole("textbox", { name: "Worker group" }),
     ).toHaveValue(group);
@@ -104,6 +108,7 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     await expect(dialog).toContainText("2 order(s)");
     await dialog.getByRole("checkbox").uncheck();
     // A scope with no checked Worker must never silently target the current Worker.
+    await dialog.getByRole("combobox").selectOption("this");
     await dialog.getByRole("checkbox").check();
     await expect(dialog).toContainText("1 order(s)");
     await dialog.getByRole("combobox").selectOption("checked");
