@@ -110,10 +110,11 @@ func loadReferences(ctx context.Context, db pgQuerier, fromRepo, toRepo string) 
 	return out, rows.Err()
 }
 
-// workersHolding counts the connected Workers that hold the model ready.
+// workersHolding counts the connected Workers that hold the model ready, with its runtime ready on the same
+// Worker (the same rule as dispatch, #350).
 func workersHolding(ctx context.Context, db pgQuerier, modelID string) (int, error) {
 	var n int
-	err := db.QueryRow(ctx, `SELECT count(*) FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second')`,
+	err := db.QueryRow(ctx, `SELECT count(*) FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second') AND `+jobs.RuntimeReadyClause("m", "c"),
 		modelID, int64(workers.ConnectedWindow.Seconds())).Scan(&n)
 	return n, err
 }
