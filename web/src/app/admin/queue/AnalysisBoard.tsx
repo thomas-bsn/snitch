@@ -208,7 +208,13 @@ function Locations({ locations }: { locations: Location[] }) {
 }
 
 // A card is redrawn only when its own run changed: a delta leaves the other runs untouched.
-const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
+const RunCard = memo(function RunCard({
+  run,
+  awaitingReview = false,
+}: {
+  run: QueueRun;
+  awaitingReview?: boolean;
+}) {
   const { t } = useI18n();
   const title = run.clip_name || `Clip #${run.clip_id}`;
   const tone =
@@ -234,6 +240,14 @@ const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
             #{run.clip_id} · {t(`queue.board.scope.${run.scope}`)} ·{" "}
             <span data-run-status>{t(`queue.board.run.${run.status}`)}</span>
           </p>
+          {awaitingReview && (
+            <p
+              data-review-state="awaiting_human_review"
+              className="m-0 mt-1 text-xs font-medium text-accent-ink"
+            >
+              {t("queue.board.awaitingReview")}
+            </p>
+          )}
           <IdentificationBadge run={run} />
           {run.status === "cancelled" && (
             <p
@@ -282,12 +296,23 @@ const RunCard = memo(function RunCard({ run }: { run: QueueRun }) {
             );
           })}
         </div>
-        <Link
-          to={`/clips/${run.clip_id}`}
-          className="mt-auto text-sm text-accent-ink underline"
-        >
-          {t("queue.board.openClip")}
-        </Link>
+        <div className="mt-auto flex flex-wrap gap-3">
+          <Link
+            to={`/clips/${run.clip_id}`}
+            className="text-sm text-accent-ink underline"
+          >
+            {t("queue.board.openClip")}
+          </Link>
+          {awaitingReview && (
+            <Link
+              to="/people/verification"
+              data-review-link
+              className="text-sm font-medium text-accent-ink underline"
+            >
+              {t("queue.board.reviewVoices")}
+            </Link>
+          )}
+        </div>
       </article>
     </li>
   );
@@ -327,11 +352,22 @@ export function QueueSummaryBar({ summary }: { summary: Queue["summary"] }) {
 export const CARDS_AT_FIRST = 50;
 export const CARDS_PER_REQUEST = 100;
 
-function BoardColumn({ id, runs }: { id: Column; runs: QueueRun[] }) {
+function BoardColumn({
+  id,
+  runs,
+  awaiting = [],
+}: {
+  id: Column;
+  runs: QueueRun[];
+  /** Finished runs that still owe a human decision on a voice; listed first, never counted as completed. */
+  awaiting?: QueueRun[];
+}) {
   const { t } = useI18n();
   const [shown, setShown] = useState(CARDS_AT_FIRST);
-  const visible = runs.slice(0, shown);
-  const left = runs.length - visible.length;
+  const all = [...awaiting, ...runs];
+  const visible = all.slice(0, Math.max(shown, awaiting.length));
+  const left = all.length - visible.length;
+  const awaitingIds = new Set(awaiting.map((run) => run.id));
   return (
     <section
       data-column={id}
@@ -347,15 +383,19 @@ function BoardColumn({ id, runs }: { id: Column; runs: QueueRun[] }) {
           data-column-count
           className="rounded-full bg-accent-soft px-2 text-xs text-accent-ink"
         >
-          {runs.length}
+          {all.length}
         </span>
       </h3>
-      {runs.length === 0 ? (
+      {all.length === 0 ? (
         <p className="m-0 px-1 text-xs text-mute">{t("queue.board.empty")}</p>
       ) : (
         <ul className="m-0 flex list-none flex-col gap-3 p-0">
           {visible.map((run) => (
-            <RunCard key={run.id} run={run} />
+            <RunCard
+              key={run.id}
+              run={run}
+              awaitingReview={awaitingIds.has(run.id)}
+            />
           ))}
         </ul>
       )}
@@ -463,7 +503,12 @@ export function AnalysisBoard({
           className="grid items-start gap-3 md:grid-cols-2 xl:grid-cols-5"
         >
           {COLUMNS.map((id) => (
-            <BoardColumn key={id} id={id} runs={byColumn(id)} />
+            <BoardColumn
+              key={id}
+              id={id}
+              runs={byColumn(id)}
+              awaiting={id === "recognition" ? queue.awaiting_review : []}
+            />
           ))}
         </div>
       </section>

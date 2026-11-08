@@ -30,12 +30,16 @@ class AnalysisQueue:
             summary (AnalysisQueueSummary): Charge de la file. running_tasks suit la règle de l'ordonnanceur : seuls les
                 jobs leased au bail non expiré occupent un emplacement.
             active (list[AnalysisQueueRun]):
+            awaiting_review (list[AnalysisQueueRun]): Clips dont le traitement automatique est terminé mais qui ont encore
+                une voix à valider, identifier ou écarter (awaiting_human_review), sans limite : une action humaine est due. Le
+                statut de l'exécution reste completed ; le clip passe dans completed dès qu'aucune voix n'attend de décision.
             completed (list[AnalysisQueueRun]):
             tasks (list[AnalysisQueueTask]):
      """
 
     summary: AnalysisQueueSummary
     active: list[AnalysisQueueRun]
+    awaiting_review: list[AnalysisQueueRun]
     completed: list[AnalysisQueueRun]
     tasks: list[AnalysisQueueTask]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -54,6 +58,13 @@ class AnalysisQueue:
         for active_item_data in self.active:
             active_item = active_item_data.to_dict()
             active.append(active_item)
+
+
+
+        awaiting_review = []
+        for awaiting_review_item_data in self.awaiting_review:
+            awaiting_review_item = awaiting_review_item_data.to_dict()
+            awaiting_review.append(awaiting_review_item)
 
 
 
@@ -77,6 +88,7 @@ class AnalysisQueue:
         field_dict.update({
             "summary": summary,
             "active": active,
+            "awaiting_review": awaiting_review,
             "completed": completed,
             "tasks": tasks,
         })
@@ -106,6 +118,16 @@ class AnalysisQueue:
             active.append(active_item)
 
 
+        awaiting_review = []
+        _awaiting_review = d.pop("awaiting_review")
+        for awaiting_review_item_data in (_awaiting_review):
+            awaiting_review_item = AnalysisQueueRun.from_dict(awaiting_review_item_data)
+
+
+
+            awaiting_review.append(awaiting_review_item)
+
+
         completed = []
         _completed = d.pop("completed")
         for completed_item_data in (_completed):
@@ -129,6 +151,7 @@ class AnalysisQueue:
         analysis_queue = cls(
             summary=summary,
             active=active,
+            awaiting_review=awaiting_review,
             completed=completed,
             tasks=tasks,
         )
