@@ -134,9 +134,14 @@ from .discord_bot_status import DiscordBotStatus
 from .discord_bot_status_status import DiscordBotStatusStatus
 from .embedding_settings import EmbeddingSettings
 from .embedding_validation import EmbeddingValidation
+from .engine_cleanup import EngineCleanup
+from .engine_cleanup_report import EngineCleanupReport
 from .engine_order import EngineOrder
 from .engine_order_intent import EngineOrderIntent
 from .engine_order_status import EngineOrderStatus
+from .engine_recovery_result import EngineRecoveryResult
+from .engine_recovery_result_status import EngineRecoveryResultStatus
+from .engine_retry_input import EngineRetryInput
 from .error import Error
 from .explorer_entry import ExplorerEntry
 from .explorer_entry_state import ExplorerEntryState
@@ -527,6 +532,7 @@ from .worker_claim import WorkerClaim
 from .worker_detail import WorkerDetail
 from .worker_engine import WorkerEngine
 from .worker_engine_cause_code import WorkerEngineCauseCode
+from .worker_engine_cleanup import WorkerEngineCleanup
 from .worker_engine_history_entry import WorkerEngineHistoryEntry
 from .worker_engine_history_entry_cause_code import WorkerEngineHistoryEntryCauseCode
 from .worker_engine_history_entry_state import WorkerEngineHistoryEntryState
@@ -753,9 +759,14 @@ __all__ = (
     "DiscordBotStatusStatus",
     "EmbeddingSettings",
     "EmbeddingValidation",
+    "EngineCleanup",
+    "EngineCleanupReport",
     "EngineOrder",
     "EngineOrderIntent",
     "EngineOrderStatus",
+    "EngineRecoveryResult",
+    "EngineRecoveryResultStatus",
+    "EngineRetryInput",
     "Error",
     "ExplorerEntry",
     "ExplorerEntryState",
@@ -1146,6 +1157,7 @@ __all__ = (
     "WorkerDetail",
     "WorkerEngine",
     "WorkerEngineCauseCode",
+    "WorkerEngineCleanup",
     "WorkerEngineHistoryEntry",
     "WorkerEngineHistoryEntryCauseCode",
     "WorkerEngineHistoryEntryState",

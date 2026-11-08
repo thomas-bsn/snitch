@@ -121,6 +121,10 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.
 
+**Annulation et nettoyage d'une installation** : Sortir d'une installation d'engine en échec ou en cours sans perdre ce qui fonctionne. L'annulation est coopérative : le Worker s'arrête à son prochain point sûr et le confirme. Le nettoyage est une demande explicite qui ne supprime que les fichiers incomplets de l'installation concernée, jamais un modèle ni un runtime validé. Un échec de préparation ne touche pas la Release déjà prête du même engine ; remplacer revient à ordonner une autre Release compatible.
+
+**Worker éligible à un modèle** : Un Worker qui détient ce modèle prêt à la révision du catalogue et, si son moteur n'est pas embarqué, la Release d'engine liée prête sur ce même Worker. Des poids sans runtime prêt n'ouvrent aucun travail, sans téléchargement implicite ni interruption des travaux déjà engagés.
+
 **Modèle vocal actif** : Le modèle de diarisation, d'empreinte ou de séparation que Snitch utilise pour tous les nouveaux travaux vocaux de ce type, quel que soit le Worker. Un Worker qui ne l'a pas prêt ne traite pas ces travaux.
 _Avoid_ : Modèle du Worker, modèle installé.
 

@@ -68,6 +68,12 @@ func (h *engineOrderHarness) runtimeOrder(workerID, modelID, digest, intent, key
 	return o
 }
 
+// modelAck acknowledges a model order (the engine harness has its own ack for engine orders).
+func (h *engineOrderHarness) modelAck(orderID string, accepted bool, cause string, want int) {
+	h.t.Helper()
+	h.voiceHarness.ack(orderID, accepted, cause, want)
+}
+
 func (h *engineOrderHarness) modelReport(orderID, modelID, state, cause string, want int) {
 	h.t.Helper()
 	h.workerCall(http.MethodPost, "/api/worker/voice-models/status", map[string]any{"order_id": orderID, "model_id": modelID, "state": state, "cause_code": cause, "bytes_received": 0, "bytes_total": 0, "occupied_bytes": 10}, "", want)
@@ -111,7 +117,7 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(install, &first); err != nil {
 		t.Fatal(err)
 	}
-	h.ack(first.OrderID, true, "", http.StatusNoContent)
+	h.modelAck(first.OrderID, true, "", http.StatusNoContent)
 	h.modelReport(first.OrderID, model, "ready", "", http.StatusNoContent)
 	if b := h.binding(worker, model); b.Digest != v1 || b.PreviousDigest != "" || b.Pending != nil {
 		t.Fatalf("binding after install: %+v", b)
@@ -155,7 +161,7 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	if len(orders) != 1 || orders[0].OrderID != update.OrderID || orders[0].RuntimeIntent != "update" || !slices.Contains(held, model) {
 		t.Fatalf("pull: %+v %v", orders, held)
 	}
-	h.ack(update.OrderID, true, "", http.StatusNoContent)
+	h.modelAck(update.OrderID, true, "", http.StatusNoContent)
 	h.modelReport(update.OrderID, model, "downloading", "", http.StatusNoContent)
 	h.modelReport(update.OrderID, model, "verifying", "", http.StatusNoContent)
 	if state, received := h.modelState(worker, model); state != "ready" || received != 0 {
@@ -186,7 +192,7 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	// Restart between validation and publication: the order is still open and delivered again, nothing is
 	// published; only the ready report publishes, once.
 	retry := h.runtimeOrder(worker, model, v2, "update", "runtime-update-0003", http.StatusCreated)
-	h.ack(retry.OrderID, true, "", http.StatusNoContent)
+	h.modelAck(retry.OrderID, true, "", http.StatusNoContent)
 	h.modelReport(retry.OrderID, model, "verifying", "", http.StatusNoContent)
 	orders, _ = h.pulled()
 	if len(orders) != 1 || orders[0].OrderID != retry.OrderID || orders[0].RuntimeIntent != "update" {
@@ -214,7 +220,7 @@ func testVoiceModelRuntimeUpdate(t *testing.T, pool *pgxpool.Pool) {
 	if back.RuntimeIntent != "rollback" {
 		t.Fatalf("rollback order: %+v", back)
 	}
-	h.ack(back.OrderID, true, "", http.StatusNoContent)
+	h.modelAck(back.OrderID, true, "", http.StatusNoContent)
 	h.modelReport(back.OrderID, model, "verifying", "", http.StatusNoContent)
 	h.modelReport(back.OrderID, model, "ready", "", http.StatusNoContent)
 	if b = h.binding(worker, model); b.Digest != v1 || b.PreviousDigest != v2 || b.History[0].Intent != "rollback" || b.History[0].State != "published" {

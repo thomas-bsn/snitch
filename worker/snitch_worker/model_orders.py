@@ -38,7 +38,7 @@ _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
 # Intents of a model order: "install" (weights and runtime), or a runtime-only "update" / "rollback" (#352).
 RUNTIME_INTENTS = {"install", "update", "rollback"}
-ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network"}
+ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled"}
 # The inventory is observed on every pull but only sent when it changed or this long after the last send.
 INVENTORY_REFRESH_SECONDS = 60.0
 STATE_NAME = "orders.json"
@@ -89,6 +89,8 @@ class OrderExecutor:
         self._state_lock = threading.RLock()
         self._queue: list[tuple[dict[str, Any], Any]] = []
         self._running: set[str] = set()
+        # Engine orders Snitch asked to cancel (#351); the install thread checks this at each safe point.
+        self._cancelled: set[str] = set()
         self._thread: threading.Thread | None = None
         self._inventory_sent: tuple[list[dict[str, str]], float] | None = None
 
@@ -162,17 +164,20 @@ class OrderExecutor:
         """Check, acknowledge and queue the orders of one pull; execution continues in the background."""
         orders = answer.get("orders")
         engine_orders = answer.get("engine_orders")
+        cleanups = answer.get("engine_cleanups")
         worker_id = answer.get("worker_id")
         if not isinstance(orders, list) or not isinstance(worker_id, str) or not _WORKER_ID.fullmatch(worker_id):
             return
         if not isinstance(engine_orders, list):
             engine_orders = []
-        if not orders and not engine_orders:
+        if not isinstance(cleanups, list):
+            cleanups = []
+        if not orders and not engine_orders and not cleanups:
             return
         with self._state_lock:
-            self._handle_orders(orders, worker_id, http, engine_orders)
+            self._handle_orders(orders, worker_id, http, engine_orders, cleanups)
 
-    def _handle_orders(self, orders: list[Any], worker_id: str, http: Any, engine_orders: list[Any] | None = None) -> None:
+    def _handle_orders(self, orders: list[Any], worker_id: str, http: Any, engine_orders: list[Any] | None = None, cleanups: list[Any] | None = None) -> None:
         state = self._load()
         if state["worker_id"] and state["worker_id"] != worker_id:
             log.emit(logging.WARNING, "voice_order_identity_mismatch")
@@ -186,6 +191,9 @@ class OrderExecutor:
         for order in engine_orders or []:
             if isinstance(order, dict):
                 self._receive_engine(order, worker_id, state, http)
+        for cleanup in cleanups or []:
+            if isinstance(cleanup, dict):
+                self._run_cleanup(cleanup, http)
 
     # -- engine orders (#349): the only thing that installs a runtime ----------------------------------------
 
@@ -243,7 +251,55 @@ class OrderExecutor:
         if outcome is not None:
             self._post_engine(http, order_id, content["digest"], outcome["state"], outcome["cause_code"], outcome.get("local_identity", ""))
             return
+        if order.get("cancel_requested") is True:
+            self._cancel_engine(order_id, content["digest"], http)
+            return
         self._enqueue(dict(order, target="engine"), http)
+
+    def _cancel_engine(self, order_id: str, digest: str, http: Any) -> None:
+        """Stop an engine order Snitch asked to cancel. A running install stops at its next safe point; one that
+        has not started is dropped. Either way the outcome is recorded before it is told."""
+        with self._lock:
+            if order_id in self._running:
+                self._cancelled.add(order_id)
+                return
+            self._queue = [(o, h) for o, h in self._queue if o["order_id"] != order_id]
+        with self._state_lock:
+            if order_id in self._load()["orders"]:
+                return  # it ended on its own first: that outcome stands
+        self._record_engine_outcome(http, order_id, digest, "failed", "cancelled", "")
+
+    def _record_engine_outcome(self, http: Any, order_id: str, digest: str, final: str, cause: str, identity: str) -> None:
+        with self._state_lock:
+            state = self._load()
+            state["orders"][order_id] = {"state": final, "cause_code": cause, "local_identity": identity}
+            self._save(state)
+        self._post_engine(http, order_id, digest, final, cause, identity)
+
+    def _run_cleanup(self, cleanup: dict[str, Any], http: Any) -> None:
+        """Remove the incomplete files of a failed or cancelled install, on Snitch's explicit request only. Skipped
+        while any order is queued or running; a validated runtime is never removed."""
+        from snitch_worker import engine_runtime
+        order_id, digest, runtime = cleanup.get("order_id"), cleanup.get("digest"), cleanup.get("runtime")
+        if not (isinstance(order_id, str) and _ORDER_ID.fullmatch(order_id) and isinstance(digest, str) and _DIGEST.fullmatch(digest) and isinstance(runtime, dict)):
+            log.emit(logging.WARNING, "engine_cleanup_ignored", reason="malformed")
+            return
+        try:
+            engine_runtime.validate(runtime, runtime.get("engine", ""), runtime.get("kind", ""))
+            identity = engine_runtime.identity(runtime)
+        except engine_runtime.RuntimeFailed:
+            log.emit(logging.WARNING, "engine_cleanup_ignored", reason="runtime")
+            return
+        with self._lock:
+            if self._running or self._queue:
+                return  # asked again at the next pull, once no order runs: never under an install in progress
+            try:
+                removed = engine_runtime.cleanup(runtime, self._env)
+            except (engine_runtime.RuntimeFailed, OSError):
+                log.emit(logging.WARNING, "engine_cleanup_failed", order_id=order_id)
+                return
+        log.emit(logging.INFO, "engine_cleanup_done", order_id=order_id, removed=removed)
+        http.post("/api/worker/voice-engines/cleanup", json={"order_id": order_id, "digest": digest, "removed": removed}).raise_for_status()
 
     def _enqueue(self, order: dict[str, Any], http: Any) -> None:
         with self._lock:
@@ -267,24 +323,24 @@ class OrderExecutor:
         steps = {"downloading": "downloading_runtime", "installing": "installing", "verifying": "verifying"}
 
         def report(stage: str, *_ignored: Any) -> None:
+            if order_id in self._cancelled:
+                raise engine_runtime.Cancelled()
             if stage in steps:
                 self._post_engine(http, order_id, digest, steps[stage])
 
         log.emit(logging.INFO, "engine_order_started", order_id=order_id, engine=order["engine"], version=order["version"])
         identity, cause, final = "", "", "ready"
         try:
-            self._install_runtime(runtime, self._env, report, True)
+            with engine_runtime.stop_when(lambda: order_id in self._cancelled):
+                self._install_runtime(runtime, self._env, report, True)
             identity = engine_runtime.identity(runtime)
         except engine_runtime.RuntimeFailed as error:
             final, cause = "failed", error.cause if error.cause in ENGINE_CAUSES else "runtime_incompatible"
         except Exception:  # noqa: BLE001 - an order that cannot run must end as failed, not stay open
             final, cause = "failed", "runtime_incompatible"
         # The outcome is recorded before it is told: a lost report is repeated, never recomputed.
-        with self._state_lock:
-            state = self._load()
-            state["orders"][order_id] = {"state": final, "cause_code": cause, "local_identity": identity}
-            self._save(state)
-        self._post_engine(http, order_id, digest, final, cause, identity)
+        self._cancelled.discard(order_id)
+        self._record_engine_outcome(http, order_id, digest, final, cause, identity)
 
     def report_inventory(self, http: Any) -> None:
         """Tell Snitch which runtimes this volume proves it holds. Observation only: no order, no download."""

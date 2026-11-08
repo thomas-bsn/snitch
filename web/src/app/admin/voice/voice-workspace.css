@@ -1116,3 +1116,10 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 }
+
+.engine-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}

@@ -58,6 +58,25 @@ export const fr: Messages = {
         "Les paquets du runtime n’ont pas pu être téléchargés depuis ce Worker.",
       invalid_order: "Le Worker a refusé l’ordre.",
       runtime_missing: "Le runtime n’est plus sur le volume du Worker.",
+      cancelled: "L’installation a été annulée.",
+    },
+    action: {
+      retry: "Réessayer",
+      replace: "Remplacer",
+      cancel: "Annuler",
+      cleanup: "Nettoyer",
+      retryLabel: "Réessayer l’installation de {engine}",
+      replaceLabel: "Remplacer {engine} par une autre version",
+      cancelLabel: "Annuler l’installation de {engine}",
+      cleanupLabel: "Supprimer les fichiers incomplets de {engine}",
+      cancelling:
+        "Annulation demandée : le Worker s’arrête à son prochain point sûr.",
+      cleanupRequested: "Nettoyage demandé : livré à la reconnexion du Worker.",
+      cleanupDone: "Fichiers incomplets supprimés.",
+      keepsPrevious: "Une version fonctionnelle reste en service.",
+      replaceLead:
+        "Versions compatibles de {engine}. Une version en échec n’empêche jamais ce choix.",
+      failed: "L’action a été refusée :",
     },
     refusal: {
       engine_release_unavailable: "version révoquée",

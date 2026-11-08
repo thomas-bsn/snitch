@@ -10,6 +10,7 @@ from ..types import UNSET, Unset
 
 from ..models.engine_order_intent import EngineOrderIntent
 from ..models.engine_order_status import EngineOrderStatus
+from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
@@ -40,6 +41,8 @@ class EngineOrder:
             status (EngineOrderStatus):
             runtime (VoiceEngineManifest):
             created_at (datetime.datetime):
+            cancel_requested (bool | Unset): Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme
+                par un rapport failed/cancelled.
      """
 
     order_id: str
@@ -53,6 +56,7 @@ class EngineOrder:
     status: EngineOrderStatus
     runtime: VoiceEngineManifest
     created_at: datetime.datetime
+    cancel_requested: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -83,6 +87,8 @@ class EngineOrder:
 
         created_at = self.created_at.isoformat()
 
+        cancel_requested = self.cancel_requested
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -99,6 +105,8 @@ class EngineOrder:
             "runtime": runtime,
             "created_at": created_at,
         })
+        if cancel_requested is not UNSET:
+            field_dict["cancel_requested"] = cancel_requested
 
         return field_dict
 
@@ -142,6 +150,8 @@ class EngineOrder:
 
 
 
+        cancel_requested = d.pop("cancel_requested", UNSET)
+
         engine_order = cls(
             order_id=order_id,
             worker_id=worker_id,
@@ -154,6 +164,7 @@ class EngineOrder:
             status=status,
             runtime=runtime,
             created_at=created_at,
+            cancel_requested=cancel_requested,
         )
 
 

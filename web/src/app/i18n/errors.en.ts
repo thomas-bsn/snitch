@@ -26,6 +26,13 @@ export const errorsEn = {
   engine_already_bound: "This model already uses this runtime version.",
   invalid_runtime_order: "This update order is not valid.",
 
+  engine_not_failed:
+    "This engine installation is not failed, so it cannot be retried or cleaned up.",
+  engine_order_not_cancellable:
+    "This engine installation has already ended and cannot be cancelled.",
+  engine_order_not_found:
+    "No engine installation is recorded for this release on this Worker.",
+
   invalid_plan_id: "This audio plan identifier is not valid.",
   audio_plan_required:
     "A clip with several audio tracks is transcribed by an analysis, not by a single task.",

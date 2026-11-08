@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"snitch/internal/jobs"
 	"snitch/internal/workers"
 )
 
@@ -232,10 +233,11 @@ func voiceCandidateIDIn(ctx context.Context, db pgQuerier) (string, error) {
 	return id, err
 }
 
-// voiceModelReadyIn tells whether a Worker that is connected right now holds the model ready.
+// voiceModelReadyIn tells whether a Worker that is connected right now holds the model ready, with its runtime
+// ready on that same Worker (#350).
 func voiceModelReadyIn(ctx context.Context, db pgQuerier, modelID string) (bool, error) {
 	var ready bool
-	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second'))`,
+	err := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id JOIN workers w ON w.id=m.worker_id WHERE m.model_id=$1 AND m.state='ready' AND m.removal_requested=false AND w.revoked_at IS NULL AND w.last_seen_at >= now() - ($2 * interval '1 second') AND `+jobs.RuntimeReadyClause("m", "c")+`)`,
 		modelID, int64(workers.ConnectedWindow.Seconds())).Scan(&ready)
 	return ready, err
 }
@@ -541,18 +543,25 @@ func (s *Server) getWorkerVoiceModels(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	engineCleanups, err := s.pendingEngineCleanups(r.Context(), worker.ID)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	out := struct {
 		Models []workerVoiceModel    `json:"models"`
 		Remove []workerVoiceModel    `json:"remove"`
 		Orders []voiceModelOrderView `json:"orders"`
 		// EngineOrders install approved runtimes; an older Worker ignores this list.
 		EngineOrders []engineOrderView `json:"engine_orders"`
+		// EngineCleanups ask the Worker to remove the incomplete files of a failed or cancelled install (#351).
+		EngineCleanups []engineCleanupView `json:"engine_cleanups"`
 		// WorkerID is the identity Snitch gives this Worker: it pins it on its volume and checks every order against it.
 		WorkerID string `json:"worker_id"`
 		// Held are the models Snitch already knows as ready on this Worker: a model the Worker holds on its volume
 		// and that is not listed here (installed before orders existed) is reported by the Worker once proven.
 		Held []string `json:"held"`
-	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders, EngineOrders: engineOrders}
+	}{WorkerID: worker.ID, Held: held, Models: []workerVoiceModel{}, Remove: []workerVoiceModel{}, Orders: orders, EngineOrders: engineOrders, EngineCleanups: engineCleanups}
 	add := func(list *[]workerVoiceModel, id, role string) {
 		if entry, ok, lookupErr := voiceCatalogByID(r.Context(), s.Pool, id); lookupErr != nil {
 			err = lookupErr
