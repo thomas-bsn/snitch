@@ -139,7 +139,7 @@ Audit UI : skill `frontend-audit` indisponible ; remplacement par Impeccable (au
 
 - #349–#354 : installation autonome, inventaire par Worker, dispatch conditionnel, reprise/annulation/nettoyage, mise à jour/retour arrière d’un runtime lié, retrait avec drainage, contrôle du matériel et réservation cumulée du disque.
 - #355 : adaptateur TitaNet, verrou et outil de publication, tests de refus et procédure de preuve ; publication bloquée par la dépendance sans roue. #356 : adaptateur ECAPA, manifeste reproductible et commande de preuve.
-- Portée UI : « ce Worker » et « Workers cochés ». Aucun groupe persistant de Workers : écart au prototype, sans inventer cette capacité.
+- Portée UI : « ce Worker », « Workers cochés » et groupe nommé. La migration 00129 persiste une affectation par Worker ; modifier le groupe ne crée aucun ordre. Le plan applique les contrôles de ressources individuellement. Le test Go ciblé couvre persistance, réaffectation, retrait, refus des noms invalides et absence d’ordre implicite ; le parcours E2E couvre la portée groupe et attend sa validation CI.
 - VRAM insuffisante à l’inférence : échec avec `gpu_out_of_memory`, sans mécanisme d’attente. C’est la branche « échoue avec cause stable » du critère #354.
 - Annulation reçue par un Worker hors ligne : reste `cancelling` jusqu’à son retour, sans forçage. Un `pip` déjà lancé termine avant le prochain arrêt coopératif.
 - Modèles antérieurs à #352 : pas de version précédente connue avant leur première mise à jour. Les liaisons legacy inconnues du serveur sont protégées localement par le Worker ; celui-ci ne connaît pas la version précédente conservée côté serveur.
@@ -152,3 +152,9 @@ L’audit ne clôt matériellement ni #355, ni #357, ni l’epic #326. Aucun sca
 ### Commande de preuve TitaNet
 
 Depuis le Python du runtime installé : `python -m snitch_worker.voice_titanet_proof <répertoire du modèle> --device auto --release manifest.json`. Cette commande utilise uniquement un signal synthétique et rapporte la version de release avec les mesures du probe existant. Elle refuse une exécution CPU pour un manifeste CUDA. Elle ne télécharge rien et ne constitue une preuve matérielle qu’une fois exécutée sur la cible ; cette exécution reste à réaliser.
+
+### Complément : groupes persistants et commande TitaNet
+
+L’écart de portée « groupe » de #349 est corrigé par une affectation administrative persistante par Worker et des en-têtes de groupes dans la liste. Une affectation vide retire le Worker du groupe. Aucun ordre ne découle de cette opération. Le test d’intégration `TestFoundation/worker_engine_groups` a échoué avant l’implémentation (route absente), puis passe après correction. La compilation TypeScript et le build web passent.
+
+La commande de preuve TitaNet respecte désormais le périphérique de la release : `auto` conserve CPU pour une release CPU, et une demande CUDA sans GPU est refusée avant chargement du modèle. Cinq tests ciblés de routage et de rapport passent ; ils ne constituent pas une preuve d’inférence matérielle. Le blocage de publication des dépendances TitaNet et les validations matérielles utilisateur restent ouverts.

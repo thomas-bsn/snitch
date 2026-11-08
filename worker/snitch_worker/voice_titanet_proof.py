@@ -22,8 +22,10 @@ def main(argv: list[str] | None = None) -> int:
 
     device = args.device
     if device == "auto":
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-    if release.get("cuda") != "cpu" and device == "cpu":
+        device = "cpu" if release.get("cuda") == "cpu" else "cuda"
+    if (device == "cuda" and not torch.cuda.is_available()) or (
+        release.get("cuda") != "cpu" and device == "cpu"
+    ):
         print(json.dumps({"ok": False, "refused": "cuda_unavailable"}))
         return 1
     try:

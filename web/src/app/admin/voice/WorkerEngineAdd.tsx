@@ -4,6 +4,7 @@ import { Modal } from "../../components/Modal";
 import { useI18n } from "../../i18n";
 import { WorkerHardware } from "./WorkerHardware";
 import {
+  engineTargets,
   planOrders,
   refusalFor,
   resourceVerdict,
@@ -44,7 +45,7 @@ export function WorkerEngineAdd({
   const { t, error } = useI18n();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
-  const [scope, setScope] = useState<"this" | "checked">("this");
+  const [scope, setScope] = useState<"this" | "checked" | "group">("this");
   const shown = releases
     .filter(
       (r) =>
@@ -62,10 +63,7 @@ export function WorkerEngineAdd({
         Number(a.revoked) - Number(b.revoked) ||
         a.manifest.engine.localeCompare(b.manifest.engine),
     );
-  const targets =
-    scope === "checked"
-      ? workers.filter((w) => checked.includes(w.worker_id))
-      : [worker];
+  const targets = engineTargets(workers, worker, checked, scope);
   const plan = planOrders(
     targets,
     releases.filter((r) => picked.includes(r.digest)),
@@ -159,9 +157,19 @@ export function WorkerEngineAdd({
           {t("workerEngines.scopeOn")}
           <select
             value={scope}
-            onChange={(e) => setScope(e.target.value as "this" | "checked")}
+            onChange={(e) =>
+              setScope(e.target.value as "this" | "checked" | "group")
+            }
           >
             <option value="this">{t("workerEngines.scopeThis")}</option>
+            {worker.group_name && (
+              <option value="group">
+                {t("workerEngines.scopeGroup", {
+                  name: worker.group_name,
+                  count: engineTargets(workers, worker, [], "group").length,
+                })}
+              </option>
+            )}
             <option value="checked">
               {t("workerEngines.scopeChecked", { count: checked.length })}
             </option>

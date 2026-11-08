@@ -52,6 +52,7 @@ func scanEngineOrder(row pgx.Row) (engineOrderView, error) {
 func (s *Server) registerVoiceEngineOrderRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/voice-engine-orders", s.protected(true, http.HandlerFunc(s.createVoiceEngineOrders)))
 	mux.Handle("GET /api/admin/voice-engines/workers", s.protected(true, http.HandlerFunc(s.listEnginesByWorker)))
+	mux.Handle("PUT /api/admin/workers/{id}/engine-group", s.protected(true, http.HandlerFunc(s.setWorkerEngineGroup)))
 	s.registerVoiceEngineRecoveryRoutes(mux)
 	mux.Handle("GET /api/admin/voice-engines/uninstall-preview", s.protected(true, http.HandlerFunc(s.uninstallPreview)))
 	mux.Handle("POST /api/worker/voice-engine-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerEngineOrder)))
@@ -556,6 +557,7 @@ type workerEngineEntry struct {
 type workerEnginesRow struct {
 	WorkerID  string `json:"worker_id"`
 	Name      string `json:"name"`
+	GroupName string `json:"group_name"`
 	Connected bool   `json:"connected"`
 	// Hardware is what the Worker reported (absent for a Worker that never did); the reserved disk is what its
 	// open orders already claim, so the screen can show a cumulated plan.
@@ -605,6 +607,10 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		row := workerEnginesRow{WorkerID: item.ID, Name: item.Name, Connected: item.Connected, Engines: []workerEngineEntry{}}
+		if err = s.Pool.QueryRow(r.Context(), `SELECT COALESCE((SELECT group_name FROM worker_engine_groups WHERE worker_id=$1),'')`, item.ID).Scan(&row.GroupName); err != nil {
+			s.internal(w, err)
+			return
+		}
 		if row.Hardware, err = loadWorkerHardware(r.Context(), s.Pool, item.ID); err != nil {
 			s.internal(w, err)
 			return

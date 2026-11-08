@@ -30,6 +30,11 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     data: { name, max_concurrency: 1 },
   });
   const worker = (await created.json()) as { id: string };
+  const peerCreated = await api.post("/api/admin/workers", {
+    headers: { "X-CSRF-Token": csrf },
+    data: { name: `${name}-peer`, max_concurrency: 1 },
+  });
+  const peer = (await peerCreated.json()) as { id: string };
   try {
     const context = await browser.newContext({
       storageState: await sessionFor(ADMIN),
@@ -62,6 +67,27 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     await expect(page.getByRole("tab", { name: /To handle/ })).toBeVisible();
     await expect(page.getByRole("tab", { name: /In progress/ })).toBeVisible();
 
+    const group = `Synthetic group ${name}`;
+    const grouped = await api.put(
+      `/api/admin/workers/${peer.id}/engine-group`,
+      {
+        headers: { "X-CSRF-Token": csrf },
+        data: { group_name: group },
+      },
+    );
+    expect(grouped.status()).toBe(204);
+    await page.getByRole("textbox", { name: "Worker group" }).fill(group);
+    await page.getByRole("button", { name: "Save group" }).click();
+    await expect(
+      page.getByRole("heading", { name: group, exact: true }),
+    ).toBeVisible();
+    await page.reload();
+    await page.getByRole("searchbox", { name: "Search a Worker" }).fill(name);
+    await page.getByRole("button", { name }).click();
+    await expect(
+      page.getByRole("textbox", { name: "Worker group" }),
+    ).toHaveValue(group);
+
     await page.getByRole("button", { name: "Add an engine" }).click();
     const dialog = page.getByRole("dialog", {
       name: `Add an engine to ${name}`,
@@ -72,6 +98,11 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     await expect(
       dialog.getByRole("button", { name: "Install 0 engine(s)" }),
     ).toBeDisabled();
+    // The persisted group is an explicit scope, independent of checked Workers.
+    await dialog.getByRole("checkbox").check();
+    await dialog.getByRole("combobox").selectOption("group");
+    await expect(dialog).toContainText("2 order(s)");
+    await dialog.getByRole("checkbox").uncheck();
     // A scope with no checked Worker must never silently target the current Worker.
     await dialog.getByRole("checkbox").check();
     await expect(dialog).toContainText("1 order(s)");
@@ -98,9 +129,11 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     );
     expect(row.engines).toEqual([]);
   } finally {
-    await api.delete(`/api/admin/workers/${worker.id}`, {
-      headers: { "X-CSRF-Token": csrf },
-    });
+    for (const id of [worker.id, peer.id]) {
+      await api.delete(`/api/admin/workers/${id}`, {
+        headers: { "X-CSRF-Token": csrf },
+      });
+    }
   }
 });
 

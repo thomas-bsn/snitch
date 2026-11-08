@@ -16969,6 +16969,72 @@
           }
         }
       }
+    },
+    "/api/admin/workers/{id}/engine-group": {
+      "put": {
+        "operationId": "setWorkerEngineGroup",
+        "description": "Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun téléchargement ni ordre.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "group_name"
+                ],
+                "properties": {
+                  "group_name": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Affectation enregistrée"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -28898,6 +28964,11 @@
             "items": {
               "$ref": "#/components/schemas/WorkerEngine"
             }
+          },
+          "group_name": {
+            "type": "string",
+            "maxLength": 80,
+            "description": "Groupe administratif nommé ; vide si aucun. Ne crée aucun ordre."
           }
         }
       },

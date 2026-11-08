@@ -419,6 +419,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineOrders(t, pool)
 	})
+	t.Run("worker engine groups", func(t *testing.T) {
+		reset(t)
+		testWorkerEngineGroups(t, pool)
+	})
 	t.Run("voice model runtime update", func(t *testing.T) {
 		reset(t)
 		testVoiceModelRuntimeUpdate(t, pool)

@@ -137,3 +137,19 @@ export function planOrders(
     refusals: [...counts],
   };
 }
+
+/** Group scope is snapshotted into explicit Worker orders at confirmation. An ungrouped Worker has no group. */
+export function engineTargets(
+  workers: EngineWorker[],
+  current: EngineWorker | undefined,
+  checked: string[],
+  scope: "this" | "checked" | "group",
+): EngineWorker[] {
+  if (scope === "checked")
+    return workers.filter((w) => checked.includes(w.worker_id));
+  if (scope === "group")
+    return current?.group_name
+      ? workers.filter((w) => w.group_name === current.group_name)
+      : [];
+  return current ? [current] : [];
+}
