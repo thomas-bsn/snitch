@@ -1595,7 +1595,10 @@ export const fr: Messages = {
       image_pull_failed: "L’image n’a pas pu être téléchargée.",
       digest_unknown:
         "L’empreinte de l’image est inconnue ; elle n’a pas été lancée.",
-      target_mismatch: "La cible n’est pas une image du dépôt de ce Worker.",
+      target_mismatch:
+        "La cible n’est pas une image du dépôt de ce Worker. Si le dépôt est correct, ce Worker exécute un updater obsolète : générez une nouvelle commande d’installation et lancez-la une fois sur la machine du Worker (modèles et jeton conservés).",
+      updater_update_failed:
+        "L’updater n’a pas pu se mettre à jour ; il continue avec sa version actuelle.",
       unhealthy:
         "La nouvelle version a redémarré ou s’est arrêtée ; la précédente a été restaurée.",
       rollback_failed:
