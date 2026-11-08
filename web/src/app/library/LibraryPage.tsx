@@ -431,8 +431,8 @@ export function LibraryPage() {
       );
       if (!failure) {
         queued += 1;
-      } else if (response.status === 409) {
-        // Already running (or its scope is busy): the clip is being analysed, nothing to redo.
+      } else if (errorCode(failure) === "analysis_scope_conflict") {
+        // An analysis is already active on this clip: it is being analysed, nothing to redo.
         queued += 1;
       } else if ([400, 401, 403, 415].includes(response.status)) {
         // The request itself is invalid or refused: every other clip would fail the same way.
