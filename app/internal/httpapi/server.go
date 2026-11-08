@@ -328,6 +328,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/worker/pulse", s.workerOnly(http.HandlerFunc(s.workerPulse)))
 	mux.Handle("POST /api/worker/install-events", s.workerOnly(http.HandlerFunc(s.postWorkerInstallEvents)))
 	mux.Handle("GET /api/worker/update", s.workerOnly(http.HandlerFunc(s.getWorkerUpdate)))
+	mux.Handle("GET /api/worker/updater", s.workerOnly(http.HandlerFunc(s.getWorkerUpdater)))
 	mux.Handle("POST /api/worker/update-status", s.workerOnly(http.HandlerFunc(s.postWorkerUpdateStatus)))
 	mux.Handle("GET /api/worker/transcription-config", s.workerOnly(http.HandlerFunc(s.getWorkerTranscriptionConfig)))
 	mux.Handle("POST /api/worker/transcription-config/status", s.workerOnly(http.HandlerFunc(s.postWorkerTranscriptionStatus)))

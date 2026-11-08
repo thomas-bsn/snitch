@@ -1562,7 +1562,9 @@ export const en = {
       image_pull_failed: "The image could not be downloaded.",
       digest_unknown: "The image digest is unknown; it was not run.",
       target_mismatch:
-        "The target is not an image of this Worker's repository.",
+        "The target is not an image of this Worker's repository. If the repository is correct, this Worker runs an outdated updater: generate a new install command and run it once on the Worker machine (models and token are kept).",
+      updater_update_failed:
+        "The updater could not refresh itself; it keeps running its current version.",
       unhealthy:
         "The new version restarted or stopped; the previous one was restored.",
       rollback_failed:

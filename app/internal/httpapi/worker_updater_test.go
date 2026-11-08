@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,7 +66,9 @@ exit 0`)
 	// curl: GET /api/worker/update returns the target; the status report body is recorded.
 	write("curl", `out=''; data=''; url=''; while [ $# -gt 0 ]; do case "$1" in -o) out=$2; shift;; --data-binary) data=$2; shift;; http*) url=$1;; esac; shift; done
 cat >/dev/null
+echo "curl $url" >> "$FAKE_LOG"
 case "$url" in
+ *worker/updater) [ -n "${FAKE_UPDATER_FILE:-}" ] && cp "$FAKE_UPDATER_FILE" "$out" && printf 200 && exit 0; printf 404; exit 0;;
  *update-status) printf '%s\n' "$data" >> "$FAKE_REPORTS"; printf 204; exit 0;;
  *worker/update) printf '%s' "$FAKE_UPDATE_BODY" > "$out"; printf 200; exit 0;;
 esac
@@ -272,5 +276,96 @@ func TestWorkerUpdaterUpgradeFromDigest(t *testing.T) {
 	}
 	if !strings.Contains(r.calls(), "run -d") {
 		t.Fatal("new digest must be started")
+	}
+}
+
+func sha256Hex(b string) string {
+	sum := sha256.Sum256([]byte(b))
+	return hex.EncodeToString(sum[:])
+}
+
+// updateBodyWithUpdater is a valid target announcing which updater script Workers should run.
+func updateBodyWithUpdater(hash string) string {
+	return `{"target_version":"v1.2.0","target_image":"ghcr.io/thomas-bsn/snitch-worker:v1.2.0","updater_sha256":"` + hash + `"}`
+}
+
+// installOlderUpdater replaces the installed updater by a previous release of itself and returns its path.
+func (r *updaterRun) installOlderUpdater(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(r.dir, "updater.sh")
+	if err := os.WriteFile(path, []byte(workerUpdaterScript+"\n# previous release\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func (r *updaterRun) serveUpdater(t *testing.T, content string) {
+	t.Helper()
+	file := filepath.Join(filepath.Dir(r.bin), "served-updater.sh")
+	if err := os.WriteFile(file, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r.env = append(r.env, "FAKE_UPDATER_FILE="+file)
+}
+
+func TestUpdaterReplacesItselfThenUpdatesInTheSameRun(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+"@"+digestFixture, updateBodyWithUpdater(sha256Hex(workerUpdaterScript)), "")
+	path := r.installOlderUpdater(t)
+	r.serveUpdater(t, workerUpdaterScript)
+	tokenBefore, _ := os.ReadFile(filepath.Join(r.dir, "worker.env"))
+	log := r.run(t)
+	if got, _ := os.ReadFile(path); string(got) != workerUpdaterScript {
+		t.Fatalf("updater was not replaced by the announced release:\n%s", got)
+	}
+	if !strings.Contains(log, "pull "+repoFixture+":v1.2.0") || !strings.Contains(r.reported(), `"state":"updated"`) {
+		t.Fatalf("the refreshed updater must carry on with the update:\n%s\n%s", log, r.reported())
+	}
+	if tokenAfter, _ := os.ReadFile(filepath.Join(r.dir, "worker.env")); string(tokenAfter) != string(tokenBefore) {
+		t.Fatal("worker.env must be untouched by an updater refresh")
+	}
+	if _, err := os.Stat(filepath.Join(r.dir, "update.lock")); err == nil {
+		t.Fatal("the lock must be released")
+	}
+}
+
+func TestUpdaterRejectsADownloadThatDoesNotMatchTheAnnouncedHash(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+"@"+digestFixture, updateBodyWithUpdater(sha256Hex(workerUpdaterScript)), "")
+	path := r.installOlderUpdater(t)
+	before, _ := os.ReadFile(path)
+	r.serveUpdater(t, "#!/usr/bin/env bash\necho tampered\n")
+	log := r.run(t)
+	if after, _ := os.ReadFile(path); string(after) != string(before) {
+		t.Fatalf("a script that does not match the announced hash must never be installed:\n%s", after)
+	}
+	if rep := r.reported(); !strings.Contains(rep, `"cause_code":"updater_update_failed"`) {
+		t.Fatalf("refused updater not reported:\n%s", rep)
+	}
+	if !strings.Contains(log, "pull ") {
+		t.Fatalf("a failed refresh must not block the release update:\n%s", log)
+	}
+}
+
+func TestUpdaterDoesNotDownloadItselfWhenAlreadyCurrent(t *testing.T) {
+	r := newUpdaterRun(t, repoFixture+":v1.2.0", updateBodyWithUpdater(sha256Hex(workerUpdaterScript)), "")
+	if log := r.run(t); strings.Contains(log, "worker/updater") {
+		t.Fatalf("an up-to-date updater must not download anything:\n%s", log)
+	}
+}
+
+func TestUpdaterAcceptsDigestAndTagButRefusesForeignRepositoryAndBadVersions(t *testing.T) {
+	foreign := `{"target_version":"v1.2.0","target_image":"evil.example/snitch-worker:v1.2.0"}`
+	r := newUpdaterRun(t, repoFixture+"@"+digestFixture, foreign, "")
+	if log := r.run(t); strings.Contains(log, "pull ") {
+		t.Fatalf("a foreign repository must not be pulled from a digest install:\n%s", log)
+	}
+	if rep := r.reported(); !strings.Contains(rep, `"cause_code":"target_mismatch"`) {
+		t.Fatalf("mismatch not reported:\n%s", rep)
+	}
+	for _, version := range []string{"latest", "v1.2", "v1.2.0-rc1", "v01.2.0"} {
+		body := `{"target_version":"` + version + `","target_image":"` + repoFixture + `:` + version + `"}`
+		r = newUpdaterRun(t, repoFixture+"@"+digestFixture, body, "")
+		if log := r.run(t); strings.Contains(log, "pull ") || r.reported() != "" {
+			t.Fatalf("version %q must be ignored:\n%s\n%s", version, log, r.reported())
+		}
 	}
 }

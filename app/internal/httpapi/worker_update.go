@@ -2,6 +2,8 @@ package httpapi
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net/http"
 	"regexp"
@@ -247,7 +249,21 @@ func (s *Server) getWorkerUpdate(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"target_version": nilIfEmpty(target), "target_image": nilIfEmpty(image), "idle": !busy})
+	reply(w, http.StatusOK, map[string]any{"target_version": nilIfEmpty(target), "target_image": nilIfEmpty(image), "idle": !busy, "updater_sha256": workerUpdaterSHA256})
+}
+
+// workerUpdaterSHA256 identifies the updater script embedded in this build. Workers compare it with their own copy
+// and fetch the script from getWorkerUpdater when it differs, so a backend upgrade also upgrades installed updaters.
+var workerUpdaterSHA256 = func() string {
+	sum := sha256.Sum256([]byte(workerUpdaterScript))
+	return hex.EncodeToString(sum[:])
+}()
+
+// getWorkerUpdater serves the embedded updater script to an authenticated Worker. It holds no secret.
+func (s *Server) getWorkerUpdater(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/x-shellscript; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	_, _ = w.Write([]byte(workerUpdaterScript))
 }
 
 func (s *Server) postWorkerUpdateStatus(w http.ResponseWriter, r *http.Request) {
