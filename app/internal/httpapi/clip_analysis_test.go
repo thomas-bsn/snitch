@@ -72,6 +72,40 @@ var analysisTranscript = map[string]any{"provider": "fixture", "model": "determi
 	{"start": 0.2, "end": 0.9, "text": "premier", "words": []map[string]any{{"word": "premier", "start": 0.2, "end": 0.9}}},
 }}
 
+// testClipAnalysisJSONContract covers the strict JSON contract of the start (#361): a start without a JSON
+// content type, or without a body, is refused and leaves no run; a valid JSON body starts the complete
+// analysis of what is missing, and a second identical start answers the active run.
+func testClipAnalysisJSONContract(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool)
+	h.useSingleAudioTrack()
+	refused := func(name, contentType string, body []byte) {
+		req, err := http.NewRequest(http.MethodPost, h.ts.URL+h.analysisPath(), bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Origin", h.ts.URL)
+		req.Header.Set("X-CSRF-Token", h.csrf)
+		if contentType != "" {
+			req.Header.Set("Content-Type", contentType)
+		}
+		h.do(h.admin, req, http.StatusUnsupportedMediaType)
+		if h.analysis() != nil {
+			t.Fatalf("%s: a refused start must not leave a run", name)
+		}
+	}
+	valid := mustJSON(t, map[string]any{"scope": "full", "mode": "missing"})
+	refused("no content type", "", valid)
+	refused("wrong content type", "text/plain", valid)
+	refused("empty body", "", nil)
+	full := h.startAnalysis(map[string]any{"scope": "full", "mode": "missing"}, http.StatusCreated)
+	if full.Scope != "full" || full.Status != "active" {
+		t.Fatalf("a valid JSON start must accept the complete analysis: %+v", full)
+	}
+	if again := h.startAnalysis(map[string]any{"scope": "full", "mode": "missing"}, http.StatusOK); again.ID != full.ID {
+		t.Fatalf("a second start must return run %d, got %d", full.ID, again.ID)
+	}
+}
+
 func testClipAnalysis(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	h.useSingleAudioTrack()

@@ -417,33 +417,51 @@ export function LibraryPage() {
     }
     // Still indexing after the delay: not a failure, the next click resumes them.
     const pending = waiting.size;
-    for (const id of clips) {
-      const { error: failure } = await api.POST(
+    // A clip can be reached twice (listed and just indexed): ask once per clip.
+    let requested = 0;
+    let aborted: string | undefined;
+    for (const id of new Set(clips)) {
+      // Complete analysis of what is missing: valid results and human work are reused, never replaced.
+      const { error: failure, response } = await api.POST(
         "/api/admin/clips/{id}/analysis",
         {
-          params: {
-            path: { id },
-            header: mutation(csrf),
-          } as never,
+          params: { path: { id }, header: mutation(csrf) },
+          body: { scope: "full", mode: "missing" },
         },
       );
-      if (failure) failed += 1;
+      if (!failure) {
+        requested += 1;
+      } else if (errorCode(failure) === "analysis_scope_conflict") {
+        // An analysis is already active on this clip: it is being analysed, nothing to redo.
+        requested += 1;
+      } else if ([400, 401, 403, 415].includes(response.status)) {
+        // The request itself is invalid or refused: every other clip would fail the same way.
+        aborted = errorCode(failure) ?? String(response.status);
+        break;
+      } else {
+        failed += 1;
+      }
     }
     setAnalysisBusy(false);
     setAnalysisNotice(
-      pending > 0
-        ? t("library.explorer.analysisPending", {
-            count: clips.length - failed,
-            pending,
+      aborted
+        ? t("library.explorer.analysisAborted", {
+            count: requested,
+            code: aborted,
           })
-        : failed === 0
-          ? t("library.explorer.analysisQueued", {
-              count: clips.length,
-            })
-          : t("library.explorer.analysisPartial", {
-              count: clips.length - failed,
-              failed,
-            }),
+        : pending > 0
+          ? t(
+              failed > 0
+                ? "library.explorer.analysisPendingPartial"
+                : "library.explorer.analysisPending",
+              { count: requested, pending, failed },
+            )
+          : failed === 0
+            ? t("library.explorer.analysisQueued", { count: requested })
+            : t("library.explorer.analysisPartial", {
+                count: requested,
+                failed,
+              }),
     );
     setAnalysisTarget(null);
   }
