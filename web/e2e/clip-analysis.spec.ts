@@ -247,6 +247,8 @@ test("l'administrateur lit la cause d'échec d'une étape, pas l'utilisateur ord
   const dialog = page.getByRole("dialog", { name: "Launch analysis" });
   await dialog.getByLabel("Transcription only").check();
   await dialog.getByRole("button", { name: "Start reanalysis" }).click();
+  // The click dispatches asynchronously; wait until the server accepted the run.
+  await expect(dialog).toHaveCount(0);
   await failQueuedTranscription("invalid_input");
   // The pill and the panel change without a reload.
   await expect(pill(page)).toContainText("Failed: Transcription", {
@@ -290,7 +292,17 @@ test("l'administrateur lit la cause d'échec d'une étape, pas l'utilisateur ord
     .getByRole("group", { name: "Failure details" })
     .locator("time")
     .getAttribute("datetime");
+  const retried = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      response
+        .url()
+        .endsWith(
+          `/api/admin/clips/${clipId}/analysis/steps/transcription/retry`,
+        ),
+  );
   await analysis.getByRole("button", { name: /Retry/ }).click();
+  expect((await retried).ok()).toBe(true);
   await expect(
     analysis.getByRole("group", { name: "Failure details" }),
   ).toHaveCount(0);
