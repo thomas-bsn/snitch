@@ -78,6 +78,7 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     const family = dialog.getByLabel("Engine family");
     await expect(family.locator("option")).toHaveText([
       "nemo-toolkit",
+      "speechbrain",
       "wespeaker",
     ]);
     // The default version is pre-filled and editable.

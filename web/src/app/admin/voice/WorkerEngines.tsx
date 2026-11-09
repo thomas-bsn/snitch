@@ -653,6 +653,11 @@ function EngineRow({
         {entry.revoked && (
           <span className="engine-warn">{t("workerEngines.revoked")}</span>
         )}
+        {entry.kind === "separation" && entry.state === "ready" && (
+          <span className="engine-sub">
+            {t("workerEngines.separationPending")}
+          </span>
+        )}
         {entry.order_intent === "uninstall" && (
           <span className="engine-sub">
             {entry.state === "removing" &&

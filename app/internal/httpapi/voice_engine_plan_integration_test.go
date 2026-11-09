@@ -63,10 +63,14 @@ func testVoiceEngineFamiliesAndPlan(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/voice-engines/families", nil, http.StatusOK), &listed); err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Families) != 2 || listed.Families[1].Family != "wespeaker" {
+	if len(listed.Families) != 3 || listed.Families[1].Family != "speechbrain" || listed.Families[2].Family != "wespeaker" {
 		t.Fatalf("families: %+v", listed.Families)
 	}
-	if w := listed.Families[1]; w.Engine != "wespeaker" || w.DefaultVersion != "1.0.1" || len(w.Kinds) != 1 || w.Kinds[0] != "fingerprint" || w.CUDA != "" || w.VRAMBytes != 0 {
+	// SpeechBrain (#374) covers fingerprint and separation; its engine differs from the signed ECAPA release.
+	if sb := listed.Families[1]; sb.Engine != "speechbrain" || sb.DefaultVersion != "1.0.3" || len(sb.Kinds) != 2 || sb.Kinds[0] != "fingerprint" || sb.Kinds[1] != "separation" {
+		t.Fatalf("speechbrain family: %+v", sb)
+	}
+	if w := listed.Families[2]; w.Engine != "wespeaker" || w.DefaultVersion != "1.0.1" || len(w.Kinds) != 1 || w.Kinds[0] != "fingerprint" || w.CUDA != "" || w.VRAMBytes != 0 {
 		t.Fatalf("wespeaker family: %+v", w)
 	}
 	f := listed.Families[0]

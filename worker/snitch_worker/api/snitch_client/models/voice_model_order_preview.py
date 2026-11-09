@@ -29,6 +29,8 @@ class VoiceModelOrderPreview:
                 adaptateur signé.
             disk_bytes (int): Disque que l'engine va occuper ; 0 s'il est déjà prêt.
             estimated_seconds (int): Durée estimée de l'installation ; 0 s'il est déjà prêt.
+            active (bool): Faux quand la famille s'installe pour cette tâche mais qu'aucun adaptateur ne l'exécute
+                (séparation SpeechBrain) : l'engine est commandé avec le modèle, le modèle reste indisponible.
             family (str | Unset):
             engine (str | Unset):
             version (str | Unset):
@@ -41,6 +43,7 @@ class VoiceModelOrderPreview:
     engine_required: bool
     disk_bytes: int
     estimated_seconds: int
+    active: bool
     family: str | Unset = UNSET
     engine: str | Unset = UNSET
     version: str | Unset = UNSET
@@ -60,6 +63,8 @@ class VoiceModelOrderPreview:
         disk_bytes = self.disk_bytes
 
         estimated_seconds = self.estimated_seconds
+
+        active = self.active
 
         family = self.family
 
@@ -84,6 +89,7 @@ class VoiceModelOrderPreview:
             "engine_required": engine_required,
             "disk_bytes": disk_bytes,
             "estimated_seconds": estimated_seconds,
+            "active": active,
         })
         if family is not UNSET:
             field_dict["family"] = family
@@ -113,6 +119,8 @@ class VoiceModelOrderPreview:
 
         estimated_seconds = d.pop("estimated_seconds")
 
+        active = d.pop("active")
+
         family = d.pop("family", UNSET)
 
         engine = d.pop("engine", UNSET)
@@ -138,6 +146,7 @@ class VoiceModelOrderPreview:
             engine_required=engine_required,
             disk_bytes=disk_bytes,
             estimated_seconds=estimated_seconds,
+            active=active,
             family=family,
             engine=engine,
             version=version,

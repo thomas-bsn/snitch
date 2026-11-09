@@ -11,7 +11,7 @@ const embeddedEngines = `('','pyannote','nemo','silero-jit')`
 // release requires that very release to be ready;
 // otherwise any ready release of the engine and kind will do. A model that names an on-demand family (ADR 0056)
 // is never embedded, whatever its adapter is called: the ready engine must be the on-demand one of that family
-// and of the model's kind. A revoked release stays usable: a binding that
+// and of the model's kind. No adapter runs separation: a separation model is never eligible. A revoked release stays usable: a binding that
 // exists keeps serving. Nothing here orders or downloads anything. Embedded engines keep their legacy contract.
 func RuntimeReadyClause(wvm, m string) string {
 	return `((` + m + `.family='' AND ` + m + `.engine IN ` + embeddedEngines + `) OR (
@@ -19,7 +19,7 @@ func RuntimeReadyClause(wvm, m string) string {
 		            SELECT 1 FROM worker_engine_inventory ei JOIN voice_engine_registry er ON er.digest=ei.digest
 		            WHERE ei.worker_id=` + wvm + `.worker_id AND ei.state='ready'
 		              AND ((` + m + `.family='' AND er.engine=` + m + `.engine)
-		                   OR (` + m + `.family<>'' AND er.source='on_demand' AND er.manifest->>'family'=` + m + `.family))
+		                   OR (` + m + `.family<>'' AND ` + m + `.kind<>'separation' AND er.source='on_demand' AND er.manifest->>'family'=` + m + `.family))
 		              AND er.manifest->>'kind'=` + m + `.kind
 		              AND (EXISTS (SELECT 1 FROM worker_model_runtime_bindings rb WHERE rb.worker_id=` + wvm + `.worker_id AND rb.model_id=` + wvm + `.model_id AND rb.digest=ei.digest)
 		                   OR (NOT EXISTS (SELECT 1 FROM worker_model_runtime_bindings rb WHERE rb.worker_id=` + wvm + `.worker_id AND rb.model_id=` + wvm + `.model_id)

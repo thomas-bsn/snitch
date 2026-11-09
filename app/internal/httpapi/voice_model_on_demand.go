@@ -66,15 +66,18 @@ func onDemandRuntime(ctx context.Context, tx pgx.Tx, author session, workerID st
 
 // enginePreview is what the confirmation of a model order shows before anything is ordered.
 type enginePreview struct {
-	ModelID          string `json:"model_id"`
-	EngineRequired   bool   `json:"engine_required"`
-	Family           string `json:"family,omitempty"`
-	Engine           string `json:"engine,omitempty"`
-	Version          string `json:"version,omitempty"`
-	Kind             string `json:"kind,omitempty"`
-	State            string `json:"state,omitempty"`
-	DiskBytes        int64  `json:"disk_bytes"`
-	EstimatedSeconds int64  `json:"estimated_seconds"`
+	ModelID        string `json:"model_id"`
+	EngineRequired bool   `json:"engine_required"`
+	Family         string `json:"family,omitempty"`
+	Engine         string `json:"engine,omitempty"`
+	Version        string `json:"version,omitempty"`
+	Kind           string `json:"kind,omitempty"`
+	State          string `json:"state,omitempty"`
+	// Active is false when the family installs for this kind but no adapter runs it (SpeechBrain separation): the
+	// engine is ordered with the model and the model stays unavailable.
+	Active           bool  `json:"active"`
+	DiskBytes        int64 `json:"disk_bytes"`
+	EstimatedSeconds int64 `json:"estimated_seconds"`
 	// Blocker is the stable cause that would refuse the engine order on this Worker (hardware), empty otherwise.
 	Blocker string `json:"blocker,omitempty"`
 }
@@ -117,7 +120,7 @@ func (s *Server) previewVoiceModelOrder(w http.ResponseWriter, r *http.Request) 
 	if version == "" {
 		version = f.DefaultVer
 	}
-	out.EngineRequired, out.Family, out.Engine, out.Version, out.Kind, out.State = true, f.Key, f.Engine, version, entry.Kind, state
+	out.EngineRequired, out.Family, out.Engine, out.Version, out.Kind, out.State, out.Active = true, f.Key, f.Engine, version, entry.Kind, state, f.runs(entry.Kind)
 	if state != engineStateReady {
 		out.DiskBytes, out.EstimatedSeconds = f.DiskBytes, f.EstimatedSeconds
 	}

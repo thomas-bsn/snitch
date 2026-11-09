@@ -8078,6 +8078,8 @@ export interface components {
       estimated_seconds: number;
       /** @description Cause stable qui refuserait l'ordre d'engine sur ce Worker (matériel), absente sinon. */
       blocker?: string;
+      /** @description Faux quand la famille s'installe pour cette tâche mais qu'aucun adaptateur ne l'exécute (séparation SpeechBrain) : l'engine est commandé avec le modèle, le modèle reste indisponible. */
+      active: boolean;
     };
   };
   responses: never;

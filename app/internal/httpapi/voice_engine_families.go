@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -30,9 +31,13 @@ type engineFamily struct {
 	// Kinds are the tasks the family covers. An engine is one family, one version and ONE kind: each kind is its
 	// own identity, registry row and order, so that a family covering several tasks (NeMo: diarization and
 	// fingerprint) can be installed for either. The first kind is the default of an order that names none.
-	Kinds    []string
-	Python   string
-	Platform string
+	Kinds []string
+	// ActiveKinds are the kinds an adapter actually runs. Nil means every kind of the family. A kind that is
+	// installed for but not listed here (SpeechBrain separation, #374) gets its engine and nothing more: the
+	// feature stays disabled until an adapter exists.
+	ActiveKinds []string
+	Python      string
+	Platform    string
 	// CUDA is "" for a family that runs with or without a GPU.
 	CUDA             string
 	VRAMBytes        int64
@@ -47,6 +52,14 @@ var engineFamilies = map[string]engineFamily{
 		Kinds:  []string{"diarization", "fingerprint"},
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
+	},
+	// SpeechBrain: a generic adapter runs ECAPA-TDNN fingerprints; SepFormer separation models only get the
+	// engine installed. The engine name differs from the signed "speechbrain-ecapa" release (two identities).
+	"speechbrain": {
+		Key: "speechbrain", Engine: "speechbrain", Distribution: "speechbrain", DefaultVer: "1.0.3",
+		Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"},
+		Python: "3.12", Platform: "linux-x86_64",
+		RAMBytes: 6 << 30, DiskBytes: 10 << 30, EstimatedSeconds: 600,
 	},
 	// WeSpeaker is not published on PyPI: the installable package is `wespeakerruntime` (ONNX inference, latest
 	// release 1.0.1, depends on onnxruntime, kaldiio and torchaudio). The ONNX graph runs on the CPU, so no GPU
@@ -68,6 +81,14 @@ func (f engineFamily) covers(kind string) bool {
 	return false
 }
 
+// runs reports whether an adapter runs this kind of the family.
+func (f engineFamily) runs(kind string) bool {
+	if f.ActiveKinds == nil {
+		return slices.Contains(f.Kinds, kind)
+	}
+	return slices.Contains(f.ActiveKinds, kind)
+}
+
 // engineNeed tells how a catalogue model gets its engine. A model with no family keeps the contract of ADR 0055:
 // an embedded adapter needs no engine (Sortformer runs on the NeMo of the Worker image) and a signed adapter
 // needs an approved release. A model with a family asks for the on-demand engine of that family and of its own
@@ -82,14 +103,18 @@ func (e voiceCatalogEntry) engineNeed() (f engineFamily, needed, supported bool)
 	return f, true, ok && f.covers(e.Kind)
 }
 
-// catalogFamily is the rule that gives a model discovered through the Hugging Face addition its engine family.
-// A model whose adapter is NeMo runs on the on-demand NeMo family, which is what lets Nemotron-3 and the models
-// to come use a newer NeMo than the one of the Worker image. The seeded Sortformer keeps an empty family and the
-// embedded NeMo. The other adapters (pyannote, silero-jit, the signed nemo-titanet and speechbrain-ecapa) keep
-// their contract; a family added to the table later (SpeechBrain, WeSpeaker) extends this rule.
+// adapterFamily maps the adapter a model was assessed with to the on-demand family that runs it (ADR 0056).
+// A model discovered through the Hugging Face addition is tried on its family: that is what lets Nemotron-3, a
+// new ECAPA-TDNN or a WeSpeaker graph run without a signed release or a new adapter. The seeded Sortformer keeps
+// an empty family and the embedded NeMo, pyannote and silero-jit are not in this table. A family added to the
+// table of engines extends this one.
+var adapterFamily = map[string]string{"nemo": "nemo", "nemo-titanet": "nemo", "speechbrain-ecapa": "speechbrain", "wespeaker": "wespeaker"}
+
+// catalogFamily is the rule that gives a model its engine family from its adapter and kind. The family must
+// cover the kind; whether an adapter actually runs it is engineFamily.runs (SpeechBrain separation does not).
 func catalogFamily(engine, kind string) string {
-	if engine == "nemo" && engineFamilies["nemo"].covers(kind) {
-		return "nemo"
+	if family := adapterFamily[engine]; family != "" && engineFamilies[family].covers(kind) {
+		return family
 	}
 	return ""
 }

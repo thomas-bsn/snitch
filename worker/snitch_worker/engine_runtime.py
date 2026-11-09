@@ -354,10 +354,22 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
 # version that matches _VERSION (it cannot start with "-"), so an order cannot inject a pip option.
 FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "extras": "asr", "kinds": ("diarization", "fingerprint"),
                      "probe": "nemo.collections.asr.models"},
+            # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter. Separation (SepFormer) is installed
+            # for but has no adapter: the engine goes with the model, separation stays disabled in Snitch.
+            "speechbrain": {"engine": "speechbrain", "distribution": "speechbrain", "extras": "", "kinds": ("fingerprint", "separation"),
+                            "probe": "speechbrain.lobes.models.ECAPA_TDNN"},
             # WeSpeaker is not published on PyPI; its ONNX inference package is `wespeakerruntime` (#375). Fingerprint only.
             "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
                           "probe": "wespeakerruntime"}}
 _ON_DEMAND_ENGINES = {family["engine"] for family in FAMILIES.values()}
+# Kinds an adapter actually runs, per family; a kind of the family that is not here (SpeechBrain separation) gets an engine
+# and no model (ADR 0056). Mirrors ActiveKinds of Snitch's table.
+_INACTIVE_KINDS = {"speechbrain": ("separation",)}
+
+
+def runs_kind(runtime: Any) -> bool:
+    """True for an on-demand runtime whose kind is run by an adapter of its family."""
+    return is_on_demand(runtime) and runtime.get("kind") not in _INACTIVE_KINDS.get(runtime.get("family"), ())
 _ON_DEMAND_FIELDS = {"source", "family", "engine", "distribution", "version", "kind", "kinds", "python", "platform", "cuda",
                      "disk_bytes", "vram_bytes", "ram_bytes", "estimated_seconds"}
 # Where packages come from is the operator's choice, read from the Worker's own environment (default: PyPI) and

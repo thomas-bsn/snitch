@@ -38,6 +38,7 @@ export const en = {
     orderedBy: "Ordered by {name}",
     generation: "order {generation}",
     revoked: "Revoked release: it keeps serving, no new installation.",
+    separationPending: "Engine installed, separation not available yet.",
     history: "History",
     ignored: "late report ignored ({reason})",
     delivery: "Delivered when the Worker pulls its orders.",

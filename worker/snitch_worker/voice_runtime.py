@@ -87,9 +87,12 @@ class RuntimeProvider:
             manifest = engine_runtime.model_binding(path)
             if manifest is not None:
                 expected = (config.get("fingerprint_model") or {}).get("engine", "pyannote") if kind == "fingerprint" else config.get("provider")
-                if manifest["engine"] != expected or manifest["kind"] != kind or not engine_runtime.installed(manifest, self.legacy._environ):
+                # A family engine is named after its package, not after the adapter of the catalogue: the binding of the
+                # model and its kind decide (ADR 0056). A signed release is still matched by engine name.
+                named = engine_runtime.is_on_demand(manifest) or manifest["engine"] == expected
+                if not named or manifest["kind"] != kind or not engine_runtime.installed(manifest, self.legacy._environ):
                     raise VoiceProviderUnavailable("ml_libraries_missing")
-            if manifest is None and getattr(self.legacy, "engine", "pyannote") in {"nemo-titanet", "speechbrain-ecapa"}:
+            if manifest is None and getattr(self.legacy, "engine", "pyannote") in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}:
                 raise VoiceProviderUnavailable("ml_libraries_missing")
             return path, manifest
         except engine_runtime.RuntimeFailed:

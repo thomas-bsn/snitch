@@ -30007,7 +30007,8 @@
           "model_id",
           "engine_required",
           "disk_bytes",
-          "estimated_seconds"
+          "estimated_seconds",
+          "active"
         ],
         "properties": {
           "model_id": {
@@ -30051,6 +30052,10 @@
           "blocker": {
             "type": "string",
             "description": "Cause stable qui refuserait l'ordre d'engine sur ce Worker (matériel), absente sinon."
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Faux quand la famille s'installe pour cette tâche mais qu'aucun adaptateur ne l'exécute (séparation SpeechBrain) : l'engine est commandé avec le modèle, le modèle reste indisponible."
           }
         }
       }

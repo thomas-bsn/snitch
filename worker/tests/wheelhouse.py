@@ -87,6 +87,22 @@ def build_nemo_wheelhouse(directory: Path) -> Path:
     return directory
 
 
+def build_speechbrain_wheelhouse(directory: Path) -> Path:
+    """The SpeechBrain family (#374): two versions that provide the module the install probe imports, and one that
+    does not (pip accepts it, but the family's adapters could not run in it)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    package = {
+        "speechbrain/__init__.py": "",
+        "speechbrain/lobes/__init__.py": "",
+        "speechbrain/lobes/models/__init__.py": "",
+        "speechbrain/lobes/models/ECAPA_TDNN.py": "READY = True\n",
+    }
+    build_wheel(directory, "speechbrain", "1.0.3", package)
+    build_wheel(directory, "speechbrain", "1.1.0", package)
+    build_wheel(directory, "speechbrain", "2.0.0", {"speechbrain/__init__.py": ""})
+    return directory
+
+
 def build_wespeaker_wheelhouse(directory: Path) -> Path:
     """The real distribution is `wespeakerruntime` (ONNX inference); `wespeaker` itself is not on PyPI (#375)."""
     directory.mkdir(parents=True, exist_ok=True)

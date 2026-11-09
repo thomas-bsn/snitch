@@ -126,7 +126,7 @@ class OrderExecutor:
         from snitch_worker import engine_runtime
         runtime = order.get("runtime")
         if runtime is None:
-            return order.get("engine") not in {"nemo-titanet", "speechbrain-ecapa"}
+            return order.get("engine") not in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}
         try:
             if engine_runtime.is_on_demand(runtime):
                 # The engine of a model installs by family and version; its kind must be the model's (ADR 0056).
@@ -136,6 +136,16 @@ class OrderExecutor:
             return True
         except engine_runtime.RuntimeFailed:
             return False
+
+    @staticmethod
+    def _runs_here(order: Mapping[str, Any], kind: Any, engine: str) -> bool:
+        """An adapter of this Worker runs the model: the signed and embedded ones by name, a family model by the
+        family and kind of its on-demand runtime, whatever adapter name the catalogue gives it (ADR 0056)."""
+        from snitch_worker import engine_runtime
+        runtime = order.get("runtime")
+        if engine_runtime.is_on_demand(runtime):
+            return engine_runtime.runs_kind(runtime) and runtime.get("kind") == kind
+        return kind in ENGINES and engine in ENGINES[kind]
 
     @staticmethod
     def _valid_intent(order: Mapping[str, Any]) -> bool:
@@ -154,9 +164,8 @@ class OrderExecutor:
             and (order.get("action") == "remove" or OrderExecutor._valid_runtime(order))
             and OrderExecutor._valid_intent(order)
             and isinstance(kind, str)
-            and kind in ENGINES
             and isinstance(engine, str)
-            and engine in ENGINES[kind]
+            and OrderExecutor._runs_here(order, kind, engine)
             and isinstance(order.get("model_id"), str)
             and bool(_MODEL_ID.fullmatch(order["model_id"]))
             and isinstance(repo, str)

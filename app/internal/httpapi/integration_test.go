@@ -419,6 +419,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineOnDemand(t, pool)
 	})
+	t.Run("voice engine on demand speechbrain", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineOnDemandSpeechBrain(t, pool)
+	})
 	t.Run("voice engine on demand wespeaker", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineWeSpeaker(t, pool)
@@ -430,6 +434,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice model on demand engine", func(t *testing.T) {
 		reset(t)
 		testVoiceModelOnDemandEngine(t, pool)
+	})
+	t.Run("voice model on demand families", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOnDemandFamilies(t, pool)
 	})
 	t.Run("voice engine families and plan", func(t *testing.T) {
 		reset(t)
