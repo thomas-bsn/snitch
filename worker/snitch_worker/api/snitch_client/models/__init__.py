@@ -171,12 +171,16 @@ from .engine_blocker_model_role import EngineBlockerModelRole
 from .engine_blockers import EngineBlockers
 from .engine_cleanup import EngineCleanup
 from .engine_cleanup_report import EngineCleanupReport
+from .engine_families import EngineFamilies
+from .engine_family import EngineFamily
 from .engine_order import EngineOrder
 from .engine_order_intent import EngineOrderIntent
 from .engine_order_status import EngineOrderStatus
 from .engine_recovery_result import EngineRecoveryResult
 from .engine_recovery_result_status import EngineRecoveryResultStatus
 from .engine_retry_input import EngineRetryInput
+from .engine_runtime import EngineRuntime
+from .engine_runtime_source import EngineRuntimeSource
 from .engine_uninstall_preview import EngineUninstallPreview
 from .engine_uninstall_preview_state import EngineUninstallPreviewState
 from .error import Error
@@ -296,6 +300,14 @@ from .notification_read import NotificationRead
 from .notification_state import NotificationState
 from .obsolete_correction import ObsoleteCorrection
 from .obsolete_corrections import ObsoleteCorrections
+from .on_demand_engine_order_input import OnDemandEngineOrderInput
+from .on_demand_engine_order_input_orders_item import OnDemandEngineOrderInputOrdersItem
+from .on_demand_engine_plan import OnDemandEnginePlan
+from .on_demand_engine_plan_input import OnDemandEnginePlanInput
+from .on_demand_engine_plan_worker import OnDemandEnginePlanWorker
+from .on_demand_engine_plan_worker_status import OnDemandEnginePlanWorkerStatus
+from .on_demand_engine_runtime import OnDemandEngineRuntime
+from .on_demand_engine_runtime_source import OnDemandEngineRuntimeSource
 from .people_to_process import PeopleToProcess
 from .people_to_process_clip import PeopleToProcessClip
 from .people_to_process_totals import PeopleToProcessTotals
@@ -389,7 +401,6 @@ from .segment_speaker_input import SegmentSpeakerInput
 from .segment_text_input import SegmentTextInput
 from .session import Session
 from .set_video_root_body import SetVideoRootBody
-from .set_worker_engine_group_body import SetWorkerEngineGroupBody
 from .settings import Settings
 from .settings_input import SettingsInput
 from .settings_master_key_origin import SettingsMasterKeyOrigin
@@ -527,6 +538,8 @@ from .voice_model_order_history_item_action import VoiceModelOrderHistoryItemAct
 from .voice_model_order_history_item_kind import VoiceModelOrderHistoryItemKind
 from .voice_model_order_history_item_status import VoiceModelOrderHistoryItemStatus
 from .voice_model_order_input import VoiceModelOrderInput
+from .voice_model_order_preview import VoiceModelOrderPreview
+from .voice_model_order_preview_state import VoiceModelOrderPreviewState
 from .voice_model_patch import VoiceModelPatch
 from .voice_model_removal_input import VoiceModelRemovalInput
 from .voice_model_retry import VoiceModelRetry
@@ -581,6 +594,7 @@ from .worker_engine_inventory_runtimes_item import WorkerEngineInventoryRuntimes
 from .worker_engine_order_cause_code import WorkerEngineOrderCauseCode
 from .worker_engine_order_intent import WorkerEngineOrderIntent
 from .worker_engine_order_status import WorkerEngineOrderStatus
+from .worker_engine_source import WorkerEngineSource
 from .worker_engine_state import WorkerEngineState
 from .worker_engine_status import WorkerEngineStatus
 from .worker_engine_status_cause_code import WorkerEngineStatusCauseCode
@@ -841,12 +855,16 @@ __all__ = (
     "EngineBlockers",
     "EngineCleanup",
     "EngineCleanupReport",
+    "EngineFamilies",
+    "EngineFamily",
     "EngineOrder",
     "EngineOrderIntent",
     "EngineOrderStatus",
     "EngineRecoveryResult",
     "EngineRecoveryResultStatus",
     "EngineRetryInput",
+    "EngineRuntime",
+    "EngineRuntimeSource",
     "EngineUninstallPreview",
     "EngineUninstallPreviewState",
     "Error",
@@ -966,6 +984,14 @@ __all__ = (
     "NotificationState",
     "ObsoleteCorrection",
     "ObsoleteCorrections",
+    "OnDemandEngineOrderInput",
+    "OnDemandEngineOrderInputOrdersItem",
+    "OnDemandEnginePlan",
+    "OnDemandEnginePlanInput",
+    "OnDemandEnginePlanWorker",
+    "OnDemandEnginePlanWorkerStatus",
+    "OnDemandEngineRuntime",
+    "OnDemandEngineRuntimeSource",
     "PeopleToProcess",
     "PeopleToProcessClip",
     "PeopleToProcessTotals",
@@ -1072,7 +1098,6 @@ __all__ = (
     "SetupStepStateState",
     "SetupStepStateStep",
     "SetVideoRootBody",
-    "SetWorkerEngineGroupBody",
     "Source",
     "SourceFile",
     "SourceFiles",
@@ -1197,6 +1222,8 @@ __all__ = (
     "VoiceModelOrderHistoryItemKind",
     "VoiceModelOrderHistoryItemStatus",
     "VoiceModelOrderInput",
+    "VoiceModelOrderPreview",
+    "VoiceModelOrderPreviewState",
     "VoiceModelPatch",
     "VoiceModelRemovalInput",
     "VoiceModelRetry",
@@ -1251,6 +1278,7 @@ __all__ = (
     "WorkerEngineOrderCauseCode",
     "WorkerEngineOrderIntent",
     "WorkerEngineOrderStatus",
+    "WorkerEngineSource",
     "WorkerEnginesRow",
     "WorkerEngineState",
     "WorkerEngineStatus",

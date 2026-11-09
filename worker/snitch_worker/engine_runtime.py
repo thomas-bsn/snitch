@@ -1,8 +1,10 @@
 """Approved, immutable runtimes. Installation is called only by an explicit model order.
 
-All packages are wheels named and hashed by the trusted publisher. pip resolves
-nothing and runs no source build. Inference uses this venv, never the Worker's
-ML environment. Failed revisions stay separate from the previous runtime.
+Signed path: all packages are wheels named and hashed by the trusted publisher. pip resolves
+nothing and runs no source build. On-demand path (#370, ADR 0056): pip resolves a library of a
+closed family table by name and version, `pip freeze` is recorded, and pip's output is only ever
+mapped to stable causes. Inference uses this venv, never the Worker's ML environment. Failed
+revisions stay separate from the previous runtime.
 """
 from __future__ import annotations
 
@@ -173,7 +175,7 @@ def check_resources(manifest: Mapping[str, Any], hw: Mapping[str, Any] | None) -
     ram = manifest.get("ram_bytes", 0)
     if ram and hw.get("ram_bytes", 0) and ram > hw["ram_bytes"]:
         raise RuntimeFailed("insufficient_ram")
-    if manifest["cuda"] != "cpu" and hw.get("cuda") == "":
+    if manifest["cuda"] not in ("cpu", "") and hw.get("cuda") == "":
         raise RuntimeFailed("cuda_incompatible")
 
 
@@ -186,11 +188,18 @@ def root(environ: Mapping[str, str]) -> Path:
 
 
 def location(manifest: Mapping[str, Any], environ: Mapping[str, str]) -> Path:
+    if is_on_demand(manifest):
+        return root(environ) / manifest["engine"] / _slot(manifest)
     return root(environ) / manifest["engine"] / identity(manifest)
 
 
 def installed(manifest: Mapping[str, Any], environ: Mapping[str, str]) -> bool:
     path = location(manifest, environ)
+    if is_on_demand(manifest):
+        try:
+            return (path / ".ready").read_text() == _on_demand_identity(path, manifest) and (path / "bin/python").is_file()
+        except (OSError, ValueError):
+            return False
     try:
         return (path / ".ready").read_text() == identity(manifest) and (path / "bin/python").is_file()
     except OSError:
@@ -265,6 +274,8 @@ def _wheel_budget(directory: Path, budget: int) -> None:
 
 
 def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, detailed: bool = False) -> Path:
+    if is_on_demand(manifest):
+        return _install_on_demand(manifest, environ, report)
     validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
     if sys.version_info[:2] != (3, 12) or platform.system() != "Linux" or platform.machine() != "x86_64":
         raise RuntimeFailed("platform_incompatible")
@@ -337,6 +348,197 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
     return target
 
 
+# -- On-demand engines (#370, ADR 0056) -----------------------------------------------------------------------------
+# The closed family table of the Worker mirrors Snitch's: an order names a family, never a package to run. Anything
+# not in this table, or that differs from it, is refused. Pip arguments are built only from these values and a
+# version that matches _VERSION (it cannot start with "-"), so an order cannot inject a pip option.
+FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "extras": "asr", "kinds": ("diarization", "fingerprint"),
+                     "probe": "nemo.collections.asr.models"},
+            # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter. Separation (SepFormer) is installed
+            # for but has no adapter: the engine goes with the model, separation stays disabled in Snitch.
+            "speechbrain": {"engine": "speechbrain", "distribution": "speechbrain", "extras": "", "kinds": ("fingerprint", "separation"),
+                            "probe": "speechbrain.lobes.models.ECAPA_TDNN"},
+            # WeSpeaker is not published on PyPI; its ONNX inference package is `wespeakerruntime` (#375). Fingerprint only.
+            "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
+                          "probe": "wespeakerruntime"}}
+_ON_DEMAND_ENGINES = {family["engine"] for family in FAMILIES.values()}
+# Kinds an adapter actually runs, per family; a kind of the family that is not here (SpeechBrain separation) gets an engine
+# and no model (ADR 0056). Mirrors ActiveKinds of Snitch's table.
+_INACTIVE_KINDS = {"speechbrain": ("separation",)}
+# Adapters that only exist as a signed Release (no embedded copy), and every engine name a fingerprint speaker
+# adapter runs: those plus the families that cover fingerprint only. Mirrors signedOnlyAdapters of Snitch's table;
+# scripts/check_engine_families.py fails the build when this file and the Go table drift apart.
+SIGNED_ONLY_ADAPTERS = frozenset({"nemo-titanet", "speechbrain-ecapa"})
+SPEAKER_ENGINES = SIGNED_ONLY_ADAPTERS | {family["engine"] for family in FAMILIES.values() if family["kinds"] == ("fingerprint",)}
+
+
+def runs_kind(runtime: Any) -> bool:
+    """True for an on-demand runtime whose kind is run by an adapter of its family."""
+    return is_on_demand(runtime) and runtime.get("kind") not in _INACTIVE_KINDS.get(runtime.get("family"), ())
+_ON_DEMAND_FIELDS = {"source", "family", "engine", "distribution", "version", "kind", "kinds", "python", "platform", "cuda",
+                     "disk_bytes", "vram_bytes", "ram_bytes", "estimated_seconds"}
+# Where packages come from is the operator's choice, read from the Worker's own environment (default: PyPI) and
+# never forwarded to a child process. Tests point it to a local directory with --no-index.
+INDEX_URL_ENV, FIND_LINKS_ENV, NO_INDEX_ENV = "SNITCH_ENGINE_INDEX_URL", "SNITCH_ENGINE_FIND_LINKS", "SNITCH_ENGINE_NO_INDEX"
+PIP_TIMEOUT_SECONDS = 3600
+
+
+def is_on_demand(runtime: Any) -> bool:
+    return isinstance(runtime, dict) and runtime.get("source") == "on_demand"
+
+
+def validate_on_demand(runtime: Any) -> None:
+    def require(condition: Any) -> None:
+        if not condition:
+            raise ValueError()
+    try:
+        require(isinstance(runtime, dict) and set(runtime) == _ON_DEMAND_FIELDS and runtime["source"] == "on_demand")
+        family = FAMILIES[runtime["family"]]
+        require(runtime["engine"] == family["engine"] and runtime["distribution"] == family["distribution"])
+        require(isinstance(runtime["version"], str) and _VERSION.fullmatch(runtime["version"]))
+        require(runtime["kind"] in family["kinds"] and runtime["kinds"] == list(family["kinds"]))
+        require(runtime["python"] == "3.12" and runtime["platform"] == "linux-x86_64" and runtime["cuda"] == "")
+        for field in ("disk_bytes", "vram_bytes", "ram_bytes", "estimated_seconds"):
+            require(type(runtime[field]) is int and 0 <= runtime[field] <= 1 << 40)
+        require(runtime["disk_bytes"] > 0)
+    except (KeyError, TypeError, ValueError, AttributeError):
+        raise RuntimeFailed() from None
+
+
+def validate_runtime(runtime: Any) -> None:
+    """Validate a runtime of either kind: a signed manifest or an on-demand description."""
+    if is_on_demand(runtime):
+        validate_on_demand(runtime)
+    elif isinstance(runtime, dict):
+        validate(runtime, runtime.get("engine", ""), runtime.get("kind", ""))
+    else:
+        raise RuntimeFailed()
+
+
+def _slot(runtime: Mapping[str, Any]) -> str:
+    """The directory of a family and version: one environment per version, whatever pip resolves into it."""
+    return hashlib.sha256(f"{runtime['family']}\n{runtime['version']}".encode()).hexdigest()
+
+
+def _on_demand_identity(path: Path, runtime: Mapping[str, Any] | None = None) -> str:
+    """Local identity of an installed on-demand engine: family, version and the hash of the recorded pip freeze."""
+    meta = json.loads((path / "ondemand.json").read_text()) if runtime is None else {"family": runtime["family"], "version": runtime["version"]}
+    freeze = hashlib.sha256((path / "pip-freeze.txt").read_bytes()).hexdigest()
+    return hashlib.sha256(json.dumps({"family": meta["family"], "version": meta["version"], "freeze_sha256": freeze},
+                                     sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def local_identity(runtime: Mapping[str, Any], environ: Mapping[str, str]) -> str:
+    if not is_on_demand(runtime):
+        return identity(runtime)
+    try:
+        return _on_demand_identity(location(runtime, environ), runtime)
+    except OSError:
+        raise RuntimeFailed() from None
+
+
+def _index_arguments(environ: Mapping[str, str]) -> list[str]:
+    arguments = ["--retries=2", "--timeout=30"]
+    index, links = environ.get(INDEX_URL_ENV, "").strip(), environ.get(FIND_LINKS_ENV, "").strip()
+    if environ.get(NO_INDEX_ENV, "").strip() == "1":
+        arguments.append("--no-index")
+    elif index:
+        arguments.append("--index-url=" + index)
+    if links:
+        arguments.append("--find-links=" + links)
+    return arguments
+
+
+def classify_pip(output: str) -> str:
+    """Map pip's output to a stable cause. The text itself is never kept, logged or sent anywhere."""
+    text = output.lower()
+    if "no space left on device" in text:
+        return "disk_full"
+    if "resolutionimpossible" in text or "conflicting dependencies" in text or "the conflict is caused by" in text:
+        return "resolution_failed"
+    if "failed building wheel" in text or "subprocess-exited-with-error" in text or "failed to build" in text or "getting requirements to build" in text:
+        return "build_failed"
+    if any(mark in text for mark in ("failed to establish a new connection", "temporary failure in name resolution", "name or service not known",
+                                     "connection timed out", "read timed out", "max retries exceeded", "could not fetch url", "network is unreachable",
+                                     "proxyerror", "sslerror", "connection refused")):
+        return "hf_network"
+    if "no matching distribution" in text or "could not find a version" in text:
+        return "package_not_found"
+    return "runtime_incompatible"
+
+
+def _pip(python: str, arguments: list[str], env: Mapping[str, str], timeout: int) -> str:
+    """Run pip in the engine environment with its output captured; it is returned only to be classified or recorded as the freeze."""
+    try:
+        done = subprocess.run([python, "-I", "-m", "pip", "--isolated", *arguments], env=env, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise RuntimeFailed("hf_network") from None
+    if done.returncode != 0:
+        raise RuntimeFailed(classify_pip(done.stdout or ""))
+    return done.stdout or ""
+
+
+def _normal(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], report: Any) -> Path:
+    validate_on_demand(runtime)
+    family = FAMILIES[runtime["family"]]
+    if sys.version_info[:2] != (3, 12) or platform.system() != "Linux" or platform.machine() != "x86_64":
+        raise RuntimeFailed("platform_incompatible")
+    target = location(runtime, environ)
+    with _LOCK, _volume_lock(target.parent):
+        if installed(runtime, environ):
+            return target
+        check_resources(runtime, hardware(environ))
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if shutil.disk_usage(target.parent).free < runtime["disk_bytes"]:
+            raise RuntimeFailed("disk_full")
+        if target.is_symlink():
+            raise RuntimeFailed()
+        if target.exists():
+            shutil.rmtree(target)
+        target.mkdir()
+        env = environment(environ)
+        requirement = f"{family['distribution']}[{family['extras']}]=={runtime['version']}" if family["extras"] else f"{family['distribution']}=={runtime['version']}"
+        try:
+            checkpoint()
+            report("installing")
+            subprocess.run([sys.executable, "-m", "venv", str(target)], env=env, check=True,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            checkpoint()
+            python = str(target / "bin/python")
+            _pip(python, ["install", "--no-input", "--disable-pip-version-check", *_index_arguments(environ), requirement], env, PIP_TIMEOUT_SECONDS)
+            checkpoint()
+            report("verifying")
+            try:
+                _pip(python, ["check"], env, 120)
+            except RuntimeFailed:
+                raise RuntimeFailed("resolution_failed") from None
+            checkpoint()
+            freeze = _pip(python, ["freeze"], env, 120)
+            names = {_normal(line.split("==", 1)[0]): line.split("==", 1)[1].strip() for line in freeze.splitlines() if "==" in line}
+            if names.get(_normal(family["distribution"])) != runtime["version"]:
+                raise RuntimeFailed()
+            (target / "pip-freeze.txt").write_text(freeze if freeze.endswith("\n") else freeze + "\n")
+            (target / "ondemand.json").write_text(json.dumps({"family": runtime["family"], "version": runtime["version"]}, sort_keys=True))
+            checkpoint()
+            # The family's library must import before the runtime is recorded. No model weight is read or downloaded.
+            subprocess.run([python, "-I", "-c", "import importlib; importlib.import_module(" + repr(family["probe"]) + ")"],
+                           env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+            checkpoint()
+            (target / ".ready").write_text(_on_demand_identity(target, runtime))
+        except RuntimeFailed:
+            raise
+        except OSError as exc:
+            raise RuntimeFailed("disk_full" if exc.errno == 28 else "runtime_incompatible") from None
+        except (subprocess.SubprocessError, ValueError):
+            raise RuntimeFailed() from None
+    return target
+
+
 def cleanup(manifest: dict[str, Any], environ: Mapping[str, str]) -> bool:
     """Remove the incomplete directory of this exact release, and nothing else.
 
@@ -344,7 +546,7 @@ def cleanup(manifest: dict[str, Any], environ: Mapping[str, str]) -> bool:
     marker matching its identity, interpreter present) is never removed, nor is anything outside the runtime
     root. Temporary wheel directories are shared by every install of an engine and are not attributable.
     Returns whether something was removed."""
-    validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
+    validate_runtime(manifest)
     target = location(manifest, environ)
     base = root(environ).resolve()
     with _LOCK, _volume_lock(target.parent):
@@ -363,7 +565,7 @@ def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
     """What this volume proves it holds: runtimes whose ready marker matches their own identity. Read-only."""
     found: list[dict[str, str]] = []
     try:
-        engines = sorted(path for path in root(environ).iterdir() if path.is_dir() and path.name in ADAPTERS)
+        engines = sorted(path for path in root(environ).iterdir() if path.is_dir() and (path.name in ADAPTERS or path.name in _ON_DEMAND_ENGINES))
     except OSError:
         return found
     for engine in engines:
@@ -373,9 +575,15 @@ def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
             continue
         for path in candidates:
             try:
-                if _SHA.fullmatch(path.name) and (path / ".ready").read_text() == path.name and (path / "bin/python").is_file():
+                if not (_SHA.fullmatch(path.name) and (path / "bin/python").is_file()):
+                    continue
+                if engine.name in _ON_DEMAND_ENGINES:
+                    proof = _on_demand_identity(path)
+                    if (path / ".ready").read_text() == proof:
+                        found.append({"engine": engine.name, "local_identity": proof})
+                elif (path / ".ready").read_text() == path.name:
                     found.append({"engine": engine.name, "local_identity": path.name})
-            except OSError:
+            except (OSError, ValueError):
                 continue
     return found
 
@@ -383,13 +591,20 @@ def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
 def referenced(manifest: Mapping[str, Any], environ: Mapping[str, str]) -> bool:
     """Whether a model on this volume is still bound to this exact runtime. Read-only."""
     wanted = identity(manifest)
+    # An on-demand environment is one directory per family and version, shared by every kind of the family: a model
+    # bound to any kind of it keeps the directory, so the comparison ignores the kind.
+    shared = (manifest.get("family"), manifest.get("version")) if is_on_demand(manifest) else None
     try:
         bindings = list(Path(voice_models.models_root(environ)).rglob(".snitch-runtime.json"))
     except OSError:
         return True  # what cannot be read cannot prove that the runtime is free
     for binding in bindings:
         try:
-            if identity(json.loads(binding.read_text())) == wanted:
+            bound = json.loads(binding.read_text())
+            if shared is not None and is_on_demand(bound):
+                if (bound.get("family"), bound.get("version")) == shared:
+                    return True
+            elif identity(bound) == wanted:
                 return True
         except (OSError, ValueError, TypeError):
             continue
@@ -400,7 +615,7 @@ def uninstall(manifest: dict[str, Any], environ: Mapping[str, str]) -> None:
     """Remove the one runtime the manifest designates. Idempotent: an absent runtime is already removed.
 
     Refused while a model still points to it. Other releases of the engine, wheels and models are untouched."""
-    validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
+    validate_runtime(manifest)
     target = location(manifest, environ)
     with _LOCK, _volume_lock(target.parent):
         if referenced(manifest, environ):
@@ -414,7 +629,7 @@ def uninstall(manifest: dict[str, Any], environ: Mapping[str, str]) -> None:
 def model_binding(path: str) -> dict[str, Any] | None:
     try:
         value = json.loads((Path(path) / ".snitch-runtime.json").read_text())
-        validate(value, value.get("engine", ""), value.get("kind", ""))
+        validate_runtime(value)
         return value
     except FileNotFoundError:
         return None

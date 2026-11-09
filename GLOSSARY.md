@@ -113,11 +113,15 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Catalogue de modèles vocaux** : Les références de modèles locaux (diarisation, empreinte, séparation) que Snitch sait exécuter, éditées par le Super-administrateur. Seul un modèle du catalogue dont un adaptateur approuvé sait réellement le charger peut être installé ; un dépôt quelconque, ou un modèle sans adaptateur (`unsupported`), n'est jamais exécuté. Le moteur n'est pas un choix de l'utilisateur. ADR 0038.
 
-**Runtime approuvé** : Le code d'exécution d'un moteur vocal (par exemple TitaNet ou ECAPA-TDNN) que Snitch autorise, sous la forme d'une version signée par un éditeur de confiance. Un modèle du catalogue décrit des poids ; seul un Runtime approuvé permet de les exécuter. ADR 0055.
+**Famille d'engine** : Un ensemble de modèles que Snitch sait exécuter avec une même bibliothèque d'exécution, pour les tâches qu'il couvre. Tout modèle du catalogue rattaché à la famille y est chargé sans code propre à ce modèle ; les familles connues sont celles de la table de Snitch. Un modèle sans famille est refusé comme « famille non supportée », cause distincte d'un engine absent. ADR 0056.
 
-**Release d'engine** : Une version précise et immuable d'un Runtime approuvé. Une Release révoquée ne peut plus être installée ; ce qui est déjà installé continue de servir.
+**Engine à la demande** : Un engine désigné par une Famille d'engine et une version, installé sur un Worker après confirmation de l'Administrateur, sans signature ni import. Plusieurs versions d'une même famille coexistent sur un Worker. Sa résolution n'est pas reproductible d'une installation à l'autre, et sa confiance repose sur l'opérateur seul ; le parcours signé reste disponible sous « Avancé ». ADR 0056.
 
-**Variante de modèle épinglée** : Un modèle de famille d'empreinte que le Worker accepte parce que ses fichiers correspondent, octet pour octet, à une révision connue de l'adaptateur. Une autre révision ou architecture est refusée avec une raison, jamais devinée ; la configuration d'un modèle (par exemple le YAML de SpeechBrain) est lue comme une donnée et n'est jamais exécutée. ADR 0055.
+**Runtime approuvé** : Le code d'exécution d'un moteur vocal (par exemple TitaNet ou ECAPA-TDNN) que Snitch autorise, sous la forme d'une version signée par un éditeur de confiance. Un modèle du catalogue décrit des poids ; seul un Runtime approuvé permet de les exécuter. ADR 0055. Reste valable pour le parcours signé, désormais sous « Avancé » ; le parcours par défaut est l'Engine à la demande (ADR 0056).
+
+**Release d'engine** : Une version précise et immuable d'un Runtime approuvé. Une Release révoquée ne peut plus être installée ; ce qui est déjà installé continue de servir. Reste valable pour le parcours signé, sous « Avancé ».
+
+**Variante de modèle épinglée** : Un modèle de famille d'empreinte que le Worker accepte parce que ses fichiers correspondent, octet pour octet, à une révision connue de l'adaptateur. Une autre révision ou architecture est refusée avec une raison, jamais devinée ; la configuration d'un modèle (par exemple le YAML de SpeechBrain) est lue comme une donnée et n'est jamais exécutée. ADR 0055. Reste valable pour le parcours signé ; le parcours par défaut charge tout modèle d'une Famille d'engine (ADR 0056).
 
 **Jeu de données de benchmark** : Ensemble de voix déjà validées par un humain, réparties en références et tests, sur lequel on mesure plusieurs modèles. La Personne de chaque voix est figée à la création. Il ne modifie jamais la bibliothèque. ADR 0056.
 
@@ -129,7 +133,7 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Empreinte vocale réelle** : Une empreinte produite par un modèle d'empreinte du catalogue exécuté pour de bon sur un Worker (et non par un double de test). Elle porte le modèle, sa version, ses dimensions, un vecteur normalisé, la durée de parole utilisée et une qualité ; elle n'est jamais comparée à celle d'une autre famille, version ou dimension. Une preuve sur la machine de l'opérateur (matériel, mémoire, durée) reste distincte des tests automatiques.
 
-**Enveloppe de release** : Le fichier signé qu'un éditeur de confiance remet au Super-administrateur pour importer une Release d'engine : l'identité de la clé, le manifeste et sa signature. La clé privée de l'éditeur reste chez lui ; Snitch ne la voit jamais.
+**Enveloppe de release** : Le fichier signé qu'un éditeur de confiance remet au Super-administrateur pour importer une Release d'engine : l'identité de la clé, le manifeste et sa signature. La clé privée de l'éditeur reste chez lui ; Snitch ne la voit jamais. Reste valable pour le parcours signé, sous « Avancé », réservé au propriétaire.
 
 **Matériel du Worker** : Ce qu'un Worker déclare de sa machine (Python, plateforme, CUDA, RAM, VRAM, disque libre) et si sa configuration autorise le repli CPU. Une Release d'engine est comparée à ce matériel avant tout ordre ; un Worker qui n'a rien déclaré n'est pas bloqué et vérifie lui-même avant d'installer.
 

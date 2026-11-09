@@ -439,13 +439,53 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineRegistry(t, pool)
 	})
+	t.Run("voice engine on demand", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineOnDemand(t, pool)
+	})
+	t.Run("voice catalog family edition", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogFamilyEdition(t, pool)
+	})
+	t.Run("voice catalog family backfill", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogFamilyBackfill(t, pool)
+	})
+	t.Run("voice engine shared directory", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineSharedDirectory(t, pool)
+	})
+	t.Run("voice engine on demand speechbrain", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineOnDemandSpeechBrain(t, pool)
+	})
+	t.Run("voice engine on demand wespeaker", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineWeSpeaker(t, pool)
+	})
+	t.Run("voice engine on demand resources", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineOnDemandResources(t, pool)
+	})
+	t.Run("voice model on demand engine", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOnDemandEngine(t, pool)
+	})
+	t.Run("voice model on demand families", func(t *testing.T) {
+		reset(t)
+		testVoiceModelOnDemandFamilies(t, pool)
+	})
+	t.Run("voice engine families and plan", func(t *testing.T) {
+		reset(t)
+		testVoiceEngineFamiliesAndPlan(t, pool)
+	})
 	t.Run("voice engine orders", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineOrders(t, pool)
 	})
-	t.Run("worker engine groups", func(t *testing.T) {
+	t.Run("voice model runtime on demand", func(t *testing.T) {
 		reset(t)
-		testWorkerEngineGroups(t, pool)
+		testVoiceModelRuntimeOnDemand(t, pool)
 	})
 	t.Run("voice model runtime update", func(t *testing.T) {
 		reset(t)
@@ -1231,6 +1271,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/worker/voice-model-orders/"+contractOrder.OrderID+"/ack", map[string]any{"accepted": true}, "", 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/voice-model-replacements/diarization", nil, me.CSRF, 404)
 		call(client, "GET", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders", nil, "", 200)
+		call(client, "GET", "/api/admin/workers/"+contractWorker.ID+"/voice-model-orders/preview?model_id=pyannote-wespeaker-resnet34", nil, "", 200)
 		call(client, "POST", "/api/admin/workers/"+contractWorker.ID+"/voice-model-removals", map[string]any{"model_id": "unknown-model", "idempotency_key": "contract-remove-0001"}, me.CSRF, 400)
 		call(client, "POST", "/api/worker/install-events", map[string]any{"events": []map[string]any{{"phase": "service", "status": "succeeded", "occurred_at": time.Now().UTC().Format(time.RFC3339)}}}, "", 204)
 		claimedBody := call(client, "POST", "/api/worker/jobs/claim", nil, "", 200)
@@ -1274,8 +1315,6 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", failedPath+"/history", nil, "", 200)
 		call(client, "POST", failedPath+"/retry", nil, me.CSRF, 200)
 		call(client, "DELETE", failedPath, nil, me.CSRF, 204)
-		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": "Synthetic contract group"}, me.CSRF, 204)
-		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": ""}, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
 		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 404)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
@@ -1373,11 +1412,6 @@ func TestFoundation(t *testing.T) {
 		json.Unmarshal(call(user, "GET", "/api/auth/me", nil, "", 200), &playerSession)
 		call(user, "GET", restartPath, nil, "", 403)
 		call(user, "POST", restartPath, restartInput, playerSession.CSRF, 403)
-		groupPath := "/api/admin/workers/wk_missing_synthetic/engine-group"
-		groupInput := map[string]string{"group_name": "Synthetic contract group"}
-		call(anon, "PUT", groupPath, groupInput, "", 401)
-		call(user, "PUT", groupPath, groupInput, playerSession.CSRF, 403)
-		call(client, "PUT", groupPath, groupInput, me.CSRF, 404)
 		for _, action := range []struct{ method, suffix string }{
 			{"POST", "/password"}, {"DELETE", "/sessions"}, {"DELETE", "/discord"},
 		} {

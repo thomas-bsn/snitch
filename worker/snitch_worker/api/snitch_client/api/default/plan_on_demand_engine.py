@@ -9,15 +9,15 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
-from ...models.set_worker_engine_group_body import SetWorkerEngineGroupBody
+from ...models.on_demand_engine_plan import OnDemandEnginePlan
+from ...models.on_demand_engine_plan_input import OnDemandEnginePlanInput
 from typing import cast
 
 
 
 def _get_kwargs(
-    id: str,
     *,
-    body: SetWorkerEngineGroupBody,
+    body: OnDemandEnginePlanInput,
     origin: str,
     x_csrf_token: str,
 
@@ -34,8 +34,8 @@ def _get_kwargs(
 
 
     _kwargs: dict[str, Any] = {
-        "method": "put",
-        "url": "/api/admin/workers/{id}/engine-group".format(id=quote(str(id), safe=""),),
+        "method": "post",
+        "url": "/api/admin/voice-engines/on-demand-plan",
     }
 
     _kwargs["json"] = body.to_dict()
@@ -47,10 +47,13 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Any | Error:
-    if response.status_code == 204:
-        response_204 = cast(Any, None)
-        return response_204
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Error | OnDemandEnginePlan:
+    if response.status_code == 200:
+        response_200 = OnDemandEnginePlan.from_dict(response.json())
+
+
+
+        return response_200
 
     response_default = Error.from_dict(response.json())
 
@@ -60,7 +63,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Any | Error]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[Error | OnDemandEnginePlan]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -70,35 +73,33 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: SetWorkerEngineGroupBody,
+    body: OnDemandEnginePlanInput,
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Any | Error]:
-    """  Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun
-    téléchargement ni ordre.
+) -> Response[Error | OnDemandEnginePlan]:
+    """  Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur
+    des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée
+    ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.
 
     Args:
-        id (str):
         origin (str):
         x_csrf_token (str):
-        body (SetWorkerEngineGroupBody):
+        body (OnDemandEnginePlanInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | Error]
+        Response[Error | OnDemandEnginePlan]
      """
 
 
     kwargs = _get_kwargs(
-        id=id,
-body=body,
+        body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -111,35 +112,33 @@ x_csrf_token=x_csrf_token,
     return _build_response(client=client, response=response)
 
 def sync(
-    id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: SetWorkerEngineGroupBody,
+    body: OnDemandEnginePlanInput,
     origin: str,
     x_csrf_token: str,
 
-) -> Any | Error | None:
-    """  Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun
-    téléchargement ni ordre.
+) -> Error | OnDemandEnginePlan | None:
+    """  Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur
+    des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée
+    ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.
 
     Args:
-        id (str):
         origin (str):
         x_csrf_token (str):
-        body (SetWorkerEngineGroupBody):
+        body (OnDemandEnginePlanInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | Error
+        Error | OnDemandEnginePlan
      """
 
 
     return sync_detailed(
-        id=id,
-client=client,
+        client=client,
 body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
@@ -147,35 +146,33 @@ x_csrf_token=x_csrf_token,
     ).parsed
 
 async def asyncio_detailed(
-    id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: SetWorkerEngineGroupBody,
+    body: OnDemandEnginePlanInput,
     origin: str,
     x_csrf_token: str,
 
-) -> Response[Any | Error]:
-    """  Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun
-    téléchargement ni ordre.
+) -> Response[Error | OnDemandEnginePlan]:
+    """  Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur
+    des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée
+    ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.
 
     Args:
-        id (str):
         origin (str):
         x_csrf_token (str):
-        body (SetWorkerEngineGroupBody):
+        body (OnDemandEnginePlanInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any | Error]
+        Response[Error | OnDemandEnginePlan]
      """
 
 
     kwargs = _get_kwargs(
-        id=id,
-body=body,
+        body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -188,35 +185,33 @@ x_csrf_token=x_csrf_token,
     return _build_response(client=client, response=response)
 
 async def asyncio(
-    id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: SetWorkerEngineGroupBody,
+    body: OnDemandEnginePlanInput,
     origin: str,
     x_csrf_token: str,
 
-) -> Any | Error | None:
-    """  Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun
-    téléchargement ni ordre.
+) -> Error | OnDemandEnginePlan | None:
+    """  Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur
+    des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée
+    ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.
 
     Args:
-        id (str):
         origin (str):
         x_csrf_token (str):
-        body (SetWorkerEngineGroupBody):
+        body (OnDemandEnginePlanInput):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Any | Error
+        Error | OnDemandEnginePlan
      """
 
 
     return (await asyncio_detailed(
-        id=id,
-client=client,
+        client=client,
 body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,

@@ -15,7 +15,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.voice_engine_manifest import VoiceEngineManifest
+  from ..models.engine_runtime import EngineRuntime
 
 
 
@@ -39,7 +39,9 @@ class EngineOrder:
                 est ignoré.
             idempotency_key (str):
             status (EngineOrderStatus):
-            runtime (VoiceEngineManifest):
+            runtime (EngineRuntime): Runtime figé dans un ordre d'engine : manifeste signé d'une Release
+                (VoiceEngineManifest) ou description d'un engine à la demande (OnDemandEngineRuntime). Seuls les champs communs
+                sont requis ici ; le Worker valide chaque forme.
             created_at (datetime.datetime):
             cancel_requested (bool | Unset): Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme
                 par un rapport failed/cancelled.
@@ -54,7 +56,7 @@ class EngineOrder:
     generation: int
     idempotency_key: str
     status: EngineOrderStatus
-    runtime: VoiceEngineManifest
+    runtime: EngineRuntime
     created_at: datetime.datetime
     cancel_requested: bool | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -64,7 +66,7 @@ class EngineOrder:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.voice_engine_manifest import VoiceEngineManifest # noqa: PLC0415
+        from ..models.engine_runtime import EngineRuntime # noqa: PLC0415
         order_id = self.order_id
 
         worker_id = self.worker_id
@@ -114,7 +116,7 @@ class EngineOrder:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.voice_engine_manifest import VoiceEngineManifest # noqa: PLC0415
+        from ..models.engine_runtime import EngineRuntime # noqa: PLC0415
         d = dict(src_dict)
         order_id = d.pop("order_id")
 
@@ -140,7 +142,7 @@ class EngineOrder:
 
 
 
-        runtime = VoiceEngineManifest.from_dict(d.pop("runtime"))
+        runtime = EngineRuntime.from_dict(d.pop("runtime"))
 
 
 

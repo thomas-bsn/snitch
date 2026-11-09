@@ -60,7 +60,8 @@ func checkEngineResources(m engineManifest, hw *workerHardware, reservedDisk int
 		return engineVerdict{Cause: causePlatform}
 	}
 	// CPU execution requires its own approved release, installed explicitly.
-	onCPU := m.CUDA == "cpu"
+	// An on-demand family without CUDA requirement ("") runs on CPU or GPU and asks for no VRAM check.
+	onCPU := m.CUDA == "cpu" || m.CUDA == ""
 	if !onCPU && hw.CUDA != m.CUDA {
 		return engineVerdict{Cause: causeCUDA}
 	}

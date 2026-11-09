@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.voice_model_kind import VoiceModelKind
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -28,6 +29,9 @@ class VoiceModel:
         Attributes:
             id (str):
             kind (VoiceModelKind):
+            signed_release_required (bool): Vrai quand le modèle n'a ni famille à la demande ni adaptateur embarqué : il
+                s'exécute sur une Release d'engine signée approuvée (ADR 0055). Décidé par le serveur, jamais déduit du nom
+                d'adaptateur par l'interface.
             label (str):
             vram_bytes (int): Mémoire GPU nécessaire, 0 si inconnue.
             enabled (bool): Une référence désactivée ne peut plus être choisie ; son historique reste lisible.
@@ -45,10 +49,13 @@ class VoiceModel:
             candidate (bool):
             installed (bool): Au moins un Worker a le modèle prêt.
             workers (list[VoiceModelWorkerState]):
+            family (str | Unset): Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur
+                embarqué ou un adaptateur signé.
      """
 
     id: str
     kind: VoiceModelKind
+    signed_release_required: bool
     label: str
     vram_bytes: int
     enabled: bool
@@ -66,6 +73,7 @@ class VoiceModel:
     candidate: bool
     installed: bool
     workers: list[VoiceModelWorkerState]
+    family: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -77,6 +85,8 @@ class VoiceModel:
         id = self.id
 
         kind = self.kind.value
+
+        signed_release_required = self.signed_release_required
 
         label = self.label
 
@@ -118,12 +128,15 @@ class VoiceModel:
 
 
 
+        family = self.family
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "id": id,
             "kind": kind,
+            "signed_release_required": signed_release_required,
             "label": label,
             "vram_bytes": vram_bytes,
             "enabled": enabled,
@@ -142,6 +155,8 @@ class VoiceModel:
             "installed": installed,
             "workers": workers,
         })
+        if family is not UNSET:
+            field_dict["family"] = family
 
         return field_dict
 
@@ -157,6 +172,8 @@ class VoiceModel:
 
 
 
+
+        signed_release_required = d.pop("signed_release_required")
 
         label = d.pop("label")
 
@@ -206,9 +223,12 @@ class VoiceModel:
             workers.append(workers_item)
 
 
+        family = d.pop("family", UNSET)
+
         voice_model = cls(
             id=id,
             kind=kind,
+            signed_release_required=signed_release_required,
             label=label,
             vram_bytes=vram_bytes,
             enabled=enabled,
@@ -226,6 +246,7 @@ class VoiceModel:
             candidate=candidate,
             installed=installed,
             workers=workers,
+            family=family,
         )
 
 

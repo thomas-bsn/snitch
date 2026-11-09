@@ -240,5 +240,63 @@ class RollbackTests(unittest.TestCase):
         self.assertEqual(h.binding()["version"], "2.0.0")
 
 
+def on_demand(version):
+    """The runtime of a NeMo family model (#376): the same family in two versions, each its own environment."""
+    return {"source": "on_demand", "family": "nemo", "engine": "nemo-toolkit", "distribution": "nemo-toolkit",
+            "version": version, "kind": "fingerprint", "kinds": ["diarization", "fingerprint"],
+            "python": "3.12", "platform": "linux-x86_64", "cuda": "", "disk_bytes": 1 << 20,
+            "vram_bytes": 0, "ram_bytes": 1 << 20, "estimated_seconds": 600}
+
+
+class OnDemandVersionTests(unittest.TestCase):
+    """Update and rollback between two versions of an on-demand family reuse the weights and never download."""
+
+    def bound(self, version="3.0.0", present=("3.0.0",)):
+        h = Harness(self)
+        engine_runtime.bind(h.model, on_demand(version))
+        h.present = set(present)
+        return h
+
+    def test_an_update_proves_the_new_version_on_the_existing_weights_before_binding_it(self):
+        h = self.bound()
+        snitch = Snitch([order("update", "3.1.0", runtime=on_demand("3.1.0"))])
+        h.sync(snitch)
+        self.assertEqual(h.downloads, [])
+        self.assertEqual(h.calls, [("install", "3.1.0"), ("verify", "3.1.0", "3.0.0")])
+        self.assertEqual(snitch.last(), ("ready", ""))
+        self.assertEqual(h.binding(), on_demand("3.1.0"))
+
+    def test_a_failed_proof_keeps_the_binding_on_the_old_version(self):
+        h = self.bound()
+
+        def broken(runtime):
+            raise VoiceProviderUnavailable("inference_failed")
+
+        h.verify = broken
+        snitch = Snitch([order("update", "3.1.0", runtime=on_demand("3.1.0"))])
+        h.sync(snitch)
+        self.assertEqual(snitch.last(), ("failed", "inference_failed"))
+        self.assertEqual(h.binding(), on_demand("3.0.0"))
+        self.assertEqual(h.downloads, [])
+
+    def test_a_rollback_to_an_installed_version_installs_nothing(self):
+        h = self.bound("3.1.0", present=("3.0.0", "3.1.0"))
+        snitch = Snitch([order("rollback", "3.0.0", runtime=on_demand("3.0.0"))])
+        h.sync(snitch)
+        self.assertEqual(h.calls, [("verify", "3.0.0", "3.1.0")])
+        self.assertEqual(snitch.last(), ("ready", ""))
+        self.assertEqual(h.binding(), on_demand("3.0.0"))
+        self.assertEqual(h.downloads, [])
+
+    def test_a_rollback_to_a_lost_version_fails_cleanly_and_fetches_nothing(self):
+        h = self.bound("3.1.0", present=("3.1.0",))
+        snitch = Snitch([order("rollback", "3.0.0", runtime=on_demand("3.0.0"))])
+        h.sync(snitch)
+        self.assertEqual(h.calls, [])
+        self.assertEqual(snitch.last(), ("failed", "runtime_incompatible"))
+        self.assertEqual(h.binding(), on_demand("3.1.0"))
+        self.assertEqual(h.downloads, [])
+
+
 if __name__ == "__main__":
     unittest.main()

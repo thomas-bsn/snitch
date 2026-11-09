@@ -38,6 +38,7 @@ export const en = {
     orderedBy: "Ordered by {name}",
     generation: "order {generation}",
     revoked: "Revoked release: it keeps serving, no new installation.",
+    separationPending: "Engine installed, separation not available yet.",
     history: "History",
     ignored: "late report ignored ({reason})",
     delivery: "Delivered when the Worker pulls its orders.",
@@ -66,6 +67,11 @@ export const en = {
         "The Worker's CUDA version does not match this engine.",
       insufficient_ram: "Not enough memory (RAM) on the Worker.",
       insufficient_vram: "Not enough video memory (VRAM) on the Worker.",
+      package_not_found:
+        "The package index has no such library or version for this engine.",
+      resolution_failed:
+        "The library's dependencies could not be resolved together.",
+      build_failed: "A package of the library failed to build on the Worker.",
       cancelled: "The installation was cancelled.",
       runtime_in_use:
         "A model on the Worker still uses this runtime: it was not removed.",
@@ -143,10 +149,6 @@ export const en = {
     },
     scope: "Apply to",
     scopeOn: "On",
-    scopeGroup: "Group {name} ({count})",
-    groupName: "Worker group",
-    saveGroup: "Save group",
-    ungrouped: "Ungrouped",
     scopeThis: "This Worker",
     scopeChecked: "Checked Workers ({count})",
     plan: "{count} order(s) · {disk} MiB of disk",
@@ -160,6 +162,26 @@ export const en = {
     registryEmpty: "No approved release matches.",
     constraints: "{kind} · disk {disk} MiB · VRAM {vram} MiB · CUDA {cuda}",
     install: "Install {count} engine(s)",
+    family: {
+      lead: "Engines Snitch can install on a Worker from their library. Pick a family; the version is pre-filled and can be edited. Nothing starts before you confirm.",
+      choose: "Engine family",
+      version: "Version",
+      versionHint:
+        "Default version: {version}. A Worker installs it with pip in an isolated environment.",
+      meta: "{kinds} · about {disk} GiB of disk · about {minutes} min",
+      loading: "Loading the supported engines…",
+      none: "No engine family is available on this server.",
+      planLoading: "Computing the plan…",
+      plan: "{count} Worker(s) accepted · {disk} GiB of disk in total · about {minutes} min",
+      refusedWorker: "{worker}: {reason}",
+      refusedDetail: "needs {required} GiB, {available} GiB available",
+      noWorker: "Select at least one Worker.",
+      invalidVersion: "This version is not valid.",
+    },
+    advanced: {
+      title: "Advanced",
+      lead: "Signed releases and their trust key. Reserved to the owner; the usual way to add an engine is the button above.",
+    },
     cancel: "Cancel",
     models: {
       title: "Bound models",
@@ -170,6 +192,9 @@ export const en = {
       update: "Update",
       target: "Target version for {model}",
       choose: "Choose a version",
+      chooseVersion: "Version of the family",
+      planFamily:
+        "Update to version {version}: the engine is installed first if this Worker does not have it, the weights are reused, the model keeps serving on its current version and the binding is published after a successful test inference.",
       noTarget: "No other approved version.",
       plan: "Update to {version}: {disk} MiB of disk for the runtime, weights reused, binding published after a successful test inference.",
       confirm: "Confirm the update",
@@ -259,6 +284,10 @@ export const en = {
     label: "Display name",
     enabled: "Available for installation",
     edit: "Edit reference",
+    family: "On-demand engine family",
+    familyNone: "None (embedded or signed engine)",
+    familyHint:
+      "With a family, the model asks for the engine of that family, installed on demand, instead of an embedded or signed one. Not possible while an order of this model is open.",
     save: "Save reference",
     editHint:
       "The repository, revision, type and engine come from inspection. To change them, add another reference.",
@@ -887,6 +916,12 @@ export const en = {
       applySend: "Send {count} orders",
       applySent: "Order sent",
       applyFailed: "Refused: {reason}",
+      applyEngineMissing:
+        "{engine} {version} is installed first on {worker}: about {disk} GiB of disk and about {minutes} min, then the model. One confirmation orders both.",
+      applyEngineProgress:
+        "{engine} {version} is already being installed on {worker}; it is reused and nothing more is installed.",
+      applyEngineReady:
+        "{engine} {version} is already installed on {worker}; it is reused and nothing more is installed.",
       applyEnginePlan:
         "Two linked orders per Worker: engine {version} (disk budget {disk} MiB), then model (weights {weights} MiB). An engine already ready or being installed is reused. If the engine fails, the model waits; retry the engine from the Engines tab.",
       applyHint:
@@ -937,7 +972,7 @@ export const en = {
       models_volume_unwritable: "The Worker models volume is not writable.",
       hf_cache_error: "The Worker Hugging Face (Xet) cache is unusable.",
       runtime_incompatible:
-        "This model is not compatible with the Worker environment.",
+        "This Worker cannot run this model: its engine (the runtime that executes it) is missing or does not match the Worker. Open the Engines tab, add an approved engine for this model, then retry. If the Engines list is empty, the owner must first import a signed engine release in Voice administration.",
       inference_failed: "The test inference failed.",
     },
   },

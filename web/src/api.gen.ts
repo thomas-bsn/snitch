@@ -2348,7 +2348,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. */
+    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le rajouter. */
     patch: operations["patchVoiceModel"];
     trace?: never;
   };
@@ -3893,23 +3893,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  "/api/admin/workers/{id}/engine-group": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    /** @description Administrateur : affecter le Worker à un groupe nommé, ou vider son affectation. Aucun téléchargement ni ordre. */
-    put: operations["setWorkerEngineGroup"];
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   "/api/admin/benchmarks/datasets": {
     parameters: {
       query?: never;
@@ -4043,6 +4026,74 @@ export interface paths {
     put?: never;
     /** @description Administrateurs uniquement. Change le modèle utilisé pour le travail à venir. Jamais une réanalyse : rien n'est planifié, aucune correction ni validation n'est touchée. Exige la confirmation (benchmark_activation_confirm_required) et le modèle remplacé vu à l'aperçu (benchmark_activation_stale). Chaque changement est enregistré avec son auteur et le run. */
     post: operations["confirmBenchmarkActivation"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/families": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : les familles de bibliothèque que Snitch sait installer à la demande (table du serveur), avec version par défaut, tâches, contraintes matérielles et estimations de disque et de durée. Ne dépend d'aucune Release signée importée. */
+    get: operations["listEngineFamilies"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/on-demand-orders": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : ordonne l'installation d'un engine à la demande (famille de bibliothèque et version, version par défaut de la famille si omise) sur un ou plusieurs Workers. Aucune enveloppe signée n'est acceptée : l'identité est dérivée de la famille, de la version et de la tâche. Le matériel du Worker est contrôlé avant tout ordre ; clé idempotente, génération, livraison, accusé, inventaire et causes d'échec sont ceux des ordres d'engine signés. Famille inconnue : 400 unsupported_engine_family. */
+    post: operations["createOnDemandEngineOrders"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/on-demand-plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders. */
+    post: operations["planOnDemandEngine"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/voice-model-orders/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : ce que la confirmation d'un ordre de modèle doit montrer avant tout ordre : l'engine à la demande dont le modèle a besoin (famille, version, tâche), son état sur ce Worker (absent, en cours, prêt), le disque et la durée estimés tant qu'il reste à installer, et la cause de refus matériel éventuelle. Un modèle embarqué ou à adaptateur signé n'a besoin d'aucun engine à la demande (engine_required false). Famille inconnue de la table : 400 unsupported_engine_family, sans aucun ordre. Ne crée rien. */
+    get: operations["previewVoiceModelOrder"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -5317,6 +5368,8 @@ export interface components {
       /** Format: int64 */
       vram_bytes?: number;
       enabled?: boolean;
+      /** @description Famille d'engine à la demande du modèle (ADR 0056) ; chaîne vide pour revenir au contrat embarqué ou signé. Doit exister dans la table des familles et couvrir la tâche du modèle (400 unsupported_engine_family) ; les modèles à adaptateur embarqué (pyannote, silero-jit) n'en reçoivent pas. Refusé (409 voice_model_order_in_progress) tant qu'un ordre ou une installation du modèle est ouvert. */
+      family?: string;
     };
     VoiceModelCandidate: {
       candidate: string;
@@ -5364,6 +5417,8 @@ export interface components {
       id: string;
       /** @enum {string} */
       kind: "diarization" | "fingerprint" | "separation" | "vad";
+      /** @description Vrai quand le modèle n'a ni famille à la demande ni adaptateur embarqué : il s'exécute sur une Release d'engine signée approuvée (ADR 0055). Décidé par le serveur, jamais déduit du nom d'adaptateur par l'interface. */
+      signed_release_required: boolean;
       label: string;
       /**
        * Format: int64
@@ -5376,6 +5431,8 @@ export interface components {
       supported: boolean;
       unsupported_reason: string;
       engine: string;
+      /** @description Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur embarqué ou un adaptateur signé. */
+      family?: string;
       repo: string;
       revision: string;
       license: string;
@@ -5524,7 +5581,7 @@ export interface components {
       hf_token?: string;
       /** Format: date-time */
       created_at: string;
-      runtime?: components["schemas"]["VoiceEngineManifest"];
+      runtime?: components["schemas"]["EngineRuntime"];
       /**
        * @description install (poids et runtime) ou, pour un modèle déjà prêt, update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés.
        * @enum {string}
@@ -7672,7 +7729,7 @@ export interface components {
       idempotency_key: string;
       /** @enum {string} */
       status: "pending" | "acknowledged";
-      runtime: components["schemas"]["VoiceEngineManifest"];
+      runtime: components["schemas"]["EngineRuntime"];
       /** Format: date-time */
       created_at: string;
       /** @description Annulation demandée : le Worker s'arrête à son prochain point sûr et confirme par un rapport failed/cancelled. */
@@ -7718,7 +7775,10 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "package_not_found"
+        | "resolution_failed"
+        | "build_failed";
       /** Format: int64 */
       generation: number;
       /** @description Rapport tardif ignoré et journalisé. */
@@ -7732,6 +7792,11 @@ export interface components {
       engine: string;
       version: string;
       kind: string;
+      /**
+       * @description Release signée approuvée ou engine à la demande résolu par pip (ADR 0056).
+       * @enum {string}
+       */
+      source: "signed" | "on_demand";
       /** @enum {string} */
       state:
         | "requested"
@@ -7755,7 +7820,10 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "package_not_found"
+        | "resolution_failed"
+        | "build_failed";
       /** Format: int64 */
       bytes_received: number;
       /** Format: int64 */
@@ -7808,7 +7876,10 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "package_not_found"
+        | "resolution_failed"
+        | "build_failed";
       /** @description Ce qu'un retrait enregistré attend encore avant d'être livré au Worker ; null sinon. */
       waiting: components["schemas"]["EngineBlockers"] | null;
     };
@@ -7823,8 +7894,6 @@ export interface components {
        */
       disk_reserved_bytes: number;
       engines: components["schemas"]["WorkerEngine"][];
-      /** @description Groupe administratif nommé ; vide si aucun. Ne crée aucun ordre. */
-      group_name?: string;
     };
     WorkerEnginesView: {
       workers: components["schemas"]["WorkerEnginesRow"][];
@@ -7852,7 +7921,10 @@ export interface components {
         | "platform_incompatible"
         | "cuda_incompatible"
         | "insufficient_ram"
-        | "insufficient_vram";
+        | "insufficient_vram"
+        | "package_not_found"
+        | "resolution_failed"
+        | "build_failed";
       /** Format: int64 */
       bytes_received?: number;
       /** Format: int64 */
@@ -7881,7 +7953,7 @@ export interface components {
     EngineCleanup: {
       order_id: string;
       digest: string;
-      runtime: components["schemas"]["VoiceEngineManifest"];
+      runtime: components["schemas"]["EngineRuntime"];
     };
     EngineBlockerModel: {
       model_id: string;
@@ -7920,8 +7992,10 @@ export interface components {
     RuntimeOrderInput: {
       worker_id: string;
       model_id: string;
-      /** @description Identité signée de la version approuvée visée. */
-      digest: string;
+      /** @description Identité de la version visée : signée, ou d'un engine à la demande déjà connu. Exclusif avec `version`. */
+      digest?: string;
+      /** @description Version de la famille d'engine du modèle (ADR 0056) : Snitch en déduit l'identité et l'enregistre si elle est nouvelle. Exclusif avec `digest`. */
+      version?: string;
       /** @enum {string} */
       intent: "update" | "rollback";
       idempotency_key: string;
@@ -7954,6 +8028,10 @@ export interface components {
       model_id: string;
       model_label: string;
       engine: string;
+      /** @description Famille d'engine à la demande du modèle ; vide pour un modèle sur Release signée ou embarquée. */
+      family: string;
+      /** @description Versions de la famille proposées pour une mise à jour (connues de Snitch, non révoquées, et la version par défaut) ; vide hors famille. */
+      versions: string[];
       kind: string;
       /** @description Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi). */
       digest: string;
@@ -8260,6 +8338,145 @@ export interface components {
       model: string;
       reanalysis: string;
       clips_with_human_work: number;
+    };
+    /** @description Runtime figé dans un ordre d'engine : manifeste signé d'une Release (VoiceEngineManifest) ou description d'un engine à la demande (OnDemandEngineRuntime). Seuls les champs communs sont requis ici ; le Worker valide chaque forme. */
+    EngineRuntime: {
+      engine: string;
+      version: string;
+      kind: string;
+      python: string;
+      platform: string;
+      cuda: string;
+      /** Format: int64 */
+      disk_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /**
+       * @description Présent seulement pour un engine à la demande.
+       * @enum {string}
+       */
+      source?: "on_demand";
+    } & {
+      [key: string]: unknown;
+    };
+    /** @description Engine résolu par pip sur le Worker : aucune signature, aucune roue figée. Les contraintes portent les noms du manifeste signé. */
+    OnDemandEngineRuntime: {
+      /** @enum {string} */
+      source: "on_demand";
+      family: string;
+      engine: string;
+      /** @description Nom de la distribution pip. */
+      distribution: string;
+      version: string;
+      kind: string;
+      kinds: string[];
+      python: string;
+      platform: string;
+      /** @description Vide : la famille s'exécute avec ou sans GPU. */
+      cuda: string;
+      /** Format: int64 */
+      disk_bytes: number;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      estimated_seconds: number;
+    };
+    OnDemandEngineOrderInput: {
+      /** @description Famille de bibliothèque de la table de Snitch (nemo). */
+      family: string;
+      /** @description Version de la bibliothèque ; la version par défaut de la famille si omise. */
+      version?: string;
+      orders: {
+        worker_id: string;
+        idempotency_key: string;
+      }[];
+      /** @description Tâche couverte par l'engine (diarization, fingerprint pour NeMo) ; la première tâche de la famille si omise. Chaque tâche est une identité distincte. */
+      kind?: string;
+    };
+    EngineFamily: {
+      family: string;
+      /** @description Nom d'engine utilisé par le registre, les ordres et l'inventaire. */
+      engine: string;
+      default_version: string;
+      kinds: string[];
+      python: string;
+      platform: string;
+      /** @description Vide : tourne avec ou sans GPU. */
+      cuda: string;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      disk_bytes: number;
+      /** Format: int64 */
+      estimated_seconds: number;
+    };
+    EngineFamilies: {
+      families: components["schemas"]["EngineFamily"][];
+    };
+    OnDemandEnginePlanInput: {
+      family: string;
+      /** @description La version par défaut de la famille si omise. */
+      version?: string;
+      worker_ids: string[];
+      /** @description Tâche couverte par l'engine ; la première tâche de la famille si omise. */
+      kind?: string;
+    };
+    OnDemandEnginePlanWorker: {
+      worker_id: string;
+      /** @enum {string} */
+      status: "ok" | "refused";
+      /** @description Cause stable du refus (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk, engine_order_in_progress, engine_already_installed, worker_not_found). */
+      cause_code?: string;
+      /** Format: int64 */
+      required_bytes?: number;
+      /** Format: int64 */
+      available_bytes?: number;
+    };
+    OnDemandEnginePlan: {
+      family: string;
+      version: string;
+      accepted: number;
+      /**
+       * Format: int64
+       * @description Disque cumulé des Workers acceptés.
+       */
+      disk_bytes: number;
+      /**
+       * Format: int64
+       * @description Durée estimée d'une installation ; les Workers installent en parallèle.
+       */
+      estimated_seconds: number;
+      workers: components["schemas"]["OnDemandEnginePlanWorker"][];
+    };
+    VoiceModelOrderPreview: {
+      model_id: string;
+      /** @description Vrai quand le modèle demande un engine à la demande ; faux pour un moteur embarqué ou un adaptateur signé. */
+      engine_required: boolean;
+      family?: string;
+      engine?: string;
+      version?: string;
+      /** @description Tâche de l'engine (celle du modèle). */
+      kind?: string;
+      /** @enum {string} */
+      state?: "missing" | "in_progress" | "ready";
+      /**
+       * Format: int64
+       * @description Disque que l'engine va occuper ; 0 s'il est déjà prêt.
+       */
+      disk_bytes: number;
+      /**
+       * Format: int64
+       * @description Durée estimée de l'installation ; 0 s'il est déjà prêt.
+       */
+      estimated_seconds: number;
+      /** @description Cause stable qui refuserait l'ordre d'engine sur ce Worker (matériel), absente sinon. */
+      blocker?: string;
+      /** @description Faux quand la famille s'installe pour cette tâche mais qu'aucun adaptateur ne l'exécute (séparation SpeechBrain) : l'engine est commandé avec le modèle, le modèle reste indisponible. */
+      active: boolean;
     };
   };
   responses: never;
@@ -19182,44 +19399,6 @@ export interface operations {
       };
     };
   };
-  setWorkerEngineGroup: {
-    parameters: {
-      query?: never;
-      header: {
-        Origin: string;
-        "X-CSRF-Token": string;
-      };
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          group_name: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Affectation enregistrée */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Erreur */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
   listBenchmarkDatasets: {
     parameters: {
       query?: never;
@@ -19565,6 +19744,142 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listEngineFamilies: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Familles supportées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineFamilies"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createOnDemandEngineOrders: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OnDemandEngineOrderInput"];
+      };
+    };
+    responses: {
+      /** @description Résultat par Worker */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEngineOrderResults"];
+        };
+      };
+      /** @description Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  planOnDemandEngine: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OnDemandEnginePlanInput"];
+      };
+    };
+    responses: {
+      /** @description Plan */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OnDemandEnginePlan"];
+        };
+      };
+      /** @description Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceModelOrder: {
+    parameters: {
+      query: {
+        model_id: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelOrderPreview"];
+        };
+      };
+      /** @description Erreur (400 unsupported_engine_family ou invalid_voice_model, 401 session required, 403 permission, 404 worker_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

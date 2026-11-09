@@ -34,7 +34,6 @@ class WorkerEnginesRow:
                 modèles).
             engines (list[WorkerEngine]):
             hardware (WorkerHardware | Unset):
-            group_name (str | Unset): Groupe administratif nommé ; vide si aucun. Ne crée aucun ordre.
      """
 
     worker_id: str
@@ -43,7 +42,6 @@ class WorkerEnginesRow:
     disk_reserved_bytes: int
     engines: list[WorkerEngine]
     hardware: WorkerHardware | Unset = UNSET
-    group_name: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -72,8 +70,6 @@ class WorkerEnginesRow:
         if not isinstance(self.hardware, Unset):
             hardware = self.hardware.to_dict()
 
-        group_name = self.group_name
-
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -86,8 +82,6 @@ class WorkerEnginesRow:
         })
         if hardware is not UNSET:
             field_dict["hardware"] = hardware
-        if group_name is not UNSET:
-            field_dict["group_name"] = group_name
 
         return field_dict
 
@@ -126,8 +120,6 @@ class WorkerEnginesRow:
 
 
 
-        group_name = d.pop("group_name", UNSET)
-
         worker_engines_row = cls(
             worker_id=worker_id,
             name=name,
@@ -135,7 +127,6 @@ class WorkerEnginesRow:
             disk_reserved_bytes=disk_reserved_bytes,
             engines=engines,
             hardware=hardware,
-            group_name=group_name,
         )
 
 

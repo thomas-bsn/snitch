@@ -31,6 +31,9 @@ class RuntimeBinding:
             model_id (str):
             model_label (str):
             engine (str):
+            family (str): Famille d'engine à la demande du modèle ; vide pour un modèle sur Release signée ou embarquée.
+            versions (list[str]): Versions de la famille proposées pour une mise à jour (connues de Snitch, non révoquées,
+                et la version par défaut) ; vide hors famille.
             kind (str):
             digest (str): Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi).
             version (str):
@@ -46,6 +49,8 @@ class RuntimeBinding:
     model_id: str
     model_label: str
     engine: str
+    family: str
+    versions: list[str]
     kind: str
     digest: str
     version: str
@@ -71,6 +76,12 @@ class RuntimeBinding:
         model_label = self.model_label
 
         engine = self.engine
+
+        family = self.family
+
+        versions = self.versions
+
+
 
         kind = self.kind
 
@@ -105,6 +116,8 @@ class RuntimeBinding:
             "model_id": model_id,
             "model_label": model_label,
             "engine": engine,
+            "family": family,
+            "versions": versions,
             "kind": kind,
             "digest": digest,
             "version": version,
@@ -133,6 +146,11 @@ class RuntimeBinding:
         model_label = d.pop("model_label")
 
         engine = d.pop("engine")
+
+        family = d.pop("family")
+
+        versions = cast(list[str], d.pop("versions"))
+
 
         kind = d.pop("kind")
 
@@ -173,6 +191,8 @@ class RuntimeBinding:
             model_id=model_id,
             model_label=model_label,
             engine=engine,
+            family=family,
+            versions=versions,
             kind=kind,
             digest=digest,
             version=version,

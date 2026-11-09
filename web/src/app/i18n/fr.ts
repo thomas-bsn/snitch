@@ -39,6 +39,7 @@ export const fr: Messages = {
     generation: "ordre {generation}",
     revoked:
       "Version révoquée : elle continue de servir, aucune nouvelle installation.",
+    separationPending: "Engine installé, séparation pas encore disponible.",
     history: "Historique",
     ignored: "rapport tardif ignoré ({reason})",
     delivery: "Livré quand le Worker récupère ses ordres.",
@@ -67,6 +68,12 @@ export const fr: Messages = {
         "La version de CUDA du Worker ne correspond pas à cet engine.",
       insufficient_ram: "Mémoire vive insuffisante sur le Worker.",
       insufficient_vram: "Mémoire vidéo (VRAM) insuffisante sur le Worker.",
+      package_not_found:
+        "L’index de paquets ne connaît pas cette bibliothèque ou cette version pour cet engine.",
+      resolution_failed:
+        "Les dépendances de la bibliothèque n’ont pas pu être résolues ensemble.",
+      build_failed:
+        "Un paquet de la bibliothèque n’a pas pu être compilé sur le Worker.",
       cancelled: "L’installation a été annulée.",
       runtime_in_use:
         "Un modèle du Worker utilise encore ce runtime : il n’a pas été retiré.",
@@ -143,10 +150,6 @@ export const fr: Messages = {
     },
     scope: "Appliquer à",
     scopeOn: "Sur",
-    scopeGroup: "Groupe {name} ({count})",
-    groupName: "Groupe du Worker",
-    saveGroup: "Enregistrer le groupe",
-    ungrouped: "Sans groupe",
     scopeThis: "Ce Worker",
     scopeChecked: "Workers cochés ({count})",
     plan: "{count} ordre(s) · {disk} Mio de disque",
@@ -160,6 +163,26 @@ export const fr: Messages = {
     registryEmpty: "Aucune version approuvée ne correspond.",
     constraints: "{kind} · disque {disk} Mio · VRAM {vram} Mio · CUDA {cuda}",
     install: "Installer {count} engine(s)",
+    family: {
+      lead: "Engines que Snitch sait installer sur un Worker depuis leur bibliothèque. Choisissez une famille ; la version est préremplie et modifiable. Rien ne démarre avant votre confirmation.",
+      choose: "Famille d’engine",
+      version: "Version",
+      versionHint:
+        "Version par défaut : {version}. Le Worker l’installe avec pip dans un environnement isolé.",
+      meta: "{kinds} · environ {disk} Gio de disque · environ {minutes} min",
+      loading: "Chargement des engines supportés…",
+      none: "Aucune famille d’engine n’est disponible sur ce serveur.",
+      planLoading: "Calcul du plan…",
+      plan: "{count} Worker(s) accepté(s) · {disk} Gio de disque au total · environ {minutes} min",
+      refusedWorker: "{worker} : {reason}",
+      refusedDetail: "demande {required} Gio, {available} Gio disponibles",
+      noWorker: "Sélectionnez au moins un Worker.",
+      invalidVersion: "Cette version n’est pas valide.",
+    },
+    advanced: {
+      title: "Avancé",
+      lead: "Versions signées et clé de confiance. Réservé au propriétaire ; le chemin habituel pour ajouter un engine est le bouton ci-dessus.",
+    },
     cancel: "Annuler",
     models: {
       title: "Modèles liés",
@@ -170,6 +193,9 @@ export const fr: Messages = {
       update: "Mettre à jour",
       target: "Version cible de {model}",
       choose: "Choisir une version",
+      chooseVersion: "Version de la famille",
+      planFamily:
+        "Mise à jour vers la version {version} : l’engine est d’abord installé si ce Worker ne l’a pas, les poids sont réutilisés, le modèle continue de servir sur sa version actuelle et la liaison est publiée après une inférence de test réussie.",
       noTarget: "Aucune autre version approuvée.",
       plan: "Mise à jour vers {version} : {disk} Mio de disque pour le runtime, poids réutilisés, liaison publiée après une inférence de test réussie.",
       confirm: "Confirmer la mise à jour",
@@ -258,6 +284,10 @@ export const fr: Messages = {
     label: "Nom affiché",
     enabled: "Disponible à l’installation",
     edit: "Modifier la référence",
+    family: "Famille d’engine à la demande",
+    familyNone: "Aucune (engine embarqué ou signé)",
+    familyHint:
+      "Avec une famille, le modèle demande l’engine de cette famille, installé à la demande, au lieu d’un engine embarqué ou signé. Impossible tant qu’un ordre de ce modèle est ouvert.",
     save: "Enregistrer la référence",
     editHint:
       "Le dépôt, la révision, le type et le moteur proviennent de l’inspection. Pour les changer, ajoutez une autre référence.",
@@ -902,6 +932,12 @@ export const fr: Messages = {
       applySend: "Envoyer {count} ordres",
       applySent: "Ordre envoyé",
       applyFailed: "Refusé : {reason}",
+      applyEngineMissing:
+        "{engine} {version} est installé d’abord sur {worker} : environ {disk} Gio de disque et {minutes} min, puis le modèle. Une seule confirmation commande les deux.",
+      applyEngineProgress:
+        "{engine} {version} est déjà en cours d’installation sur {worker} ; il est réutilisé et rien de plus n’est installé.",
+      applyEngineReady:
+        "{engine} {version} est déjà installé sur {worker} ; il est réutilisé et rien de plus n’est installé.",
       applyEnginePlan:
         "Deux ordres liés par Worker : engine {version} (budget disque {disk} Mio), puis modèle (poids {weights} Mio). Un engine déjà prêt ou en cours d’installation est réutilisé. Si l’engine échoue, le modèle reste en attente ; réessayez l’engine depuis l’onglet Engines.",
       applyHint:
@@ -954,7 +990,7 @@ export const fr: Messages = {
       hf_cache_error:
         "Le cache Hugging Face (Xet) du Worker n'est pas utilisable.",
       runtime_incompatible:
-        "Ce modèle n'est pas compatible avec l'environnement du Worker.",
+        "Ce Worker ne peut pas exécuter ce modèle : son engine (le runtime qui l'exécute) est absent ou ne correspond pas au Worker. Ouvrez l'onglet Engines, ajoutez un engine approuvé pour ce modèle, puis réessayez. Si la liste d'engines est vide, le propriétaire doit d'abord importer une release d'engine signée dans l'administration Voix.",
       inference_failed: "L'inférence de test a échoué.",
     },
   },

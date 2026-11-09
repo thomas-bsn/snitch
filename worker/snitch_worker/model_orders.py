@@ -26,19 +26,20 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-from snitch_worker import hf_token_sync, log, voice_download, voice_manifest, voice_models
+from snitch_worker import engine_runtime, hf_token_sync, log, voice_download, voice_manifest, voice_models
 
 _ORDER_ID = re.compile(r"^ord_[A-Za-z0-9_-]{16,64}$")
 _WORKER_ID = re.compile(r"^wk_[A-Za-z0-9_-]{20,60}$")
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{8,100}$")
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 # Engines an approved adapter exists for, by type (separation has none yet).
-ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote", "nemo-titanet", "speechbrain-ecapa"}, "vad": {"silero-jit"}}
+ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"} | engine_runtime.SIGNED_ONLY_ADAPTERS, "vad": {"silero-jit"}}
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
 # Intents of a model order: "install" (weights and runtime), or a runtime-only "update" / "rollback" (#352).
 RUNTIME_INTENTS = {"install", "update", "rollback"}
-ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use", "platform_incompatible", "cuda_incompatible", "insufficient_ram", "insufficient_vram"}
+ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use", "platform_incompatible", "cuda_incompatible", "insufficient_ram", "insufficient_vram",
+                "package_not_found", "resolution_failed", "build_failed"}
 # The inventory is observed on every pull but only sent when it changed or this long after the last send.
 INVENTORY_REFRESH_SECONDS = 60.0
 STATE_NAME = "orders.json"
@@ -125,12 +126,26 @@ class OrderExecutor:
         from snitch_worker import engine_runtime
         runtime = order.get("runtime")
         if runtime is None:
-            return order.get("engine") not in {"nemo-titanet", "speechbrain-ecapa"}
+            return order.get("engine") not in engine_runtime.SPEAKER_ENGINES
         try:
+            if engine_runtime.is_on_demand(runtime):
+                # The engine of a model installs by family and version; its kind must be the model's (ADR 0056).
+                engine_runtime.validate_on_demand(runtime)
+                return runtime["kind"] == order.get("kind")
             engine_runtime.validate(runtime, order.get("engine", ""), order.get("kind", ""))
             return True
         except engine_runtime.RuntimeFailed:
             return False
+
+    @staticmethod
+    def _runs_here(order: Mapping[str, Any], kind: Any, engine: str) -> bool:
+        """An adapter of this Worker runs the model: the signed and embedded ones by name, a family model by the
+        family and kind of its on-demand runtime, whatever adapter name the catalogue gives it (ADR 0056)."""
+        from snitch_worker import engine_runtime
+        runtime = order.get("runtime")
+        if engine_runtime.is_on_demand(runtime):
+            return engine_runtime.runs_kind(runtime) and runtime.get("kind") == kind
+        return kind in ENGINES and engine in ENGINES[kind]
 
     @staticmethod
     def _valid_intent(order: Mapping[str, Any]) -> bool:
@@ -149,9 +164,8 @@ class OrderExecutor:
             and (order.get("action") == "remove" or OrderExecutor._valid_runtime(order))
             and OrderExecutor._valid_intent(order)
             and isinstance(kind, str)
-            and kind in ENGINES
             and isinstance(engine, str)
-            and engine in ENGINES[kind]
+            and OrderExecutor._runs_here(order, kind, engine)
             and isinstance(order.get("model_id"), str)
             and bool(_MODEL_ID.fullmatch(order["model_id"]))
             and isinstance(repo, str)
@@ -217,7 +231,8 @@ class OrderExecutor:
         ):
             return False
         try:
-            engine_runtime.validate(runtime, engine, runtime.get("kind", ""))
+            # A signed manifest or an on-demand description: each is validated against its own closed schema.
+            engine_runtime.validate_runtime(runtime)
         except engine_runtime.RuntimeFailed:
             return False
         return runtime.get("engine") == engine and runtime.get("version") == order["version"]
@@ -286,8 +301,7 @@ class OrderExecutor:
             log.emit(logging.WARNING, "engine_cleanup_ignored", reason="malformed")
             return
         try:
-            engine_runtime.validate(runtime, runtime.get("engine", ""), runtime.get("kind", ""))
-            identity = engine_runtime.identity(runtime)
+            engine_runtime.validate_runtime(runtime)
         except engine_runtime.RuntimeFailed:
             log.emit(logging.WARNING, "engine_cleanup_ignored", reason="runtime")
             return
@@ -340,7 +354,7 @@ class OrderExecutor:
             else:
                 with engine_runtime.stop_when(lambda: order_id in self._cancelled):
                     self._install_runtime(runtime, self._env, report, True)
-                identity = engine_runtime.identity(runtime)
+                identity = engine_runtime.local_identity(runtime, self._env)
         except engine_runtime.RuntimeFailed as error:
             final, cause = "failed", error.cause if error.cause in ENGINE_CAUSES else "runtime_incompatible"
         except Exception:  # noqa: BLE001 - an order that cannot run must end as failed, not stay open

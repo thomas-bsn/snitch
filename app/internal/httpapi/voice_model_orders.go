@@ -120,7 +120,12 @@ func (s *Server) installOrder(ctx context.Context, author session, workerID, mod
 		if occupied {
 			return orderFailure{http.StatusConflict, "voice_model_type_occupied"}
 		}
-		runtime, err := approvedEngine(ctx, tx, entry.Engine, entry.Kind, runtimeDigest...)
+		var runtime json.RawMessage
+		if _, needed, _ := entry.engineNeed(); needed {
+			runtime, err = onDemandRuntime(ctx, tx, author, workerID, entry)
+		} else {
+			runtime, err = approvedEngine(ctx, tx, entry.Engine, entry.Kind, runtimeDigest...)
+		}
 		if err != nil {
 			return err
 		}

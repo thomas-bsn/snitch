@@ -76,7 +76,7 @@ export function WorkerEngineModels({
   async function order(
     binding: Binding,
     intent: "update" | "rollback",
-    digest: string,
+    runtime: { digest: string } | { version: string },
   ) {
     setBusy(true);
     setFailure(undefined);
@@ -86,7 +86,7 @@ export function WorkerEngineModels({
         body: {
           worker_id: binding.worker_id,
           model_id: binding.model_id,
-          digest,
+          ...runtime,
           intent,
           idempotency_key: crypto.randomUUID(),
         },
@@ -118,9 +118,14 @@ export function WorkerEngineModels({
         <p className="engine-empty">{t("workerEngines.models.none")}</p>
       )}
       {bindings.map((b) => {
-        const targets = updateTargets(b, releases);
-        const chosen = targets.find((r) => r.digest === target[b.model_id]);
+        const family = b.family !== "";
+        const targets = family ? [] : updateTargets(b, releases);
         const key = b.model_id;
+        const chosen = targets.find((r) => r.digest === target[key]);
+        // A model of an on-demand family moves to a version of the family: a known one or any version typed.
+        const typed = (target[key] ?? "").trim();
+        const chosenVersion =
+          family && typed && typed !== b.version ? typed : undefined;
         return (
           <div key={key} className="engine-model">
             <strong>{b.model_label || b.model_id}</strong>
@@ -145,27 +150,55 @@ export function WorkerEngineModels({
             )}
             {!b.pending && (
               <div className="engine-model-actions">
-                <select
-                  value={target[key] ?? ""}
-                  aria-label={t("workerEngines.models.target", {
-                    model: b.model_label || b.model_id,
-                  })}
-                  onChange={(e) => {
-                    setTarget((all) => ({ ...all, [key]: e.target.value }));
-                    setConfirming(undefined);
-                  }}
-                >
-                  <option value="">{t("workerEngines.models.choose")}</option>
-                  {targets.map((r) => (
-                    <option key={r.digest} value={r.digest}>
-                      {r.manifest.version}
-                    </option>
-                  ))}
-                </select>
+                {family ? (
+                  <>
+                    <input
+                      type="text"
+                      list={`versions-${key}`}
+                      value={target[key] ?? ""}
+                      maxLength={64}
+                      spellCheck={false}
+                      autoComplete="off"
+                      placeholder={t("workerEngines.models.chooseVersion")}
+                      aria-label={t("workerEngines.models.target", {
+                        model: b.model_label || b.model_id,
+                      })}
+                      onChange={(e) => {
+                        setTarget((all) => ({ ...all, [key]: e.target.value }));
+                        setConfirming(undefined);
+                      }}
+                    />
+                    <datalist id={`versions-${key}`}>
+                      {b.versions
+                        .filter((v) => v !== b.version)
+                        .map((v) => (
+                          <option key={v} value={v} />
+                        ))}
+                    </datalist>
+                  </>
+                ) : (
+                  <select
+                    value={target[key] ?? ""}
+                    aria-label={t("workerEngines.models.target", {
+                      model: b.model_label || b.model_id,
+                    })}
+                    onChange={(e) => {
+                      setTarget((all) => ({ ...all, [key]: e.target.value }));
+                      setConfirming(undefined);
+                    }}
+                  >
+                    <option value="">{t("workerEngines.models.choose")}</option>
+                    {targets.map((r) => (
+                      <option key={r.digest} value={r.digest}>
+                        {r.manifest.version}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   type="button"
                   className="voice-btn"
-                  disabled={busy || !chosen}
+                  disabled={busy || !(chosen || chosenVersion)}
                   onClick={() => setConfirming(`update:${key}`)}
                 >
                   {t("workerEngines.models.update")}
@@ -184,7 +217,7 @@ export function WorkerEngineModels({
                 )}
               </div>
             )}
-            {targets.length === 0 && !b.pending && (
+            {!family && targets.length === 0 && !b.pending && (
               <span className="engine-note">
                 {t("workerEngines.models.noTarget")}
               </span>
@@ -196,19 +229,31 @@ export function WorkerEngineModels({
                 })}
               </span>
             )}
-            {confirming === `update:${key}` && chosen && (
+            {confirming === `update:${key}` && (chosen || chosenVersion) && (
               <div className="engine-plan" aria-live="polite">
                 <span>
-                  {t("workerEngines.models.plan", {
-                    version: chosen.manifest.version,
-                    disk: Math.ceil(chosen.manifest.disk_bytes / 1024 ** 2),
-                  })}
+                  {chosen
+                    ? t("workerEngines.models.plan", {
+                        version: chosen.manifest.version,
+                        disk: Math.ceil(chosen.manifest.disk_bytes / 1024 ** 2),
+                      })
+                    : t("workerEngines.models.planFamily", {
+                        version: chosenVersion ?? "",
+                      })}
                 </span>
                 <button
                   type="button"
                   className="voice-btn primary"
                   disabled={busy}
-                  onClick={() => void order(b, "update", chosen.digest)}
+                  onClick={() =>
+                    void order(
+                      b,
+                      "update",
+                      chosen
+                        ? { digest: chosen.digest }
+                        : { version: chosenVersion ?? "" },
+                    )
+                  }
                 >
                   {t("workerEngines.models.confirm")}
                 </button>
@@ -225,7 +270,9 @@ export function WorkerEngineModels({
                   type="button"
                   className="voice-btn primary"
                   disabled={busy}
-                  onClick={() => void order(b, "rollback", b.previous_digest)}
+                  onClick={() =>
+                    void order(b, "rollback", { digest: b.previous_digest })
+                  }
                 >
                   {t("workerEngines.models.rollback", {
                     version: b.previous_version,

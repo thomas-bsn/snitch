@@ -48,6 +48,11 @@ var hfAdapters = []hfAdapter{
 	{"pyannote", []string{"diarization", "fingerprint"}, func(m hfMetadata) bool {
 		return m.LibraryName == "pyannote-audio" || slices.Contains(m.Tags, "pyannote-audio") || slices.Contains(m.Tags, "pyannote")
 	}},
+	// After pyannote: a pyannote wrapper of a WeSpeaker network stays on the embedded engine. A WeSpeaker repository
+	// of its own runs on the on-demand WeSpeaker family (#375, ADR 0056), which has no signed release.
+	{"wespeaker", []string{"fingerprint"}, func(m hfMetadata) bool {
+		return m.LibraryName == "wespeaker" || slices.Contains(m.Tags, "wespeaker")
+	}},
 }
 
 // Tags that declare a type. A type is proposed only when exactly one family is declared: the repository name

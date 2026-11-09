@@ -1,9 +1,20 @@
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 
+// emptyOutDir wipes the tracked app/ui/dist/.gitkeep (the directory must exist for go:embed on a fresh clone):
+// put it back once the bundle is written, so a build leaves `git status` clean.
+const keepTrackedPlaceholder = {
+  name: "keep-tracked-placeholder",
+  apply: "build" as const,
+  closeBundle() {
+    writeFileSync(resolve(import.meta.dirname, "../app/ui/dist/.gitkeep"), "");
+  },
+};
+
 export default defineConfig({
-  plugins: [tailwindcss()],
+  plugins: [tailwindcss(), keepTrackedPlaceholder],
   build: {
     outDir: "../app/ui/dist",
     emptyOutDir: true,

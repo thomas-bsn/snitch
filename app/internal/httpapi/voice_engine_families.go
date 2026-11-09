@@ -1,0 +1,245 @@
+package httpapi
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"slices"
+
+	"github.com/jackc/pgx/v5"
+)
+
+// On-demand engines (#370, ADR 0056). A family of library, a version and a task kind identify an engine that a
+// Worker resolves with pip: nothing is signed and no manifest is frozen by a publisher. The table below is the
+// only place that names families; it carries the constraints checked before any order exists.
+//
+// The identity of such an engine is a registry row whose digest hashes (family, version, kind) under a domain
+// prefix. A signed digest is the hash of a signed payload, so the two identities never collide and never
+// stand for each other (ADR 0055).
+
+const engineSourceOnDemand = "on_demand"
+
+type engineFamily struct {
+	Key string
+	// Engine is the name the registry, the orders and the inventory use. It differs from the embedded engines.
+	Engine       string
+	Distribution string
+	DefaultVer   string
+	// Kinds are the tasks the family covers. An engine is one family, one version and ONE kind: each kind is its
+	// own identity, registry row and order, so that a family covering several tasks (NeMo: diarization and
+	// fingerprint) can be installed for either. The first kind is the default of an order that names none.
+	Kinds []string
+	// ActiveKinds are the kinds an adapter actually runs. Nil means every kind of the family. A kind that is
+	// installed for but not listed here (SpeechBrain separation, #374) gets its engine and nothing more: the
+	// feature stays disabled until an adapter exists.
+	ActiveKinds []string
+	Python      string
+	Platform    string
+	// CUDA is "" for a family that runs with or without a GPU.
+	CUDA             string
+	VRAMBytes        int64
+	RAMBytes         int64
+	DiskBytes        int64
+	EstimatedSeconds int64
+}
+
+var engineFamilies = map[string]engineFamily{
+	"nemo": {
+		Key: "nemo", Engine: "nemo-toolkit", Distribution: "nemo-toolkit", DefaultVer: "3.0.0",
+		Kinds:  []string{"diarization", "fingerprint"},
+		Python: "3.12", Platform: "linux-x86_64",
+		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
+	},
+	// SpeechBrain: a generic adapter runs ECAPA-TDNN fingerprints; SepFormer separation models only get the
+	// engine installed. The engine name differs from the signed "speechbrain-ecapa" release (two identities).
+	"speechbrain": {
+		Key: "speechbrain", Engine: "speechbrain", Distribution: "speechbrain", DefaultVer: "1.0.3",
+		Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"},
+		Python: "3.12", Platform: "linux-x86_64",
+		RAMBytes: 6 << 30, DiskBytes: 10 << 30, EstimatedSeconds: 600,
+	},
+	// WeSpeaker is not published on PyPI: the installable package is `wespeakerruntime` (ONNX inference, latest
+	// release 1.0.1, depends on onnxruntime, kaldiio and torchaudio). The ONNX graph runs on the CPU, so no GPU
+	// is required. Disk covers torchaudio's torch wheel from PyPI, which dominates the install.
+	"wespeaker": {
+		Key: "wespeaker", Engine: "wespeaker", Distribution: "wespeakerruntime", DefaultVer: "1.0.1",
+		Kinds:  []string{"fingerprint"},
+		Python: "3.12", Platform: "linux-x86_64",
+		RAMBytes: 4 << 30, DiskBytes: 8 << 30, EstimatedSeconds: 300,
+	},
+}
+
+func (f engineFamily) covers(kind string) bool {
+	for _, k := range f.Kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// runs reports whether an adapter runs this kind of the family.
+func (f engineFamily) runs(kind string) bool {
+	if f.ActiveKinds == nil {
+		return slices.Contains(f.Kinds, kind)
+	}
+	return slices.Contains(f.ActiveKinds, kind)
+}
+
+// engineNeed tells how a catalogue model gets its engine. A model with no family keeps the contract of ADR 0055:
+// an embedded adapter needs no engine (Sortformer runs on the NeMo of the Worker image) and a signed adapter
+// needs an approved release. A model with a family asks for the on-demand engine of that family and of its own
+// kind; that is how a newer NeMo model (Nemotron-3...) is told apart from the embedded Sortformer, although both
+// name the adapter "nemo". supported is false when the table does not know the family or the family does not
+// cover the kind of the model: such a model is refused before any order.
+func (e voiceCatalogEntry) engineNeed() (f engineFamily, needed, supported bool) {
+	if e.Family == "" {
+		return engineFamily{}, false, true
+	}
+	f, ok := engineFamilies[e.Family]
+	return f, true, ok && f.covers(e.Kind)
+}
+
+// signedOnlyAdapters are the adapters that exist only as a signed Release (ADR 0055): no embedded copy runs them.
+var signedOnlyAdapters = map[string]bool{"nemo-titanet": true, "speechbrain-ecapa": true}
+
+// signedReleaseRequired tells the interface whether the model needs an approved signed Release: it has no
+// on-demand family and its adapter is not embedded. The rule stays here, the interface never guesses it.
+func (e voiceCatalogEntry) signedReleaseRequired() bool {
+	return e.Family == "" && signedOnlyAdapters[e.Engine]
+}
+
+// adapterFamily maps the adapter a model was assessed with to the on-demand family that runs it (ADR 0056).
+// A model discovered through the Hugging Face addition is tried on its family: that is what lets Nemotron-3, a
+// new ECAPA-TDNN or a WeSpeaker graph run without a signed release or a new adapter. The seeded Sortformer keeps
+// an empty family and the embedded NeMo, pyannote and silero-jit are not in this table. A family added to the
+// table of engines extends this one.
+var adapterFamily = map[string]string{"nemo": "nemo", "nemo-titanet": "nemo", "speechbrain-ecapa": "speechbrain", "wespeaker": "wespeaker"}
+
+// catalogFamily is the rule that gives a model its engine family from its adapter and kind. The family must
+// cover the kind; whether an adapter actually runs it is engineFamily.runs (SpeechBrain separation does not).
+func catalogFamily(engine, kind string) string {
+	if family := adapterFamily[engine]; family != "" && engineFamilies[family].covers(kind) {
+		return family
+	}
+	return ""
+}
+
+// familyAcceptsModel tells whether an owner may attach this model to the family (ADR 0056): the family is in the
+// table and covers the task of the model, and the model is not run by an embedded adapter or by none (pyannote,
+// silero-jit and a reference without an approved adapter stay what they are).
+func familyAcceptsModel(family string, e voiceCatalogEntry) bool {
+	f, ok := engineFamilies[family]
+	return ok && f.covers(e.Kind) && e.Engine != "" && e.Engine != "pyannote" && e.Engine != "silero-jit"
+}
+
+// onDemandDigest is the deterministic identity of an on-demand engine.
+func onDemandDigest(family, version, kind string) string {
+	sum := sha256.Sum256([]byte("snitch:on-demand-engine:v1\n" + family + "\n" + version + "\n" + kind))
+	return hex.EncodeToString(sum[:])
+}
+
+// onDemandManifest is the runtime an order delivers to the Worker. Its constraint fields use the names of
+// the signed manifest, so the hardware check is the one that already exists.
+func onDemandManifest(f engineFamily, version, kind string) ([]byte, string, error) {
+	raw, err := json.Marshal(map[string]any{
+		"source": engineSourceOnDemand, "family": f.Key, "engine": f.Engine, "distribution": f.Distribution,
+		"version": version, "kind": kind, "kinds": f.Kinds,
+		"python": f.Python, "platform": f.Platform, "cuda": f.CUDA,
+		"disk_bytes": f.DiskBytes, "vram_bytes": f.VRAMBytes, "ram_bytes": f.RAMBytes, "estimated_seconds": f.EstimatedSeconds,
+	})
+	return raw, onDemandDigest(f.Key, version, kind), err
+}
+
+// installOnDemandEngineOrder records the registry identity of the engine, then an order on a Worker through the
+// same path as a signed release (idempotency, generation, hardware, inventory). A refusal rolls the identity back.
+func (s *Server) installOnDemandEngineOrder(ctx context.Context, author session, workerID string, f engineFamily, version, kind, key string) (engineOrderView, bool, error) {
+	if !idempotencyKeyFormat.MatchString(key) {
+		return engineOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_idempotency_key"}
+	}
+	_, digest, err := onDemandManifest(f, version, kind)
+	if err != nil {
+		return engineOrderView{}, false, err
+	}
+	var out engineOrderView
+	created := false
+	err = s.withVoiceModelLock(ctx, func(tx pgx.Tx) error {
+		if err := registerOnDemandEngine(ctx, tx, author, f, version, kind); err != nil {
+			return err
+		}
+		var err error
+		out, created, err = s.installEngineOrderIn(ctx, tx, author, workerID, digest, key)
+		return err
+	})
+	if created {
+		s.Log.Info("on-demand engine install ordered", "order_id", out.OrderID, "worker_id", workerID, "family", f.Key, "version", version, "digest", digest, "generation", out.Generation, "author_id", author.User.ID)
+	}
+	return out, created, err
+}
+
+// registerOnDemandEngine records the identity of an on-demand engine; known identities are left as they are.
+func registerOnDemandEngine(ctx context.Context, tx pgx.Tx, author session, f engineFamily, version, kind string) error {
+	manifest, digest, err := onDemandManifest(f, version, kind)
+	if err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `INSERT INTO voice_engine_registry(digest,engine,version,kind,source,manifest,author_id,author_name) VALUES($1,$2,$3,$4,'on_demand',$5,$6,$7) ON CONFLICT DO NOTHING`,
+		digest, f.Engine, version, kind, manifest, author.User.ID, author.User.Username)
+	return err
+}
+
+// createOnDemandEngineOrders orders one family and version on several Workers; each Worker is decided on its own.
+func (s *Server) createOnDemandEngineOrders(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Family  string `json:"family"`
+		Version string `json:"version"`
+		Kind    string `json:"kind"`
+		Orders  []struct {
+			WorkerID       string `json:"worker_id"`
+			IdempotencyKey string `json:"idempotency_key"`
+		} `json:"orders"`
+	}
+	if !decode(w, r, &input) {
+		return
+	}
+	family, ok := engineFamilies[input.Family]
+	if !ok {
+		fail(w, http.StatusBadRequest, "unsupported_engine_family")
+		return
+	}
+	version := input.Version
+	if version == "" {
+		version = family.DefaultVer
+	}
+	kind := input.Kind
+	if kind == "" {
+		kind = family.Kinds[0]
+	}
+	if !family.covers(kind) || !engineVersion.MatchString(version) || len(input.Orders) == 0 || len(input.Orders) > 100 {
+		fail(w, http.StatusBadRequest, "invalid_engine_order")
+		return
+	}
+	ss := r.Context().Value(sessionKey{}).(session)
+	results := make([]engineOrderResult, 0, len(input.Orders))
+	for _, item := range input.Orders {
+		order, created, err := s.installOnDemandEngineOrder(r.Context(), ss, item.WorkerID, family, version, kind, item.IdempotencyKey)
+		result := engineOrderResult{WorkerID: item.WorkerID}
+		var f orderFailure
+		switch {
+		case errors.As(err, &f):
+			result.Status, result.CauseCode = "refused", f.Code
+		case err != nil:
+			s.internal(w, err)
+			return
+		case created:
+			result.Status, result.Order = "created", &order
+		default:
+			result.Status, result.Order = "replayed", &order
+		}
+		results = append(results, result)
+	}
+	reply(w, http.StatusOK, map[string]any{"results": results})
+}

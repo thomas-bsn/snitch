@@ -40,6 +40,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ce Worker n’a pas assez de mémoire vive (RAM) pour cet engine.",
   insufficient_vram:
     "Ce Worker n’a pas assez de mémoire vidéo (VRAM) pour cet engine.",
+  unsupported_engine_family:
+    "Cette famille d’engine n’est pas prise en charge par Snitch : rien n’a été ordonné.",
   insufficient_disk:
     "Ce Worker n’a pas assez de disque libre, ordres en cours compris.",
   engine_not_failed:

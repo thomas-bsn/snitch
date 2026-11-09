@@ -1,5 +1,5 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, request, test, type Page } from "@playwright/test";
 import { ADMIN, installAdministrator, sessionFor } from "./shell-fixture";
 
 // Le serveur de test pointe l'inspection sur un faux Hugging Face de trois dépôts synthétiques.
@@ -151,4 +151,87 @@ test("le changement d'empreinte montre l'impact réel puis attend un ordre de pr
     .getByRole("button", { name: "Cancel transition", exact: true })
     .click();
   await expect(transition).toContainText("Transition cancelled.");
+});
+
+test("un modèle NeMo ajouté commande son engine à la demande puis le modèle, après une seule confirmation", async ({
+  browser,
+}) => {
+  const session = await sessionFor(ADMIN);
+  const origin = process.env.SNITCH_TEST_URL!;
+  const admin = await request.newContext({
+    baseURL: origin,
+    extraHTTPHeaders: { Origin: origin },
+    storageState: session,
+  });
+  const me = await (await admin.get("/api/auth/me")).json();
+  const csrf = { "X-CSRF-Token": me.csrf_token };
+  // The model is added once, whatever the other tests of this file did before.
+  const repo = "nvidia/synthetic-sortformer";
+  const catalogue = async () =>
+    (await (await admin.get("/api/admin/voice-models")).json()).models as {
+      id: string;
+      repo: string;
+      family?: string;
+    }[];
+  if (!(await catalogue()).some((m) => m.repo === repo)) {
+    const inspected = await (
+      await admin.post("/api/admin/voice-models/inspection", {
+        headers: csrf,
+        data: { source: repo },
+      })
+    ).json();
+    await admin.post("/api/admin/voice-models", {
+      headers: csrf,
+      data: { source: repo, revision: inspected.revision, kind: "diarization" },
+    });
+  }
+  const model = (await catalogue()).find((m) => m.repo === repo)!;
+  expect(model.family).toBe("nemo");
+  const worker = await (
+    await admin.post("/api/admin/workers", {
+      headers: csrf,
+      data: { name: "famille-nemo", max_concurrency: 1 },
+    })
+  ).json();
+  const pulled = async () =>
+    (await (
+      await admin.get("/api/worker/voice-models", {
+        headers: { Authorization: `Bearer ${worker.token}` },
+      })
+    ).json()) as { orders: unknown[]; engine_orders: { engine: string }[] };
+
+  const context = await browser.newContext({ storageState: session });
+  const page = await context.newPage();
+  await page.goto("/admin/voice");
+  await page
+    .getByRole("button", { name: "Apply to several Workers", exact: true })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Apply a model to several Workers",
+  });
+  await dialog.getByLabel(/^Model/).selectOption(model.id);
+  await dialog.getByLabel("famille-nemo").check();
+  await dialog.getByRole("button", { name: "Prepare the orders" }).click();
+  // One confirmation names the engine, its version, the disk and the time.
+  await expect(dialog).toContainText("Orders to send (1)");
+  await expect(dialog).toContainText(
+    "nemo-toolkit 3.0.0 is installed first on famille-nemo",
+  );
+  await expect(dialog).toContainText("12 GiB of disk and about 10 min");
+  const before = await pulled();
+  expect(before.engine_orders).toHaveLength(0);
+  expect(before.orders).toHaveLength(0);
+  await dialog
+    .getByLabel("I confirm sending one order to each listed Worker.")
+    .check();
+  await dialog.getByRole("button", { name: "Send 1 order" }).click();
+  await expect(dialog.getByText("Order sent")).toHaveCount(1);
+  // The engine is delivered first; the model waits for it.
+  const after = await pulled();
+  expect(after.engine_orders.map((o) => o.engine)).toEqual(["nemo-toolkit"]);
+  expect(after.orders).toHaveLength(0);
+
+  await admin.delete(`/api/admin/workers/${worker.id}`, { headers: csrf });
+  await context.close();
+  await admin.dispose();
 });

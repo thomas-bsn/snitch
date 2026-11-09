@@ -28,6 +28,10 @@ class VoiceModelPatch:
             size_bytes (int | Unset):
             vram_bytes (int | Unset):
             enabled (bool | Unset):
+            family (str | Unset): Famille d'engine à la demande du modèle (ADR 0056) ; chaîne vide pour revenir au contrat
+                embarqué ou signé. Doit exister dans la table des familles et couvrir la tâche du modèle (400
+                unsupported_engine_family) ; les modèles à adaptateur embarqué (pyannote, silero-jit) n'en reçoivent pas. Refusé
+                (409 voice_model_order_in_progress) tant qu'un ordre ou une installation du modèle est ouvert.
      """
 
     label: str | Unset = UNSET
@@ -35,6 +39,7 @@ class VoiceModelPatch:
     size_bytes: int | Unset = UNSET
     vram_bytes: int | Unset = UNSET
     enabled: bool | Unset = UNSET
+    family: str | Unset = UNSET
 
 
 
@@ -51,6 +56,8 @@ class VoiceModelPatch:
 
         enabled = self.enabled
 
+        family = self.family
+
 
         field_dict: dict[str, Any] = {}
 
@@ -66,6 +73,8 @@ class VoiceModelPatch:
             field_dict["vram_bytes"] = vram_bytes
         if enabled is not UNSET:
             field_dict["enabled"] = enabled
+        if family is not UNSET:
+            field_dict["family"] = family
 
         return field_dict
 
@@ -84,12 +93,15 @@ class VoiceModelPatch:
 
         enabled = d.pop("enabled", UNSET)
 
+        family = d.pop("family", UNSET)
+
         voice_model_patch = cls(
             label=label,
             license_=license_,
             size_bytes=size_bytes,
             vram_bytes=vram_bytes,
             enabled=enabled,
+            family=family,
         )
 
         return voice_model_patch

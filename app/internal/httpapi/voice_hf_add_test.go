@@ -109,7 +109,7 @@ func testVoiceModelAddFromHF(t *testing.T, pool *pgxpool.Pool) {
 	if created.Kind != "diarization" || created.Engine != "nemo" || created.Revision != commit || created.Repo != "nvidia/synthetic-sortformer" || !created.Supported || !created.Enabled || created.License != "apache-2.0" {
 		t.Fatalf("created: %+v", created)
 	}
-	if listed := h.voiceModels().model(t, created.ID); listed.Revision != commit || listed.Engine != "nemo" {
+	if listed := h.voiceModels().model(t, created.ID); listed.Revision != commit || listed.Engine != "nemo" || listed.Family != "nemo" {
 		t.Fatalf("listed: %+v", listed)
 	}
 	add(map[string]any{"source": "nvidia/synthetic-sortformer", "revision": commit, "kind": "diarization"}, http.StatusConflict)

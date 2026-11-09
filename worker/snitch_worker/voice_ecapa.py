@@ -148,6 +148,31 @@ def verify_files(directory: str | os.PathLike[str], variants: Mapping[str, Mappi
     raise UnsupportedVariant("unsupported_revision")
 
 
+GENERIC_FILES = ("hyperparams.yaml", "embedding_model.ckpt")
+GENERIC_OPTIONAL = ("classifier.ckpt", "label_encoder.txt", "mean_var_norm_emb.ckpt")
+
+
+def verify_directory(directory: str | os.PathLike[str]) -> None:
+    """The on-demand SpeechBrain engine (#374) runs any revision of an ECAPA-TDNN repository, so nothing is pinned by
+    hash. What stays fixed: no code, no link, no directory, no weight format other than the scanned checkpoint, and
+    only the files this adapter reads or knowingly ignores. The optional files are never loaded."""
+    try:
+        entries = {entry.name: entry for entry in Path(directory).iterdir()}
+    except OSError:
+        raise UnsupportedVariant("model_directory_unreadable") from None
+    for name, entry in entries.items():
+        if name == ".cache":
+            continue  # huggingface_hub's download bookkeeping: never read
+        if entry.is_symlink() or not entry.is_file():
+            raise UnsupportedVariant("unexpected_directory_or_link")
+        if name.endswith((".py", ".pyc", ".so", ".dll", ".sh")):
+            raise UnsupportedVariant("code_file_in_model")  # no Hugging Face script, ever
+    if not set(GENERIC_FILES) <= set(entries):
+        raise UnsupportedVariant("model_file_missing")
+    if set(entries) - set(GENERIC_FILES) - set(GENERIC_OPTIONAL) - IGNORED_FILES - {".cache"}:
+        raise UnsupportedVariant("unexpected_file")
+
+
 # -- hyperparams.yaml, as data ---------------------------------------------------------------------------------
 
 def _yaml() -> Any:
@@ -297,11 +322,18 @@ def scan_checkpoint(path: str | os.PathLike[str]) -> None:
 
 # -- the model -----------------------------------------------------------------------------------------------------
 
-def load_embedder(directory: str, device: str, variants: Mapping[str, Mapping[str, Any]] | None = None) -> Callable[[Any], Any]:
-    """Verify, scan, then build the pinned architecture and load its weights. Returns ``embed(waveform) -> tensor``.
+def load_embedder(directory: str, device: str, variants: Mapping[str, Mapping[str, Any]] | None = None, *, pinned: bool = True) -> Callable[[Any], Any]:
+    """Verify, scan, then build the fixed architecture and load its weights. Returns ``embed(waveform) -> tensor``.
+
+    ``pinned`` (the signed ``speechbrain-ecapa`` release) checks every file against a pinned revision; unpinned (the
+    on-demand SpeechBrain engine) checks the directory shape instead. The YAML scan, the architecture check, the
+    checkpoint scan and ``weights_only`` apply either way.
 
     ``waveform`` is a ``[1, samples]`` float tensor at 16 kHz. Offline: nothing is fetched, no hub, no from_hparams."""
-    verify_files(directory, variants)
+    if pinned:
+        verify_files(directory, variants)
+    else:
+        verify_directory(directory)
     root_dir = Path(directory)
     check_architecture(scan_hyperparams((root_dir / "hyperparams.yaml").read_text(encoding="utf-8")))
     scan_checkpoint(root_dir / "embedding_model.ckpt")
@@ -336,12 +368,12 @@ def check_audio_file(path: str) -> None:
         raise UnsupportedAudio("audio_unreadable") from None
 
 
-def speaker_loader(directory: str, device: str, variants: Mapping[str, Mapping[str, Any]] | None = None) -> Callable[[str], DecodedAudio]:
+def speaker_loader(directory: str, device: str, variants: Mapping[str, Mapping[str, Any]] | None = None, *, pinned: bool = True) -> Callable[[str], DecodedAudio]:
     """Same shape as the other embedders: ``open_audio(path)`` returns a :class:`DecodedAudio`."""
     import torch  # noqa: PLC0415
     import torchaudio  # noqa: PLC0415
 
-    embed = load_embedder(directory, device, variants)
+    embed = load_embedder(directory, device, variants, pinned=pinned)
 
     def open_audio(audio_path: str) -> DecodedAudio:
         check_audio_file(audio_path)

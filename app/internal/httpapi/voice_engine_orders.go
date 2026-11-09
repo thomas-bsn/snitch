@@ -22,7 +22,9 @@ import (
 
 var engineStates = map[string]int{"requested": 0, "downloading_runtime": 1, "installing": 2, "verifying": 3, "ready": 4, "failed": 4, "removed": 4}
 var engineFailureCauses = map[string]bool{"disk_full": true, "runtime_incompatible": true, "hf_network": true, "invalid_order": true, "runtime_missing": true, "cancelled": true, "runtime_in_use": true,
-	causePlatform: true, causeCUDA: true, causeInsufficient: true, causeVRAM: true}
+	causePlatform: true, causeCUDA: true, causeInsufficient: true, causeVRAM: true,
+	// Causes of a package resolved by pip (#370). The Worker maps pip's output to these and never relays its text.
+	"package_not_found": true, "resolution_failed": true, "build_failed": true}
 var localIdentity = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type engineOrderView struct {
@@ -51,8 +53,10 @@ func scanEngineOrder(row pgx.Row) (engineOrderView, error) {
 
 func (s *Server) registerVoiceEngineOrderRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/voice-engine-orders", s.protected(true, http.HandlerFunc(s.createVoiceEngineOrders)))
+	mux.Handle("GET /api/admin/voice-engines/families", s.protected(true, http.HandlerFunc(s.listEngineFamilies)))
+	mux.Handle("POST /api/admin/voice-engines/on-demand-plan", s.protected(true, http.HandlerFunc(s.planOnDemandEngine)))
+	mux.Handle("POST /api/admin/voice-engines/on-demand-orders", s.protected(true, http.HandlerFunc(s.createOnDemandEngineOrders)))
 	mux.Handle("GET /api/admin/voice-engines/workers", s.protected(true, http.HandlerFunc(s.listEnginesByWorker)))
-	mux.Handle("PUT /api/admin/workers/{id}/engine-group", s.protected(true, http.HandlerFunc(s.setWorkerEngineGroup)))
 	s.registerVoiceEngineRecoveryRoutes(mux)
 	mux.Handle("GET /api/admin/voice-engines/uninstall-preview", s.protected(true, http.HandlerFunc(s.uninstallPreview)))
 	mux.Handle("POST /api/worker/voice-engine-orders/{id}/ack", s.workerOnly(http.HandlerFunc(s.ackWorkerEngineOrder)))
@@ -528,10 +532,12 @@ type engineHistoryEntry struct {
 }
 
 type workerEngineEntry struct {
-	Digest        string `json:"digest"`
-	Engine        string `json:"engine"`
-	Version       string `json:"version"`
-	Kind          string `json:"kind"`
+	Digest  string `json:"digest"`
+	Engine  string `json:"engine"`
+	Version string `json:"version"`
+	Kind    string `json:"kind"`
+	// Source is "signed" for an approved release and "on_demand" for an engine resolved by pip (ADR 0056).
+	Source        string `json:"source"`
 	State         string `json:"state"`
 	CauseCode     string `json:"cause_code"`
 	BytesReceived int64  `json:"bytes_received"`
@@ -557,7 +563,6 @@ type workerEngineEntry struct {
 type workerEnginesRow struct {
 	WorkerID  string `json:"worker_id"`
 	Name      string `json:"name"`
-	GroupName string `json:"group_name"`
 	Connected bool   `json:"connected"`
 	// Hardware is what the Worker reported (absent for a Worker that never did); the reserved disk is what its
 	// open orders already claim, so the screen can show a cumulated plan.
@@ -576,7 +581,7 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT i.worker_id,i.digest,i.engine,i.version,COALESCE(g.manifest->>'kind',''),i.state,i.cause_code,i.bytes_received,i.bytes_total,COALESCE(o.intent='install' AND o.cancel_requested_at IS NOT NULL AND o.status='acknowledged',false),CASE WHEN o.cleaned_at IS NOT NULL THEN 'done' WHEN o.cleanup_requested_at IS NOT NULL THEN 'requested' ELSE '' END,COALESCE(i.order_id,''),i.generation,g.revoked,COALESCE(o.author_name,''),i.updated_at,COALESCE(o.intent,''),COALESCE(o.status,''),COALESCE(o.cause_code,'')
+	rows, err := s.Pool.Query(r.Context(), `SELECT i.worker_id,i.digest,i.engine,i.version,COALESCE(g.manifest->>'kind',''),g.source,i.state,i.cause_code,i.bytes_received,i.bytes_total,COALESCE(o.intent='install' AND o.cancel_requested_at IS NOT NULL AND o.status='acknowledged',false),CASE WHEN o.cleaned_at IS NOT NULL THEN 'done' WHEN o.cleanup_requested_at IS NOT NULL THEN 'requested' ELSE '' END,COALESCE(i.order_id,''),i.generation,g.revoked,COALESCE(o.author_name,''),i.updated_at,COALESCE(o.intent,''),COALESCE(o.status,''),COALESCE(o.cause_code,'')
 		FROM worker_engine_inventory i JOIN voice_engine_registry g ON g.digest=i.digest LEFT JOIN worker_engine_orders o ON o.id=i.order_id ORDER BY i.engine,i.version`)
 	if err != nil {
 		s.internal(w, err)
@@ -586,7 +591,7 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var workerID string
 		var e workerEngineEntry
-		if err = rows.Scan(&workerID, &e.Digest, &e.Engine, &e.Version, &e.Kind, &e.State, &e.CauseCode, &e.BytesReceived, &e.BytesTotal, &e.CancelRequested, &e.Cleanup, &e.OrderID, &e.Generation, &e.Revoked, &e.AuthorName, &e.UpdatedAt, &e.OrderIntent, &e.OrderStatus, &e.OrderCauseCode); err != nil {
+		if err = rows.Scan(&workerID, &e.Digest, &e.Engine, &e.Version, &e.Kind, &e.Source, &e.State, &e.CauseCode, &e.BytesReceived, &e.BytesTotal, &e.CancelRequested, &e.Cleanup, &e.OrderID, &e.Generation, &e.Revoked, &e.AuthorName, &e.UpdatedAt, &e.OrderIntent, &e.OrderStatus, &e.OrderCauseCode); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
@@ -607,10 +612,6 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 		row := workerEnginesRow{WorkerID: item.ID, Name: item.Name, Connected: item.Connected, Engines: []workerEngineEntry{}}
-		if err = s.Pool.QueryRow(r.Context(), `SELECT COALESCE((SELECT group_name FROM worker_engine_groups WHERE worker_id=$1),'')`, item.ID).Scan(&row.GroupName); err != nil {
-			s.internal(w, err)
-			return
-		}
 		if row.Hardware, err = loadWorkerHardware(r.Context(), s.Pool, item.ID); err != nil {
 			s.internal(w, err)
 			return

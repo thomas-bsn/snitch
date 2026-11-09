@@ -935,14 +935,15 @@ type VoiceEngineRegistry struct {
 	Engine        string             `json:"engine"`
 	Version       string             `json:"version"`
 	Kind          string             `json:"kind"`
-	KeyID         string             `json:"key_id"`
-	SignedPayload string             `json:"signed_payload"`
-	Signature     string             `json:"signature"`
+	KeyID         pgtype.Text        `json:"key_id"`
+	SignedPayload pgtype.Text        `json:"signed_payload"`
+	Signature     pgtype.Text        `json:"signature"`
 	Manifest      []byte             `json:"manifest"`
 	Revoked       bool               `json:"revoked"`
 	AuthorID      pgtype.Int8        `json:"author_id"`
 	AuthorName    string             `json:"author_name"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Source        string             `json:"source"`
 }
 
 type VoiceFingerprint struct {
@@ -1034,6 +1035,7 @@ type VoiceModelCatalog struct {
 	UnsupportedReason   string             `json:"unsupported_reason"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Family              string             `json:"family"`
 }
 
 type VoicePipelineActive struct {
@@ -1125,11 +1127,6 @@ type WorkerEngineEvent struct {
 	Ignored    bool               `json:"ignored"`
 	Reason     string             `json:"reason"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
-type WorkerEngineGroup struct {
-	WorkerID  string `json:"worker_id"`
-	GroupName string `json:"group_name"`
 }
 
 type WorkerEngineInventory struct {
