@@ -2421,6 +2421,48 @@ export const fr: Messages = {
       diarization: "Diarisation",
       fingerprint: "Empreinte vocale",
     },
+    logs: {
+      title: "Logs",
+      lead: "Ce que le Worker a écrit depuis son dernier démarrage. Les lignes sont nettoyées des jetons, adresses signées et chemins de fichiers avant de quitter la machine.",
+      session: "Exécution en cours",
+      live: "En direct",
+      liveHint: "Suivre les nouvelles lignes à mesure qu’elles arrivent",
+      older: "Charger les lignes plus anciennes",
+      loadingOlder: "Chargement…",
+      empty:
+        "Aucun log reçu pour l’instant. Un Worker envoie son journal pendant qu’il tourne ; démarrez-le pour voir des lignes ici.",
+      loading: "Chargement des logs…",
+      region: "Lignes de log du Worker",
+      kept: "Seules les {count} dernières lignes sont gardées dans cette page.",
+      level: {
+        DEBUG: "Debug",
+        INFO: "Info",
+        WARN: "Avertissement",
+        ERROR: "Erreur",
+      },
+    },
+    control: {
+      title: "Pause et reprise",
+      lead: "La pause empêche tout nouveau job de démarrer ; les jobs déjà en cours se terminent. Ce n’est pas un arrêt du conteneur : le Worker reste connecté et continue d’envoyer son journal.",
+      stateLabel: "État",
+      state: {
+        running: "En marche",
+        pausing: "Mise en pause…",
+        paused: "En pause",
+        resuming: "Reprise…",
+      },
+      pending: "La consigne attend le prochain relevé du Worker.",
+      pause: "Mettre en pause",
+      resume: "Reprendre",
+      pauseTitle: "Mettre ce Worker en pause ?",
+      pauseBody:
+        "Il ne démarrera plus de nouveau job tant que vous ne l’aurez pas repris. Les jobs déjà en cours se terminent normalement.",
+      pauseConfirm: "Mettre en pause",
+      restartManaged:
+        "Pour redémarrer le Worker, ou arrêter puis démarrer son conteneur, utilisez le redémarrage géré dans « Connexion et reprise » sur cette page.",
+      restartNotManaged:
+        "Redémarrer, arrêter ou démarrer le conteneur depuis Snitch demande le redémarrage géré, activé à la création du Worker (voir le guide d’installation). D’ici là, utilisez les commandes de « Connexion et reprise » sur la machine.",
+    },
     detail: {
       back: "Tous les Workers",
       notFound: "Ce Worker n’existe pas.",

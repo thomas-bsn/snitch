@@ -10,6 +10,11 @@ export type WorkerRegistration = components["schemas"]["WorkerRegistration"];
 export type WorkerBundle = components["schemas"]["WorkerBundle"];
 export type WorkerRestartHistory =
   components["schemas"]["WorkerRestartHistory"];
+export type WorkerLogPage = components["schemas"]["WorkerLogPage"];
+export type WorkerLogLine = components["schemas"]["WorkerLogLine"];
+export type WorkerControlState = components["schemas"]["WorkerControlState"];
+export type WorkerControlAction =
+  components["schemas"]["WorkerControlInput"]["action"];
 
 const failure = (error: unknown): { ok: false; code: string } => ({
   ok: false,
@@ -32,6 +37,26 @@ export async function fetchWorkerRestartHistory(
   id: string,
 ): Promise<Result<WorkerRestartHistory>> {
   const { data, error } = await api.GET("/api/admin/workers/{id}/restart", {
+    params: { path: { id } },
+  });
+  return data ? { ok: true, value: data } : failure(error);
+}
+
+/** One page of the log of the Worker's current run: the newest, or after/before a line. */
+export async function fetchWorkerLogs(
+  id: string,
+  query: { after?: number; before?: number; limit?: number } = {},
+): Promise<Result<WorkerLogPage>> {
+  const { data, error } = await api.GET("/api/admin/workers/{id}/logs", {
+    params: { path: { id }, query },
+  });
+  return data ? { ok: true, value: data } : failure(error);
+}
+
+export async function fetchWorkerControl(
+  id: string,
+): Promise<Result<WorkerControlState>> {
+  const { data, error } = await api.GET("/api/admin/workers/{id}/control", {
     params: { path: { id } },
   });
   return data ? { ok: true, value: data } : failure(error);
@@ -85,6 +110,20 @@ export function useWorkerActions() {
         params: { path: { id }, header: mutation(csrf) },
       });
       return error ? failure(error) : { ok: true, value: null };
+    },
+    /** Pause or resume: a state the Worker reads at its next check, not a command sent to it. */
+    async control(
+      id: string,
+      action: WorkerControlAction,
+    ): Promise<Result<WorkerControlState>> {
+      const { data, error } = await api.POST(
+        "/api/admin/workers/{id}/control",
+        {
+          params: { path: { id }, header: mutation(csrf) },
+          body: { action },
+        },
+      );
+      return data ? { ok: true, value: data } : failure(error);
     },
     async restart(id: string, reason: string): Promise<Result<unknown>> {
       const { data, error } = await api.POST(

@@ -582,6 +582,11 @@ from .worker_audio_diagnostic_input import WorkerAudioDiagnosticInput
 from .worker_audio_plan_task import WorkerAudioPlanTask
 from .worker_bundle import WorkerBundle
 from .worker_claim import WorkerClaim
+from .worker_control_ack import WorkerControlAck
+from .worker_control_input import WorkerControlInput
+from .worker_control_input_action import WorkerControlInputAction
+from .worker_control_instruction import WorkerControlInstruction
+from .worker_control_state import WorkerControlState
 from .worker_detail import WorkerDetail
 from .worker_engine import WorkerEngine
 from .worker_engine_cause_code import WorkerEngineCauseCode
@@ -623,6 +628,10 @@ from .worker_install_voice_state import WorkerInstallVoiceState
 from .worker_job_input import WorkerJobInput
 from .worker_job_input_tracks_item import WorkerJobInputTracksItem
 from .worker_job_logs_input import WorkerJobLogsInput
+from .worker_log_batch import WorkerLogBatch
+from .worker_log_batch_lines_item import WorkerLogBatchLinesItem
+from .worker_log_line import WorkerLogLine
+from .worker_log_page import WorkerLogPage
 from .worker_machine import WorkerMachine
 from .worker_model import WorkerModel
 from .worker_model_cell import WorkerModelCell
@@ -1266,6 +1275,11 @@ __all__ = (
     "WorkerAudioPlanTask",
     "WorkerBundle",
     "WorkerClaim",
+    "WorkerControlAck",
+    "WorkerControlInput",
+    "WorkerControlInputAction",
+    "WorkerControlInstruction",
+    "WorkerControlState",
     "WorkerDetail",
     "WorkerEngine",
     "WorkerEngineCauseCode",
@@ -1307,6 +1321,10 @@ __all__ = (
     "WorkerJobInput",
     "WorkerJobInputTracksItem",
     "WorkerJobLogsInput",
+    "WorkerLogBatch",
+    "WorkerLogBatchLinesItem",
+    "WorkerLogLine",
+    "WorkerLogPage",
     "WorkerMachine",
     "WorkerModel",
     "WorkerModelCell",

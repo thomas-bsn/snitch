@@ -16896,6 +16896,296 @@
         }
       }
     },
+    "/api/worker/logs": {
+      "post": {
+        "operationId": "postWorkerLogs",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker pousse par lots les lignes de son journal (déjà expurgées : jetons, URLs signées, chemins). Une ligne déjà reçue pour la même session et le même numéro est ignorée : un lot renvoyé après une réponse perdue ne crée pas de doublon. Seules les 5000 dernières lignes de chaque Worker sont conservées.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerLogBatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Lot reçu"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/control": {
+      "get": {
+        "operationId": "getWorkerControl",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker lit l'état voulu par un administrateur : en pause ou non. C'est un état, pas une file de commandes : une consigne donnée pendant que le Worker était hors ligne s'applique à son retour, une seule fois.",
+        "responses": {
+          "200": {
+            "description": "État à appliquer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerControlInstruction"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/worker/control/ack": {
+      "post": {
+        "operationId": "ackWorkerControl",
+        "security": [
+          {
+            "workerBearer": []
+          }
+        ],
+        "description": "Le Worker confirme l'état qu'il applique (en pause ou non).",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerControlAck"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accusé enregistré"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/logs": {
+      "get": {
+        "operationId": "listWorkerLogs",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Journal de la session en cours du Worker (son dernier processus), depuis son démarrage. Sans curseur : la page la plus récente. `after` suit la fin du journal en direct, `before` remonte vers le début de la session.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "description": "Ne renvoie que les lignes postérieures à cet identifiant.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "description": "Ne renvoie que les lignes antérieures à cet identifiant.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lignes, dans l'ordre de lecture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerLogPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/workers/{id}/control": {
+      "get": {
+        "operationId": "getWorkerControlState",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. État de pause voulu pour le Worker et état confirmé par lui.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État de contrôle",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerControlState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "requestWorkerControl",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Met le Worker en pause (il ne prend plus de nouveau job ; ceux en cours se terminent) ou le reprend. Le Worker ne reçoit rien : il lit cet état à son prochain relevé. Le redémarrage du conteneur reste le redémarrage géré (`/api/admin/workers/{id}/restart`). La demande est tracée avec l'administrateur qui l'a faite.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WorkerControlInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "État de contrôle après la demande",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkerControlState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/benchmarks/datasets": {
       "get": {
         "operationId": "listBenchmarkDatasets",
@@ -31411,6 +31701,157 @@
           "active": {
             "type": "boolean",
             "description": "Faux quand la famille s'installe pour cette tâche mais qu'aucun adaptateur ne l'exécute (séparation SpeechBrain) : l'engine est commandé avec le modèle, le modèle reste indisponible."
+          }
+        }
+      },
+      "WorkerLogBatch": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "lines"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9_-]{8,64}$",
+            "description": "Un processus du Worker."
+          },
+          "lines": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 200,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "seq",
+                "line"
+              ],
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "format": "int64",
+                  "minimum": 0,
+                  "description": "Numéro de la ligne dans la session, à partir de 0."
+                },
+                "line": {
+                  "type": "string",
+                  "maxLength": 4096
+                }
+              }
+            }
+          }
+        }
+      },
+      "WorkerLogLine": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "seq",
+          "at",
+          "line"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "seq": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "line": {
+            "type": "string"
+          }
+        }
+      },
+      "WorkerLogPage": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_id",
+          "lines",
+          "has_more"
+        ],
+        "properties": {
+          "session_id": {
+            "type": "string",
+            "description": "Vide tant qu'aucune ligne n'a été reçue."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WorkerLogLine"
+            }
+          },
+          "has_more": {
+            "type": "boolean",
+            "description": "Des lignes plus anciennes existent dans cette session."
+          }
+        }
+      },
+      "WorkerControlInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "pause",
+              "resume"
+            ]
+          }
+        }
+      },
+      "WorkerControlState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paused",
+          "applied_paused"
+        ],
+        "properties": {
+          "paused": {
+            "type": "boolean",
+            "description": "Pause demandée."
+          },
+          "applied_paused": {
+            "type": "boolean",
+            "nullable": true,
+            "description": "Pause confirmée par le Worker ; null tant qu'il n'a rien confirmé. Diffère de `paused` pendant que la consigne est en route."
+          }
+        }
+      },
+      "WorkerControlInstruction": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paused"
+        ],
+        "properties": {
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkerControlAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "paused"
+        ],
+        "properties": {
+          "paused": {
+            "type": "boolean"
           }
         }
       }

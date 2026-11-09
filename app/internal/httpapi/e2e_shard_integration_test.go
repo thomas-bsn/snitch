@@ -98,7 +98,7 @@ func foundationBrowserSuites() []string {
 		"admin-voice-engines.spec.ts", "admin-voice-engines-recovery.spec.ts",
 		"admin-voice-engine-models.spec.ts", "admin-voice-engine-uninstall.spec.ts", "admin-voice-engines-resources.spec.ts",
 		"admin-queue-folders.spec.ts", "admin-folders.spec.ts", "account-settings.spec.ts",
-		"admin-workers.spec.ts", "admin-workers-live.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
+		"admin-workers.spec.ts", "admin-workers-live.spec.ts", "admin-worker-logs-control.spec.ts", "import.spec.ts", "clip-corrections.spec.ts",
 		"library.spec.ts", "search-screen.spec.ts", "people.spec.ts",
 		"people-groups.spec.ts", "people-groups-disposition.spec.ts", "people-directory.spec.ts", "people-tabs.spec.ts", "people-to-process.spec.ts", "people-process.spec.ts", "segment-reindex.spec.ts", "search-corrections.spec.ts",
 		"segment-export.spec.ts", "video-storage.spec.ts", "voice-rediarization.spec.ts", "voice-profile.spec.ts", "clip-analysis.spec.ts", "clip-stepper-live.spec.ts", "clip-audio-selection.spec.ts", "clip-audio-activation.spec.ts", "notifications.spec.ts", "admin-queue-analysis.spec.ts", "admin-queue-board.spec.ts", "admin-queue-timeline.spec.ts", "clip-voices.spec.ts",

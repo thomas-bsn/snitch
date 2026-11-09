@@ -108,6 +108,12 @@ _Avoid_ : Jeton du Worker (qui désigne l'accès durable du Worker installé).
 **Voix prête** : État d'un Worker dont les modèles vocaux actifs sont présents et dont une inférence de test a réussi. Des modèles simplement téléchargés ne suffisent pas.
 _Avoid_ : Modèles prêts, voix installée.
 
+**Journal du Worker** : Les lignes que le Worker écrit depuis le démarrage de son processus (sa session), envoyées à Snitch pour qu'un administrateur les lise sans accéder à la machine. Snitch n'en garde que les 5000 dernières par Worker ; le journal complet reste celui du conteneur.
+_Avoid_ : Logs d'un job (qui désigne le journal d'une tâche précise).
+
+**Pause d'un Worker** : Un Worker en pause ne prend plus de nouveau job ; ceux en cours se terminent, et il reste joignable (présence, ordres d'engines, journal). Ce n'est pas un arrêt du conteneur : arrêter ou redémarrer la machine passe par le redémarrage géré.
+_Avoid_ : Arrêt, stop, hors ligne.
+
 **Token Hugging Face central** : Le jeton d'accès aux modèles vocaux saisi une fois dans Snitch par le Super-administrateur et distribué aux Workers autorisés. Un jeton déposé directement sur un Worker reste le sien et n'est jamais remplacé en silence.
 _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 

@@ -27,6 +27,8 @@ export const errorsEn = {
     "This release does not match the engine of this model.",
   engine_already_bound: "This model already uses this runtime version.",
   invalid_runtime_order: "This update order is not valid.",
+  invalid_worker_logs: "This Worker log batch is not valid.",
+  invalid_worker_control: "This control instruction is not valid.",
   invalid_worker_hardware: "This Worker hardware report is not valid.",
   platform_incompatible:
     "This engine does not support this Worker's Python version or platform.",
