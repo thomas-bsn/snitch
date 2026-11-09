@@ -140,6 +140,14 @@ type BenchmarkDataset struct {
 	AuthorID   pgtype.Int8        `json:"author_id"`
 	AuthorName string             `json:"author_name"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Stages     []string           `json:"stages"`
+}
+
+type BenchmarkDatasetClip struct {
+	DatasetID int64  `json:"dataset_id"`
+	ClipID    int64  `json:"clip_id"`
+	Role      string `json:"role"`
+	Verified  bool   `json:"verified"`
 }
 
 type BenchmarkDatasetItem struct {

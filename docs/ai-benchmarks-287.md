@@ -1,4 +1,4 @@
-# Benchmarks IA, première tranche de #287 (empreinte vocale)
+# Benchmarks IA, #287 (empreinte vocale, corpus de clips)
 
 Cette tranche ajoute le socle backend isolé pour comparer des modèles d'empreinte vocale sur les mêmes clips. Elle ne valide pas l'epic. Voir l'[ADR 0056](adr/0056-benchmarks-ia-isoles.md) pour les décisions.
 
@@ -25,3 +25,7 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 - Le temps écoulé inclut l'attente en file ; ce n'est pas une latence d'inférence. RAM et VRAM ne sont pas remontées par le Worker : `resources` vaut `null`.
 - Un seul run actif à la fois.
 - Tests faits sur données synthétiques uniquement ; aucun benchmark sur la vraie bibliothèque, qui relève de la phase 7 et de son autorisation.
+
+## Corpus de clips (tranche 2)
+
+Le jeu de voix devient un corpus de clips annotés avec certification « relu en entier » ; les étapes mesurables en sont déduites. Voir l'[ADR 0057](adr/0057-corpus-de-benchmark-et-verite-terrain.md). Routes ajoutées : `GET /api/admin/benchmarks/clips` et `GET /api/admin/benchmarks/models?stage=fingerprint`. Seule l'étape empreinte est exécutable ; transcription, diarisation et bout en bout viennent ensuite. Références de transcription et de diarisation : sortie de production corrigée, donc biaisée en faveur du modèle de production (annoncé dans les résultats).

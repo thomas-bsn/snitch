@@ -8,7 +8,7 @@ from ...client import AuthenticatedClient, Client
 from ...types import Response, UNSET
 from ... import errors
 
-from ...models.benchmark_created import BenchmarkCreated
+from ...models.benchmark_dataset_created import BenchmarkDatasetCreated
 from ...models.benchmark_dataset_input import BenchmarkDatasetInput
 from ...models.error import Error
 from typing import cast
@@ -47,9 +47,9 @@ def _get_kwargs(
 
 
 
-def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> BenchmarkCreated | Error:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> BenchmarkDatasetCreated | Error:
     if response.status_code == 201:
-        response_201 = BenchmarkCreated.from_dict(response.json())
+        response_201 = BenchmarkDatasetCreated.from_dict(response.json())
 
 
 
@@ -63,7 +63,7 @@ def _parse_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 
-def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[BenchmarkCreated | Error]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Response) -> Response[BenchmarkDatasetCreated | Error]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -79,12 +79,13 @@ def sync_detailed(
     origin: str,
     x_csrf_token: str,
 
-) -> Response[BenchmarkCreated | Error]:
-    """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
-    une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
-    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
-    deux personnes), benchmark_dataset_name_taken.
+) -> Response[BenchmarkDatasetCreated | Error]:
+    """  Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement
+    certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La
+    vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
+    sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
+    benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable),
+    benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -96,7 +97,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[BenchmarkCreated | Error]
+        Response[BenchmarkDatasetCreated | Error]
      """
 
 
@@ -120,12 +121,13 @@ def sync(
     origin: str,
     x_csrf_token: str,
 
-) -> BenchmarkCreated | Error | None:
-    """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
-    une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
-    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
-    deux personnes), benchmark_dataset_name_taken.
+) -> BenchmarkDatasetCreated | Error | None:
+    """  Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement
+    certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La
+    vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
+    sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
+    benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable),
+    benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -137,7 +139,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        BenchmarkCreated | Error
+        BenchmarkDatasetCreated | Error
      """
 
 
@@ -156,12 +158,13 @@ async def asyncio_detailed(
     origin: str,
     x_csrf_token: str,
 
-) -> Response[BenchmarkCreated | Error]:
-    """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
-    une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
-    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
-    deux personnes), benchmark_dataset_name_taken.
+) -> Response[BenchmarkDatasetCreated | Error]:
+    """  Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement
+    certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La
+    vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
+    sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
+    benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable),
+    benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -173,7 +176,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[BenchmarkCreated | Error]
+        Response[BenchmarkDatasetCreated | Error]
      """
 
 
@@ -197,12 +200,13 @@ async def asyncio(
     origin: str,
     x_csrf_token: str,
 
-) -> BenchmarkCreated | Error | None:
-    """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
-    une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
-    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
-    deux personnes), benchmark_dataset_name_taken.
+) -> BenchmarkDatasetCreated | Error | None:
+    """  Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement
+    certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La
+    vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
+    sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
+    benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable),
+    benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -214,7 +218,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        BenchmarkCreated | Error
+        BenchmarkDatasetCreated | Error
      """
 
 

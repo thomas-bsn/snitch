@@ -6,9 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
+	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -32,6 +31,8 @@ const (
 
 func (s *Server) registerBenchmarkRoutes(mux *http.ServeMux) {
 	const base = "/api/admin/benchmarks"
+	mux.Handle("GET "+base+"/clips", s.protected(true, http.HandlerFunc(s.listBenchmarkClips)))
+	mux.Handle("GET "+base+"/models", s.protected(true, http.HandlerFunc(s.listBenchmarkModels)))
 	mux.Handle("GET "+base+"/datasets", s.protected(true, http.HandlerFunc(s.listBenchmarkDatasets)))
 	mux.Handle("POST "+base+"/datasets", s.protected(true, http.HandlerFunc(s.createBenchmarkDataset)))
 	mux.Handle("DELETE "+base+"/datasets/{id}", s.protected(true, http.HandlerFunc(s.deleteBenchmarkDataset)))
@@ -39,163 +40,6 @@ func (s *Server) registerBenchmarkRoutes(mux *http.ServeMux) {
 	mux.Handle("POST "+base+"/runs", s.protected(true, http.HandlerFunc(s.startBenchmarkRun)))
 	mux.Handle("GET "+base+"/runs/{id}", s.protected(true, http.HandlerFunc(s.getBenchmarkRun)))
 	mux.Handle("POST "+base+"/runs/{id}/cancel", s.protected(true, http.HandlerFunc(s.cancelBenchmarkRun)))
-}
-
-type benchmarkDataset struct {
-	ID         int64     `json:"id"`
-	Name       string    `json:"name"`
-	AuthorName string    `json:"author_name"`
-	CreatedAt  time.Time `json:"created_at"`
-	References int       `json:"references"`
-	Tests      int       `json:"tests"`
-	Persons    int       `json:"persons"`
-	Clips      int       `json:"clips"`
-}
-
-func (s *Server) listBenchmarkDatasets(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.Pool.Query(r.Context(), `SELECT d.id,d.name,d.author_name,d.created_at,
-		count(*) FILTER (WHERE i.split='reference'),count(*) FILTER (WHERE i.split='test'),count(DISTINCT i.person_id),count(DISTINCT ls.clip_id)
-		FROM benchmark_datasets d LEFT JOIN benchmark_dataset_items i ON i.dataset_id=d.id LEFT JOIN local_speakers ls ON ls.id=i.local_speaker_id
-		GROUP BY d.id ORDER BY d.id DESC`)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer rows.Close()
-	out := []benchmarkDataset{}
-	for rows.Next() {
-		var d benchmarkDataset
-		if err = rows.Scan(&d.ID, &d.Name, &d.AuthorName, &d.CreatedAt, &d.References, &d.Tests, &d.Persons, &d.Clips); err != nil {
-			s.internal(w, err)
-			return
-		}
-		out = append(out, d)
-	}
-	if err = rows.Err(); err != nil {
-		s.internal(w, err)
-		return
-	}
-	reply(w, http.StatusOK, map[string]any{"datasets": out})
-}
-
-func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) {
-	ss := r.Context().Value(sessionKey{}).(session)
-	var input struct {
-		Name                string  `json:"name"`
-		ReferenceSpeakerIDs []int64 `json:"reference_speaker_ids"`
-		TestSpeakerIDs      []int64 `json:"test_speaker_ids"`
-	}
-	if !decode(w, r, &input) {
-		return
-	}
-	name := strings.TrimSpace(input.Name)
-	if name == "" || len([]rune(name)) > 100 || len(input.ReferenceSpeakerIDs)+len(input.TestSpeakerIDs) > benchMaxSpeakers {
-		fail(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	split := map[int64]string{}
-	for _, group := range []struct {
-		ids   []int64
-		split string
-	}{{input.ReferenceSpeakerIDs, "reference"}, {input.TestSpeakerIDs, "test"}} {
-		for _, id := range group.ids {
-			if _, dup := split[id]; dup || id < 1 {
-				// A voice cannot be its own reference: the same speaker on both sides would inflate every score.
-				fail(w, http.StatusUnprocessableEntity, "benchmark_speaker_duplicate")
-				return
-			}
-			split[id] = group.split
-		}
-	}
-	ids := make([]int64, 0, len(split))
-	for id := range split {
-		ids = append(ids, id)
-	}
-	// The ground truth is the human validation, never a machine attribution. A microphone voice is designated,
-	// not recognised, so it is no test of a model.
-	rows, err := s.Pool.Query(r.Context(), `SELECT ls.id,a.person_id,ls.clip_id FROM local_speakers ls JOIN speaker_attributions a ON a.local_speaker_id=ls.id AND a.validation_state='validated' WHERE ls.id=ANY($1) AND ls.kind='diarized' AND a.person_id IS NOT NULL`, ids)
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer rows.Close()
-	person, clip := map[int64]int64{}, map[int64]int64{}
-	for rows.Next() {
-		var id, p, c int64
-		if err = rows.Scan(&id, &p, &c); err != nil {
-			s.internal(w, err)
-			return
-		}
-		person[id], clip[id] = p, c
-	}
-	if err = rows.Err(); err != nil {
-		s.internal(w, err)
-		return
-	}
-	rows.Close()
-	if len(person) != len(ids) {
-		fail(w, http.StatusUnprocessableEntity, "benchmark_speaker_not_validated")
-		return
-	}
-	refPersons, testPersons := map[int64]bool{}, map[int64]bool{}
-	type voiceInClip struct{ person, clip int64 }
-	refClips := map[voiceInClip]bool{}
-	for id, p := range person {
-		if split[id] == "reference" {
-			refPersons[p] = true
-			refClips[voiceInClip{p, clip[id]}] = true
-		} else {
-			testPersons[p] = true
-		}
-	}
-	for id, p := range person {
-		// A test taken from the recording of its own reference shares its voice, channel and noise: the score
-		// would measure the recording, not the model.
-		if split[id] == "test" && refClips[voiceInClip{p, clip[id]}] {
-			fail(w, http.StatusUnprocessableEntity, "benchmark_test_same_clip_as_reference")
-			return
-		}
-	}
-	for p := range testPersons {
-		if !refPersons[p] {
-			fail(w, http.StatusUnprocessableEntity, "benchmark_test_without_reference")
-			return
-		}
-	}
-	if len(refPersons) < 2 || len(testPersons) == 0 {
-		// One Person gives no impostor trial: no error rate can be measured.
-		fail(w, http.StatusUnprocessableEntity, "benchmark_dataset_too_small")
-		return
-	}
-	tx, err := s.Pool.Begin(r.Context())
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	defer tx.Rollback(r.Context())
-	var datasetID int64
-	err = tx.QueryRow(r.Context(), `INSERT INTO benchmark_datasets(name,author_id,author_name) VALUES($1,$2,$3) RETURNING id`, name, ss.User.ID, ss.User.Username).Scan(&datasetID)
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
-		fail(w, http.StatusConflict, "benchmark_dataset_name_taken")
-		return
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-	for _, id := range ids {
-		if _, err = tx.Exec(r.Context(), `INSERT INTO benchmark_dataset_items(dataset_id,local_speaker_id,person_id,split) VALUES($1,$2,$3,$4)`, datasetID, id, person[id], split[id]); err != nil {
-			s.internal(w, err)
-			return
-		}
-	}
-	if err = tx.Commit(r.Context()); err != nil {
-		s.internal(w, err)
-		return
-	}
-	reply(w, http.StatusCreated, map[string]any{"id": datasetID})
 }
 
 func (s *Server) deleteBenchmarkDataset(w http.ResponseWriter, r *http.Request) {
@@ -441,13 +285,18 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var name string
-	err := s.Pool.QueryRow(r.Context(), `SELECT name FROM benchmark_datasets WHERE id=$1`, input.DatasetID).Scan(&name)
+	var stages []string
+	err := s.Pool.QueryRow(r.Context(), `SELECT name,stages FROM benchmark_datasets WHERE id=$1`, input.DatasetID).Scan(&name, &stages)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "not_found")
 		return
 	}
 	if err != nil {
 		s.internal(w, err)
+		return
+	}
+	if !slices.Contains(stages, input.Stage) {
+		fail(w, http.StatusUnprocessableEntity, "benchmark_stage_unsupported_by_dataset")
 		return
 	}
 	// The distinct fingerprint works of the dataset: one per clip, audio track and diarization.

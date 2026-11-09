@@ -80,11 +80,11 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[BenchmarkCreated | Error]:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
-    données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
+    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
+    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
-    benchmark_model_invalid, benchmark_dataset_stale.
+    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):
@@ -121,11 +121,11 @@ def sync(
     x_csrf_token: str,
 
 ) -> BenchmarkCreated | Error | None:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
-    données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
+    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
+    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
-    benchmark_model_invalid, benchmark_dataset_stale.
+    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):
@@ -157,11 +157,11 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[BenchmarkCreated | Error]:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
-    données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
+    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
+    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
-    benchmark_model_invalid, benchmark_dataset_stale.
+    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):
@@ -198,11 +198,11 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> BenchmarkCreated | Error | None:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
-    données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
+    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
+    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
-    benchmark_model_invalid, benchmark_dataset_stale.
+    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):

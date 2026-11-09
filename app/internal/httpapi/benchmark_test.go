@@ -90,7 +90,7 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	// Only administrators reach the benchmarks.
 	member := h.newUser("benchmark-member")
 	for _, call := range []struct{ method, path string }{
-		{http.MethodGet, "/api/admin/benchmarks/datasets"}, {http.MethodPost, "/api/admin/benchmarks/runs"},
+		{http.MethodGet, "/api/admin/benchmarks/datasets"}, {http.MethodGet, "/api/admin/benchmarks/clips"}, {http.MethodGet, "/api/admin/benchmarks/models?stage=fingerprint"}, {http.MethodPost, "/api/admin/benchmarks/runs"},
 		{http.MethodGet, "/api/admin/benchmarks/runs/1"}, {http.MethodPost, "/api/admin/benchmarks/runs/1/cancel"},
 	} {
 		if status, _ := h.userStatus(member, call.method, call.path, map[string]any{}); status != http.StatusForbidden {
@@ -98,24 +98,129 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 		}
 	}
 
-	// Dataset rules: validated ground truth, no voice on both sides, no test without reference, two persons at least.
-	unvalidated := h.fixtureSpeaker(h.clipIDs[4], "NOBODY", usableAt(40))
+	// Corpus rules: shared clips only, one role per clip, certification for test clips only, one stage at least.
+	c0, c1, c2, c3, c4 := h.clipIDs[0], h.clipIDs[1], h.clipIDs[2], h.clipIDs[3], h.clipIDs[4]
+	if _, err := pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.1','bench-transcription','done',$2::jsonb)`, c2, `{"provider":"fixture","model":"m","audio_stream_index":1,"segments":[{"start":0,"end":1,"text":"bonjour","words":[]}]}`); err != nil {
+		t.Fatal(err)
+	}
 	datasets := "/api/admin/benchmarks/datasets"
 	bad := func(body map[string]any, want int) {
 		t.Helper()
 		h.adminCall(http.MethodPost, datasets, body, want)
 	}
-	bad(map[string]any{"name": "x", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{unvalidated.ID}}, http.StatusUnprocessableEntity)
-	bad(map[string]any{"name": "x", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{refA.ID}}, http.StatusUnprocessableEntity)
-	bad(map[string]any{"name": "x", "reference_speaker_ids": []int64{refA.ID}, "test_speaker_ids": []int64{testA.ID, testB.ID}}, http.StatusUnprocessableEntity)
-	bad(map[string]any{"name": "x", "reference_speaker_ids": []int64{refA.ID}, "test_speaker_ids": []int64{testA.ID}}, http.StatusUnprocessableEntity)
-	bad(map[string]any{"name": " ", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{testA.ID}}, http.StatusBadRequest)
-	dataset := h.benchID(h.adminCall(http.MethodPost, datasets, map[string]any{"name": "Voix validées", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{testA.ID, testB.ID}}, http.StatusCreated))
-	bad(map[string]any{"name": "voix VALIDÉES", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{testA.ID}}, http.StatusConflict)
+	corpus := func(name string, test, reference, verified []int64) map[string]any {
+		return map[string]any{"name": name, "test_clip_ids": test, "reference_clip_ids": reference, "verified_clip_ids": verified}
+	}
+	bad(corpus("x", []int64{c4}, []int64{}, []int64{}), http.StatusUnprocessableEntity)           // no validated voice, nothing certified: no stage to measure
+	bad(corpus("x", []int64{c2}, []int64{c2}, []int64{}), http.StatusUnprocessableEntity)         // a clip is a test or a reference, once
+	bad(corpus("x", []int64{c2}, []int64{c0, c1}, []int64{c0}), http.StatusUnprocessableEntity)   // only a test clip is certified
+	bad(corpus("x", []int64{999999}, []int64{c0, c1}, []int64{}), http.StatusUnprocessableEntity) // unknown clip
+	bad(corpus(" ", []int64{c2}, []int64{c0, c1}, []int64{}), http.StatusBadRequest)              // blank name
+	bad(corpus("x", []int64{}, []int64{c0, c1}, []int64{}), http.StatusBadRequest)                // nothing to measure
+	if _, err := pool.Exec(ctx, `UPDATE clips SET visibility='private' WHERE id=$1`, c1); err != nil {
+		t.Fatal(err)
+	}
+	bad(corpus("x", []int64{c2}, []int64{c0, c1}, []int64{}), http.StatusUnprocessableEntity) // a private clip never enters a corpus
+	if _, err := pool.Exec(ctx, `UPDATE clips SET visibility='shared' WHERE id=$1`, c1); err != nil {
+		t.Fatal(err)
+	}
+	var created struct {
+		ID     int64    `json:"id"`
+		Stages []string `json:"stages"`
+	}
+	create := func(body map[string]any) (int64, []string) {
+		t.Helper()
+		if err := json.Unmarshal(h.adminCall(http.MethodPost, datasets, body, http.StatusCreated), &created); err != nil || created.ID < 1 {
+			t.Fatalf("a corpus id is expected: %v", err)
+		}
+		return created.ID, created.Stages
+	}
+	dataset, stages := create(corpus("Voix validées", []int64{c2, c3}, []int64{c0, c1}, []int64{}))
+	if fmt.Sprint(stages) != "[fingerprint]" {
+		t.Fatalf("a corpus of validated voices alone measures the fingerprint only, got %v", stages)
+	}
+	bad(corpus("voix VALIDÉES", []int64{c2}, []int64{c0, c1}, []int64{}), http.StatusConflict)
+	certified, stages := create(corpus("Certifié", []int64{c2, c3}, []int64{c0, c1}, []int64{c2}))
+	if fmt.Sprint(stages) != "[fingerprint transcription diarization e2e]" {
+		t.Fatalf("a certified clip opens every stage, got %v", stages)
+	}
+	noFingerprint, stages := create(corpus("Sans empreinte", []int64{c2}, []int64{}, []int64{c2}))
+	if fmt.Sprint(stages) != "[transcription diarization]" {
+		t.Fatalf("without references only transcription and diarization are measurable, got %v", stages)
+	}
+
+	// The clips and the models a screen offers.
+	var offered struct {
+		Clips []struct {
+			ID                int64    `json:"id"`
+			SegmentsTotal     int      `json:"segments_total"`
+			SegmentsCorrected int      `json:"segments_corrected"`
+			ValidatedPersons  []string `json:"validated_persons"`
+		} `json:"clips"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/benchmarks/clips", nil, http.StatusOK), &offered); err != nil {
+		t.Fatal(err)
+	}
+	found := map[int64]bool{}
+	for _, c := range offered.Clips {
+		found[c.ID] = true
+		if c.ID == c2 && (c.SegmentsTotal != 1 || c.SegmentsCorrected != 0 || fmt.Sprint(c.ValidatedPersons) != "[Alice]") {
+			t.Fatalf("the clip describes its transcript and validated voices: %+v", c)
+		}
+	}
+	if !found[c0] || !found[c2] || found[c4] {
+		t.Fatalf("clips with a validated voice or a transcript are offered, the others not: %v", found)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE clips SET visibility='private' WHERE id=$1`, c0); err != nil {
+		t.Fatal(err)
+	}
+	offered.Clips = nil
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/benchmarks/clips", nil, http.StatusOK), &offered); err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range offered.Clips {
+		if c.ID == c0 {
+			t.Fatal("a private clip is never offered")
+		}
+	}
+	if _, err := pool.Exec(ctx, `UPDATE clips SET visibility='shared' WHERE id=$1`, c0); err != nil {
+		t.Fatal(err)
+	}
+	var models struct {
+		Models []struct {
+			ID           string `json:"id"`
+			Active       bool   `json:"active"`
+			ReadyWorkers int    `json:"ready_workers"`
+			TotalWorkers int    `json:"total_workers"`
+		} `json:"models"`
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/benchmarks/models?stage=fingerprint", nil, http.StatusOK), &models); err != nil {
+		t.Fatal(err)
+	}
+	seen := map[string]int{}
+	for _, m := range models.Models {
+		seen[m.ID] = m.ReadyWorkers
+		if m.TotalWorkers < 1 {
+			t.Fatalf("the Worker total is reported: %+v", m)
+		}
+		if m.ID == benchModelID && m.Active {
+			t.Fatal("the benchmark candidate is not the active model")
+		}
+	}
+	if seen[benchModelID] != 1 {
+		t.Fatalf("the model the Worker reported ready counts one Worker, got %v", seen)
+	}
+	if n, ok := seen["pyannote-wespeaker-resnet34"]; !ok || n != 0 {
+		t.Fatalf("the active model is listed, ready on no Worker here: %v", seen)
+	}
+	h.adminCall(http.MethodGet, "/api/admin/benchmarks/models?stage=diarization", nil, http.StatusUnprocessableEntity)
+	h.adminCall(http.MethodGet, "/api/admin/benchmarks/models", nil, http.StatusUnprocessableEntity)
 
 	runs := "/api/admin/benchmarks/runs"
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{"unknown-model"}}, http.StatusUnprocessableEntity)
-	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "diarization", "model_ids": []string{benchModelID}}, http.StatusBadRequest)
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "transcription", "model_ids": []string{benchModelID}}, http.StatusBadRequest) // not executable yet
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": noFingerprint, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusUnprocessableEntity)
+	_ = certified
 
 	// A run cancelled before any Worker took a job leaves no job behind, and frees the next run.
 	first := h.benchID(h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusCreated))
@@ -188,7 +293,7 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	}
 
 	// The benchmark never touches production: fingerprints, validations, active model.
-	if n := h.count(`SELECT count(*) FROM voice_fingerprints WHERE NOT benchmark AND model='fixture-embedding'`); n != 5 {
+	if n := h.count(`SELECT count(*) FROM voice_fingerprints WHERE NOT benchmark AND model='fixture-embedding'`); n != 4 {
 		t.Fatalf("the production fingerprints are untouched, got %d", n)
 	}
 	if n := h.count(`SELECT count(*) FROM voice_fingerprints WHERE benchmark AND model=$1`, benchModelRepo); n != 4 {
@@ -244,18 +349,27 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": 999999, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusNotFound)
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{benchModelID, benchModelID}}, http.StatusBadRequest)
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{}}, http.StatusBadRequest)
-	spare := h.benchID(h.adminCall(http.MethodPost, datasets, map[string]any{"name": "Jetable", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{testA.ID}}, http.StatusCreated))
+	spare, _ := create(corpus("Jetable", []int64{c2}, []int64{c0, c1}, []int64{}))
 	var listed struct {
 		Datasets []struct {
-			ID                                int64
-			References, Tests, Persons, Clips int
+			ID             int64    `json:"id"`
+			TestClips      int      `json:"test_clips"`
+			ReferenceClips int      `json:"reference_clips"`
+			VerifiedClips  int      `json:"verified_clips"`
+			Persons        int      `json:"persons"`
+			Stages         []string `json:"stages"`
 		} `json:"datasets"`
 	}
-	if err := json.Unmarshal(h.adminCall(http.MethodGet, datasets, nil, http.StatusOK), &listed); err != nil || len(listed.Datasets) != 2 {
-		t.Fatalf("two datasets are listed, got %d (%v)", len(listed.Datasets), err)
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, datasets, nil, http.StatusOK), &listed); err != nil || len(listed.Datasets) != 4 {
+		t.Fatalf("four corpora are listed, got %d (%v)", len(listed.Datasets), err)
 	}
-	if d := listed.Datasets[1]; d.ID != dataset || d.References != 2 || d.Tests != 2 || d.Persons != 2 || d.Clips != 4 {
-		t.Fatalf("the counts describe the dataset: %+v", d)
+	for _, d := range listed.Datasets {
+		if d.ID == dataset && (d.TestClips != 2 || d.ReferenceClips != 2 || d.VerifiedClips != 0 || d.Persons != 2 || fmt.Sprint(d.Stages) != "[fingerprint]") {
+			t.Fatalf("the counts describe the corpus: %+v", d)
+		}
+		if d.ID == certified && d.VerifiedClips != 1 {
+			t.Fatalf("the certification is counted: %+v", d)
+		}
 	}
 	h.adminCall(http.MethodDelete, fmt.Sprintf("%s/%d", datasets, spare), nil, http.StatusNoContent)
 	h.adminCall(http.MethodDelete, fmt.Sprintf("%s/%d", datasets, spare), nil, http.StatusNotFound)
@@ -278,11 +392,6 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the unread run was settled when the next one started: %+v", got)
 	}
 	h.adminCall(http.MethodPost, fmt.Sprintf("%s/%d/cancel", runs, sixth), nil, http.StatusOK)
-
-	// A test voice from the clip of its own reference would measure the recording, not the model.
-	sameClip := h.fixtureSpeaker(h.clipIDs[0], "SAMECLIP", usableAt(3))
-	h.validate(sameClip, alice)
-	h.adminCall(http.MethodPost, datasets, map[string]any{"name": "Même clip", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{sameClip.ID}}, http.StatusUnprocessableEntity)
 
 	// The dataset stays while a run refers to it, and the list shows every run.
 	h.adminCall(http.MethodDelete, fmt.Sprintf("%s/%d", datasets, dataset), nil, http.StatusConflict)

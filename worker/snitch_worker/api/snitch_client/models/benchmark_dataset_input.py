@@ -24,13 +24,16 @@ class BenchmarkDatasetInput:
     """
         Attributes:
             name (str):
-            reference_speaker_ids (list[int]):
-            test_speaker_ids (list[int]):
+            test_clip_ids (list[int]):
+            reference_clip_ids (list[int]):
+            verified_clip_ids (list[int]): Clips de test dont l'administrateur atteste que le texte et les locuteurs ont été
+                relus en entier.
      """
 
     name: str
-    reference_speaker_ids: list[int]
-    test_speaker_ids: list[int]
+    test_clip_ids: list[int]
+    reference_clip_ids: list[int]
+    verified_clip_ids: list[int]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -40,11 +43,15 @@ class BenchmarkDatasetInput:
     def to_dict(self) -> dict[str, Any]:
         name = self.name
 
-        reference_speaker_ids = self.reference_speaker_ids
+        test_clip_ids = self.test_clip_ids
 
 
 
-        test_speaker_ids = self.test_speaker_ids
+        reference_clip_ids = self.reference_clip_ids
+
+
+
+        verified_clip_ids = self.verified_clip_ids
 
 
 
@@ -53,8 +60,9 @@ class BenchmarkDatasetInput:
         field_dict.update(self.additional_properties)
         field_dict.update({
             "name": name,
-            "reference_speaker_ids": reference_speaker_ids,
-            "test_speaker_ids": test_speaker_ids,
+            "test_clip_ids": test_clip_ids,
+            "reference_clip_ids": reference_clip_ids,
+            "verified_clip_ids": verified_clip_ids,
         })
 
         return field_dict
@@ -66,16 +74,20 @@ class BenchmarkDatasetInput:
         d = dict(src_dict)
         name = d.pop("name")
 
-        reference_speaker_ids = cast(list[int], d.pop("reference_speaker_ids"))
+        test_clip_ids = cast(list[int], d.pop("test_clip_ids"))
 
 
-        test_speaker_ids = cast(list[int], d.pop("test_speaker_ids"))
+        reference_clip_ids = cast(list[int], d.pop("reference_clip_ids"))
+
+
+        verified_clip_ids = cast(list[int], d.pop("verified_clip_ids"))
 
 
         benchmark_dataset_input = cls(
             name=name,
-            reference_speaker_ids=reference_speaker_ids,
-            test_speaker_ids=test_speaker_ids,
+            test_clip_ids=test_clip_ids,
+            reference_clip_ids=reference_clip_ids,
+            verified_clip_ids=verified_clip_ids,
         )
 
 

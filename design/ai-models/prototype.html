@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="fr" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Snitch — Admin · AI Models (prototype jetable, v2 corpus annoté)</title>
+<style>
+/* Référence visuelle jetable (#287). Ne jamais copier tel quel dans web/ ni le fusionner.
+   Tokens identiques à web/src/app/styles.css ; --series-* sont une proposition. */
+:root{color-scheme:light;--canvas:#fff;--side:#f7f7f8;--surface:#fff;--line:#e8e8ec;--line-strong:#dcdce2;--ink:#1b1b1f;--mute:#6b6b76;--nav:#3c3c44;--accent:#5b5bd6;--accent-solid:#5b5bd6;--accent-fg:#fff;--accent-soft:#ececfb;--accent-ink:#3a3aa8;--ok-bg:#e6f6ec;--ok-fg:#1e6a3c;--warn-bg:#fdf1d8;--warn-fg:#80560a;--bad-bg:#fdecec;--bad-fg:#8a1f1f;--pop-shadow:0 8px 24px #0000001f;
+--series-1:#5b5bd6;--series-2:#0f766e;--series-3:#b45309;--series-4:#be185d;--r:10px;--r-sm:7px}
+:root[data-theme=dark]{color-scheme:dark;--canvas:#0f0f12;--side:#16161a;--surface:#1b1b20;--line:#2a2a31;--line-strong:#3a3a43;--ink:#ececf0;--mute:#9a9aa6;--nav:#c8c8d2;--accent:#8f8ff5;--accent-solid:#5b5bd6;--accent-fg:#fff;--accent-soft:#262650;--accent-ink:#c1c1ff;--ok-bg:#16301f;--ok-fg:#7fd69a;--warn-bg:#3a2f12;--warn-fg:#f0c870;--bad-bg:#3a1a1a;--bad-fg:#f0a0a0;--pop-shadow:0 8px 24px #00000080;
+--series-1:#8f8ff5;--series-2:#5eead4;--series-3:#fbbf24;--series-4:#f472b6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--side);color:var(--ink);font:14px/1.5 Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.proto{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding:10px 16px;background:#16161a;color:#ececf0;font-size:12px;position:sticky;top:0;z-index:50}
+.proto b{color:#c1c1ff}.proto select,.proto button{background:#262630;border:1px solid #3a3a43;color:#ececf0;border-radius:6px;padding:5px 9px;min-height:32px}
+.app{max-width:1180px;margin:18px auto 60px;background:var(--canvas);border:1px solid var(--line);border-radius:14px;overflow:hidden;position:relative}
+.top{display:flex;gap:14px;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top h1{font-size:18px;margin:0;letter-spacing:-.01em}.top p{margin:2px 0 0;color:var(--mute);font-size:12px}
+.tabs{display:flex;gap:2px;padding:0 14px;border-bottom:1px solid var(--line);overflow-x:auto;background:var(--side)}
+.tabs a{padding:11px 12px;font-size:13px;color:var(--mute);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;min-height:44px;display:flex;align-items:center}
+.tabs a[aria-current=page]{color:var(--ink);font-weight:600;border-color:var(--accent)}
+.pills{display:flex;gap:6px;padding:14px 22px 0;flex-wrap:wrap}
+.pills button{border:1px solid var(--line-strong);background:var(--surface);padding:6px 14px;border-radius:999px;font-size:13px;min-height:44px;color:var(--nav)}
+.pills button[aria-current=page]{background:var(--accent-soft);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+main{padding:18px 22px 28px}
+h2{font-size:15px;margin:0 0 2px}.sub{color:var(--mute);font-size:12px;margin:0 0 12px}
+.card{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:14px 16px;margin-bottom:16px}
+.btn{border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--r-sm);padding:8px 14px;min-height:44px;font-weight:600;font-size:13px}
+.btn:hover:not([disabled]){border-color:var(--accent)}
+.btn.pri{background:var(--accent-solid);border-color:var(--accent-solid);color:var(--accent-fg)}
+.btn.sm{min-height:36px;padding:5px 10px;font-size:12px}
+.btn.danger{color:var(--bad-fg);border-color:var(--bad-fg)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.pill{display:inline-flex;gap:5px;align-items:center;padding:2px 9px 2px 7px;border-radius:999px;font-size:11px;font-weight:600;white-space:nowrap}
+.ok{background:var(--ok-bg);color:var(--ok-fg)}.warn{background:var(--warn-bg);color:var(--warn-fg)}.bad{background:var(--bad-bg);color:var(--bad-fg)}.info{background:var(--accent-soft);color:var(--accent-ink)}.off{background:var(--side);color:var(--mute);border:1px solid var(--line)}
+.mute{color:var(--mute)}.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute);text-align:left;padding:8px 10px;border-bottom:1px solid var(--line-strong);font-weight:600;white-space:nowrap}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:0}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+.tw{overflow-x:auto}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.opt{display:block;border:1px solid var(--line-strong);border-radius:var(--r);padding:12px;background:var(--surface);cursor:pointer;position:relative}
+.opt:has(input:checked){border-color:var(--accent);background:var(--accent-soft)}
+.opt:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.opt.dis{opacity:.6;cursor:not-allowed;background:var(--side)}
+.opt input{position:absolute;top:12px;right:12px;width:18px;height:18px}
+.opt b{display:block;padding-right:26px}.opt small{display:block;color:var(--mute);font-size:12px;margin-top:3px}
+.alert{border-radius:var(--r-sm);padding:10px 12px;font-size:13px;display:flex;gap:10px;align-items:flex-start;margin-bottom:14px}
+.prog{height:8px;border-radius:8px;background:var(--line);overflow:hidden}.prog i{display:block;height:100%;background:var(--accent-solid);transition:width .4s}
+@media (prefers-reduced-motion:reduce){.prog i{transition:none}}
+.skel{height:14px;border-radius:6px;background:linear-gradient(90deg,var(--line),var(--side),var(--line));background-size:200% 100%;animation:sh 1.4s infinite;margin:12px 0}
+@keyframes sh{to{background-position:-200% 0}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+.empty{text-align:center;padding:34px 16px;color:var(--mute)}.empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
+.bar{display:grid;grid-template-columns:230px 1fr minmax(58px,auto);white-space:nowrap;gap:10px;align-items:center;margin:9px 0;font-size:12px}
+.bar .t{height:16px;background:var(--side);border:1px solid var(--line);border-radius:5px;overflow:hidden}.bar .t i{display:block;height:100%}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;margin:6px 0 10px}.legend span:before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--c);margin-right:6px;vertical-align:-1px}
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:var(--r-sm);overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 11px;font-size:12px;min-height:36px;border-right:1px solid var(--line)}.seg button:last-child{border:0}
+.seg button[aria-pressed=true]{background:var(--accent-soft);color:var(--accent-ink);font-weight:700}
+.veil{position:fixed;inset:0;background:#0008;z-index:60;display:flex;justify-content:flex-end}
+.drawer{width:min(760px,100%);background:var(--canvas);height:100%;overflow:auto;padding:20px 22px;box-shadow:var(--pop-shadow)}
+.dlg{margin:auto;background:var(--canvas);border:1px solid var(--line);border-radius:var(--r);padding:20px;width:min(440px,92%);box-shadow:var(--pop-shadow)}
+.rules{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:6px;font-size:13px}.rules li{display:flex;gap:8px;align-items:flex-start}
+.sum{display:flex;gap:18px;flex-wrap:wrap;margin:0 0 12px;font-size:12px;color:var(--mute)}.sum b{color:var(--ink)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.sp{flex:1}
+.best{font-weight:700}.best:after{content:" ▲";font-size:9px;color:var(--ok-fg)}
+details summary{cursor:pointer;min-height:36px;display:flex;align-items:center;color:var(--mute);font-size:13px}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+@media (max-width:760px){
+ main{padding:14px}.bar{grid-template-columns:1fr 50px}.bar span:first-child{grid-column:1/-1}
+ .stack thead{display:none}.stack tr{display:block;border:1px solid var(--line);border-radius:var(--r-sm);margin-bottom:10px;padding:4px 0}
+ .stack td{display:flex;justify-content:space-between;gap:12px;border:0;padding:5px 12px;text-align:right}
+ .stack td:before{content:attr(data-l);color:var(--mute);font-size:11px;text-transform:uppercase;text-align:left}
+ .stack td.num{text-align:right}
+}
+.chain,.chainhead{display:grid;grid-template-columns:90px repeat(3,minmax(0,1fr)) 44px;gap:8px;align-items:center;margin-bottom:8px}
+.chainhead{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--mute)}
+.chain select{min-height:44px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface);padding:6px 8px;width:100%}
+@media (max-width:760px){.chainhead{display:none}.chain{grid-template-columns:1fr}}
+a{color:var(--accent-ink)}
+.legend-dl{display:grid;grid-template-columns:minmax(120px,200px) 1fr;gap:6px 16px;margin:10px 0 0;font-size:13px}.legend-dl dt{font-weight:700}.legend-dl dd{margin:0;color:var(--mute)}@media (max-width:760px){.legend-dl{grid-template-columns:1fr}.legend-dl dd{margin-bottom:6px}}
+.tipb{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;margin-left:5px;border-radius:50%;border:1px solid var(--line-strong);background:var(--surface);color:var(--mute);font:italic 700 11px Georgia,serif;padding:0;vertical-align:middle;cursor:help;text-transform:none}.tipb:hover,.tipb:focus-visible,.tipb[aria-expanded=true]{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+#tipbox{position:fixed;z-index:80;max-width:280px;padding:10px 12px;border-radius:var(--r-sm);background:var(--ink);color:var(--canvas);font-size:12px;line-height:1.45;font-weight:400;text-transform:none;letter-spacing:0;box-shadow:var(--pop-shadow);pointer-events:none}#tipbox[hidden]{display:none}#tipbox b{display:block;margin-bottom:2px}
+</style>
+</head>
+<body>
+<div class="proto" role="toolbar" aria-label="Contrôles du prototype">
+  <b>Prototype jetable · données synthétiques</b>
+  <label>Thème <select id="theme"><option value="light">Clair</option><option value="dark">Sombre</option></select></label>
+  <label>État <select id="state"><option value="ok">Normal</option><option value="loading">Chargement</option><option value="empty">Vide</option><option value="error">Erreur</option></select></label>
+  <button id="reset">Réinitialiser</button>
+</div>
+<div class="app">
+  <div class="top"><div><h1>Administration</h1><p>Réservée aux administrateurs</p></div><span class="pill info">Admin</span></div>
+  <nav class="tabs" aria-label="Administration">
+    <a href="#">Workers</a><a href="#">Mises à jour</a><a href="#">Dossiers</a><a href="#">Transcription</a><a href="#">Voice</a><a href="#" aria-current="page">AI Models</a><a href="#">Index sémantique</a><a href="#">Utilisateurs</a><a href="#">Exports</a>
+  </nav>
+  <div class="pills" id="pills" role="group" aria-label="Sections AI Models"></div>
+  <main id="main" tabindex="-1"></main>
+  <div id="tipbox" role="tooltip" hidden></div>
+  <div id="live" class="vh" aria-live="polite"></div>
+</div>
+<div id="overlay"></div>
+<script>
+const $=s=>document.querySelector(s);
+const MODELS=[
+ {id:'asr-large',role:'Transcription',name:'whisper-large-v3',engine:'service externe (Speaches)',rev:'—',active:true,ready:null,of:null},
+ {id:'asr-qwen',role:'Transcription',name:'Qwen3-ASR',engine:'service externe (Speaches)',rev:'—',active:false,ready:null,of:null},
+ {id:'asr-turbo',role:'Transcription',name:'whisper-large-v3-turbo',engine:'service externe (Speaches)',rev:'—',active:false,ready:null,of:null},
+ {id:'pyannote-d',role:'Diarisation',name:'pyannote community-1',engine:'pyannote',rev:'e5f6a7b',active:true,ready:2,of:2},
+ {id:'sortformer',role:'Diarisation',name:'Sortformer 4spk',engine:'nemo',rev:'c4d5e6f',active:false,ready:1,of:2},
+ {id:'wespeaker',role:'Empreinte',name:'WeSpeaker ResNet34',engine:'pyannote',rev:'837717d',active:true,ready:2,of:2},
+ {id:'titanet',role:'Empreinte',name:'TitaNet Large',engine:'nemo',rev:'a1b2c3d',active:false,ready:1,of:2},
+ {id:'ecapa',role:'Empreinte',name:'ECAPA-TDNN',engine:'speechbrain',rev:'0f9e8d7',active:false,ready:0,of:2},
+];
+const NAME=id=>MODELS.find(m=>m.id===id).name;
+const pct=x=>x==null?'—':(x*100).toFixed(1).replace('.',',')+' %';
+const f2=x=>x.toFixed(2);
+const STAGES={
+ transcription:{label:'Transcription',role:'Transcription',what:'Mots mal transcrits, comparés aux segments corrigés par des humains.',primary:'wer',scale:3,low:true,
+  cols:[{k:'wer',l:'WER ↓',f:pct,low:true},{k:'cer',l:'CER ↓',f:pct,low:true},{k:'cov',l:'Segments mesurés'},{k:'t',l:'Temps écoulé'}],
+  note:'WER et CER après normalisation (casse, ponctuation, accents). Vérité terrain : segments corrigés par des humains.'},
+ diarisation:{label:'Diarisation',role:'Diarisation',what:'Qui parle quand : erreurs de découpage par locuteur.',primary:'der',scale:3,low:true,
+  cols:[{k:'der',l:'DER ↓',f:pct,low:true},{k:'miss',l:'Parole manquée ↓',f:pct,low:true},{k:'fa',l:'Fausse alarme ↓',f:pct,low:true},{k:'conf',l:'Confusion ↓',f:pct,low:true},{k:'cov',l:'Clips mesurés'},{k:'t',l:'Temps écoulé'}],
+  note:'DER avec marge de tolérance de 250 ms. Vérité terrain : locuteurs validés par des humains.'},
+ empreinte:{label:'Empreinte vocale',role:'Empreinte',what:'Reconnaître la bonne Personne à partir de sa voix.',primary:'eer',scale:5,low:true,
+  cols:[{k:'eer',l:'EER ↓',f:pct,low:true},{k:'thr',l:'Seuil EER',f:f2,mono:true},{k:'top1',l:'Top-1 ↑',f:pct},{k:'p',l:'Précision ↑',f:pct},{k:'r',l:'Rappel ↑',f:pct},{k:'fp',l:'FP',f:x=>x,low:true},{k:'fn',l:'FN',f:x=>x,low:true},{k:'cov',l:'Voix mesurées'},{k:'t',l:'Temps écoulé'}],
+  note:'Chaque modèle a son propre seuil : les scores bruts de modèles différents ne se comparent pas. FP et FN sont pris au seuil EER du modèle.'},
+ e2e:{label:'Bout en bout',role:null,what:'La chaîne complète : qui a dit quoi, correctement ?',primary:'attr',scale:1,low:false,
+  cols:[{k:'attr',l:'« Qui a dit quoi » ↑',f:pct},{k:'wer',l:'WER ↓',f:pct,low:true},{k:'der',l:'DER ↓',f:pct,low:true},{k:'idacc',l:'Personne correcte ↑',f:pct},{k:'cov',l:'Clips mesurés'},{k:'t',l:'Temps total'}],
+  note:'Un segment est correct si le texte (WER ≤ 10 %) ET la Personne sont justes. Mesure la combinaison de modèles, pas un modèle seul.'},
+};
+const HELP={
+ wer:['WER','Word Error Rate : part des mots faux, ajoutés ou manquants par rapport au texte corrigé par un humain. 0 % = parfait. Plus bas = mieux.'],
+ cer:['CER','Character Error Rate : comme le WER, mais par caractère. Plus fin pour les noms propres et les accents. Plus bas = mieux.'],
+ der:['DER','Diarization Error Rate : part du temps de parole attribuée au mauvais locuteur ou mal détectée (manquée + fausse alarme + confusion). Plus bas = mieux.'],
+ miss:['Parole manquée','Parole réelle que le modèle n’a pas détectée.'],
+ fa:['Fausse alarme','Bruit ou silence pris pour de la parole.'],
+ conf:['Confusion','Parole détectée mais attribuée au mauvais locuteur.'],
+ eer:['EER','Equal Error Rate : point où le modèle se trompe autant en acceptant à tort qu’en refusant à tort. Plus bas = mieux.'],
+ thr:['Seuil EER','Score de ressemblance à partir duquel le modèle accepte une voix. Propre à chaque modèle : ne se compare pas d’un modèle à l’autre.'],
+ top1:['Top-1','Part des voix dont la Personne la plus proche est la bonne. Plus haut = mieux.'],
+ p:['Précision','Quand le modèle nomme une Personne, part des fois où c’est la bonne. Plus haut = mieux.'],
+ r:['Rappel','Part des voix du test que le modèle reconnaît correctement. Plus haut = mieux.'],
+ fp:['FP (faux positifs)','Voix attribuées à la mauvaise Personne. Moins = mieux.'],
+ fn:['FN (faux négatifs)','Voix non reconnues ou mal nommées. Moins = mieux.'],
+ attr:['« Qui a dit quoi »','Part des segments où le texte (WER ≤ 10 %) ET la Personne sont justes. Plus haut = mieux.'],
+ idacc:['Personne correcte','Part des segments attribués à la bonne Personne, indépendamment du texte.'],
+ cov:['Mesurés','Éléments réellement mesurés sur le total. Moins que le total = résultat partiel, non comparable.'],
+ t:['Temps écoulé','Durée entre la création et la fin des tâches, file d’attente comprise. Ce n’est pas une latence d’inférence.'],
+};
+const tip=k=>HELP[k]?`<button type="button" class="tipb" data-tip="${k}" aria-label="Définition : ${HELP[k][0]}" aria-describedby="tipbox">i</button>`:'';
+const legendFor=keys=>`<dl class="legend-dl">${keys.filter(k=>HELP[k]).map(k=>`<dt>${HELP[k][0]}</dt><dd>${HELP[k][1]}</dd>`).join('')}</dl>`;
+const CLIPS=[
+ {id:1,name:'Réunion produit',len:'4:12',segs:'42 / 42',who:['Alice','Bob']},
+ {id:2,name:'Point équipe',len:'3:05',segs:'31 / 31',who:['Alice','Chloé']},
+ {id:3,name:'Entretien client',len:'5:40',segs:'58 / 58',who:['Bob','David']},
+ {id:4,name:'Stand-up lundi',len:'2:10',segs:'24 / 24',who:['Alice','Bob','Chloé']},
+ {id:5,name:'Revue de code',len:'4:48',segs:'47 / 47',who:['Chloé','David']},
+ {id:6,name:'Atelier design',len:'6:02',segs:'63 / 63',who:['Alice','David']},
+ {id:7,name:'Appel fournisseur',len:'1:55',segs:'12 / 18',who:['Bob']},
+ {id:8,name:'Brainstorm',len:'3:30',segs:'0 / 36',who:[]},
+];
+const gen=(stage,i,cov)=>({transcription:{wer:.081+i*.027,cer:.032+i*.012,cov,t:(2+i)+' min '+(10+i*8)+' s'},diarisation:{der:.114+i*.03,miss:.04+i*.01,fa:.03+i*.008,conf:.044+i*.012,cov,t:(1+i)+' min '+(20+i*6)+' s'},empreinte:{eer:.03+i*.012,thr:.55+i*.02,top1:.95-i*.03,p:.97-i*.02,r:.92-i*.03,fp:i,fn:2+i,cov,t:(3+i)+' min '+(10+i*7)+' s',gm:.8-i*.03,im:.2+i*.03},e2e:{attr:.86-i*.07,wer:.09+i*.03,der:.12+i*.03,idacc:.93-i*.05,cov,t:(9+i*3)+' min '+(5+i*9)+' s'}}[stage]);
+const RUNS0=[
+ {id:4,date:'9 nov. 2026 · 10:15',ds:'Corpus annoté nov.',stage:'e2e',status:'completed',author:'thomas',n:'7 clips · 340 segments',
+  items:[{id:'A',label:'Chaîne A (production)',sub:'whisper-large-v3 + pyannote + WeSpeaker',m:gen('e2e',0,[7,7])},{id:'B',label:'Chaîne B',sub:'Qwen3-ASR + Sortformer + TitaNet',m:gen('e2e',1,[7,7])}]},
+ {id:3,date:'8 nov. 2026 · 16:20',ds:'Corpus annoté nov.',stage:'transcription',status:'completed',author:'marie',n:'7 clips · 340 segments',
+  items:[{id:'asr-large',label:'whisper-large-v3',m:gen('transcription',0,[340,340])},{id:'asr-qwen',label:'Qwen3-ASR',m:gen('transcription',1,[340,340])},{id:'asr-turbo',label:'whisper-large-v3-turbo',m:gen('transcription',2,[286,340]),partial:true}]},
+ {id:2,date:'6 nov. 2026 · 11:05',ds:'Corpus annoté nov.',stage:'diarisation',status:'completed',author:'thomas',n:'7 clips · 4 Personnes',
+  items:[{id:'pyannote-d',label:'pyannote community-1',m:gen('diarisation',0,[7,7])},{id:'sortformer',label:'Sortformer 4spk',m:gen('diarisation',1,[7,7])}]},
+ {id:1,date:'2 nov. 2026 · 09:40',ds:'Corpus annoté nov.',stage:'empreinte',status:'completed',author:'thomas',n:'8 tests · 4 Personnes · entrées : vérité terrain',
+  items:[{id:'wespeaker',label:'WeSpeaker ResNet34',m:gen('empreinte',1,[18,18])},{id:'titanet',label:'TitaNet Large',m:gen('empreinte',0,[18,18])}]},
+ {id:0,date:'30 oct. 2026 · 15:02',ds:'Pilote 4 clips',stage:'transcription',status:'failed',author:'thomas',n:'4 clips',items:[],err:'Service de transcription injoignable (timeout) sur les 4 tâches. Vérifiez Admin → Transcription.'},
+];
+let S;
+function fresh(){S={view:'benchmarks',state:'ok',stage:'transcription',ds:1,sel:{transcription:new Set(['asr-large','asr-qwen']),diarisation:new Set(),empreinte:new Set()},upstream:'gt',
+ chains:[{d:'pyannote-d',a:'asr-large',e:'wespeaker'},{d:'sortformer',a:'asr-qwen',e:'titanet'}],
+ runs:JSON.parse(JSON.stringify(RUNS0)),active:null,detail:null,builder:null,cancel:false,
+ dsList:[{id:1,name:'Corpus annoté nov.',clips:7,min:'27 min',segs:340,persons:4,stages:['transcription','diarisation','empreinte','e2e']},{id:2,name:'Pilote 4 clips',clips:4,min:'11 min',segs:96,persons:2,stages:['transcription','diarisation'],why:{empreinte:'Il faut au moins 2 Personnes avec références.',e2e:'Nécessite toutes les étapes.'}}]}}
+fresh();
+function statusPill(s){const m={completed:['ok','✓','Terminé'],running:['info','◔','En cours'],failed:['bad','✕','Échec'],cancelled:['off','–','Annulé']}[s];return `<span class="pill ${m[0]}"><span aria-hidden="true">${m[1]}</span>${m[2]}</span>`}
+function say(t){$('#live').textContent=t}
+const ds=()=>S.dsList.find(d=>d.id===S.ds);
+function pillsHTML(){return [['benchmarks','Benchmarks'],['results','Results']].map(([k,l])=>`<button data-view="${k}" ${S.view===k||(k==='results'&&S.view==='detail')?'aria-current="page"':''}>${l}</button>`).join('')}
+function stateGate(html){
+ if(S.state==='loading')return `<div role="status" aria-label="Chargement"><div class="skel" style="width:40%"></div><div class="skel"></div><div class="skel"></div><div class="skel" style="width:70%"></div></div>`;
+ if(S.state==='error')return `<div class="alert bad" role="alert"><span aria-hidden="true">✕</span><div><b>Impossible de charger les données.</b><br>Le serveur n’a pas répondu (unavailable). <button class="btn sm" data-act="retry" style="margin-left:6px">Réessayer</button></div></div>`;
+ if(S.state==='empty')return `<div class="empty"><b>Rien à afficher pour l’instant</b>${S.view==='models'?'Aucun modèle n’est installé sur un Worker. Installez-en depuis Voice.':S.view==='results'?'Aucun benchmark n’a encore été lancé.':'Créez un corpus à partir de clips déjà annotés.'}<div style="margin-top:12px"><button class="btn pri" data-act="${S.view==='models'?'tovoice':'newds'}">${S.view==='models'?'Ouvrir Voice':S.view==='results'?'Préparer un benchmark':'Créer un corpus'}</button></div></div>`;
+ return html;
+}
+/* ---------- Models ---------- */
+function viewModels(){
+ return stateGate(`<p class="sub">Vue d’ensemble en lecture seule. L’installation, la suppression et l’activation se font dans <a href="#" data-act="tovoice">Voice</a> : un seul catalogue.</p>`+['Transcription','Diarisation','Empreinte','Séparation'].map(r=>{
+  if(r==='Séparation')return `<details class="card"><summary><b style="color:var(--ink);margin-right:8px">Séparation des voix</b><span class="pill off">Bientôt</span></summary><p class="sub">Aucun modèle ne peut être prêt avant la livraison de #268.</p></details>`;
+  const rows=MODELS.filter(m=>m.role===r);
+  return `<section class="card"><div class="row"><h2>${r}</h2>${r==='Transcription'?'<span class="pill info">Service externe · rien installé sur le Worker</span>':''}</div><div class="tw"><table class="stack"><thead><tr><th>Modèle</th><th>Moteur</th><th>Révision</th><th>État</th><th class="num">Workers prêts</th></tr></thead><tbody>${rows.map(m=>`<tr><td data-l="Modèle"><b>${m.name}</b></td><td data-l="Moteur">${m.engine}</td><td data-l="Révision" class="mono">${m.rev}</td><td data-l="État">${m.active?'<span class="pill ok"><span aria-hidden="true">●</span>Actif en production</span>':m.ready===0?'<span class="pill off">Non prêt</span>':'<span class="pill info">Candidat</span>'}</td><td data-l="Workers prêts" class="num">${m.of==null?'service joignable':m.ready+' / '+m.of}</td></tr>`).join('')}</tbody></table></div></section>`}).join(''));
+}
+/* ---------- Benchmarks ---------- */
+function activeBanner(){
+ const a=S.active;if(!a)return'';const pc=Math.round(a.done/a.total*100);
+ return `<section class="card" aria-label="Benchmark en cours" style="border-color:var(--accent)">
+ <div class="row"><h2>Benchmark en cours · ${STAGES[a.stage].label} · ${a.ds}</h2><span class="sp"></span>${statusPill('running')}<button class="btn sm danger" data-act="cancel">Annuler</button></div>
+ <div class="row" style="margin:10px 0 6px"><b>${a.done} / ${a.total} tâches</b><span class="mute">terminées</span></div>
+ <div class="prog" role="progressbar" aria-valuemin="0" aria-valuemax="${a.total}" aria-valuenow="${a.done}" aria-label="Progression du benchmark"><i style="width:${pc}%"></i></div>
+ <div class="row" style="margin-top:10px">${a.items.map((it,i)=>`<span class="pill info"><span style="width:8px;height:8px;border-radius:2px;background:var(${COL[i]});display:inline-block" aria-hidden="true"></span>${it} · ${Math.min(a.per,Math.round(a.done/a.items.length))}/${a.per}</span>`).join('')}</div>
+ ${a.warn?`<div class="alert warn" role="status" style="margin:10px 0 0"><span aria-hidden="true">!</span><div>${a.warn}</div></div>`:''}
+ <p class="sub" style="margin:10px 0 0">Les tâches sont traitées par les Workers et le service de transcription. La production n’est pas modifiée.</p></section>`}
+const COL=['--series-1','--series-2','--series-3','--series-4'];
+function modelCards(stage){
+ const set=S.sel[stage];
+ return `<div class="grid">${MODELS.filter(m=>m.role===STAGES[stage].role).map(m=>{const dis=m.ready===0;return `<label class="opt ${dis?'dis':''}"><input type="checkbox" value="${m.id}" ${set.has(m.id)?'checked':''} ${dis?'disabled':''} aria-label="${m.name}"><b>${m.name}</b><small>${m.engine}${m.rev!=='—'?' · '+m.rev:''}</small><small>${dis?'<span class="pill off">Indisponible</span> Prêt sur aucun Worker : installez-le dans Voice.':(m.of==null?'Service joignable':'Prêt sur '+m.ready+' / '+m.of+' Worker'+(m.of>1?'s':''))}${m.active?' · <span class="pill ok">Actif</span>':''}</small></label>`}).join('')}</div>`;
+}
+function chainComposer(){
+ const sel=(role,key,i)=>`<select data-chain="${i}:${key}" aria-label="${role}, chaîne ${'ABCD'[i]}">${MODELS.filter(m=>m.role===role&&m.ready!==0).map(m=>`<option value="${m.id}" ${S.chains[i][key]===m.id?'selected':''}>${m.name}${m.active?' (actif)':''}</option>`).join('')}</select>`;
+ return `<div class="chainhead"><span></span><b>Diarisation</b><b>Transcription</b><b>Empreinte</b></div>`+S.chains.map((c,i)=>`<div class="chain"><b>Chaîne ${'ABCD'[i]}</b>${sel('Diarisation','d',i)}${sel('Transcription','a',i)}${sel('Empreinte','e',i)}${S.chains.length>2?`<button class="btn sm" data-rmchain="${i}" aria-label="Retirer la chaîne ${'ABCD'[i]}">✕</button>`:'<span></span>'}</div>`).join('')+(S.chains.length<4?`<button class="btn sm" data-act="addchain">+ Ajouter une chaîne</button>`:'');
+}
+function viewBench(){
+ const d=ds(),busy=!!S.active,st=S.stage,stg=STAGES[st];
+ const supported=d.stages.includes(st);
+ let count,ok;
+ if(st==='e2e'){const keys=S.chains.map(c=>c.d+c.a+c.e);count=S.chains.length;ok=new Set(keys).size===keys.length&&supported&&!busy}
+ else{count=S.sel[st].size;ok=count>=2&&supported&&!busy}
+ const tasks=count*d.clips*(st==='e2e'?3:1);
+ const why=!supported?(d.why&&d.why[st])||'Ce corpus ne permet pas de mesurer cette étape.':st==='e2e'&&!ok?'Deux chaînes identiques : changez au moins un modèle.':count<2&&st!=='e2e'?'Choisissez au moins 2 modèles.':'';
+ return stateGate(`${activeBanner()}
+ <section class="card"><div class="row"><h2>1 · Corpus de clips annotés</h2><span class="sp"></span><button class="btn sm" data-act="newds">+ Créer un corpus</button></div><p class="sub">Clips dont le texte et les locuteurs ont été corrigés ou validés par un humain. Le même corpus sert à toutes les étapes ; il est figé à la création.</p>
+ <div class="grid" role="radiogroup" aria-label="Corpus">${S.dsList.map(x=>`<label class="opt"><input type="radio" name="ds" value="${x.id}" ${S.ds===x.id?'checked':''} aria-label="${x.name}"><b>${x.name}</b><small>${x.clips} clips · ${x.min}</small><small>${x.segs} segments corrigés · ${x.persons} Personnes</small><small>${x.stages.map(s=>`<span class="pill ok" style="margin:2px 3px 0 0">${STAGES[s].label}</span>`).join('')}</small></label>`).join('')}</div></section>
+ <section class="card"><h2>2 · Étape à mesurer</h2><p class="sub">${stg.what}</p>
+ <div class="seg" role="group" aria-label="Étape" style="margin-bottom:14px;flex-wrap:wrap">${Object.entries(STAGES).map(([k,v])=>`<button data-stage="${k}" aria-pressed="${st===k}">${v.label}${d.stages.includes(k)?'':' ·  indispo.'}</button>`).join('')}</div>
+ ${!supported?`<div class="alert warn" role="status"><span aria-hidden="true">!</span><div><b>Étape non mesurable avec ce corpus.</b> ${(d.why&&d.why[st])||''}</div></div>`:''}
+ ${st==='e2e'?`<p class="sub">Comparez 2 à 4 chaînes complètes. La chaîne A reprend les modèles actifs en production.</p>${chainComposer()}`:`<p class="sub">Choisissez 2 à 4 modèles. Chacun tourne sur les mêmes clips.</p>${modelCards(st)}`}
+ ${st==='empreinte'?`<fieldset style="border:1px solid var(--line);border-radius:var(--r-sm);margin:14px 0 0;padding:10px 12px"><legend class="sub" style="padding:0 6px">Entrées en amont (diarisation)</legend><label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><input type="radio" name="up" value="gt" ${S.upstream==='gt'?'checked':''}><span><b>Vérité terrain</b> <span class="pill ok">Recommandé</span><br><span class="mute" style="font-size:12px">Mesure le modèle d’empreinte seul, sans les erreurs de la diarisation.</span></span></label><label style="display:flex;gap:8px;align-items:flex-start;margin:4px 0"><input type="radio" name="up" value="prod" ${S.upstream==='prod'?'checked':''}><span><b>Diarisation de production</b><br><span class="mute" style="font-size:12px">Plus réaliste, mais mélange les erreurs des deux étapes.</span></span></label></fieldset>`:''}</section>
+ <section class="card"><h2>3 · Lancer</h2>
+ ${busy?'<div class="alert warn" role="status"><span aria-hidden="true">!</span><div><b>Un benchmark est déjà en cours.</b> Attendez sa fin ou annulez-le d’abord.</div></div>':''}
+ <div class="sum"><span><b>${d.name}</b></span><span><b>${stg.label}</b></span><span><b>${count}</b> ${st==='e2e'?'chaîne':'modèle'}${count>1?'s':''}</span><span><b>${supported?tasks:0}</b> tâches</span></div>
+ <p class="sub">Aucune modification de la production, des corrections humaines, des validations ni du modèle actif.</p>
+ <div class="row"><button class="btn pri" data-act="start" ${ok?'':'disabled'}>Lancer le benchmark</button>${!ok&&!busy?`<span class="mute" style="font-size:12px">${why}</span>`:''}</div></section>`);
+}
+/* ---------- Results ---------- */
+function bestByStage(){
+ const st=['transcription','diarisation','empreinte'];
+ const cards=st.map(k=>{const run=S.runs.find(r=>r.stage===k&&r.status==='completed'&&r.items.length);const stg=STAGES[k];
+  if(!run)return `<div class="card" style="margin:0"><b>${stg.label}</b><p class="sub" style="margin:6px 0 0">Aucun benchmark. <a href="#" data-view="benchmarks">Lancer</a></p></div>`;
+  const ok=run.items.filter(i=>!i.partial&&typeof i.m[stg.primary]==='number').sort((a,b)=>stg.low?a.m[stg.primary]-b.m[stg.primary]:b.m[stg.primary]-a.m[stg.primary]);
+  const b=ok[0],n=ok[1];const gap=n?Math.abs(n.m[stg.primary]-b.m[stg.primary]):null;
+  const prod=MODELS.find(m=>m.role===stg.role&&m.active);const isProd=prod&&b.label===prod.name;
+  return `<div class="card" style="margin:0"><div class="row"><b>${stg.label}</b><span class="sp"></span><span class="pill info">${stg.cols[0].l.replace(/ [↓↑]/,'')} ${pct(b.m[stg.primary])}</span>${tip(stg.primary)}</div>
+  <p style="margin:8px 0 2px;font-size:15px"><b>${b.label}</b></p>
+  <p class="sub" style="margin:0">${isProd?'<span class="pill ok">Déjà en production</span> ':'<span class="pill warn">Différent de la production ('+prod.name+')</span> '}${n?'Écart de '+(gap*100).toFixed(1).replace('.',',')+' pt avec '+n.label+'.':''}</p>
+  <p class="sub" style="margin:6px 0 0">${run.date} · ${run.ds} · <a href="#" data-detail="${run.id}">détail</a></p></div>`}).join('');
+ const corp=new Set(st.map(k=>S.runs.find(r=>r.stage===k&&r.status==='completed')?.ds).filter(Boolean));
+ return `<section class="card"><h2>Meilleur modèle par étape</h2><p class="sub">D’après le dernier benchmark terminé de chaque étape. Le meilleur de chaque étape n’est pas forcément la meilleure chaîne : vérifiez la combinaison avec un benchmark bout en bout.</p>
+ ${corp.size>1?'<div class="alert warn" role="status"><span aria-hidden="true">!</span><div>Ces benchmarks ne portent pas sur le même corpus : les chiffres ne sont pas comparables d’une étape à l’autre.</div></div>':''}
+ <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(260px,1fr))">${cards}</div></section>`}
+function viewResults(){
+ return stateGate(`${bestByStage()}<section class="card"><h2>Historique</h2><p class="sub">Les 100 derniers benchmarks.</p><div class="tw"><table class="stack"><thead><tr><th>Date</th><th>Étape</th><th>Corpus</th><th>Comparé</th><th>État</th><th>Auteur</th><th></th></tr></thead><tbody>${S.runs.map(r=>`<tr><td data-l="Date">${r.date}</td><td data-l="Étape"><span class="pill info">${STAGES[r.stage].label}</span></td><td data-l="Corpus">${r.ds}</td><td data-l="Comparé">${r.items.length?r.items.map(i=>i.label).join(', '):'—'}</td><td data-l="État">${statusPill(r.status)}${r.items.some(i=>i.partial)?' <span class="pill warn">Partiel</span>':''}</td><td data-l="Auteur">${r.author}</td><td data-l=""><button class="btn sm" data-detail="${r.id}">Détail</button></td></tr>`).join('')}</tbody></table></div></section>`);
+}
+function viewDetail(){
+ const r=S.runs.find(x=>x.id===S.detail),stg=STAGES[r.stage];
+ const bestOf=c=>{const v=r.items.map(i=>i.m[c.k]).filter(x=>typeof x==='number');return c.low?Math.min(...v):Math.max(...v)};
+ const cell=(it,c)=>{const x=it.m[c.k];if(x==null)return'—';if(c.k==='cov')return `${x[0]} / ${x[1]}${it.partial?' <span class="pill warn">Partiel</span>':''}`;if(c.k==='t')return x;const s=c.f?c.f(x):x;const isBest=c.low!==undefined&&typeof x==='number'&&r.items.length>1&&c.k!=='thr'&&x===bestOf(c)&&c.k!=='fp'&&c.k!=='fn';return `<span class="${isBest?'best':''} ${c.mono?'mono':''}">${s}</span>`};
+ const part=r.items.find(i=>i.partial);
+ const bars=r.items.length?`<section class="card"><h2>${stg.cols[0].l.replace(/ [↓↑]/,'')}${tip(stg.primary)} ${stg.low?'(plus bas = meilleur)':'(plus haut = meilleur)'}</h2><div class="legend">${r.items.map((it,i)=>`<span style="--c:var(${COL[i]})">${it.label}</span>`).join('')}</div>${r.items.map((it,i)=>`<div class="bar"><span>${it.label}</span><div class="t" aria-hidden="true"><i style="width:${Math.min(100,it.m[stg.primary]*100*stg.scale)}%;background:var(${COL[i]})"></i></div><b class="num">${pct(it.m[stg.primary])}</b></div>`).join('')}<p class="sub" style="margin:6px 0 0">Les valeurs du tableau ci-dessus donnent le même contenu en texte.</p></section>`:'';
+ const sep=r.stage==='empreinte'&&r.items.length?`<section class="card"><h2>Séparation des scores moyens</h2><p class="sub">Score moyen d’une voix avec sa propre Personne (genuine) et avec les autres (impostor). Échelle propre à chaque modèle.</p>${r.items.map((it,i)=>`<div class="bar"><span>${it.label}</span><div class="t" style="position:relative" aria-hidden="true"><i style="position:absolute;left:${it.m.im*100}%;width:${(it.m.gm-it.m.im)*100}%;background:var(${COL[i]});opacity:.85"></i></div><span class="mono">${it.m.im.toFixed(2)} → ${it.m.gm.toFixed(2)}</span></div>`).join('')}</section>`:'';
+ const e2e='';
+ return `<div class="row"><button class="btn sm" data-view="results">← Historique</button><h2 style="margin:0">${stg.label} · ${r.ds}</h2><span class="sp"></span>${statusPill(r.status)}</div>
+ <div class="sum" style="margin-top:10px"><span><b>${r.date}</b></span><span>par <b>${r.author}</b></span><span>${r.n}</span></div>
+ ${r.err?`<div class="alert bad" role="alert"><span aria-hidden="true">✕</span><div><b>Aucun résultat produit.</b><br>${r.err}</div></div>`:''}
+ ${part?`<div class="alert warn" role="status"><span aria-hidden="true">!</span><div><b>Résultat partiel pour ${part.label}.</b> ${part.m.cov[0]} sur ${part.m.cov[1]} mesurés : ses chiffres ne sont pas comparables aux autres.</div></div>`:''}
+ ${r.items.length?`<div class="alert" style="background:var(--accent-soft);color:var(--accent-ink)" role="note"><span aria-hidden="true">i</span><div>${stg.note} Ces chiffres décrivent ce corpus, pas une garantie.</div></div>
+ <section class="card"><h2>Comparaison</h2><div class="tw"><table class="stack"><thead><tr><th>${r.stage==='e2e'?'Chaîne':'Modèle'}</th>${stg.cols.map(c=>`<th class="num">${c.l}${tip(c.k)}</th>`).join('')}</tr></thead><tbody>${r.items.map((it,i)=>`<tr><td data-l="${r.stage==='e2e'?'Chaîne':'Modèle'}"><span style="display:inline-block;width:10px;height:10px;border-radius:3px;background:var(${COL[i]});margin-right:7px" aria-hidden="true"></span><b>${it.label}</b>${it.sub?`<br><span class="mute" style="font-size:12px">${it.sub}</span>`:''}</td>${stg.cols.map(c=>`<td class="num" data-l="${c.l}">${cell(it,c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div><p class="sub" style="margin:8px 0 0">▲ meilleure valeur de la colonne. Temps écoulé : file d’attente comprise. RAM/VRAM non remontées par le Worker.</p></section>${bars}${sep}${e2e}
+ <section class="card"><h2>Et ensuite ?</h2><p class="sub">Tester n’active rien. Pour changer un modèle de production, ${r.stage==='transcription'?'modifiez la transcription dans Admin → Transcription':'passez par Voice (la transition d’empreinte affiche l’impact et conserve les Personnes et validations)'}.</p><button class="btn" data-act="tovoice">Ouvrir ${r.stage==='transcription'?'Transcription':'Voice'} →</button></section>`:''}`;
+}
+/* ---------- Builder (corpus de clips annotés) ---------- */
+function builder(){
+ const b=S.builder,sel=b.sel;
+ const test=CLIPS.filter(c=>sel[c.id]==='test'),ref=CLIPS.filter(c=>sel[c.id]==='ref');
+ const corrected=c=>{const [a,z]=c.segs.split(' / ').map(Number);return a===z&&z>0};
+ const persons=l=>new Set(l.flatMap(c=>c.who));
+ const rt=persons(ref),tt=persons(test);
+ const tOk=test.length>0&&test.every(corrected);
+ const dOk=test.some(c=>c.who.length>0);
+ const eOk=rt.size>=2&&[...tt].every(p=>rt.has(p))&&tt.size>0;
+ const stages=[['Transcription',tOk,'Au moins un clip de test dont tous les segments sont corrigés'],['Diarisation',dOk,'Au moins un clip de test avec des locuteurs validés'],['Empreinte',eOk,'Au moins 2 Personnes avec références, chaque Personne testée ayant une référence'],['Bout en bout',tOk&&dOk&&eOk,'Toutes les étapes ci-dessus']];
+ const valid=b.name.trim()&&stages.some(s=>s[1]);
+ return `<div class="veil" data-close><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="bt" tabindex="-1">
+ <div class="row"><h2 id="bt" style="font-size:17px">Créer un corpus de clips annotés</h2><span class="sp"></span><button class="btn sm" data-close aria-label="Fermer">✕</button></div>
+ <p class="sub">Seuls les clips dont le texte ou les locuteurs ont été corrigés par un humain apportent une vérité terrain. Rien n’est annoté en double : on réutilise vos corrections et validations existantes.</p>
+ <label style="display:block;margin-bottom:12px"><span class="sub" style="display:block;margin:0 0 4px">Nom</span><input id="dsname" value="${b.name.replace(/"/g,'&quot;')}" style="width:100%;padding:9px 11px;min-height:44px;border:1px solid var(--line-strong);border-radius:var(--r-sm);background:var(--surface)"></label>
+ <div class="tw"><table class="stack"><thead><tr><th>Clip</th><th>Durée</th><th>Segments corrigés</th><th>Voix validées</th><th>Rôle</th></tr></thead><tbody>${CLIPS.map(c=>`<tr><td data-l="Clip"><b>${c.name}</b></td><td data-l="Durée">${c.len}</td><td data-l="Segments">${corrected(c)?'<span class="pill ok">✓ '+c.segs+'</span>':'<span class="pill warn">'+c.segs+'</span>'}</td><td data-l="Voix">${c.who.length?c.who.join(', '):'<span class="mute">aucune</span>'}</td><td data-l="Rôle"><div class="seg" role="group" aria-label="Rôle de ${c.name}">${[['test','Test'],['ref','Référence'],['none','Exclure']].map(([k,l])=>`<button data-role="${c.id}:${k}" aria-pressed="${(sel[c.id]||'none')===k}">${l}</button>`).join('')}</div></td></tr>`).join('')}</tbody></table></div>
+ <p class="sub" style="margin:8px 0 0">« Référence » sert à enrôler chaque Personne pour l’empreinte vocale ; « Test » est ce que l’on mesure. Un clip n’est jamais les deux.</p>
+ <h2 style="margin:16px 0 8px">Étapes mesurables avec ce corpus</h2><ul class="rules" aria-live="polite">${stages.map(s=>`<li><span class="pill ${s[1]?'ok':'off'}"><span aria-hidden="true">${s[1]?'✓':'–'}</span><span class="vh">${s[1]?'Mesurable':'Non mesurable'}</span></span><span><b>${s[0]}</b> <span class="mute">— ${s[2]}</span></span></li>`).join('')}</ul>
+ <div class="row"><button class="btn" data-close>Annuler</button><button class="btn pri" data-act="savebuilder" ${valid?'':'disabled'}>Créer le corpus</button></div></div></div>`}
+function confirmCancel(){return `<div class="veil" style="align-items:center;justify-content:center" data-close><div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="ct"><h2 id="ct" style="font-size:16px">Annuler le benchmark ?</h2><p class="sub">Les tâches non terminées sont annulées. Aucun résultat ne sera enregistré pour ce run. La production n’est pas touchée.</p><div class="row" style="justify-content:flex-end"><button class="btn" data-close>Continuer le benchmark</button><button class="btn danger" data-act="docancel">Annuler le benchmark</button></div></div></div>`}
+function render(){
+ $('#pills').innerHTML=pillsHTML();
+ $('#main').innerHTML=S.view==='detail'?viewDetail():S.view==='models'?viewModels():S.view==='results'?viewResults():viewBench();
+ $('#overlay').innerHTML=S.builder?builder():S.cancel?confirmCancel():'';
+ if(S.builder){const n=$('#dsname');if(n)n.oninput=e=>{S.builder.name=e.target.value;const p=e.target.selectionStart;render();const m=$('#dsname');m.focus();m.setSelectionRange(p,p)}}
+}
+let timer;
+function startRun(){
+ const d=ds(),st=S.stage;
+ const items=st==='e2e'?S.chains.map((c,i)=>({id:'ABCD'[i],label:'Chaîne '+'ABCD'[i],sub:[NAME(c.a),NAME(c.d),NAME(c.e)].join(' + ')})):[...S.sel[st]].map(id=>({id,label:NAME(id)}));
+ S.active={stage:st,ds:d.name,items:items.map(i=>i.label),per:d.clips,total:items.length*d.clips*(st==='e2e'?3:1),done:0};
+ const full=S.active.total;say('Benchmark lancé');render();clearInterval(timer);
+ timer=setInterval(()=>{if(!S.active){clearInterval(timer);return}
+  S.active.done++;if(S.active.done===Math.ceil(full/2)&&!S.active.warn)S.active.warn='Tâche 12 · nouvelle tentative : Worker occupé (retry_wait)';
+  if(S.active.done>=full){clearInterval(timer);const id=S.runs.length+1;
+   S.runs.unshift({id,date:'À l’instant',ds:d.name,stage:st,status:'completed',author:'vous',n:d.clips+' clips · '+d.segs+' segments',items:items.map((it,i)=>({...it,m:gen(st,i,[d.clips,d.clips])}))});
+   S.detail=id;S.active=null;S.view='detail';say('Benchmark terminé');}
+  render()},600)}
+document.addEventListener('click',e=>{
+ const t=e.target.closest('[data-view],[data-act],[data-detail],[data-role],[data-close],[data-stage],[data-rmchain]');if(!t)return;
+ if(t.dataset.close!==undefined){if(e.target.closest('.drawer,.dlg')&&!t.matches('button'))return;S.builder=null;S.cancel=false;render();return}
+ if(t.dataset.view){S.view=t.dataset.view;render();return}
+ if(t.dataset.stage){S.stage=t.dataset.stage;render();return}
+ if(t.dataset.rmchain!==undefined){S.chains.splice(+t.dataset.rmchain,1);render();return}
+ if(t.dataset.detail){S.detail=+t.dataset.detail;S.view='detail';render();$('#main').focus();return}
+ if(t.dataset.role){const[id,k]=t.dataset.role.split(':');S.builder.sel[id]=k;render();return}
+ const a=t.dataset.act;
+ if(a==='retry'){S.state='ok';$('#state').value='ok';render()}
+ if(a==='newds'){S.state='ok';$('#state').value='ok';S.view='benchmarks';S.builder={name:'',sel:{}};render();const d=document.querySelector('.drawer');d&&d.focus()}
+ if(a==='tovoice')alert('Prototype : ouvrirait Voice (catalogue, installation, transition d’empreinte) ou Transcription.');
+ if(a==='start')startRun();
+ if(a==='addchain'){S.chains.push({d:'pyannote-d',a:'asr-turbo',e:'wespeaker'});render()}
+ if(a==='cancel'){S.cancel=true;render()}
+ if(a==='docancel'){clearInterval(timer);S.active=null;S.cancel=false;say('Benchmark annulé');render()}
+ if(a==='savebuilder'){const b=S.builder,pick=k=>CLIPS.filter(c=>b.sel[c.id]===k),all=[...pick('test'),...pick('ref')];
+  const corr=c=>{const [x,z]=c.segs.split(' / ').map(Number);return x===z&&z>0};
+  const rt=new Set(pick('ref').flatMap(c=>c.who)),tt=new Set(pick('test').flatMap(c=>c.who));
+  const st=[];if(pick('test').length&&pick('test').every(corr))st.push('transcription');if(pick('test').some(c=>c.who.length))st.push('diarisation');if(rt.size>=2&&tt.size&&[...tt].every(p=>rt.has(p)))st.push('empreinte');if(st.length===3)st.push('e2e');
+  S.dsList.push({id:S.dsList.length+1,name:b.name,clips:all.length,min:'—',segs:all.reduce((s,c)=>s+(+c.segs.split(' / ')[0]),0),persons:new Set(all.flatMap(c=>c.who)).size,stages:st});S.ds=S.dsList.length;S.builder=null;say('Corpus créé');render()}
+});
+document.addEventListener('change',e=>{
+ if(e.target.name==='ds'){S.ds=+e.target.value;render()}
+ else if(e.target.name==='up'){S.upstream=e.target.value;render()}
+ else if(e.target.dataset.chain){const[i,k]=e.target.dataset.chain.split(':');S.chains[+i][k]=e.target.value;render()}
+ else if(e.target.type==='checkbox'){const set=S.sel[S.stage],id=e.target.value;if(e.target.checked){if(set.size>=4){e.target.checked=false;return}set.add(id)}else set.delete(id);render()}
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&(S.builder||S.cancel)){S.builder=null;S.cancel=false;render()}});
+$('#theme').onchange=e=>document.documentElement.dataset.theme=e.target.value;
+$('#state').onchange=e=>{S.state=e.target.value;render()};
+$('#reset').onclick=()=>{clearInterval(timer);fresh();$('#state').value='ok';render()};
+render();
+const tb=$('#tipbox');let tipOpen=null;
+function showTip(btn){const h=HELP[btn.dataset.tip];if(!h)return;tb.innerHTML='<b>'+h[0]+'</b>'+h[1];tb.hidden=false;const r=btn.getBoundingClientRect(),w=tb.offsetWidth,hh=tb.offsetHeight;let x=r.left+r.width/2-w/2;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+8;if(y+hh>innerHeight-8)y=r.top-hh-8;tb.style.left=x+'px';tb.style.top=y+'px';btn.setAttribute('aria-expanded','true');tipOpen=btn}
+function hideTip(){tb.hidden=true;if(tipOpen){tipOpen.removeAttribute('aria-expanded');tipOpen=null}}
+document.addEventListener('mouseover',e=>{const b=e.target.closest('.tipb');if(b)showTip(b)});
+document.addEventListener('mouseout',e=>{if(e.target.closest('.tipb'))hideTip()});
+document.addEventListener('focusin',e=>{const b=e.target.closest('.tipb');if(b)showTip(b)});
+document.addEventListener('focusout',e=>{if(e.target.closest('.tipb'))hideTip()});
+document.addEventListener('click',e=>{const b=e.target.closest('.tipb');if(b){e.stopPropagation();tipOpen===b?hideTip():showTip(b)}else hideTip()},true);
+document.addEventListener('keydown',e=>{if(e.key==='Escape')hideTip()});
+window.addEventListener('scroll',hideTip,true);
+</script>
+</body>
+</html>

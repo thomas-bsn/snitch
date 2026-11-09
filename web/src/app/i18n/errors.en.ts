@@ -445,16 +445,6 @@ export const errorsEn = {
   invalid_install_event: "This installation event is not valid.",
   worker_token_invalid: "This worker token is not valid.",
   worker_token_required: "A worker token is required.",
-  benchmark_speaker_duplicate:
-    "A voice cannot be both a reference and a test, nor listed twice.",
-  benchmark_speaker_not_validated:
-    "Every voice of a benchmark dataset must be validated by a person first.",
-  benchmark_test_without_reference:
-    "Every tested person needs at least one reference voice.",
-  benchmark_test_same_clip_as_reference:
-    "A test voice cannot come from the same clip as a reference of the same person.",
-  benchmark_dataset_too_small:
-    "A dataset needs at least two people and one test voice to measure errors.",
   benchmark_dataset_name_taken: "A benchmark dataset already has this name.",
   benchmark_dataset_used:
     "A benchmark run used this dataset: it can no longer be deleted.",
@@ -467,4 +457,13 @@ export const errorsEn = {
   benchmark_not_running: "This benchmark is no longer running.",
   benchmark_transition_open:
     "A fingerprint model change is under way: finish or cancel it before running a benchmark.",
+  benchmark_clip_duplicate: "A clip can be a test or a reference, once.",
+  benchmark_clip_invalid: "A selected clip does not exist or is private.",
+  benchmark_verified_not_test:
+    "Only a test clip can be certified as fully reviewed.",
+  benchmark_dataset_unusable:
+    "This corpus cannot measure any stage: add reviewed test clips or validated voices.",
+  benchmark_stage_unavailable: "This stage cannot be benchmarked yet.",
+  benchmark_stage_unsupported_by_dataset:
+    "This corpus cannot measure this stage.",
 };

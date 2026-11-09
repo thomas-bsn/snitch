@@ -72,11 +72,18 @@ from .avatar_settings_input import AvatarSettingsInput
 from .avatar_settings_input_source import AvatarSettingsInputSource
 from .avatar_settings_source import AvatarSettingsSource
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
+from .benchmark_clip import BenchmarkClip
+from .benchmark_clip_list import BenchmarkClipList
 from .benchmark_created import BenchmarkCreated
 from .benchmark_dataset import BenchmarkDataset
+from .benchmark_dataset_created import BenchmarkDatasetCreated
+from .benchmark_dataset_created_stages_item import BenchmarkDatasetCreatedStagesItem
 from .benchmark_dataset_input import BenchmarkDatasetInput
 from .benchmark_dataset_list import BenchmarkDatasetList
+from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
 from .benchmark_job_error import BenchmarkJobError
+from .benchmark_model import BenchmarkModel
+from .benchmark_model_list import BenchmarkModelList
 from .benchmark_progress import BenchmarkProgress
 from .benchmark_result import BenchmarkResult
 from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
@@ -223,6 +230,7 @@ from .job_page import JobPage
 from .job_result_type_0 import JobResultType0
 from .job_status import JobStatus
 from .library_folder import LibraryFolder
+from .list_benchmark_models_stage import ListBenchmarkModelsStage
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
@@ -725,11 +733,18 @@ __all__ = (
     "AvatarSettingsInputSource",
     "AvatarSettingsSource",
     "BackfillEmbeddingIndexResponse202",
+    "BenchmarkClip",
+    "BenchmarkClipList",
     "BenchmarkCreated",
     "BenchmarkDataset",
+    "BenchmarkDatasetCreated",
+    "BenchmarkDatasetCreatedStagesItem",
     "BenchmarkDatasetInput",
     "BenchmarkDatasetList",
+    "BenchmarkDatasetStagesItem",
     "BenchmarkJobError",
+    "BenchmarkModel",
+    "BenchmarkModelList",
     "BenchmarkProgress",
     "BenchmarkResult",
     "BenchmarkResultResourcesType0",
@@ -876,6 +891,7 @@ __all__ = (
     "JobResultType0",
     "JobStatus",
     "LibraryFolder",
+    "ListBenchmarkModelsStage",
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",

@@ -464,16 +464,6 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_install_event: "Cet événement d’installation n’est pas valide.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
-  benchmark_speaker_duplicate:
-    "Une voix ne peut pas être à la fois référence et test, ni apparaître deux fois.",
-  benchmark_speaker_not_validated:
-    "Chaque voix d’un jeu de données de benchmark doit d’abord être validée sur une personne.",
-  benchmark_test_without_reference:
-    "Chaque personne testée a besoin d’au moins une voix de référence.",
-  benchmark_test_same_clip_as_reference:
-    "Une voix de test ne peut pas venir du même clip qu’une référence de la même personne.",
-  benchmark_dataset_too_small:
-    "Un jeu de données demande au moins deux personnes et une voix de test pour mesurer des erreurs.",
   benchmark_dataset_name_taken:
     "Un jeu de données de benchmark porte déjà ce nom.",
   benchmark_dataset_used:
@@ -487,4 +477,14 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   benchmark_not_running: "Ce benchmark n’est plus en cours.",
   benchmark_transition_open:
     "Un changement du modèle d’empreinte est en cours : terminez-le ou annulez-le avant de lancer un benchmark.",
+  benchmark_clip_duplicate:
+    "Un clip est un test ou une référence, une seule fois.",
+  benchmark_clip_invalid: "Un clip choisi n’existe pas ou est privé.",
+  benchmark_verified_not_test:
+    "Seul un clip de test peut être certifié relu en entier.",
+  benchmark_dataset_unusable:
+    "Ce corpus ne permet de mesurer aucune étape : ajoutez des clips de test relus ou des voix validées.",
+  benchmark_stage_unavailable: "Cette étape ne peut pas encore être mesurée.",
+  benchmark_stage_unsupported_by_dataset:
+    "Ce corpus ne permet pas de mesurer cette étape.",
 };

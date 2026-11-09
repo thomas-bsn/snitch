@@ -3937,7 +3937,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines. */
     get: operations["listBenchmarkDatasets"];
     put?: never;
-    /** @description Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de deux personnes), benchmark_dataset_name_taken. */
+    /** @description Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken. */
     post: operations["createBenchmarkDataset"];
     delete?: never;
     options?: never;
@@ -3972,7 +3972,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
     get: operations["listBenchmarkRuns"];
     put?: never;
-    /** @description Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (un changement de modèle d'empreinte est en cours), benchmark_model_invalid, benchmark_dataset_stale. */
+    /** @description Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. */
     post: operations["startBenchmarkRun"];
     delete?: never;
     options?: never;
@@ -4008,6 +4008,40 @@ export interface paths {
     put?: never;
     /** @description Administrateurs uniquement. Annule le run et ses tâches non terminées (benchmark_not_running si déjà terminé). */
     post: operations["cancelBenchmarkRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/clips": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain. Les clips privés ne sont jamais proposés. */
+    get: operations["listBenchmarkClips"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers où chacun est prêt (un modèle prêt nulle part laisserait le run en attente). */
+    get: operations["listBenchmarkModels"];
+    put?: never;
+    post?: never;
     delete?: never;
     options?: never;
     head?: never;
@@ -7973,18 +8007,24 @@ export interface components {
       author_name: string;
       /** Format: date-time */
       created_at: string;
-      references: number;
-      tests: number;
+      /** @description Étapes que le corpus permet de mesurer. Une étape listée n'est pas forcément déjà exécutable. */
+      stages: ("fingerprint" | "transcription" | "diarization" | "e2e")[];
+      test_clips: number;
+      reference_clips: number;
+      verified_clips: number;
       persons: number;
-      clips: number;
+      /** Format: double */
+      duration_seconds: number;
     };
     BenchmarkDatasetList: {
       datasets: components["schemas"]["BenchmarkDataset"][];
     };
     BenchmarkDatasetInput: {
       name: string;
-      reference_speaker_ids: number[];
-      test_speaker_ids: number[];
+      test_clip_ids: number[];
+      reference_clip_ids: number[];
+      /** @description Clips de test dont l'administrateur atteste que le texte et les locuteurs ont été relus en entier. */
+      verified_clip_ids: number[];
     };
     BenchmarkCreated: {
       /** Format: int64 */
@@ -8073,6 +8113,37 @@ export interface components {
     };
     BenchmarkRunList: {
       runs: components["schemas"]["BenchmarkRun"][];
+    };
+    BenchmarkDatasetCreated: {
+      /** Format: int64 */
+      id: number;
+      stages: ("fingerprint" | "transcription" | "diarization" | "e2e")[];
+    };
+    BenchmarkClip: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+      /** Format: double */
+      duration_seconds: number | null;
+      segments_total: number;
+      segments_corrected: number;
+      validated_persons: string[];
+    };
+    BenchmarkClipList: {
+      clips: components["schemas"]["BenchmarkClip"][];
+    };
+    BenchmarkModel: {
+      id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      engine: string;
+      active: boolean;
+      ready_workers: number;
+      total_workers: number;
+    };
+    BenchmarkModelList: {
+      models: components["schemas"]["BenchmarkModel"][];
     };
   };
   responses: never;
@@ -19125,7 +19196,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["BenchmarkCreated"];
+          "application/json": components["schemas"]["BenchmarkDatasetCreated"];
         };
       };
       /** @description Erreur */
@@ -19288,6 +19359,66 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BenchmarkRun"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkClips: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Clips */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkClipList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkModels: {
+    parameters: {
+      query: {
+        stage: "fingerprint";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Modèles */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkModelList"];
         };
       };
       /** @description Erreur */

@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
 from typing import cast
 import datetime
 
@@ -28,20 +29,25 @@ class BenchmarkDataset:
             name (str):
             author_name (str):
             created_at (datetime.datetime):
-            references (int):
-            tests (int):
+            stages (list[BenchmarkDatasetStagesItem]): Étapes que le corpus permet de mesurer. Une étape listée n'est pas
+                forcément déjà exécutable.
+            test_clips (int):
+            reference_clips (int):
+            verified_clips (int):
             persons (int):
-            clips (int):
+            duration_seconds (float):
      """
 
     id: int
     name: str
     author_name: str
     created_at: datetime.datetime
-    references: int
-    tests: int
+    stages: list[BenchmarkDatasetStagesItem]
+    test_clips: int
+    reference_clips: int
+    verified_clips: int
     persons: int
-    clips: int
+    duration_seconds: float
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -57,13 +63,22 @@ class BenchmarkDataset:
 
         created_at = self.created_at.isoformat()
 
-        references = self.references
+        stages = []
+        for stages_item_data in self.stages:
+            stages_item = stages_item_data.value
+            stages.append(stages_item)
 
-        tests = self.tests
+
+
+        test_clips = self.test_clips
+
+        reference_clips = self.reference_clips
+
+        verified_clips = self.verified_clips
 
         persons = self.persons
 
-        clips = self.clips
+        duration_seconds = self.duration_seconds
 
 
         field_dict: dict[str, Any] = {}
@@ -73,10 +88,12 @@ class BenchmarkDataset:
             "name": name,
             "author_name": author_name,
             "created_at": created_at,
-            "references": references,
-            "tests": tests,
+            "stages": stages,
+            "test_clips": test_clips,
+            "reference_clips": reference_clips,
+            "verified_clips": verified_clips,
             "persons": persons,
-            "clips": clips,
+            "duration_seconds": duration_seconds,
         })
 
         return field_dict
@@ -97,23 +114,37 @@ class BenchmarkDataset:
 
 
 
-        references = d.pop("references")
+        stages = []
+        _stages = d.pop("stages")
+        for stages_item_data in (_stages):
+            stages_item = BenchmarkDatasetStagesItem(stages_item_data)
 
-        tests = d.pop("tests")
+
+
+            stages.append(stages_item)
+
+
+        test_clips = d.pop("test_clips")
+
+        reference_clips = d.pop("reference_clips")
+
+        verified_clips = d.pop("verified_clips")
 
         persons = d.pop("persons")
 
-        clips = d.pop("clips")
+        duration_seconds = d.pop("duration_seconds")
 
         benchmark_dataset = cls(
             id=id,
             name=name,
             author_name=author_name,
             created_at=created_at,
-            references=references,
-            tests=tests,
+            stages=stages,
+            test_clips=test_clips,
+            reference_clips=reference_clips,
+            verified_clips=verified_clips,
             persons=persons,
-            clips=clips,
+            duration_seconds=duration_seconds,
         )
 
 
