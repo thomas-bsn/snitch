@@ -105,6 +105,8 @@ def build_speechbrain_wheelhouse(directory: Path) -> Path:
     for name in ("torch", "torchaudio"):
         build_wheel(directory, name, "2.8.0", {f"{name}/__init__.py": ""})
         build_wheel(directory, name, "2.9.1", {f"{name}/__init__.py": ""})
+    # The family also pins soundfile, so that torchaudio.load has a backend without the host's FFmpeg.
+    build_wheel(directory, "soundfile", "0.14.0", {"soundfile.py": ""})
     return directory
 
 

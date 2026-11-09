@@ -75,7 +75,7 @@ class InstallTests(OnDemandCase):
         # SpeechBrain 1.0.3 calls torchaudio.list_audio_backends() at import and declares torchaudio unbounded: pip
         # took the newest one (2.9+), which no longer has it, and the install failed with runtime_incompatible.
         family = runtime_module.FAMILIES["speechbrain"]
-        self.assertEqual(runtime_module.on_demand_requirements(family, "1.0.3"), ["speechbrain==1.0.3", "torch<2.9", "torchaudio<2.9"])
+        self.assertEqual(runtime_module.on_demand_requirements(family, "1.0.3"), ["speechbrain==1.0.3", "torch<2.9", "torchaudio<2.9", "soundfile==0.14.0"])
         self.assertEqual(runtime_module.on_demand_requirements(runtime_module.FAMILIES["nemo"], "3.0.0"), ["nemo-toolkit[asr]==3.0.0"])
         self.assertEqual(runtime_module.on_demand_requirements(runtime_module.FAMILIES["wespeaker"], "1.0.1"), ["wespeakerruntime==1.0.1"])
 
