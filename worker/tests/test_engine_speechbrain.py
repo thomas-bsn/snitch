@@ -61,6 +61,8 @@ class InstallTests(SpeechBrainCase):
         # calls at import (the install of a real Worker failed on exactly this).
         self.assertIn("torchaudio==2.8.0", freeze)
         self.assertIn("torch==2.8.0", freeze)
+        # torchaudio.load needs a decoding backend in the venv itself, not the host's FFmpeg.
+        self.assertIn("soundfile==0.14.0", freeze)
         self.assertTrue(runtime_module.installed(rt, self.env))
         self.assertEqual(runtime_module.inventory(self.env), [{"engine": "speechbrain", "local_identity": runtime_module.local_identity(rt, self.env)}])
 
