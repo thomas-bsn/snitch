@@ -1749,6 +1749,23 @@ export const en = {
       retry: "Try again",
       loading: "Loading…",
       started: "Benchmark started.",
+      chainsLead:
+        "Compose 2 to 4 chains. A chain pairs a diarization model (who speaks when) with a transcription model (what is said): the benchmark measures who said what.",
+      chainLabel: "Chain {n}",
+      chainDiarization: "Diarization model",
+      chainTranscription: "Transcription model",
+      chainPick: "Pick a model",
+      chainProduction: "production",
+      chainAdd: "Add a chain",
+      chainRemove: "Remove chain {n}",
+      chainRemoveShort: "Remove",
+      chainsRange: "{min} to {max} chains, all different.",
+      chainDuplicate: "Same pair as chain {n}: a pair is measured once.",
+      modelNowhereShort: "ready on no Worker",
+      needCompleteChains:
+        "Pick a diarization model ready on a Worker and a transcription model for every chain.",
+      needDistinctChains: "Two chains are the same pair: change or remove one.",
+      launchSummaryChains: "{chains} chains on {clips} clips",
       stageNames: {
         fingerprint: "Voice fingerprint",
         transcription: "Transcription",
@@ -1801,6 +1818,9 @@ export const en = {
     },
     results: {
       derChart: "Diarization error rate (lower is better)",
+      cpwerChart: "Speaker-attributed word error rate, cpWER (lower is better)",
+      noteE2e:
+        "Each transcript segment is given the speaker whose turns overlap it the most; the words of each speaker are then compared with the reviewed text, speakers being matched to the reference ones in the way that minimises errors. The cpWER sees what the WER does not: good text given to the wrong speaker. These figures describe this corpus, not a guarantee.",
       noteDiarization:
         "The model’s speakers are anonymous: they are matched to the reference speakers by the assignment that maximises their common speaking time. A 0.25 s collar is forgiven around each reference boundary. Rates are summed over the clips. These figures describe this corpus, not a guarantee.",
       werChart: "Word error rate (lower is better)",
@@ -1862,6 +1882,10 @@ export const en = {
       impostor: "impostor",
     },
     metrics: {
+      cpwer: {
+        name: "cpWER",
+        help: "Speaker-attributed word error rate: share of words wrong, missing or given to the wrong speaker, after matching the model's speakers to the reference ones. 0% is perfect. Lower is better.",
+      },
       der: {
         name: "DER",
         help: "Diarization Error Rate: share of the reference speech that was missed, given to the wrong speaker or invented. Lower is better.",

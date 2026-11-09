@@ -96,12 +96,34 @@ const diarizationColumns: Column[] = [
   elapsedColumn,
 ];
 
+const e2eColumns: Column[] = [
+  {
+    metric: "cpwer",
+    render: (x, l) => percent(l, x.metrics.cpwer),
+    best: { value: (x) => x.metrics.cpwer, low: true },
+  },
+  {
+    metric: "wer",
+    render: (x, l) => percent(l, x.metrics.wer),
+    best: { value: (x) => x.metrics.wer, low: true },
+  },
+  {
+    metric: "der",
+    render: (x, l) => percent(l, x.metrics.der),
+    best: { value: (x) => x.metrics.der, low: true },
+  },
+  coverage,
+  elapsedColumn,
+];
+
 export const columnsOf = (stage: Run["stage"]): Column[] =>
   stage === "transcription"
     ? transcriptionColumns
     : stage === "diarization"
       ? diarizationColumns
-      : fingerprintColumns;
+      : stage === "e2e"
+        ? e2eColumns
+        : fingerprintColumns;
 
 /** The measure that ranks the models of a stage, lowest first, and the label of its chart. */
 export const primaryOf = (stage: Run["stage"]) =>
@@ -117,8 +139,14 @@ export const primaryOf = (stage: Run["stage"]) =>
           value: (x: RunResult) => x.metrics.der,
           label: "DER",
         }
-      : {
-          metric: "eer" as const,
-          value: (x: RunResult) => x.metrics.eer,
-          label: "EER",
-        };
+      : stage === "e2e"
+        ? {
+            metric: "cpwer" as const,
+            value: (x: RunResult) => x.metrics.cpwer,
+            label: "cpWER",
+          }
+        : {
+            metric: "eer" as const,
+            value: (x: RunResult) => x.metrics.eer,
+            label: "EER",
+          };
