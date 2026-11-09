@@ -101,6 +101,38 @@ class InstallTests(OnDemandCase):
         self.assertEqual([i["local_identity"] for i in runtime_module.inventory(self.env)], [runtime_module.local_identity(runtime("3.1.0"), self.env)])
         runtime_module.uninstall(runtime("3.0.0"), self.env)  # idempotent
 
+    def test_the_second_kind_reuses_the_environment_and_keeps_its_identity(self):
+        diarization, fingerprint = runtime(), runtime(kind="fingerprint")
+        target = self.install(diarization)
+        identity = runtime_module.local_identity(diarization, self.env)
+        with patch.object(runtime_module.subprocess, "run") as run:
+            self.assertEqual(self.install(fingerprint), target)
+            run.assert_not_called()
+        self.assertEqual(runtime_module.local_identity(fingerprint, self.env), identity)
+        self.assertTrue(runtime_module.installed(fingerprint, self.env))
+        self.assertFalse(runtime_module.cleanup(fingerprint, self.env))  # a ready shared directory is never an incomplete one
+        self.assertTrue(runtime_module.installed(diarization, self.env))
+
+    def test_a_shared_directory_is_kept_while_a_model_of_another_kind_is_bound(self):
+        diarization, fingerprint = runtime(), runtime(kind="fingerprint")
+        target = self.install(diarization)
+        model = Path(runtime_module.voice_models.models_root(self.env)) / "titanet"
+        model.mkdir(parents=True)
+        runtime_module.bind(str(model), fingerprint)
+        with self.assertRaises(runtime_module.RuntimeFailed) as caught:
+            runtime_module.uninstall(diarization, self.env)
+        self.assertEqual(caught.exception.cause, "runtime_in_use")
+        self.assertTrue(target.exists())
+        self.assertTrue(runtime_module.installed(fingerprint, self.env))
+        # Another version of the family is not the same directory and stays removable.
+        other = self.install(runtime("3.1.0"))
+        runtime_module.uninstall(runtime("3.1.0"), self.env)
+        self.assertFalse(other.exists())
+        # Once the last model is unbound the directory goes, whichever kind is asked.
+        (model / ".snitch-runtime.json").unlink()
+        runtime_module.uninstall(fingerprint, self.env)
+        self.assertFalse(target.exists())
+
     def test_a_tampered_freeze_is_no_longer_ready(self):
         rt = runtime()
         target = self.install(rt)

@@ -40,21 +40,48 @@ type engineBlockers struct {
 
 func (b engineBlockers) any() bool { return len(b.Models) > 0 || b.OpenOrder }
 
+// sharedDirectoryDigests lists the identities that live in the same Worker directory as this one. A signed release
+// has a directory of its own. An on-demand engine is one directory per family and version, whatever its kind, so
+// the identities of every kind of that family and version stand for the same environment (ADR 0056).
+func sharedDirectoryDigests(ctx context.Context, db pgQuerier, digest string) ([]string, error) {
+	rows, err := db.Query(ctx, `SELECT s.digest FROM voice_engine_registry r JOIN voice_engine_registry s ON s.source='on_demand' AND s.engine=r.engine AND s.version=r.version
+		WHERE r.digest=$1 AND r.source='on_demand'`, digest)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	digests := []string{digest}
+	for rows.Next() {
+		var other string
+		if err = rows.Scan(&other); err != nil {
+			return nil, err
+		}
+		if other != digest {
+			digests = append(digests, other)
+		}
+	}
+	return digests, rows.Err()
+}
+
 // engineBlockersIn reads the dependencies of a release on a Worker. A model is bound to the release when its
 // current (latest accepted) installation order carried exactly the manifest of the release. Busy tells that a
 // job of this Worker still uses the model, InTransition that it belongs to an open fingerprint transition.
 func engineBlockersIn(ctx context.Context, db pgQuerier, workerID, digest string) (engineBlockers, error) {
 	out := engineBlockers{Models: []engineBlockerModel{}}
-	rows, err := db.Query(ctx, `SELECT m.model_id,m.state,CASE WHEN b.previous_digest=$2 AND b.digest<>$2 AND NOT EXISTS (
-				SELECT 1 FROM worker_model_orders o WHERE o.worker_id=m.worker_id AND o.model_id=m.model_id AND o.action='install' AND o.status IN ('pending','acknowledged','done') AND o.runtime=(SELECT manifest FROM voice_engine_registry WHERE digest=$2)
+	shared, err := sharedDirectoryDigests(ctx, db, digest)
+	if err != nil {
+		return out, err
+	}
+	rows, err := db.Query(ctx, `SELECT m.model_id,m.state,CASE WHEN b.previous_digest=ANY($2) AND NOT b.digest=ANY($2) AND NOT EXISTS (
+				SELECT 1 FROM worker_model_orders o WHERE o.worker_id=m.worker_id AND o.model_id=m.model_id AND o.action='install' AND o.status IN ('pending','acknowledged','done') AND o.runtime IN (SELECT manifest FROM voice_engine_registry WHERE digest=ANY($2))
 				AND o.id=(SELECT x.id FROM worker_model_orders x WHERE x.worker_id=m.worker_id AND x.model_id=m.model_id AND x.action='install' AND x.status IN ('pending','acknowledged','done') ORDER BY x.created_at DESC,x.id DESC LIMIT 1)) THEN 'previous' ELSE 'bound' END
 		FROM worker_voice_models m LEFT JOIN worker_model_runtime_bindings b ON b.worker_id=m.worker_id AND b.model_id=m.model_id
-		WHERE m.worker_id=$1 AND m.state<>'failed' AND (b.digest=$2 OR b.previous_digest=$2 OR EXISTS (
+		WHERE m.worker_id=$1 AND m.state<>'failed' AND (b.digest=ANY($2) OR b.previous_digest=ANY($2) OR EXISTS (
 			SELECT 1 FROM worker_model_orders o
 			WHERE o.worker_id=m.worker_id AND o.model_id=m.model_id AND o.action='install' AND o.status IN ('pending','acknowledged','done')
-			AND o.runtime=(SELECT manifest FROM voice_engine_registry WHERE digest=$2)
+			AND o.runtime IN (SELECT manifest FROM voice_engine_registry WHERE digest=ANY($2))
 			AND o.id=(SELECT x.id FROM worker_model_orders x WHERE x.worker_id=m.worker_id AND x.model_id=m.model_id AND x.action='install' AND x.status IN ('pending','acknowledged','done') ORDER BY x.created_at DESC,x.id DESC LIMIT 1)))
-		ORDER BY m.model_id`, workerID, digest)
+		ORDER BY m.model_id`, workerID, shared)
 	if err != nil {
 		return out, err
 	}
@@ -88,7 +115,7 @@ func engineBlockersIn(ctx context.Context, db pgQuerier, workerID, digest string
 		}
 		out.Models = append(out.Models, m)
 	}
-	err = db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders WHERE worker_id=$1 AND digest=$2 AND intent='install' AND status IN ('pending','acknowledged'))`, workerID, digest).Scan(&out.OpenOrder)
+	err = db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders WHERE worker_id=$1 AND digest=ANY($2) AND intent='install' AND status IN ('pending','acknowledged'))`, workerID, shared).Scan(&out.OpenOrder)
 	return out, err
 }
 

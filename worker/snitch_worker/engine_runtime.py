@@ -586,13 +586,20 @@ def inventory(environ: Mapping[str, str]) -> list[dict[str, str]]:
 def referenced(manifest: Mapping[str, Any], environ: Mapping[str, str]) -> bool:
     """Whether a model on this volume is still bound to this exact runtime. Read-only."""
     wanted = identity(manifest)
+    # An on-demand environment is one directory per family and version, shared by every kind of the family: a model
+    # bound to any kind of it keeps the directory, so the comparison ignores the kind.
+    shared = (manifest.get("family"), manifest.get("version")) if is_on_demand(manifest) else None
     try:
         bindings = list(Path(voice_models.models_root(environ)).rglob(".snitch-runtime.json"))
     except OSError:
         return True  # what cannot be read cannot prove that the runtime is free
     for binding in bindings:
         try:
-            if identity(json.loads(binding.read_text())) == wanted:
+            bound = json.loads(binding.read_text())
+            if shared is not None and is_on_demand(bound):
+                if (bound.get("family"), bound.get("version")) == shared:
+                    return True
+            elif identity(bound) == wanted:
                 return True
         except (OSError, ValueError, TypeError):
             continue

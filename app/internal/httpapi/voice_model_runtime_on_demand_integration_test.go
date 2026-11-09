@@ -169,10 +169,11 @@ func testVoiceModelRuntimeOnDemand(t *testing.T, pool *pgxpool.Pool) {
 	}
 
 	// Uninstall is refused while a model is bound, and the models are listed.
-	if removable, blockers := h.preview(worker, v2); removable || len(blockers.Models) != 1 || blockers.Models[0].Role != "previous" {
+	// v2 (3.1.0 fingerprint) shares its Worker directory with 3.1.0 diarization: model B bound to that one blocks too.
+	if removable, blockers := h.preview(worker, v2); removable || len(blockers.Models) != 2 || blockers.Models[0].Role != "previous" || blockers.Models[1].ModelID != "family-model-b" || blockers.Models[1].Role != "bound" {
 		t.Fatalf("preview of a bound version: %v %+v", removable, blockers)
 	}
-	if r := h.uninstall(v1, worker, "family-uninstall-001"); r.Status != "refused" || r.Cause != "engine_in_use" || r.Blockers == nil || len(r.Blockers.Models) != 1 || r.Blockers.Models[0].ModelID != "family-model-a" {
+	if r := h.uninstall(v1, worker, "family-uninstall-001"); r.Status != "refused" || r.Cause != "engine_in_use" || r.Blockers == nil || len(r.Blockers.Models) != 2 || r.Blockers.Models[0].ModelID != "family-model-a" || r.Blockers.Models[1].ModelID != "family-model-b" {
 		t.Fatalf("uninstall of a bound version: %+v", r)
 	}
 	if h.count(`SELECT count(*) FROM worker_engine_orders WHERE intent='uninstall'`) != 0 {
