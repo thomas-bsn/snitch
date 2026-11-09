@@ -134,6 +134,17 @@ type AvatarPreference struct {
 	DiscordLastError     pgtype.Text        `json:"discord_last_error"`
 }
 
+type BenchmarkActivation struct {
+	ID         int64              `json:"id"`
+	Stage      string             `json:"stage"`
+	FromModel  string             `json:"from_model"`
+	ToModel    string             `json:"to_model"`
+	RunID      pgtype.Int8        `json:"run_id"`
+	AuthorID   pgtype.Int8        `json:"author_id"`
+	AuthorName string             `json:"author_name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type BenchmarkDataset struct {
 	ID         int64              `json:"id"`
 	Name       string             `json:"name"`
