@@ -3,6 +3,8 @@ import { SignupsTab } from "./admin/members/SignupsTab";
 import { PersonLinksTab } from "./admin/members/PersonLinksTab";
 import { ExportsTab } from "./admin/members/ExportsTab";
 import { VoiceTab } from "./admin/voice/VoiceTab";
+import { BenchmarkRunPage } from "./admin/benchmark/BenchmarkRunPage";
+import { BenchmarkResultsPage } from "./admin/benchmark/BenchmarkResultsPage";
 import { VocabularyTab } from "./admin/transcription/VocabularyTab";
 import { TranscriptionTab } from "./admin/transcription/TranscriptionTab";
 import {
@@ -121,6 +123,11 @@ function Routing() {
               <Route path="semantic" element={<SemanticTab />} />
               <Route path="workers/:id" element={<WorkersTab />} />
               <Route path="voice" element={<VoiceTab />} />
+              <Route path="benchmark" element={<BenchmarkRunPage />} />
+              <Route
+                path="benchmark/results"
+                element={<BenchmarkResultsPage />}
+              />
               <Route path="transcription" element={<TranscriptionTab />} />
               <Route
                 path="transcription/vocabulary"
@@ -136,6 +143,7 @@ function Routing() {
                     "metadata",
                     "semantic",
                     "voice",
+                    "benchmark",
                     "transcription",
                     "users",
                     "exports",

@@ -439,53 +439,15 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusCreated, registration)
 }
 
-func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Reason string `json:"reason"`
-	}
-	if r.ContentLength != 0 && !decode(w, r, &input) {
-		return
-	}
-	err := s.Workers.Revoke(r.Context(), r.PathValue("id"), input.Reason)
-	if errors.Is(err, workers.ErrNotFound) {
-		fail(w, http.StatusNotFound, "worker_not_found")
-		return
-	}
-	if errors.Is(err, workers.ErrInvalidInput) {
-		fail(w, http.StatusBadRequest, "invalid_revoke_reason")
-		return
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	s.Log.Info("worker_revoked", "worker_id", r.PathValue("id"))
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// forgetWorker removes a revoked Worker from the list: once its machine confirmed the revocation,
-// or without confirmation when the Administrator passes force=true.
-func (s *Server) forgetWorker(w http.ResponseWriter, r *http.Request) {
-	force := false
-	switch r.URL.Query().Get("force") {
-	case "", "false":
-	case "true":
-		force = true
-	default:
-		fail(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	switch err := s.Workers.Forget(r.Context(), r.PathValue("id"), force); {
+// deleteWorker removes a Worker outright, active or revoked: no revocation step, no reason.
+func (s *Server) deleteWorker(w http.ResponseWriter, r *http.Request) {
+	switch err := s.Workers.Delete(r.Context(), r.PathValue("id")); {
 	case errors.Is(err, workers.ErrNotFound):
 		fail(w, http.StatusNotFound, "worker_not_found")
-	case errors.Is(err, workers.ErrNotRevoked):
-		fail(w, http.StatusConflict, "worker_not_revoked")
-	case errors.Is(err, workers.ErrCleanupPending):
-		fail(w, http.StatusConflict, "worker_cleanup_pending")
 	case err != nil:
 		s.internal(w, err)
 	default:
-		s.Log.Info("worker_removed", "worker_id", r.PathValue("id"), "forced", force)
+		s.Log.Info("worker_deleted", "worker_id", r.PathValue("id"))
 		w.WriteHeader(http.StatusNoContent)
 	}
 }
@@ -688,6 +650,36 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 		s.completeVoiceJob(w, r, id, step, status, input.InputVersion, input.Result)
 		return
 	}
+	if stepErr == nil && status != "done" && strings.HasPrefix(step, jobs.BenchmarkDiarizationPrefix) {
+		// A benchmark diarization only has to be well formed: it is stored, never projected into local speakers.
+		if _, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r)); errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
+			fail(w, http.StatusConflict, "lease_not_owned")
+			return
+		} else if leaseErr != nil {
+			s.internal(w, leaseErr)
+			return
+		}
+		if !validBenchmarkDiarization(input.Result) {
+			fail(w, http.StatusBadRequest, "invalid_voice_result")
+			return
+		}
+	}
+	if stepErr == nil && status != "done" && strings.HasPrefix(step, jobs.BenchmarkTranscriptionPrefix) {
+		// A benchmark transcript has the shape of a production one and is checked the same way; it is only stored.
+		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
+		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
+			fail(w, http.StatusConflict, "lease_not_owned")
+			return
+		}
+		if leaseErr != nil {
+			s.internal(w, leaseErr)
+			return
+		}
+		if !validTranscriptionResult(input.Result, "transcription.audio."+strings.TrimPrefix(leased.Job.Step, jobs.BenchmarkTranscriptionPrefix)) {
+			fail(w, http.StatusBadRequest, "invalid_transcription_result")
+			return
+		}
+	}
 	if stepErr == nil && status != "done" && strings.HasPrefix(step, "transcription.audio.") {
 		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
@@ -723,6 +715,12 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if stepErr == nil && strings.HasPrefix(step, "transcription.audio.") {
 		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks, Project: waveformProjection(step, input.Result)}
+	}
+	if stepErr == nil && strings.HasPrefix(step, jobs.BenchmarkTranscriptionPrefix) {
+		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks}
+	}
+	if stepErr == nil && strings.HasPrefix(step, jobs.BenchmarkDiarizationPrefix) {
+		options = jobs.CompleteOptions{MaxResultBytes: maxVoiceResultBytes, Summarize: withoutPeaks}
 	}
 	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.InputVersion, input.Result, options)
 	if errors.Is(err, jobs.ErrInvalidInput) {

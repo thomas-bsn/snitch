@@ -125,3 +125,32 @@ FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE c.job_id=$
 	}
 	return offset, err
 }
+
+// benchmarkDiarizationInput gives a diarization benchmark task the production pipeline configuration with the
+// requested catalogue model in place of the active one (ADR 0059). The provider is the model's engine, so a
+// Sortformer task runs on the NeMo adapter whatever the production model is. A fake provider (tests) stays fake.
+func (s *Service) benchmarkDiarizationInput(ctx context.Context, input *Input) error {
+	var version string
+	var raw []byte
+	if err := s.pool.QueryRow(ctx, `SELECT a.version,v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &raw); err != nil {
+		return fmt.Errorf("read active voice pipeline for a diarization benchmark: %w", err)
+	}
+	var config map[string]any
+	if err := json.Unmarshal(raw, &config); err != nil {
+		return fmt.Errorf("decode voice pipeline: %w", err)
+	}
+	if config["provider"] != "fake" {
+		var engine, repo, revision string
+		err := s.pool.QueryRow(ctx, `SELECT c.engine,c.repo,c.revision FROM voice_model_catalog c WHERE c.id=(SELECT requested_model_id FROM jobs WHERE id=$1)`, input.Job.ID).Scan(&engine, &repo, &revision)
+		if err != nil {
+			return fmt.Errorf("read requested diarization model: %w", err)
+		}
+		config["provider"], config["model"], config["model_version"] = engine, repo, revision
+	}
+	encoded, err := json.Marshal(map[string]any{"pipeline_version": version, "config": config})
+	if err != nil {
+		return err
+	}
+	input.Voice = encoded
+	return nil
+}

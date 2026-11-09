@@ -12,11 +12,11 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Migration 00133 gives a family to the existing rows whose adapter maps to exactly one, and to nothing else.
+// Migration 00140 gives a family to the existing rows whose adapter maps to exactly one, and to nothing else.
 // The test runs its Up statement on rows shaped like the ones that existed before the on-demand engines.
 func testVoiceCatalogFamilyBackfill(t *testing.T, pool *pgxpool.Pool) {
 	ctx := t.Context()
-	raw, err := migrations.Files.ReadFile("00133_voice_model_catalog_family_backfill.sql")
+	raw, err := migrations.Files.ReadFile("00140_voice_model_catalog_family_backfill.sql")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -455,7 +455,7 @@ func testWorkerRegistration(t *testing.T, pool *pgxpool.Pool) {
 	}
 	callWithLease(anon, http.MethodPost, "/api/worker/jobs/"+strconv64(versionV2.ID)+"/complete", []byte(`{"input_version":"v2","result":{"fixture":"current"}}`), "", other.Token, false, versionV2Claim.LeaseToken, http.StatusOK)
 	call(admin, http.MethodDelete, "/api/admin/workers/"+registration.ID, nil, me.CSRF, "", true, http.StatusNoContent)
-	assertConnected(false)
+	call(admin, http.MethodGet, "/api/admin/workers/"+registration.ID, nil, "", "", false, http.StatusNotFound)
 	call(anon, http.MethodPost, "/api/worker/pulse", []byte(`{"capacity":1}`), "", registration.Token, false, http.StatusUnauthorized)
 	call(admin, http.MethodDelete, "/api/admin/workers/"+other.ID, nil, me.CSRF, "", true, http.StatusNoContent)
 }

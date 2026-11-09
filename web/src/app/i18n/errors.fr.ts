@@ -289,8 +289,6 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette stratégie de mise à jour n’est pas valide.",
   invalid_worker_version:
     "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
-  invalid_revoke_reason:
-    "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
   invalid_restart_request: "La demande de redémarrage n’est pas valide.",
   invalid_restart_result: "Le résultat du redémarrage n’est pas valide.",
@@ -457,13 +455,55 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   person_exists:
     "Une personne porte déjà ce nom. Choisissez-la, ou confirmez qu’il s’agit de quelqu’un d’autre.",
   worker_not_found: "Ce Worker n’existe pas.",
-  worker_not_revoked:
-    "Seul un Worker supprimé (révoqué) peut être retiré de la liste.",
-  worker_cleanup_pending:
-    "La machine du Worker n’a pas encore confirmé la révocation : elle a encore besoin de cette entrée pour se nettoyer.",
   install_invite_used:
     "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
   invalid_install_event: "Cet événement d’installation n’est pas valide.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
+  benchmark_dataset_name_taken:
+    "Un jeu de données de benchmark porte déjà ce nom.",
+  benchmark_dataset_used:
+    "Un benchmark a utilisé ce jeu de données : il ne peut plus être supprimé.",
+  benchmark_dataset_stale:
+    "Le jeu de données renvoie à des clips réanalysés : créez-en un nouveau.",
+  benchmark_model_invalid:
+    "Choisissez des modèles d’empreinte du catalogue, activés et pris en charge.",
+  benchmark_run_active:
+    "Un benchmark est déjà en cours : attendez sa fin ou annulez-le d’abord.",
+  benchmark_not_running: "Ce benchmark n’est plus en cours.",
+  benchmark_transition_open:
+    "Un changement du modèle d’empreinte est en cours : terminez-le ou annulez-le avant de lancer un benchmark.",
+  benchmark_clip_duplicate:
+    "Un clip est un test ou une référence, une seule fois.",
+  benchmark_clip_invalid: "Un clip choisi n’existe pas ou est privé.",
+  benchmark_verified_not_test:
+    "Seul un clip de test peut être certifié relu en entier.",
+  benchmark_dataset_unusable:
+    "Ce corpus ne permet de mesurer aucune étape : ajoutez des clips de test relus ou des voix validées.",
+  benchmark_stage_unavailable: "Cette étape ne peut pas encore être mesurée.",
+  benchmark_stage_unsupported_by_dataset:
+    "Ce corpus ne permet pas de mesurer cette étape.",
+  benchmark_verified_empty:
+    "Un clip certifié demande une transcription ou une voix validée.",
+  benchmark_import_format:
+    "Le fichier importé n'est pas un STM ou un RTTM valide : vérifiez chaque ligne.",
+  benchmark_import_times:
+    "Le fichier importé a des temps incohérents : un début n'est pas négatif et une fin suit son début.",
+  benchmark_import_speakers:
+    "Le STM et le RTTM de ce clip ne nomment aucun locuteur en commun.",
+  benchmark_import_size: "Les fichiers importés dépassent 2 Mo au total.",
+  benchmark_import_clip:
+    "Une référence importée vise un clip de test du corpus, une seule fois.",
+  benchmark_import_track:
+    "La piste audio de ce clip est inconnue ou ambiguë (il lui faut une seule piste transcrite).",
+  benchmark_activation_unsupported:
+    "Le modèle d’empreinte change par sa propre transition, et une chaîne n’est pas un modèle.",
+  benchmark_activation_confirm_required:
+    "Confirmez explicitement le changement de modèle.",
+  benchmark_activation_stale:
+    "Le modèle en production a changé depuis l’aperçu : relisez-le avant de confirmer.",
+  benchmark_activation_run_active:
+    "Un benchmark est en cours : attendez sa fin ou annulez-le avant de changer le modèle.",
+  benchmark_activation_run_mismatch:
+    "Ce benchmark n’a pas mesuré ce modèle pour cette étape.",
 };

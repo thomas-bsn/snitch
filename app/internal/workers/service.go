@@ -19,8 +19,6 @@ var (
 	ErrInvalidInput       = errors.New("invalid worker input")
 	ErrNotFound           = errors.New("worker not found")
 	ErrUnauthorized       = errors.New("worker unauthorized")
-	ErrNotRevoked         = errors.New("worker is not revoked")
-	ErrCleanupPending     = errors.New("worker local cleanup is not confirmed")
 	namePattern           = regexp.MustCompile(`^[\pL\pN][\pL\pN _.-]{0,63}$`)
 	stepCapabilityPattern = regexp.MustCompile(`^[a-z][a-z0-9_.-]{0,127}(\.\*)?$`)
 )
@@ -347,61 +345,22 @@ func (s *Service) List(ctx context.Context) ([]Worker, error) {
 	return items, nil
 }
 
-// MaxRevokeReason bounds the optional reason kept in the deletion audit.
-const MaxRevokeReason = 200
-
-// Revoke removes a worker for good, in one transaction: the identity stops authenticating, its
-// running tasks return to the queue at once, and everything but the minimal audit (name, date,
-// optional reason) is deleted. Revoking twice keeps the first audit. A revoked identity is never
-// reactivated: only an installation invitation creates a new one.
-func (s *Service) Revoke(ctx context.Context, id, reason string) error {
-	reason = strings.TrimSpace(reason)
+// Delete removes a Worker for good, in one transaction: the identity stops authenticating, its running
+// tasks return to the queue at once and its row leaves the list, whether it was active or already
+// revoked. Jobs and events keep their history; the Worker's name is no longer resolved. Nothing tells
+// the machine: its launcher only sees its token refused, so the local volume, container and launcher
+// folder are not cleaned (the Administrator chose to give up on it).
+func (s *Service) Delete(ctx context.Context, id string) error {
 	if !validID(id) {
 		return ErrNotFound
 	}
-	if len([]rune(reason)) > MaxRevokeReason || strings.ContainsAny(reason, "\r\n\x00") {
-		return ErrInvalidInput
-	}
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {
-		return fmt.Errorf("begin worker revocation: %w", err)
+		return fmt.Errorf("begin worker deletion: %w", err)
 	}
 	defer tx.Rollback(ctx)
-	if err = revokeTx(ctx, tx, id, reason); err != nil {
+	if err = revokeTx(ctx, tx, id, ""); err != nil {
 		return err
-	}
-	if err = tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit worker revocation: %w", err)
-	}
-	return nil
-}
-
-// Forget deletes the row of a revoked Worker so it leaves the list. By default only a revoked
-// identity whose machine confirmed the revocation can go: until then the launcher still needs the
-// row to learn it must clean up. force is the Administrator's explicit choice to give up on a
-// machine that will never confirm (offline, reinstalled, discarded); local cleanup is then
-// unconfirmed. An active Worker is never removed. Jobs and events keep their history; the
-// Worker's name is no longer resolved.
-func (s *Service) Forget(ctx context.Context, id string, force bool) error {
-	if !validID(id) {
-		return ErrNotFound
-	}
-	tx, err := s.pool.Begin(ctx)
-	if err != nil {
-		return fmt.Errorf("begin worker removal: %w", err)
-	}
-	defer tx.Rollback(ctx)
-	var revoked, acknowledged bool
-	if err = tx.QueryRow(ctx, `SELECT revoked_at IS NOT NULL,revocation_acknowledged_at IS NOT NULL FROM workers WHERE id=$1 FOR UPDATE`, id).Scan(&revoked, &acknowledged); errors.Is(err, pgx.ErrNoRows) {
-		return ErrNotFound
-	} else if err != nil {
-		return fmt.Errorf("lock worker for removal: %w", err)
-	}
-	if !revoked {
-		return ErrNotRevoked
-	}
-	if !acknowledged && !force {
-		return ErrCleanupPending
 	}
 	if _, err = tx.Exec(ctx, `UPDATE jobs SET lease_owner=NULL WHERE lease_owner=$1`, id); err != nil {
 		return fmt.Errorf("release worker references: %w", err)
@@ -409,7 +368,10 @@ func (s *Service) Forget(ctx context.Context, id string, force bool) error {
 	if _, err = tx.Exec(ctx, `DELETE FROM workers WHERE id=$1`, id); err != nil {
 		return fmt.Errorf("delete worker: %w", err)
 	}
-	return tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit worker deletion: %w", err)
+	}
+	return nil
 }
 
 // revokeTx applies the revocation inside the caller's transaction.

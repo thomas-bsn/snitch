@@ -123,6 +123,10 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Variante de modèle épinglée** : Un modèle de famille d'empreinte que le Worker accepte parce que ses fichiers correspondent, octet pour octet, à une révision connue de l'adaptateur. Une autre révision ou architecture est refusée avec une raison, jamais devinée ; la configuration d'un modèle (par exemple le YAML de SpeechBrain) est lue comme une donnée et n'est jamais exécutée. ADR 0055. Reste valable pour le parcours signé ; le parcours par défaut charge tout modèle d'une Famille d'engine (ADR 0056).
 
+**Jeu de données de benchmark** : Ensemble de voix déjà validées par un humain, réparties en références et tests, sur lequel on mesure plusieurs modèles. La Personne de chaque voix est figée à la création. Il ne modifie jamais la bibliothèque. ADR 0056.
+
+**Run de benchmark** : Un essai de plusieurs modèles sur un jeu de données, avec ses tâches, sa progression et ses résultats par modèle. Un seul run est actif à la fois. Il ne change ni le modèle actif ni les résultats de production. ADR 0056.
+
 **Inventaire du Worker** : Ce qu'un Worker détient réellement de chaque Release d'engine : non installée, demandée, en téléchargement, en installation, en vérification, prête ou en échec, avec la cause et l'historique. Il ne change que par un ordre explicite de l'Administrateur ou par le constat du Worker ; une reconnexion n'installe jamais rien.
 
 **Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.

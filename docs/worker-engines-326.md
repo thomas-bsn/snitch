@@ -173,7 +173,7 @@ Le passage CI [42533281815](https://github.com/thomas-bsn/snitch/actions/runs/42
 
 ## Retrait des groupes de Workers
 
-La notion de groupe de Workers (affectation persistante, en-têtes de groupes, portée « Groupe » du plan) est supprimée : route `PUT /api/admin/workers/{id}/engine-group`, champ `group_name` de la vue Engines, composant et textes associés. La migration 00130 supprime la table `worker_engine_groups`. Les portées restantes sont « Ce Worker » et « Workers cochés ». Le paragraphe précédent sur l'écart « groupe » de #349 est donc historique.
+La notion de groupe de Workers (affectation persistante, en-têtes de groupes, portée « Groupe » du plan) est supprimée : route `PUT /api/admin/workers/{id}/engine-group`, champ `group_name` de la vue Engines, composant et textes associés. La migration 00137 supprime la table `worker_engine_groups`. Les portées restantes sont « Ce Worker » et « Workers cochés ». Le paragraphe précédent sur l'écart « groupe » de #349 est donc historique.
 
 Le message de la cause `runtime_incompatible` d'un modèle indique désormais que l'engine est absent ou ne correspond pas, et renvoie vers l'onglet Engines puis, si la liste est vide, vers l'import d'une release signée par le propriétaire. Le Worker ne distingue pas encore « aucun engine » d'un vrai désaccord d'environnement : la cause reste unique, seul le texte est plus explicite.
 

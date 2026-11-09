@@ -1,5 +1,5 @@
 -- +goose Up
--- Existing catalogue rows never got a family (00132 added the column empty), so a model that was in the catalogue
+-- Existing catalogue rows never got a family (00139 added the column empty), so a model that was in the catalogue
 -- before the on-demand engines could not use them (ADR 0056). Give a family only where the adapter maps to
 -- exactly one: the TitaNet adapter runs on NeMo, the ECAPA-TDNN adapter on SpeechBrain, the WeSpeaker adapter
 -- only exists as an on-demand family. The seeded Sortformer and any other `nemo` diarization row are NOT touched:

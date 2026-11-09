@@ -218,3 +218,49 @@ func testVoiceOverview(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("with the synthetic provider %d jobs reported waiting", got)
 	}
 }
+
+// A Worker that already completed voice jobs with the active models is ready even when its installation never
+// emitted a voice-test event (installed before the test existed, event trimmed, model changed since). An explicit
+// failed test still wins, and a Worker without proof stays untested.
+func testVoiceReadyFromCompletedJobs(t *testing.T, pool *pgxpool.Pool) {
+	h := newVoiceHarness(t, pool) // its Worker is named voice-fixture
+	h.reportModel(communityID, "ready", "", 1, 1, http.StatusNoContent)
+	h.putPipeline(map[string]any{"provider": "pyannote", "model": activeDiarization, "model_version": communityRevision, "min_fingerprint_seconds": 1.0, "min_quality": 0.5})
+	h.transcribe()
+	h.claimDeclaring(map[string]any{"diarization": voiceModel(activeDiarization, "3533c8cf8e36"), "fingerprint": voiceModel(activeEmbedding, "837717ddb9ff")})
+
+	o := h.overview()
+	if w := o.worker(t, "voice-fixture"); w.VoiceState != "untested" || o.WorkersVoiceReady != 0 {
+		t.Fatalf("no proof yet: %+v / %+v", o, w)
+	}
+
+	var workerID string
+	if err := pool.QueryRow(t.Context(), `SELECT id FROM workers WHERE name='voice-fixture'`).Scan(&workerID); err != nil {
+		t.Fatal(err)
+	}
+	// A transcription job proves nothing about the voice models.
+	if _, err := pool.Exec(t.Context(), `INSERT INTO jobs(clip_id,step,input_version,status,completed_by_worker_id) VALUES($1,'transcription.audio.1','v','done',$2)`, h.clipID, workerID); err != nil {
+		t.Fatal(err)
+	}
+	if o = h.overview(); o.worker(t, "voice-fixture").VoiceState != "untested" || o.WorkersVoiceReady != 0 {
+		t.Fatalf("a transcription job is not a voice proof: %+v", o)
+	}
+
+	if _, err := pool.Exec(t.Context(), `INSERT INTO jobs(clip_id,step,input_version,status,completed_by_worker_id) VALUES($1,'voice.diarization.2','v','done',$2)`, h.clipID, workerID); err != nil {
+		t.Fatal(err)
+	}
+	o = h.overview()
+	if w := o.worker(t, "voice-fixture"); w.VoiceState != "ready" || o.WorkersVoiceReady != 1 {
+		t.Fatalf("a completed voice job proves the Worker: %+v / %+v", o, w)
+	}
+
+	// An explicit failed test is newer information than an old job: it keeps the Worker unavailable.
+	now := time.Now().UTC().Format(time.RFC3339)
+	h.workerCall(http.MethodPost, "/api/worker/install-events", map[string]any{"events": []map[string]any{
+		{"phase": "voice-test", "status": "failed", "cause_code": "gpu_unavailable", "occurred_at": now},
+	}}, "", http.StatusNoContent)
+	o = h.overview()
+	if w := o.worker(t, "voice-fixture"); w.VoiceState != "unavailable" || o.WorkersVoiceReady != 0 {
+		t.Fatalf("a failed test wins: %+v / %+v", o, w)
+	}
+}

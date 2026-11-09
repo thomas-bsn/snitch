@@ -72,3 +72,9 @@ Décision : `DELETE /api/admin/workers/{id}/record` accepte `force=true`. Sans l
 Interface : « Retirer de la liste » apparaît dès que le Worker est révoqué. Sans confirmation de la machine, le texte et la boîte de confirmation disent que le nettoyage local n'a pas été confirmé (volume de modèles, conteneur et dossier du lanceur peuvent subsister) ; l'interface envoie alors `force=true`.
 
 Conséquence assumée : un Worker retiré de force dont la machine revient plus tard reçoit un 401 `worker_token_invalid` sans pouvoir apprendre sa révocation (la ligne n'existe plus) ; son conteneur reste alors à retirer à la main. C'est le prix du retrait forcé, d'où l'avertissement et la confirmation explicite.
+
+## Amendement : suppression en une action
+
+Décision : `DELETE /api/admin/workers/{id}` supprime le Worker, actif ou déjà révoqué, en une seule transaction (jeton refusé, tâches en cours remises dans la file, ligne retirée de la liste). `DELETE /api/admin/workers/{id}/record` et le motif facultatif disparaissent, ainsi que les erreurs `worker_not_revoked`, `worker_cleanup_pending` et `invalid_revoke_reason`. L'interface demande de saisir `DELETE` pour confirmer.
+
+Conséquence assumée : la machine n'est plus prévenue. Son lanceur voit un 401 sur son jeton, ce qui ne suffit jamais à déclencher l'effacement local (voir `worker/snitch_worker/revocation.py`) ; le volume de modèles, le conteneur et le dossier du lanceur restent à supprimer à la main, ce que la confirmation affiche. La révocation par renouvellement de jeton garde son parcours de confirmation par la machine ; l'entrée révoquée qui en résulte se supprime avec la même action.

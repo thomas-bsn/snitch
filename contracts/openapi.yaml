@@ -3813,25 +3813,8 @@
         "description": "Administrateurs uniquement. Un worker révoqué reste consultable."
       },
       "delete": {
-        "operationId": "revokeWorker",
-        "description": "Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés, et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas effacé. Une seconde suppression est sans effet et garde le premier audit.",
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "properties": {
-                  "reason": {
-                    "type": "string",
-                    "maxLength": 200
-                  }
-                }
-              }
-            }
-          }
-        },
+        "operationId": "deleteWorker",
+        "description": "Administrateurs uniquement. Supprime le Worker, actif ou déjà révoqué, en une seule action : son jeton cesse aussitôt de fonctionner, ses tâches en cours reviennent dans la file, ses résultats tardifs sont refusés et il disparaît de la liste. Les jobs et événements gardent leur historique. La machine n'est pas prévenue : son volume de modèles, son conteneur et son dossier de lanceur subsistent.",
         "parameters": [
           {
             "in": "path",
@@ -3860,67 +3843,10 @@
         ],
         "responses": {
           "204": {
-            "description": "Jeton révoqué"
+            "description": "Worker supprimé"
           },
           "default": {
             "description": "Worker introuvable ou serveur indisponible",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/workers/{id}/record": {
-      "delete": {
-        "operationId": "forgetWorker",
-        "description": "Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur la machine).",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "force",
-            "required": false,
-            "description": "Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation.",
-            "schema": {
-              "type": "boolean",
-              "default": false
-            }
-          },
-          {
-            "in": "header",
-            "name": "Origin",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "204": {
-            "description": "Worker retiré de la liste"
-          },
-          "default": {
-            "description": "Worker introuvable, non révoqué ou nettoyage local non confirmé sans force",
             "content": {
               "application/json": {
                 "schema": {
@@ -16402,148 +16328,6 @@
         }
       }
     },
-    "/api/admin/voice-engines/families": {
-      "get": {
-        "operationId": "listEngineFamilies",
-        "description": "Administrateur : les familles de bibliothèque que Snitch sait installer à la demande (table du serveur), avec version par défaut, tâches, contraintes matérielles et estimations de disque et de durée. Ne dépend d'aucune Release signée importée.",
-        "responses": {
-          "200": {
-            "description": "Familles supportées",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EngineFamilies"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Erreur (401 session required, 403 permission)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/voice-engines/on-demand-orders": {
-      "post": {
-        "operationId": "createOnDemandEngineOrders",
-        "description": "Administrateur : ordonne l'installation d'un engine à la demande (famille de bibliothèque et version, version par défaut de la famille si omise) sur un ou plusieurs Workers. Aucune enveloppe signée n'est acceptée : l'identité est dérivée de la famille, de la version et de la tâche. Le matériel du Worker est contrôlé avant tout ordre ; clé idempotente, génération, livraison, accusé, inventaire et causes d'échec sont ceux des ordres d'engine signés. Famille inconnue : 400 unsupported_engine_family.",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "Origin",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Must equal the address of the request itself (scheme and host)"
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OnDemandEngineOrderInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Résultat par Worker",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/VoiceEngineOrderResults"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/admin/voice-engines/on-demand-plan": {
-      "post": {
-        "operationId": "planOnDemandEngine",
-        "description": "Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "Origin",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Must equal the address of the request itself (scheme and host)"
-          },
-          {
-            "in": "header",
-            "name": "X-CSRF-Token",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/OnDemandEnginePlanInput"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Plan",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/OnDemandEnginePlan"
-                }
-              }
-            }
-          },
-          "default": {
-            "description": "Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission)",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/api/admin/voice-engines/workers": {
       "get": {
         "operationId": "listEnginesByWorker",
@@ -17101,6 +16885,684 @@
           },
           "default": {
             "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/datasets": {
+      "get": {
+        "operationId": "listBenchmarkDatasets",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines.",
+        "responses": {
+          "200": {
+            "description": "Jeux de données",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDatasetList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBenchmarkDataset",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkDatasetInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Jeu de données créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDatasetCreated"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/datasets/{id}": {
+      "delete": {
+        "operationId": "deleteBenchmarkDataset",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run (benchmark_dataset_used sinon).",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprimé"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/runs": {
+      "get": {
+        "operationId": "listBenchmarkRuns",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées.",
+        "responses": {
+          "200": {
+            "description": "Runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRunList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startBenchmarkRun",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes, partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkRunInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Run démarré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkCreated"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/runs/{id}": {
+      "get": {
+        "operationId": "getBenchmarkRun",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. État d'un run, progression, erreurs des tâches et résultats par modèle. Les scores de modèles différents ne sont pas comparables : chaque modèle a son propre seuil.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/runs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelBenchmarkRun",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Annule le run et ses tâches non terminées (benchmark_not_running si déjà terminé).",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/clips": {
+      "get": {
+        "operationId": "listBenchmarkClips",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un dossier privé ne sont jamais proposés.",
+        "responses": {
+          "200": {
+            "description": "Clips",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkClipList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/models": {
+      "get": {
+        "operationId": "listBenchmarkModels",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte et diarisation : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "stage",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "fingerprint",
+                "transcription",
+                "diarization"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Modèles",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkModelList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/activation": {
+      "get": {
+        "operationId": "previewBenchmarkActivation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Aperçu du changement du modèle de production (transcription ou diarisation) : modèle remplacé, Workers prêts, clips qu'une réanalyse mettrait en jeu dont ceux qui portent un travail humain. L'empreinte passe par sa transition (benchmark_activation_unsupported).",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "stage",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "transcription",
+                "diarization"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkActivationPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "confirmBenchmarkActivation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Change le modèle utilisé pour le travail à venir. Jamais une réanalyse : rien n'est planifié, aucune correction ni validation n'est touchée. Exige la confirmation (benchmark_activation_confirm_required) et le modèle remplacé vu à l'aperçu (benchmark_activation_stale). Chaque changement est enregistré avec son auteur et le run.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkActivationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Modèle changé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkActivationResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/families": {
+      "get": {
+        "operationId": "listEngineFamilies",
+        "description": "Administrateur : les familles de bibliothèque que Snitch sait installer à la demande (table du serveur), avec version par défaut, tâches, contraintes matérielles et estimations de disque et de durée. Ne dépend d'aucune Release signée importée.",
+        "responses": {
+          "200": {
+            "description": "Familles supportées",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineFamilies"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/on-demand-orders": {
+      "post": {
+        "operationId": "createOnDemandEngineOrders",
+        "description": "Administrateur : ordonne l'installation d'un engine à la demande (famille de bibliothèque et version, version par défaut de la famille si omise) sur un ou plusieurs Workers. Aucune enveloppe signée n'est acceptée : l'identité est dérivée de la famille, de la version et de la tâche. Le matériel du Worker est contrôlé avant tout ordre ; clé idempotente, génération, livraison, accusé, inventaire et causes d'échec sont ceux des ordres d'engine signés. Famille inconnue : 400 unsupported_engine_family.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnDemandEngineOrderInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Résultat par Worker",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEngineOrderResults"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/on-demand-plan": {
+      "post": {
+        "operationId": "planOnDemandEngine",
+        "description": "Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnDemandEnginePlanInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnDemandEnginePlan"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission)",
             "content": {
               "application/json": {
                 "schema": {
@@ -28541,133 +29003,6 @@
           }
         }
       },
-      "EngineRuntime": {
-        "type": "object",
-        "description": "Runtime figé dans un ordre d'engine : manifeste signé d'une Release (VoiceEngineManifest) ou description d'un engine à la demande (OnDemandEngineRuntime). Seuls les champs communs sont requis ici ; le Worker valide chaque forme.",
-        "additionalProperties": true,
-        "required": [
-          "engine",
-          "version",
-          "kind",
-          "python",
-          "platform",
-          "cuda",
-          "disk_bytes",
-          "vram_bytes"
-        ],
-        "properties": {
-          "engine": {
-            "type": "string"
-          },
-          "version": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "python": {
-            "type": "string"
-          },
-          "platform": {
-            "type": "string"
-          },
-          "cuda": {
-            "type": "string"
-          },
-          "disk_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "vram_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "source": {
-            "type": "string",
-            "enum": [
-              "on_demand"
-            ],
-            "description": "Présent seulement pour un engine à la demande."
-          }
-        }
-      },
-      "OnDemandEngineRuntime": {
-        "type": "object",
-        "description": "Engine résolu par pip sur le Worker : aucune signature, aucune roue figée. Les contraintes portent les noms du manifeste signé.",
-        "additionalProperties": false,
-        "required": [
-          "source",
-          "family",
-          "engine",
-          "distribution",
-          "version",
-          "kind",
-          "kinds",
-          "python",
-          "platform",
-          "cuda",
-          "disk_bytes",
-          "vram_bytes",
-          "ram_bytes",
-          "estimated_seconds"
-        ],
-        "properties": {
-          "source": {
-            "type": "string",
-            "enum": [
-              "on_demand"
-            ]
-          },
-          "family": {
-            "type": "string"
-          },
-          "engine": {
-            "type": "string"
-          },
-          "distribution": {
-            "type": "string",
-            "description": "Nom de la distribution pip."
-          },
-          "version": {
-            "type": "string"
-          },
-          "kind": {
-            "type": "string"
-          },
-          "kinds": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
-          "python": {
-            "type": "string"
-          },
-          "platform": {
-            "type": "string"
-          },
-          "cuda": {
-            "type": "string",
-            "description": "Vide : la famille s'exécute avec ou sans GPU."
-          },
-          "disk_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "vram_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ram_bytes": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "estimated_seconds": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
       "VoiceEngineManifest": {
         "type": "object",
         "additionalProperties": false,
@@ -28815,51 +29150,6 @@
           },
           "signature": {
             "type": "string"
-          }
-        }
-      },
-      "OnDemandEngineOrderInput": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "family",
-          "orders"
-        ],
-        "properties": {
-          "family": {
-            "type": "string",
-            "description": "Famille de bibliothèque de la table de Snitch (nemo)."
-          },
-          "version": {
-            "type": "string",
-            "description": "Version de la bibliothèque ; la version par défaut de la famille si omise."
-          },
-          "orders": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 100,
-            "items": {
-              "type": "object",
-              "additionalProperties": false,
-              "required": [
-                "worker_id",
-                "idempotency_key"
-              ],
-              "properties": {
-                "worker_id": {
-                  "type": "string"
-                },
-                "idempotency_key": {
-                  "type": "string",
-                  "minLength": 8,
-                  "maxLength": 100
-                }
-              }
-            }
-          },
-          "kind": {
-            "type": "string",
-            "description": "Tâche couverte par l'engine (diarization, fingerprint pour NeMo) ; la première tâche de la famille si omise. Chaque tâche est une identité distincte."
           }
         }
       },
@@ -29860,6 +30150,1036 @@
           "reported_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "BenchmarkDataset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "fingerprint",
+                "transcription",
+                "diarization",
+                "e2e"
+              ]
+            },
+            "description": "Étapes que le corpus permet de mesurer. Une étape listée n'est pas forcément déjà exécutable."
+          },
+          "test_clips": {
+            "type": "integer"
+          },
+          "reference_clips": {
+            "type": "integer"
+          },
+          "verified_clips": {
+            "type": "integer"
+          },
+          "persons": {
+            "type": "integer"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "reference_sources": {
+            "$ref": "#/components/schemas/BenchmarkReferenceSources"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "author_name",
+          "created_at",
+          "stages",
+          "test_clips",
+          "reference_clips",
+          "verified_clips",
+          "persons",
+          "duration_seconds",
+          "reference_sources"
+        ]
+      },
+      "BenchmarkReferenceSources": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "production",
+            "import"
+          ]
+        },
+        "description": "D'où viennent les références des clips certifiés : production (sortie du pipeline de production corrigée par des humains, qui avantage le modèle de production) et/ou import (STM ou RTTM écrit à la main). L'avertissement de biais ne s'applique que si production y figure."
+      },
+      "BenchmarkReferenceImport": {
+        "type": "object",
+        "properties": {
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stm": {
+            "type": "string",
+            "description": "Texte de référence : `<fichier> <canal> <locuteur> <début> <fin> [<étiquettes>] texte`, lignes `;;` ignorées."
+          },
+          "rttm": {
+            "type": "string",
+            "description": "Tours de parole de référence : `SPEAKER <fichier> <canal> <début> <durée> <NA> <NA> <locuteur> <NA> <NA>`."
+          }
+        },
+        "required": [
+          "clip_id"
+        ]
+      },
+      "BenchmarkDatasetList": {
+        "type": "object",
+        "properties": {
+          "datasets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkDataset"
+            }
+          }
+        },
+        "required": [
+          "datasets"
+        ]
+      },
+      "BenchmarkDatasetInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "test_clip_ids": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "reference_clip_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "verified_clip_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            },
+            "description": "Clips de test dont l'administrateur atteste que le texte et les locuteurs ont été relus en entier."
+          },
+          "reference_imports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkReferenceImport"
+            },
+            "description": "Références externes (STM et/ou RTTM, 2 Mo au total) qui remplacent la référence de production d'un clip de test ; le clip compte alors comme certifié. La piste est celle de la transcription de production du clip."
+          }
+        },
+        "required": [
+          "name",
+          "test_clip_ids",
+          "reference_clip_ids",
+          "verified_clip_ids"
+        ]
+      },
+      "BenchmarkCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "BenchmarkRunInput": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "fingerprint",
+              "transcription",
+              "diarization",
+              "e2e"
+            ]
+          },
+          "model_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            },
+            "description": "Modèles comparés (empreinte, transcription, diarisation). Absent pour le bout en bout."
+          },
+          "chains": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "description": "Bout en bout : paires modèle de diarisation + modèle de transcription.",
+            "items": {
+              "type": "object",
+              "required": [
+                "diarization_model_id",
+                "transcription_model"
+              ],
+              "properties": {
+                "diarization_model_id": {
+                  "type": "string"
+                },
+                "transcription_model": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "required": [
+          "dataset_id",
+          "stage"
+        ]
+      },
+      "BenchmarkJobError": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "model_id",
+          "status",
+          "error"
+        ]
+      },
+      "BenchmarkProgress": {
+        "type": "object",
+        "properties": {
+          "jobs": {
+            "type": "integer"
+          },
+          "done": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "active": {
+            "type": "integer"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkJobError"
+            }
+          }
+        },
+        "required": [
+          "jobs",
+          "done",
+          "failed",
+          "active",
+          "errors"
+        ]
+      },
+      "BenchmarkResult": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "failed"
+            ]
+          },
+          "items_total": {
+            "type": "integer"
+          },
+          "items_scored": {
+            "type": "integer"
+          },
+          "elapsed_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/BenchmarkMetrics"
+          },
+          "resources": {
+            "type": "object",
+            "nullable": true,
+            "description": "RAM/VRAM : non remontés par le Worker, toujours null pour l'instant."
+          }
+        },
+        "required": [
+          "model_id",
+          "model",
+          "model_version",
+          "dimensions",
+          "state",
+          "items_total",
+          "items_scored",
+          "metrics"
+        ]
+      },
+      "BenchmarkRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dataset_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dataset_name": {
+            "type": "string"
+          },
+          "reference_sources": {
+            "$ref": "#/components/schemas/BenchmarkReferenceSources"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "fingerprint",
+              "transcription",
+              "diarization",
+              "e2e"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "model_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "progress": {
+            "$ref": "#/components/schemas/BenchmarkProgress"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkResult"
+            }
+          },
+          "chains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkChain"
+            },
+            "description": "Bout en bout : les paires de modèles que représentent les identifiants des résultats."
+          }
+        },
+        "required": [
+          "id",
+          "dataset_id",
+          "dataset_name",
+          "stage",
+          "status",
+          "model_ids",
+          "author_name",
+          "created_at",
+          "progress",
+          "results",
+          "chains",
+          "reference_sources"
+        ]
+      },
+      "BenchmarkRunList": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkRun"
+            }
+          }
+        },
+        "required": [
+          "runs"
+        ]
+      },
+      "BenchmarkDatasetCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "fingerprint",
+                "transcription",
+                "diarization",
+                "e2e"
+              ]
+            }
+          }
+        },
+        "required": [
+          "id",
+          "stages"
+        ]
+      },
+      "BenchmarkClip": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "duration_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "segments_total": {
+            "type": "integer"
+          },
+          "segments_corrected": {
+            "type": "integer"
+          },
+          "validated_persons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkPerson"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "duration_seconds",
+          "segments_total",
+          "segments_corrected",
+          "validated_persons"
+        ]
+      },
+      "BenchmarkClipList": {
+        "type": "object",
+        "properties": {
+          "clips": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkClip"
+            }
+          }
+        },
+        "required": [
+          "clips"
+        ]
+      },
+      "BenchmarkModel": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "repo": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "active": {
+            "type": "boolean"
+          },
+          "ready_workers": {
+            "type": "integer"
+          },
+          "total_workers": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "repo",
+          "revision",
+          "engine",
+          "active",
+          "ready_workers",
+          "total_workers"
+        ]
+      },
+      "BenchmarkModelList": {
+        "type": "object",
+        "properties": {
+          "models": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkModel"
+            }
+          }
+        },
+        "required": [
+          "models"
+        ]
+      },
+      "BenchmarkPerson": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "BenchmarkMetrics": {
+        "type": "object",
+        "description": "Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer (sans attribution) et der des mêmes sorties.",
+        "properties": {
+          "references": {
+            "type": "integer"
+          },
+          "tests": {
+            "type": "integer"
+          },
+          "persons": {
+            "type": "integer"
+          },
+          "genuine_trials": {
+            "type": "integer"
+          },
+          "impostor_trials": {
+            "type": "integer"
+          },
+          "eer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "eer_threshold": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "top1_accuracy": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "true_positives": {
+            "type": "integer"
+          },
+          "false_positives": {
+            "type": "integer"
+          },
+          "false_negatives": {
+            "type": "integer"
+          },
+          "precision": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "recall": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "genuine_mean_score": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "impostor_mean_score": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "ignored_dimension": {
+            "type": "integer"
+          },
+          "clips": {
+            "type": "integer",
+            "description": "Transcription : clips (et pistes) mesurés."
+          },
+          "reference_words": {
+            "type": "integer"
+          },
+          "word_errors": {
+            "type": "integer"
+          },
+          "reference_chars": {
+            "type": "integer"
+          },
+          "character_errors": {
+            "type": "integer"
+          },
+          "cer_skipped_clips": {
+            "type": "integer",
+            "description": "Clips trop longs pour la comparaison par caractère, laissés hors du CER."
+          },
+          "wer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Word Error Rate (transcription), micro-moyenne sur les clips."
+          },
+          "cer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Character Error Rate (transcription)."
+          },
+          "skipped_clips": {
+            "type": "integer",
+            "description": "Diarisation : clips trop longs, laissés hors du calcul."
+          },
+          "reference_speech_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "missed_speech_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "false_alarm_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "confusion_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "collar_seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Tolérance autour de chaque borne de référence."
+          },
+          "der": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Diarization Error Rate : parole manquée + fausse alarme + confusion, rapportées à la parole de référence."
+          },
+          "missed_speech_rate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "false_alarm_rate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "confusion_rate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "cpwer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Bout en bout : WER avec attribution des locuteurs (cpWER)."
+          },
+          "cp_word_errors": {
+            "type": "integer"
+          },
+          "reference_speakers": {
+            "type": "integer"
+          },
+          "model_speakers": {
+            "type": "integer"
+          }
+        }
+      },
+      "BenchmarkChain": {
+        "type": "object",
+        "required": [
+          "id",
+          "diarization_model_id",
+          "transcription_model"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "diarization_model_id": {
+            "type": "string"
+          },
+          "transcription_model": {
+            "type": "string"
+          }
+        }
+      },
+      "BenchmarkActivationPreview": {
+        "type": "object",
+        "required": [
+          "stage",
+          "current_model",
+          "target_model",
+          "target_label",
+          "already_active",
+          "workers_ready",
+          "clips_with_analysis",
+          "clips_with_human_work",
+          "human_items",
+          "reanalysis"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "current_model": {
+            "type": "string"
+          },
+          "target_model": {
+            "type": "string"
+          },
+          "target_label": {
+            "type": "string"
+          },
+          "already_active": {
+            "type": "boolean"
+          },
+          "workers_ready": {
+            "type": "integer"
+          },
+          "clips_with_analysis": {
+            "type": "integer"
+          },
+          "clips_with_human_work": {
+            "type": "integer",
+            "description": "Clips portant des corrections ou validations humaines : une réanalyse les mettrait en jeu."
+          },
+          "human_items": {
+            "type": "integer"
+          },
+          "reanalysis": {
+            "type": "string",
+            "description": "Écran qui porte la réanalyse, qui n'est jamais lancée par l'activation."
+          }
+        }
+      },
+      "BenchmarkActivationInput": {
+        "type": "object",
+        "required": [
+          "stage",
+          "model",
+          "expected_current",
+          "confirm"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "diarization"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expected_current": {
+            "type": "string",
+            "description": "Le modèle remplacé tel que l'aperçu l'a montré : un changement survenu depuis est refusé (benchmark_activation_stale)."
+          },
+          "confirm": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BenchmarkActivationResult": {
+        "type": "object",
+        "required": [
+          "version",
+          "stage",
+          "model",
+          "reanalysis",
+          "clips_with_human_work"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "reanalysis": {
+            "type": "string"
+          },
+          "clips_with_human_work": {
+            "type": "integer"
+          }
+        }
+      },
+      "EngineRuntime": {
+        "type": "object",
+        "description": "Runtime figé dans un ordre d'engine : manifeste signé d'une Release (VoiceEngineManifest) ou description d'un engine à la demande (OnDemandEngineRuntime). Seuls les champs communs sont requis ici ; le Worker valide chaque forme.",
+        "additionalProperties": true,
+        "required": [
+          "engine",
+          "version",
+          "kind",
+          "python",
+          "platform",
+          "cuda",
+          "disk_bytes",
+          "vram_bytes"
+        ],
+        "properties": {
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "python": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cuda": {
+            "type": "string"
+          },
+          "disk_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "on_demand"
+            ],
+            "description": "Présent seulement pour un engine à la demande."
+          }
+        }
+      },
+      "OnDemandEngineRuntime": {
+        "type": "object",
+        "description": "Engine résolu par pip sur le Worker : aucune signature, aucune roue figée. Les contraintes portent les noms du manifeste signé.",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "family",
+          "engine",
+          "distribution",
+          "version",
+          "kind",
+          "kinds",
+          "python",
+          "platform",
+          "cuda",
+          "disk_bytes",
+          "vram_bytes",
+          "ram_bytes",
+          "estimated_seconds"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "on_demand"
+            ]
+          },
+          "family": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "distribution": {
+            "type": "string",
+            "description": "Nom de la distribution pip."
+          },
+          "version": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "python": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cuda": {
+            "type": "string",
+            "description": "Vide : la famille s'exécute avec ou sans GPU."
+          },
+          "disk_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "estimated_seconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "OnDemandEngineOrderInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "orders"
+        ],
+        "properties": {
+          "family": {
+            "type": "string",
+            "description": "Famille de bibliothèque de la table de Snitch (nemo)."
+          },
+          "version": {
+            "type": "string",
+            "description": "Version de la bibliothèque ; la version par défaut de la famille si omise."
+          },
+          "orders": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "worker_id",
+                "idempotency_key"
+              ],
+              "properties": {
+                "worker_id": {
+                  "type": "string"
+                },
+                "idempotency_key": {
+                  "type": "string",
+                  "minLength": 8,
+                  "maxLength": 100
+                }
+              }
+            }
+          },
+          "kind": {
+            "type": "string",
+            "description": "Tâche couverte par l'engine (diarization, fingerprint pour NeMo) ; la première tâche de la famille si omise. Chaque tâche est une identité distincte."
           }
         }
       },

@@ -1761,6 +1761,306 @@ export const fr: Messages = {
       back: "Retour à la bibliothèque",
     },
   },
+  benchmark: {
+    run: {
+      corpusTitle: "1 · Corpus de clips annotés",
+      corpusLead:
+        "Des clips qu’un humain a validés ou relus. Le même corpus sert à toutes les étapes et il est figé à sa création.",
+      corpusNone:
+        "Aucun corpus pour l’instant. Créez-en un à partir de clips qui ont des voix validées ou une transcription relue.",
+      corpusClips: "{test} clips de test · {reference} clips de référence",
+      corpusPersons: "{persons} Personnes · {minutes} min",
+      corpusCertified: "{count} certifiés relus en entier",
+      corpusSourcesProduction: "Référence : production, corrigée",
+      corpusSourcesImport: "Référence : importée (STM/RTTM)",
+      corpusLabel: "Corpus",
+      createCorpus: "Créer un corpus",
+      stageTitle: "2 · Étape à mesurer",
+      stageLabel: "Étape",
+      stageSoon: "Bientôt",
+      stageNotInCorpus: "Ce corpus ne permet pas de mesurer cette étape.",
+      modelsLead:
+        "Choisissez 2 à 4 modèles. Chacun tourne sur les mêmes clips.",
+      modelsLabel: "Modèles à comparer",
+      modelReady: "Prêt sur {ready} Worker(s) sur {total}",
+      modelNowhere:
+        "Prêt sur aucun Worker : installez-le d’abord dans Traitement vocal.",
+      modelActive: "Actif",
+      modelUnchecked: "Vérifié par un Worker au démarrage de la tâche.",
+      modelServiceReady:
+        "Transcription configurée sur {ready} Worker(s) sur {total}",
+      addModel: "Ajouter un modèle par son nom",
+      addModelHelp:
+        "Seul un Worker joint le service de transcription : ses modèles ne peuvent pas être listés ici. Saisissez le nom tel que le service le liste ; un nom inconnu échoue sur le Worker.",
+      addModelButton: "Ajouter",
+      modelsEmpty:
+        "Aucun modèle de cette étape n’est disponible dans le catalogue.",
+      launchTitle: "3 · Lancer",
+      launchSummary: "{models} modèles sur {clips} clips",
+      noProduction:
+        "Aucune modification de la production, des corrections humaines, des validations ni du modèle actif.",
+      launch: "Lancer le benchmark",
+      launching: "Lancement…",
+      needCorpus: "Choisissez un corpus.",
+      needModels: "Choisissez au moins 2 modèles.",
+      alreadyRunning:
+        "Un benchmark est déjà en cours : attendez sa fin ou annulez-le d’abord.",
+      runningTitle: "Benchmark en cours · {corpus}",
+      progress: "{done} tâches terminées sur {total}",
+      progressLabel: "Progression du benchmark",
+      failedTasks: "{count} tâches en échec",
+      taskErrors: "Erreurs des tâches",
+      workersWork:
+        "Les tâches sont traitées par les Workers. La production n’est pas modifiée.",
+      cancel: "Annuler le benchmark",
+      cancelTitle: "Annuler le benchmark ?",
+      cancelBody:
+        "Les tâches non terminées sont annulées. Aucun résultat ne sera enregistré pour ce run. La production n’est pas touchée.",
+      cancelKeep: "Le laisser tourner",
+      cancelling: "Annulation…",
+      loadFailed: "Les données du benchmark n’ont pas pu être chargées.",
+      retry: "Réessayer",
+      loading: "Chargement…",
+      started: "Benchmark lancé.",
+      chainsLead:
+        "Composez 2 à 4 chaînes. Une chaîne associe un modèle de diarisation (qui parle quand) et un modèle de transcription (ce qui est dit) : le benchmark mesure qui a dit quoi.",
+      chainLabel: "Chaîne {n}",
+      chainDiarization: "Modèle de diarisation",
+      chainTranscription: "Modèle de transcription",
+      chainPick: "Choisir un modèle",
+      chainProduction: "production",
+      chainAdd: "Ajouter une chaîne",
+      chainRemove: "Retirer la chaîne {n}",
+      chainRemoveShort: "Retirer",
+      chainsRange: "{min} à {max} chaînes, toutes différentes.",
+      chainDuplicate:
+        "Même paire que la chaîne {n} : une paire n’est mesurée qu’une fois.",
+      modelNowhereShort: "prêt sur aucun Worker",
+      needCompleteChains:
+        "Choisissez pour chaque chaîne un modèle de diarisation prêt sur un Worker et un modèle de transcription.",
+      needDistinctChains:
+        "Deux chaînes sont la même paire : modifiez-en une ou retirez-la.",
+      launchSummaryChains: "{chains} chaînes sur {clips} clips",
+      stageNames: {
+        fingerprint: "Empreinte vocale",
+        transcription: "Transcription",
+        diarization: "Diarisation",
+        e2e: "Bout en bout",
+      },
+      stageHints: {
+        fingerprint: "Reconnaître la bonne Personne à partir de sa voix.",
+        transcription: "Mots mal transcrits, comparés au texte relu.",
+        diarization: "Qui parle quand.",
+        e2e: "La chaîne complète : qui a dit quoi, correctement ?",
+      },
+    },
+    corpus: {
+      title: "Créer un corpus de clips annotés",
+      lead: "Seuls les clips partagés ayant une transcription ou une voix validée par un humain sont proposés. Rien n’est annoté en double : vos corrections et validations sont réutilisées.",
+      name: "Nom",
+      clip: "Clip",
+      duration: "Durée",
+      segments: "Segments corrigés",
+      voices: "Voix validées",
+      role: "Rôle",
+      roleTest: "Test",
+      roleReference: "Référence",
+      roleNone: "Exclure",
+      roleHelp:
+        "Un clip de test est ce que l’on mesure ; un clip de référence enrôle les Personnes pour l’empreinte vocale. Un clip n’est jamais les deux.",
+      reviewed: "Relu en entier",
+      reviewedHelp:
+        "Atteste qu’un humain a relu toute la transcription et les locuteurs de ce clip. Sans cela, le clip ne sert qu’à l’empreinte vocale.",
+      stagesTitle: "Étapes que ce corpus permet de mesurer",
+      stagesNote: "Indicatif : le serveur tranche à la création du corpus.",
+      stageOk: "Mesurable",
+      stageNo: "Non mesurable",
+      needFingerprint:
+        "Demande deux Personnes avec un clip de référence, chaque Personne testée étant enrôlée.",
+      needTranscription:
+        "Demande un clip de test certifié relu en entier, avec une transcription.",
+      needDiarization:
+        "Demande un clip de test certifié avec une voix validée.",
+      needE2e: "Demande les trois étapes ci-dessus.",
+      bias: "Le texte de référence et les bornes des locuteurs viennent du pipeline de production, corrigé par des humains : le modèle de production est avantagé dans les résultats de transcription et de diarisation.",
+      importTitle: "Importer une référence",
+      importHelp:
+        "Remplace la référence de production de ce clip par des fichiers écrits à la main ; le clip compte alors comme certifié. Les locuteurs sont des noms libres, pas des Personnes. La piste est celle de la transcription du clip.",
+      importStm: "Fichier STM (texte)",
+      importRttm: "Fichier RTTM (tours de parole)",
+      importRemove: "Retirer {file}",
+      importSize: "{kb} Ko",
+      importUnreadable: "Ce fichier n’a pas pu être lu.",
+      importTooBig: "Les fichiers importés dépassent 2 Mo au total.",
+      empty: "Aucun clip n’a encore de transcription ou de voix validée.",
+      create: "Créer le corpus",
+      creating: "Création…",
+      cancel: "Annuler",
+      close: "Fermer",
+      none: "aucune",
+      created: "Corpus créé.",
+      loadFailed: "Les clips n’ont pas pu être chargés.",
+    },
+    activation: {
+      title: "Utiliser {model} en production ?",
+      current: "Modèle en production",
+      target: "Nouveau modèle",
+      none: "aucun",
+      already: "Ce modèle est déjà celui de la production.",
+      newWorkOnly: "Seul le travail à venir utilise le nouveau modèle.",
+      noReanalysis:
+        "Rien n’est réanalysé et rien n’est planifié : les clips déjà analysés gardent leur résultat.",
+      humanWork:
+        "{clips} clips ont été analysés avec l’ancien modèle ; {human} portent des corrections ou validations humaines.",
+      workers: "Prêt sur {count} Worker(s).",
+      noWorker:
+        "Aucun Worker ne détient ce modèle : il ne peut pas encore être activé.",
+      understood:
+        "Je comprends que cela change le modèle pour le travail à venir seulement, et que rien n’est réanalysé.",
+      confirm: "Utiliser en production",
+      confirming: "Changement…",
+      done: "Le modèle de production a changé.",
+      reanalysisLater:
+        "Pour refaire les clips déjà analysés, la réanalyse est une action à part : elle demande sa propre confirmation.",
+      openReanalysis: "Ouvrir l’écran de réanalyse",
+      button: "Utiliser en production…",
+      fingerprintNote:
+        "Le modèle d’empreinte change par sa propre transition dans Traitement vocal : elle montre l’impact et conserve les Personnes et validations.",
+    },
+    results: {
+      derChart: "Taux d’erreur de diarisation (plus bas = meilleur)",
+      cpwerChart:
+        "Taux d’erreur de mots avec attribution des locuteurs, cpWER (plus bas = meilleur)",
+      noteE2e:
+        "Chaque segment transcrit prend le locuteur dont les tours le recouvrent le plus ; les mots de chaque locuteur sont ensuite comparés au texte relu, les locuteurs étant associés à ceux de la référence de façon à minimiser les erreurs. Le cpWER voit ce que le WER ne voit pas : un bon texte donné au mauvais locuteur. Ces chiffres décrivent ce corpus, pas une garantie.",
+      noteDiarization:
+        "Les locuteurs du modèle sont anonymes : on les associe aux locuteurs de référence par l’affectation qui maximise leur temps de parole commun. Une tolérance de 0,25 s est accordée autour de chaque borne de référence. Les taux sont cumulés sur les clips. Ces chiffres décrivent ce corpus, pas une garantie.",
+      werChart: "Taux d’erreur de mots (plus bas = meilleur)",
+      noteTranscription:
+        "Le WER et le CER sont calculés après passage en minuscules et retrait de la ponctuation ; les accents comptent. Les taux sont cumulés sur les clips : un long clip pèse plus. Ces chiffres décrivent ce corpus, pas une garantie.",
+      summaryTitle: "Meilleur modèle par étape",
+      summaryLead:
+        "D’après le dernier benchmark terminé de chaque étape. Le meilleur modèle d’une étape n’est pas forcément la meilleure chaîne : vérifiez une combinaison avec un benchmark bout en bout.",
+      noBenchmark: "Aucun benchmark pour l’instant.",
+      run: "Lancer un benchmark",
+      inProduction: "Déjà en production",
+      differs: "Différent de la production ({model})",
+      ahead: "{gap} points devant {other}.",
+      details: "détail",
+      history: "Historique",
+      historyLead: "Les 100 derniers benchmarks.",
+      empty: "Aucun benchmark n’a encore été lancé.",
+      date: "Date",
+      stage: "Étape",
+      corpus: "Corpus",
+      compared: "Comparé",
+      state: "État",
+      author: "Auteur",
+      detail: "Détail",
+      back: "Retour à l’historique",
+      partial: "Partiel",
+      states: {
+        running: "En cours",
+        completed: "Terminé",
+        failed: "Échec",
+        cancelled: "Annulé",
+      },
+      partialNote:
+        "{model} : {scored} mesurées sur {total}. Ses chiffres ne sont pas comparables aux autres.",
+      failedNote: "Aucun résultat n’a été produit.",
+      taskErrors: "Erreurs des tâches",
+      waiting:
+        "Le benchmark est encore en cours : cette page se met à jour toute seule.",
+      comparison: "Comparaison",
+      model: "Modèle",
+      bestMark: "▲ meilleure valeur de la colonne.",
+      note: "Chaque modèle a son propre seuil : les scores bruts de modèles différents ne se comparent pas. Ces chiffres décrivent ce corpus, pas une garantie.",
+      tableNote:
+        "Les faux positifs et faux négatifs sont pris au seuil EER propre au modèle ; une mauvaise Personne acceptée compte pour les deux. Le temps écoulé inclut l’attente en file. La RAM et la VRAM ne sont pas remontées par le Worker.",
+      eerChart: "Taux d’égale erreur (plus bas = meilleur)",
+      separation: "Séparation des scores moyens",
+      separationLead:
+        "Score moyen d’une voix avec sa propre Personne (genuine) et avec les autres (impostor). Plus l’écart est grand, mieux le modèle sépare. Chaque modèle a sa propre échelle.",
+      chartText: "Le tableau ci-dessus donne les mêmes valeurs en texte.",
+      next: "Et ensuite ?",
+      nextBody:
+        "Tester n’active rien. Pour changer le modèle de production, utilisez le changement du modèle d’empreinte dans Traitement vocal : il montre l’impact et conserve les Personnes et validations.",
+      openVoice: "Ouvrir Traitement vocal",
+      loadFailed: "Les benchmarks n’ont pas pu être chargés.",
+      retry: "Réessayer",
+      loading: "Chargement…",
+      notFound: "Ce benchmark n’existe pas.",
+      infoLabel: "Définition : {metric}",
+      genuine: "genuine",
+      impostor: "impostor",
+    },
+    metrics: {
+      cpwer: {
+        name: "cpWER",
+        help: "Taux d’erreur de mots avec attribution des locuteurs : part des mots faux, manquants ou donnés au mauvais locuteur, après association des locuteurs du modèle à ceux de la référence. 0 % est parfait. Plus bas = mieux.",
+      },
+      der: {
+        name: "DER",
+        help: "Diarization Error Rate : part de la parole de référence manquée, attribuée au mauvais locuteur ou inventée. Plus bas = mieux.",
+      },
+      missed: {
+        name: "Parole manquée",
+        help: "Parole de référence que le modèle n’a pas détectée. Plus bas = mieux.",
+      },
+      falseAlarm: {
+        name: "Fausse alarme",
+        help: "Parole détectée là où personne ne parle. Plus bas = mieux.",
+      },
+      confusion: {
+        name: "Confusion",
+        help: "Parole détectée mais attribuée au mauvais locuteur. Plus bas = mieux.",
+      },
+      wer: {
+        name: "WER",
+        help: "Word Error Rate : part des mots faux, ajoutés ou manquants par rapport au texte relu. 0 % = parfait. Plus bas = mieux.",
+      },
+      cer: {
+        name: "CER",
+        help: "Character Error Rate : comme le WER, mais par caractère. Plus fin pour les noms propres et les accents. Plus bas = mieux.",
+      },
+      eer: {
+        name: "EER",
+        help: "Equal Error Rate : le point où le modèle accepte à tort aussi souvent qu’il refuse à tort. Plus bas = mieux.",
+      },
+      thr: {
+        name: "Seuil EER",
+        help: "Score de ressemblance à partir duquel ce modèle accepte une voix. Propre à chaque modèle : il ne se compare pas d’un modèle à l’autre.",
+      },
+      top1: {
+        name: "Top-1",
+        help: "Part des voix dont la Personne la plus proche est la bonne. Plus haut = mieux.",
+      },
+      precision: {
+        name: "Précision",
+        help: "Quand le modèle nomme une Personne, part des fois où c’est la bonne. Plus haut = mieux.",
+      },
+      recall: {
+        name: "Rappel",
+        help: "Part des voix du test que le modèle reconnaît correctement. Plus haut = mieux.",
+      },
+      fp: {
+        name: "FP",
+        help: "Faux positifs : voix attribuées à la mauvaise Personne. Moins = mieux.",
+      },
+      fn: {
+        name: "FN",
+        help: "Faux négatifs : voix non reconnues ou mal nommées. Moins = mieux.",
+      },
+      coverage: {
+        name: "Mesurées",
+        help: "Voix réellement mesurées sur le total. Moins que le total = résultat partiel, non comparable.",
+      },
+      elapsed: {
+        name: "Temps écoulé",
+        help: "Durée entre la création et la fin des tâches, file d’attente comprise. Ce n’est pas une latence d’inférence.",
+      },
+    },
+  },
   admin: {
     title: "Administration",
     tabsLabel: "Sections de l’administration",
@@ -1771,11 +2071,14 @@ export const fr: Messages = {
       folders: "Dossiers",
       transcription: "Transcription",
       voice: "Traitement vocal",
+      benchmark: "Benchmark",
       semantic: "Index sémantique",
       users: "Utilisateurs et accès",
       exports: "Exports",
     },
     subTabs: {
+      benchmarkRun: "Benchmarks",
+      benchmarkResults: "Résultats",
       model: "Modèle",
       vocabulary: "Vocabulaire",
       members: "Membres",
@@ -2173,23 +2476,16 @@ export const fr: Messages = {
         "Nouveau Worker créé. Copiez la commande maintenant : elle ne fonctionne qu’une fois et ne sera plus affichée.",
       revoke: "Suppression",
       revokeBody:
-        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Quand le Worker détecte la suppression, il efface lui-même ses modèles et caches de son volume et cesse de contacter Snitch. Le volume Docker vide, le conteneur inactif et le dossier du lanceur restent sur sa machine : le conteneur ne peut pas les supprimer.",
+        "Supprimer un Worker le retire de la liste tout de suite et définitivement : son jeton cesse de fonctionner, ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. L’historique des tâches qu’il a exécutées est conservé, sans le nom du Worker. Snitch ne prévient pas la machine : son volume de modèles, son conteneur et le dossier du lanceur y restent, à supprimer à la main.",
       revokeButton: "Supprimer ce Worker…",
       revokeTitle: "Supprimer {name} ?",
       revokeConfirm: "Supprimer",
       revokeConfirmBody:
-        "L’accès est révoqué immédiatement et ne peut pas être réactivé. À son prochain contact avec Snitch, le Worker efface lui-même ses modèles et caches puis devient inactif, sans commande à relancer. Il ne peut pas supprimer le volume Docker vide, son propre conteneur ni le dossier du lanceur : retirez-les sur la machine si vous le souhaitez. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’à son retour.",
-      revokeReason: "Motif (facultatif)",
+        "Cette action est irréversible. Le Worker n’est pas prévenu : il verra seulement son jeton refusé et ne nettoiera pas sa machine. Supprimez vous-même le volume Docker, le conteneur et le dossier du lanceur si vous le souhaitez.",
+      deleteTypeLabel: "Saisissez {word} pour confirmer",
       revokedNotice:
         "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
       revokedReason: "Motif : {reason}",
-      forget: "Retirer de la liste",
-      forgetBody:
-        "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
-      forgetUnconfirmedBody:
-        "Le nettoyage local n’a pas été confirmé : la machine n’a jamais confirmé la révocation. Le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur cette machine. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
-      forgetTitle: "Retirer {name} de la liste ?",
-      forgetConfirm: "Retirer",
       cleanupPending:
         "Nettoyage local en attente : le Worker n’a pas encore confirmé la révocation. Il effacera lui-même ses modèles et caches à son prochain contact avec Snitch.",
       cleanupDone:

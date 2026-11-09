@@ -9,15 +9,13 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
-from ...types import UNSET, Unset
 from typing import cast
 
 
 
 def _get_kwargs(
-    id: str,
+    id: int,
     *,
-    force: bool | Unset = False,
     origin: str,
     x_csrf_token: str,
 
@@ -31,18 +29,11 @@ def _get_kwargs(
 
 
 
-    params: dict[str, Any] = {}
-
-    params["force"] = force
-
-
-    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": "/api/admin/workers/{id}/record".format(id=quote(str(id), safe=""),),
-        "params": params,
+        "url": "/api/admin/benchmarks/datasets/{id}".format(id=quote(str(id), safe=""),),
     }
 
 
@@ -74,23 +65,18 @@ def _build_response(*, client: AuthenticatedClient | Client, response: httpx.Res
 
 
 def sync_detailed(
-    id: str,
+    id: int,
     *,
-    client: AuthenticatedClient | Client,
-    force: bool | Unset = False,
+    client: AuthenticatedClient,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
-    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
-    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
-    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
-    subsister sur la machine).
+    """  Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run
+    (benchmark_dataset_used sinon).
 
     Args:
-        id (str):
-        force (bool | Unset):  Default: False.
+        id (int):
         origin (str):
         x_csrf_token (str):
 
@@ -105,7 +91,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
-force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -118,23 +103,18 @@ x_csrf_token=x_csrf_token,
     return _build_response(client=client, response=response)
 
 def sync(
-    id: str,
+    id: int,
     *,
-    client: AuthenticatedClient | Client,
-    force: bool | Unset = False,
+    client: AuthenticatedClient,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
-    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
-    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
-    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
-    subsister sur la machine).
+    """  Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run
+    (benchmark_dataset_used sinon).
 
     Args:
-        id (str):
-        force (bool | Unset):  Default: False.
+        id (int):
         origin (str):
         x_csrf_token (str):
 
@@ -150,30 +130,24 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
-force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
     ).parsed
 
 async def asyncio_detailed(
-    id: str,
+    id: int,
     *,
-    client: AuthenticatedClient | Client,
-    force: bool | Unset = False,
+    client: AuthenticatedClient,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
-    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
-    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
-    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
-    subsister sur la machine).
+    """  Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run
+    (benchmark_dataset_used sinon).
 
     Args:
-        id (str):
-        force (bool | Unset):  Default: False.
+        id (int):
         origin (str):
         x_csrf_token (str):
 
@@ -188,7 +162,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
-force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -201,23 +174,18 @@ x_csrf_token=x_csrf_token,
     return _build_response(client=client, response=response)
 
 async def asyncio(
-    id: str,
+    id: int,
     *,
-    client: AuthenticatedClient | Client,
-    force: bool | Unset = False,
+    client: AuthenticatedClient,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409
-    worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas
-    confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local
-    n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent
-    subsister sur la machine).
+    """  Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run
+    (benchmark_dataset_used sinon).
 
     Args:
-        id (str):
-        force (bool | Unset):  Default: False.
+        id (int):
         origin (str):
         x_csrf_token (str):
 
@@ -233,7 +201,6 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
-force=force,
 origin=origin,
 x_csrf_token=x_csrf_token,
 

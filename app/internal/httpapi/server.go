@@ -314,8 +314,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.getWorker)))
 	mux.Handle("GET /api/admin/workers/{id}/events", s.protected(true, http.HandlerFunc(s.workerEvents)))
 	mux.Handle("POST /api/admin/workers/{id}/token", s.protected(true, http.HandlerFunc(s.renewWorkerToken)))
-	mux.Handle("DELETE /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.revokeWorker)))
-	mux.Handle("DELETE /api/admin/workers/{id}/record", s.protected(true, http.HandlerFunc(s.forgetWorker)))
+	mux.Handle("DELETE /api/admin/workers/{id}", s.protected(true, http.HandlerFunc(s.deleteWorker)))
 	mux.Handle("POST /api/admin/workers/{id}/transcription/test", s.protected(true, http.HandlerFunc(s.requestWorkerTranscriptionTest)))
 	mux.Handle("POST /api/admin/workers/{id}/restart", s.protected(true, s.rateLimited("worker-restart", http.HandlerFunc(s.requestWorkerRestart))))
 	mux.Handle("GET /api/admin/workers/{id}/restart", s.protected(true, http.HandlerFunc(s.workerRestartHistory)))
@@ -393,6 +392,8 @@ func (s *Server) Handler() http.Handler {
 	s.registerMicrophoneRoutes(mux)
 	s.registerPersonCorrectionRoutes(mux)
 	s.registerVoiceAutomationRoutes(mux)
+	s.registerBenchmarkRoutes(mux)
+	s.registerBenchmarkActivationRoutes(mux)
 	s.registerSegmentCorrectionRoutes(mux)
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))
@@ -440,6 +441,9 @@ func (s *Server) Handler() http.Handler {
 		}
 		if r.Method == http.MethodPut && r.URL.Path == "/api/library/folder-logo" {
 			limit = folderLogoMaxBytes + 4096
+		}
+		if r.Method == http.MethodPost && r.URL.Path == "/api/admin/benchmarks/datasets" {
+			limit = benchDatasetBodyLimit // the imported STM/RTTM texts (ADR 0061)
 		}
 		if r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api/uploads/") && strings.HasSuffix(r.URL.Path, "/chunks") {
 			limit = s.Config.UploadChunkBytes
