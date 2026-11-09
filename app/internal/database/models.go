@@ -1037,11 +1037,6 @@ type WorkerEngineEvent struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
-type WorkerEngineGroup struct {
-	WorkerID  string `json:"worker_id"`
-	GroupName string `json:"group_name"`
-}
-
 type WorkerEngineInventory struct {
 	WorkerID      string             `json:"worker_id"`
 	Digest        string             `json:"digest"`

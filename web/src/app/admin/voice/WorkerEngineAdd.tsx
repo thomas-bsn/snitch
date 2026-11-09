@@ -45,7 +45,7 @@ export function WorkerEngineAdd({
   const { t, error } = useI18n();
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
-  const [scope, setScope] = useState<"this" | "checked" | "group">("this");
+  const [scope, setScope] = useState<"this" | "checked">("this");
   const shown = releases
     .filter(
       (r) =>
@@ -157,19 +157,9 @@ export function WorkerEngineAdd({
           {t("workerEngines.scopeOn")}
           <select
             value={scope}
-            onChange={(e) =>
-              setScope(e.target.value as "this" | "checked" | "group")
-            }
+            onChange={(e) => setScope(e.target.value as "this" | "checked")}
           >
             <option value="this">{t("workerEngines.scopeThis")}</option>
-            {worker.group_name && (
-              <option value="group">
-                {t("workerEngines.scopeGroup", {
-                  name: worker.group_name,
-                  count: engineTargets(workers, worker, [], "group").length,
-                })}
-              </option>
-            )}
             <option value="checked">
               {t("workerEngines.scopeChecked", { count: checked.length })}
             </option>

@@ -1,11 +1,10 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded, type Result } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
-import { WorkerEngineGroup } from "./WorkerEngineGroup";
 import { WorkerEngineAdd } from "./WorkerEngineAdd";
 import { WorkerEngineModels } from "./WorkerEngineModels";
 import { WorkerEngineUninstall } from "./WorkerEngineUninstall";
@@ -68,7 +67,7 @@ export function WorkerEngines() {
   const [panel, setPanel] = useState<Panel>("installed");
   const [checked, setChecked] = useState<string[]>([]);
   const [picked, setPicked] = useState<string[]>([]);
-  const [scope, setScope] = useState<"this" | "checked" | "group">("this");
+  const [scope, setScope] = useState<"this" | "checked">("this");
   const [adding, setAdding] = useState(false);
   const [uninstalling, setUninstalling] = useState<EngineEntry>();
   const [busy, setBusy] = useState(false);
@@ -97,11 +96,7 @@ export function WorkerEngines() {
         (filter === "offline" && !w.connected))
     );
   });
-  visible.sort(
-    (a, b) =>
-      (a.group_name ?? "").localeCompare(b.group_name ?? "") ||
-      a.name.localeCompare(b.name),
-  );
+  visible.sort((a, b) => a.name.localeCompare(b.name));
   const current = workers.find((w) => w.worker_id === chosen) ?? workers[0];
   const entries = useMemo(() => {
     const all = current?.engines ?? [];
@@ -130,27 +125,6 @@ export function WorkerEngines() {
     .map((d) => releases.find((r) => r.digest === d))
     .filter((r): r is Release => r !== undefined);
   const plan = planOrders(targets, chosenReleases);
-
-  async function saveGroup(name: string) {
-    if (!current) return;
-    setBusy(true);
-    setFailure(undefined);
-    try {
-      const result = await api.PUT("/api/admin/workers/{id}/engine-group", {
-        params: {
-          path: { id: current.worker_id },
-          header: mutation(session?.csrf_token),
-        },
-        body: { group_name: name },
-      });
-      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
-      else await reloadView();
-    } catch {
-      setFailure("unavailable");
-    } finally {
-      setBusy(false);
-    }
-  }
 
   /** One request per release; each Worker is decided on its own and a refusal never hides another result. */
   async function order(items: { worker: EngineWorker; release: Release }[]) {
@@ -355,62 +329,56 @@ export function WorkerEngines() {
             {visible.length === 0 && (
               <p className="engine-empty">{t("workerEngines.noWorkers")}</p>
             )}
-            {visible.map((w, index) => {
+            {visible.map((w) => {
               const c = counts(w);
               return (
-                <Fragment key={w.worker_id}>
-                  {(index === 0 ||
-                    (visible[index - 1].group_name ?? "") !==
-                      (w.group_name ?? "")) && (
-                    <h4>{w.group_name || t("workerEngines.ungrouped")}</h4>
-                  )}
-                  <div
-                    className="engine-worker"
-                    aria-current={current?.worker_id === w.worker_id}
+                <div
+                  key={w.worker_id}
+                  className="engine-worker"
+                  aria-current={current?.worker_id === w.worker_id}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked.includes(w.worker_id)}
+                    aria-label={t("workerEngines.include", {
+                      worker: w.name,
+                    })}
+                    onChange={(e) =>
+                      setChecked((list) =>
+                        e.target.checked
+                          ? [...list, w.worker_id]
+                          : list.filter((id) => id !== w.worker_id),
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setChosen(w.worker_id);
+                      setPicked([]);
+                    }}
                   >
-                    <input
-                      type="checkbox"
-                      checked={checked.includes(w.worker_id)}
-                      aria-label={t("workerEngines.include", {
-                        worker: w.name,
-                      })}
-                      onChange={(e) =>
-                        setChecked((list) =>
-                          e.target.checked
-                            ? [...list, w.worker_id]
-                            : list.filter((id) => id !== w.worker_id),
-                        )
-                      }
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setChosen(w.worker_id);
-                        setPicked([]);
-                      }}
-                    >
-                      <strong>{w.name}</strong>
-                      <span>
-                        {t(
-                          w.connected
-                            ? "voiceWorkspace.online"
-                            : "voiceWorkspace.offline",
-                        )}
-                      </span>
-                    </button>
-                    <span className="engine-chips">
-                      {c.failed > 0 && (
-                        <span className="engine-badge bad">{c.failed}</span>
-                      )}
-                      {c.running > 0 && (
-                        <span className="engine-badge run">{c.running}</span>
-                      )}
-                      {c.ready > 0 && (
-                        <span className="engine-badge ok">{c.ready}</span>
+                    <strong>{w.name}</strong>
+                    <span>
+                      {t(
+                        w.connected
+                          ? "voiceWorkspace.online"
+                          : "voiceWorkspace.offline",
                       )}
                     </span>
-                  </div>
-                </Fragment>
+                  </button>
+                  <span className="engine-chips">
+                    {c.failed > 0 && (
+                      <span className="engine-badge bad">{c.failed}</span>
+                    )}
+                    {c.running > 0 && (
+                      <span className="engine-badge run">{c.running}</span>
+                    )}
+                    {c.ready > 0 && (
+                      <span className="engine-badge ok">{c.ready}</span>
+                    )}
+                  </span>
+                </div>
               );
             })}
           </aside>
@@ -428,12 +396,6 @@ export function WorkerEngines() {
                     {t("workerEngines.add")}
                   </button>
                 </div>
-                <WorkerEngineGroup
-                  key={`${current.worker_id}:${current.group_name ?? ""}`}
-                  name={current.group_name ?? ""}
-                  busy={busy}
-                  onSave={saveGroup}
-                />
                 <WorkerHardware worker={current} />
                 {!current.connected && (
                   <p className="engine-note">
@@ -510,27 +472,12 @@ export function WorkerEngines() {
                       <select
                         value={scope}
                         onChange={(e) =>
-                          setScope(
-                            e.target.value as "this" | "checked" | "group",
-                          )
+                          setScope(e.target.value as "this" | "checked")
                         }
                       >
                         <option value="this">
                           {t("workerEngines.scopeThis")}
                         </option>
-                        {current.group_name && (
-                          <option value="group">
-                            {t("workerEngines.scopeGroup", {
-                              name: current.group_name,
-                              count: engineTargets(
-                                workers,
-                                current,
-                                [],
-                                "group",
-                              ).length,
-                            })}
-                          </option>
-                        )}
                         <option value="checked">
                           {t("workerEngines.scopeChecked", {
                             count: checked.length,

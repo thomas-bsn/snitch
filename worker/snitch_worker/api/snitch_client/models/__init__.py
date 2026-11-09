@@ -356,7 +356,6 @@ from .segment_speaker_input import SegmentSpeakerInput
 from .segment_text_input import SegmentTextInput
 from .session import Session
 from .set_video_root_body import SetVideoRootBody
-from .set_worker_engine_group_body import SetWorkerEngineGroupBody
 from .settings import Settings
 from .settings_input import SettingsInput
 from .settings_master_key_origin import SettingsMasterKeyOrigin
@@ -1006,7 +1005,6 @@ __all__ = (
     "SetupStepStateState",
     "SetupStepStateStep",
     "SetVideoRootBody",
-    "SetWorkerEngineGroupBody",
     "Source",
     "SourceFile",
     "SourceFiles",

@@ -143,10 +143,6 @@ export const fr: Messages = {
     },
     scope: "Appliquer à",
     scopeOn: "Sur",
-    scopeGroup: "Groupe {name} ({count})",
-    groupName: "Groupe du Worker",
-    saveGroup: "Enregistrer le groupe",
-    ungrouped: "Sans groupe",
     scopeThis: "Ce Worker",
     scopeChecked: "Workers cochés ({count})",
     plan: "{count} ordre(s) · {disk} Mio de disque",
@@ -954,7 +950,7 @@ export const fr: Messages = {
       hf_cache_error:
         "Le cache Hugging Face (Xet) du Worker n'est pas utilisable.",
       runtime_incompatible:
-        "Ce modèle n'est pas compatible avec l'environnement du Worker.",
+        "Ce Worker ne peut pas exécuter ce modèle : son engine (le runtime qui l'exécute) est absent ou ne correspond pas au Worker. Ouvrez l'onglet Engines, ajoutez un engine approuvé pour ce modèle, puis réessayez. Si la liste d'engines est vide, le propriétaire doit d'abord importer une release d'engine signée dans l'administration Voix.",
       inference_failed: "L'inférence de test a échoué.",
     },
   },
