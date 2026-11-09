@@ -266,13 +266,14 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	if n, ok := seen["pyannote-wespeaker-resnet34"]; !ok || n != 0 {
 		t.Fatalf("the active model is listed, ready on no Worker here: %v", seen)
 	}
-	h.adminCall(http.MethodGet, "/api/admin/benchmarks/models?stage=diarization", nil, http.StatusUnprocessableEntity)
+	h.adminCall(http.MethodGet, "/api/admin/benchmarks/models?stage=e2e", nil, http.StatusUnprocessableEntity) // not an executable stage
 	h.adminCall(http.MethodGet, "/api/admin/benchmarks/models", nil, http.StatusUnprocessableEntity)
 
 	runs := "/api/admin/benchmarks/runs"
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{"unknown-model"}}, http.StatusUnprocessableEntity)
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "transcription", "model_ids": []string{benchModelID}}, http.StatusUnprocessableEntity) // this corpus has no certified clip
-	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "diarization", "model_ids": []string{benchModelID}}, http.StatusBadRequest)            // not executable yet
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "e2e", "model_ids": []string{benchModelID}}, http.StatusBadRequest)                    // not executable yet
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "diarization", "model_ids": []string{benchModelID}}, http.StatusUnprocessableEntity)   // a fingerprint model is no diarization model
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": noFingerprint, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusUnprocessableEntity)
 	_ = certified
 
