@@ -74,8 +74,17 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
     env["SNITCH_WORKER_MODELS_DIR"] = str(Path(request["manifest_path"]).parent)
     env[voice_manifest.EMBEDDING_PATH_ENV if kind == "fingerprint" else voice_manifest.DIARIZATION_PATH_ENV] = path
     env["SNITCH_VOICE_EMBEDDING_MODEL_VERSION"] = "runtime-selftest"
-    provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa", "speechbrain"}
-                else (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=env))
+    if manifest.get("source") == "on_demand" and manifest.get("family") == "speechbrain":
+        # Generic ECAPA-TDNN adapter of the SpeechBrain family (#374); the kind was checked above.
+        provider = SpeakerProvider("speechbrain", environ=env)
+    elif manifest.get("source") == "on_demand":
+        # Generic adapter of the family (NeMo): the kind decides, never the model (ADR 0056).
+        from snitch_worker import voice_nemo_family
+        provider = voice_nemo_family.provider(manifest, env)
+        engine = "nemo" if kind == "diarization" else engine
+    else:
+        provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa"}
+                    else (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=env))
     if request["operation"] == "verify":
         if kind == "fingerprint":
             voice_selftest.embed_synthetic(provider)

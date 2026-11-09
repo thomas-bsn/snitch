@@ -139,6 +139,8 @@ from .engine_blocker_model_role import EngineBlockerModelRole
 from .engine_blockers import EngineBlockers
 from .engine_cleanup import EngineCleanup
 from .engine_cleanup_report import EngineCleanupReport
+from .engine_families import EngineFamilies
+from .engine_family import EngineFamily
 from .engine_order import EngineOrder
 from .engine_order_intent import EngineOrderIntent
 from .engine_order_status import EngineOrderStatus
@@ -267,6 +269,10 @@ from .obsolete_correction import ObsoleteCorrection
 from .obsolete_corrections import ObsoleteCorrections
 from .on_demand_engine_order_input import OnDemandEngineOrderInput
 from .on_demand_engine_order_input_orders_item import OnDemandEngineOrderInputOrdersItem
+from .on_demand_engine_plan import OnDemandEnginePlan
+from .on_demand_engine_plan_input import OnDemandEnginePlanInput
+from .on_demand_engine_plan_worker import OnDemandEnginePlanWorker
+from .on_demand_engine_plan_worker_status import OnDemandEnginePlanWorkerStatus
 from .on_demand_engine_runtime import OnDemandEngineRuntime
 from .on_demand_engine_runtime_source import OnDemandEngineRuntimeSource
 from .people_to_process import PeopleToProcess
@@ -781,6 +787,8 @@ __all__ = (
     "EngineBlockers",
     "EngineCleanup",
     "EngineCleanupReport",
+    "EngineFamilies",
+    "EngineFamily",
     "EngineOrder",
     "EngineOrderIntent",
     "EngineOrderStatus",
@@ -909,6 +917,10 @@ __all__ = (
     "ObsoleteCorrections",
     "OnDemandEngineOrderInput",
     "OnDemandEngineOrderInputOrdersItem",
+    "OnDemandEnginePlan",
+    "OnDemandEnginePlanInput",
+    "OnDemandEnginePlanWorker",
+    "OnDemandEnginePlanWorkerStatus",
     "OnDemandEngineRuntime",
     "OnDemandEngineRuntimeSource",
     "PeopleToProcess",

@@ -53,6 +53,8 @@ func scanEngineOrder(row pgx.Row) (engineOrderView, error) {
 
 func (s *Server) registerVoiceEngineOrderRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/voice-engine-orders", s.protected(true, http.HandlerFunc(s.createVoiceEngineOrders)))
+	mux.Handle("GET /api/admin/voice-engines/families", s.protected(true, http.HandlerFunc(s.listEngineFamilies)))
+	mux.Handle("POST /api/admin/voice-engines/on-demand-plan", s.protected(true, http.HandlerFunc(s.planOnDemandEngine)))
 	mux.Handle("POST /api/admin/voice-engines/on-demand-orders", s.protected(true, http.HandlerFunc(s.createOnDemandEngineOrders)))
 	mux.Handle("GET /api/admin/voice-engines/workers", s.protected(true, http.HandlerFunc(s.listEnginesByWorker)))
 	s.registerVoiceEngineRecoveryRoutes(mux)

@@ -108,7 +108,7 @@ class RunTests(SpeechBrainCase):
         with patch.object(voice_runtime.cancellation, "run_process", side_effect=fake):
             return voice_runtime.call(rt, "/model", self.env, **request), started
 
-    def test_a_fingerprint_call_runs_in_the_installed_environment_on_the_cpu_when_there_is_no_gpu(self):
+    def test_a_fingerprint_call_runs_in_the_installed_environment_offline(self):
         rt = runtime()
         target = self.install(rt)
         with patch.object(runtime_module, "gpu_state", return_value=(False, 0, 0)):
@@ -116,15 +116,16 @@ class RunTests(SpeechBrainCase):
         self.assertEqual(result, {"dimensions": 192})
         command, env = started[0]
         self.assertEqual(command[0], str(target / "bin/python"))
-        self.assertEqual(env["SNITCH_VOICE_DEVICE"], "cpu")
         self.assertNotIn("HF_TOKEN", env)
         self.assertEqual(env["HF_HUB_OFFLINE"], "1")
 
-    def test_a_gpu_is_used_when_it_has_room(self):
-        self.install(runtime())
-        with patch.object(runtime_module, "gpu_state", return_value=("12.8", 24 << 30, 20 << 30)):
-            _, started = self.call(runtime(), operation="infer")
-        self.assertEqual(started[0][1]["SNITCH_VOICE_DEVICE"], "cuda")
+    def test_a_gpu_without_the_declared_vram_refuses_instead_of_degrading(self):
+        from snitch_worker.voice import VoiceProviderUnavailable
+        rt = runtime(vram_bytes=8 << 30)
+        self.install(rt)
+        with patch.object(runtime_module, "gpu_state", return_value=("12.8", 24 << 30, 1 << 30)), self.assertRaises(VoiceProviderUnavailable) as caught:
+            self.call(rt, operation="infer")
+        self.assertEqual(caught.exception.reason, "gpu_out_of_memory")
 
     def test_a_missing_environment_never_installs_anything(self):
         from snitch_worker import voice_runtime
