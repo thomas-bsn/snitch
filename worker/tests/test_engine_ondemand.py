@@ -259,5 +259,32 @@ class OrderTests(OnDemandCase):
         self.assertFalse(runtime_module.location(rt, self.env).exists())
 
 
+class ModelOrderRuntimeTest(unittest.TestCase):
+    """A model order carries the on-demand engine it waits for (#372); its kind is the model's."""
+
+    def model_order(self, **changes):
+        from snitch_worker.model_orders import OrderExecutor
+        order = {"action": "install", "kind": "diarization", "engine": "nemo", "model_id": "synthetic-nemo-diar",
+                 "repo": "synthetic/nemo-diar", "revision": "0" * 40, "idempotency_key": "model-ondemand-0001",
+                 "runtime": runtime(), "runtime_intent": "install"}
+        order.update(changes)
+        return OrderExecutor._well_formed(order)
+
+    def test_a_model_order_accepts_an_on_demand_runtime_of_its_kind(self):
+        self.assertTrue(self.model_order())
+
+    def test_a_model_order_refuses_a_runtime_of_another_kind_or_an_unknown_family(self):
+        self.assertFalse(self.model_order(runtime=runtime(kind="fingerprint")))
+        self.assertFalse(self.model_order(runtime=runtime(family="unknown")))
+
+    def test_a_model_keeps_the_on_demand_runtime_it_was_bound_to(self):
+        with tempfile.TemporaryDirectory() as directory:
+            runtime_module.bind(directory, runtime())
+            self.assertEqual(runtime_module.model_binding(directory), runtime())
+
+    def test_the_embedded_contract_is_unchanged(self):
+        self.assertTrue(self.model_order(runtime=None))
+
+
 if __name__ == "__main__":
     unittest.main()

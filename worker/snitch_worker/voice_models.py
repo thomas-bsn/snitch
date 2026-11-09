@@ -309,7 +309,13 @@ class ModelManager:
         if runtime is not None:
             from snitch_worker import engine_runtime
             try:
-                engine_runtime.validate(runtime, item.get("engine", ""), kind_of(item))
+                if engine_runtime.is_on_demand(runtime):
+                    # An on-demand engine is bound to the model of its kind only (ADR 0056).
+                    engine_runtime.validate_on_demand(runtime)
+                    if runtime["kind"] != kind_of(item):
+                        raise engine_runtime.RuntimeFailed()
+                else:
+                    engine_runtime.validate(runtime, item.get("engine", ""), kind_of(item))
                 if intent == "rollback":
                     # Going back reuses an installed version: a lost one is never fetched again here.
                     if not engine_runtime.installed(runtime, self._env):

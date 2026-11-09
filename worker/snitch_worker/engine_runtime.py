@@ -602,7 +602,7 @@ def uninstall(manifest: dict[str, Any], environ: Mapping[str, str]) -> None:
 def model_binding(path: str) -> dict[str, Any] | None:
     try:
         value = json.loads((Path(path) / ".snitch-runtime.json").read_text())
-        validate(value, value.get("engine", ""), value.get("kind", ""))
+        validate_runtime(value)
         return value
     except FileNotFoundError:
         return None

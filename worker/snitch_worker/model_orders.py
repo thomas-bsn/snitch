@@ -128,6 +128,10 @@ class OrderExecutor:
         if runtime is None:
             return order.get("engine") not in {"nemo-titanet", "speechbrain-ecapa"}
         try:
+            if engine_runtime.is_on_demand(runtime):
+                # The engine of a model installs by family and version; its kind must be the model's (ADR 0056).
+                engine_runtime.validate_on_demand(runtime)
+                return runtime["kind"] == order.get("kind")
             engine_runtime.validate(runtime, order.get("engine", ""), order.get("kind", ""))
             return True
         except engine_runtime.RuntimeFailed:
