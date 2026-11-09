@@ -29,3 +29,17 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 ## Corpus de clips (tranche 2)
 
 Le jeu de voix devient un corpus de clips annotés avec certification « relu en entier » ; les étapes mesurables en sont déduites. Voir l'[ADR 0057](adr/0057-corpus-de-benchmark-et-verite-terrain.md). Routes ajoutées : `GET /api/admin/benchmarks/clips` et `GET /api/admin/benchmarks/models?stage=fingerprint`. Seule l'étape empreinte est exécutable ; transcription, diarisation et bout en bout viennent ensuite. Références de transcription et de diarisation : sortie de production corrigée, donc biaisée en faveur du modèle de production (annoncé dans les résultats).
+
+## Écran Benchmark (tranche 3)
+
+Onglet **Benchmark** de l'administration, réservé aux administrateurs : **Benchmarks** (choisir un corpus, une étape et 2 à 4 modèles, lancer, suivre, annuler) et **Results** (meilleur modèle par étape, historique, détail d'un run avec infobulles « i » sur chaque mesure). Un corpus se crée depuis des clips : rôle test, référence ou exclu, et certification « relu en entier » ; les étapes mesurables sont annoncées en direct. Les étapes pas encore exécutables (transcription, diarisation, bout en bout) s'affichent « Bientôt », jamais comme un bouton factice. Un modèle prêt sur aucun Worker est désactivé avec la raison.
+
+Référence visuelle : `design/ai-models/` (prototype jetable). Tests : `web/e2e/admin-benchmark.spec.ts` (accès réservé, création d'un corpus, résultats d'un run terminé, infobulles au survol et au clavier, accessibilité axe) ; les runs affichés sont semés par `benchmark_seed_integration_test.go`. Le suivi d'un run en cours (bandeau de progression, annulation) n'est couvert que par les tests d'API : le test navigateur demanderait deux modèles prêts sur un Worker.
+
+## Restant
+
+- Transcription (WER/CER) : étape de tâche dédiée, texte de référence figé à la création du corpus, tables de résultats propres, côté Worker un modèle demandé.
+- Diarisation (DER) : même principe.
+- Bout en bout : chaînes de trois modèles.
+- Import de références externes (STM, RTTM) pour lever le biais en faveur du modèle de production.
+- Activation du modèle de production avec plan de réanalyse (la transition de l'ADR 0044 reste le chemin).

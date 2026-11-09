@@ -30,6 +30,11 @@
   --bad-fg: #8a1f1f;
   --avatar-bg: #e3e3f7;
   --pop-shadow: 0 8px 24px #0000001f;
+  /* Series of the benchmark charts: always drawn with a label, never told by the color alone. */
+  --series-1: #5b5bd6;
+  --series-2: #0f766e;
+  --series-3: #b45309;
+  --series-4: #be185d;
 }
 
 /* Dark theme: values from the prototype, contrast checked by the automatic accessibility
@@ -58,6 +63,10 @@
   --bad-fg: #f0a0a0;
   --avatar-bg: #2a2a5a;
   --pop-shadow: 0 8px 24px #00000080;
+  --series-1: #8f8ff5;
+  --series-2: #5eead4;
+  --series-3: #fbbf24;
+  --series-4: #f472b6;
 }
 
 @theme inline {
@@ -85,6 +94,10 @@
   --color-bad-bg: var(--bad-bg);
   --color-bad-fg: var(--bad-fg);
   --color-avatar-bg: var(--avatar-bg);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
   --shadow-pop: var(--pop-shadow);
 }
 

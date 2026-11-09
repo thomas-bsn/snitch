@@ -1562,6 +1562,9 @@ func TestFoundation(t *testing.T) {
 		if os.Getenv("SNITCH_E2E_ACCOUNT") == "1" {
 			suites = []string{"account-settings.spec.ts", "account-close.spec.ts"}
 		}
+		if os.Getenv("SNITCH_E2E_BENCHMARK") == "1" {
+			suites = []string{"admin-benchmark.spec.ts"}
+		}
 		if os.Getenv("SNITCH_E2E_SEMANTIC") == "1" {
 			suites = []string{"admin-semantic.spec.ts"}
 		}
@@ -1741,13 +1744,16 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-audio-selection.spec.ts" || suite == "clip-voices.spec.ts" || suite == "clip-audio-activation.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
+				if suite == "admin-benchmark.spec.ts" || suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-audio-selection.spec.ts" || suite == "clip-voices.spec.ts" || suite == "clip-audio-activation.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = browserProbeFixture(t, suite)
 					config.UploadMaxBytes = 1 << 20
 					config.UploadChunkBytes = 16 * 1024
 					config.UploadSessionTTL = time.Hour
 					config.FFmpegPath, _ = syntheticFFmpegFixture(t)
+				}
+				if suite == "admin-benchmark.spec.ts" {
+					seedBenchmarkRuns(t, pool)
 				}
 				if suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" {
 					// The explorer's synthetic tree (ADR 0032): an imported clip, unindexed videos and a private folder.

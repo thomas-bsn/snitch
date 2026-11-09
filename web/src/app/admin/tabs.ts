@@ -25,6 +25,14 @@ export const ADMIN_TABS: AdminTab[] = [
     ],
   },
   { path: "voice", label: "admin.tabs.voice" },
+  {
+    path: "benchmark",
+    label: "admin.tabs.benchmark",
+    sub: [
+      { path: "", label: "admin.subTabs.benchmarkRun" },
+      { path: "results", label: "admin.subTabs.benchmarkResults" },
+    ],
+  },
   { path: "semantic", label: "admin.tabs.semantic" },
   {
     path: "users",
