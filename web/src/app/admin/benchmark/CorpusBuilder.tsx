@@ -22,8 +22,9 @@ const roleKey = {
 /** The stages the choice allows, from the clips alone. Indicative: the server decides at creation. */
 function measurable(clips: Clip[], roles: Roles, reviewed: Set<number>) {
   const byRole = (role: Role) => clips.filter((c) => roles[c.id] === role);
+  // Persons are told apart by id: two different Persons may share a name.
   const persons = (list: Clip[]) =>
-    new Set(list.flatMap((c) => c.validated_persons));
+    new Set(list.flatMap((c) => c.validated_persons.map((p) => p.id)));
   const refPersons = persons(byRole("reference"));
   const testPersons = persons(byRole("test"));
   const certified = byRole("test").filter((c) => reviewed.has(c.id));
@@ -206,7 +207,9 @@ export function CorpusBuilder({
                         </td>
                         <td className="px-2 py-2.5">
                           {clip.validated_persons.length > 0
-                            ? clip.validated_persons.join(", ")
+                            ? clip.validated_persons
+                                .map((p) => p.name)
+                                .join(", ")
                             : t("benchmark.corpus.none")}
                         </td>
                         <td className="px-2 py-2.5">

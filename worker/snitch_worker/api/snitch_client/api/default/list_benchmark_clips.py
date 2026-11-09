@@ -64,7 +64,8 @@ def sync_detailed(
 
 ) -> Response[BenchmarkClipList | Error]:
     """  Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou
-    voix validée par un humain. Les clips privés ne sont jamais proposés.
+    voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un
+    dossier privé ne sont jamais proposés.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -91,7 +92,8 @@ def sync(
 
 ) -> BenchmarkClipList | Error | None:
     """  Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou
-    voix validée par un humain. Les clips privés ne sont jamais proposés.
+    voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un
+    dossier privé ne sont jamais proposés.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -113,7 +115,8 @@ async def asyncio_detailed(
 
 ) -> Response[BenchmarkClipList | Error]:
     """  Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou
-    voix validée par un humain. Les clips privés ne sont jamais proposés.
+    voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un
+    dossier privé ne sont jamais proposés.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -140,7 +143,8 @@ async def asyncio(
 
 ) -> BenchmarkClipList | Error | None:
     """  Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou
-    voix validée par un humain. Les clips privés ne sont jamais proposés.
+    voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un
+    dossier privé ne sont jamais proposés.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.

@@ -17075,7 +17075,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.",
+        "description": "Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.",
         "parameters": [
           {
             "in": "header",
@@ -17385,7 +17385,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain. Les clips privés ne sont jamais proposés.",
+        "description": "Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un dossier privé ne sont jamais proposés.",
         "responses": {
           "200": {
             "description": "Clips",
@@ -30414,7 +30414,7 @@
           "validated_persons": {
             "type": "array",
             "items": {
-              "type": "string"
+              "$ref": "#/components/schemas/BenchmarkPerson"
             }
           }
         },
@@ -30492,6 +30492,22 @@
         },
         "required": [
           "models"
+        ]
+      },
+      "BenchmarkPerson": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
         ]
       }
     }

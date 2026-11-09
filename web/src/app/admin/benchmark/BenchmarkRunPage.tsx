@@ -54,19 +54,26 @@ export function BenchmarkRunPage() {
 
   // While a run waits for its tasks the server settles it when read: poll, then show its result.
   const { reload: reloadRuns } = runs;
+  const { reload: reloadModels } = models;
   const watched = useRef<number | undefined>(undefined);
+  const allRuns = runs.state.status === "ready" ? runs.state.value.runs : [];
   useEffect(() => {
     if (active) {
       watched.current = active.id;
-      const timer = setInterval(reloadRuns, 3000);
+      const timer = setInterval(() => {
+        reloadRuns();
+        reloadModels(); // a model can lose its Worker while the run waits
+      }, 3000);
       return () => clearInterval(timer);
     }
     if (watched.current !== undefined) {
       const id = watched.current;
       watched.current = undefined;
-      void navigate(`/admin/benchmark/results?run=${id}`);
+      // Only a finished run has something to show: a cancelled or failed one stays here.
+      if (allRuns.find((r) => r.id === id)?.status === "completed")
+        void navigate(`/admin/benchmark/results?run=${id}`);
     }
-  }, [active, reloadRuns, navigate]);
+  }, [active, allRuns, reloadRuns, reloadModels, navigate]);
 
   const supported = (s: Stage) => dataset?.stages.includes(s) ?? false;
   const stageState = (s: Stage) =>
@@ -77,7 +84,10 @@ export function BenchmarkRunPage() {
         : "ok";
   const modelList =
     models.state.status === "ready" ? models.state.value.models : [];
-  const chosen = modelList.filter((m) => picked.has(m.id));
+  // A model that lost its last Worker no longer counts, even if it stays ticked.
+  const chosen = modelList.filter(
+    (m) => picked.has(m.id) && m.ready_workers > 0,
+  );
   const startReason = !dataset
     ? t("benchmark.run.needCorpus")
     : stageState(stage) !== "ok"
@@ -105,6 +115,7 @@ export function BenchmarkRunPage() {
         params: { header: mutation(session?.csrf_token) },
         body: {
           dataset_id: dataset.id,
+          // The contract only accepts the stages a run can execute: widening it makes this line a type error.
           stage: "fingerprint",
           model_ids: chosen.map((m) => m.id),
         },

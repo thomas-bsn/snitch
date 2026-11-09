@@ -3937,7 +3937,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines. */
     get: operations["listBenchmarkDatasets"];
     put?: never;
-    /** @description Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken. */
+    /** @description Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken. */
     post: operations["createBenchmarkDataset"];
     delete?: never;
     options?: never;
@@ -4021,7 +4021,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain. Les clips privés ne sont jamais proposés. */
+    /** @description Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un dossier privé ne sont jamais proposés. */
     get: operations["listBenchmarkClips"];
     put?: never;
     post?: never;
@@ -8127,7 +8127,7 @@ export interface components {
       duration_seconds: number | null;
       segments_total: number;
       segments_corrected: number;
-      validated_persons: string[];
+      validated_persons: components["schemas"]["BenchmarkPerson"][];
     };
     BenchmarkClipList: {
       clips: components["schemas"]["BenchmarkClip"][];
@@ -8144,6 +8144,11 @@ export interface components {
     };
     BenchmarkModelList: {
       models: components["schemas"]["BenchmarkModel"][];
+    };
+    BenchmarkPerson: {
+      /** Format: int64 */
+      id: number;
+      name: string;
     };
   };
   responses: never;

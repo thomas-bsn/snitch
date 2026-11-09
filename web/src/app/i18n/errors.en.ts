@@ -466,4 +466,6 @@ export const errorsEn = {
   benchmark_stage_unavailable: "This stage cannot be benchmarked yet.",
   benchmark_stage_unsupported_by_dataset:
     "This corpus cannot measure this stage.",
+  benchmark_verified_empty:
+    "A certified clip needs a transcript or a validated voice.",
 };

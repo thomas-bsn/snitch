@@ -1,4 +1,6 @@
 -- +goose Up
+-- The benchmark tables of 00130 have not shipped: a dataset created before this migration has no clip and no stage and
+-- is not migrated (an empty `stages` makes a run refuse it). Delete such a dataset and create the corpus again.
 -- A benchmark dataset becomes a corpus of annotated clips (#287, ADR 0057). The speaker-level items of
 -- benchmark_dataset_items stay: they are derived from the clips' human-validated voices at creation.
 

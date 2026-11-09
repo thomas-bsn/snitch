@@ -152,10 +152,13 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	// The clips and the models a screen offers.
 	var offered struct {
 		Clips []struct {
-			ID                int64    `json:"id"`
-			SegmentsTotal     int      `json:"segments_total"`
-			SegmentsCorrected int      `json:"segments_corrected"`
-			ValidatedPersons  []string `json:"validated_persons"`
+			ID                int64 `json:"id"`
+			SegmentsTotal     int   `json:"segments_total"`
+			SegmentsCorrected int   `json:"segments_corrected"`
+			ValidatedPersons  []struct {
+				ID   int64  `json:"id"`
+				Name string `json:"name"`
+			} `json:"validated_persons"`
 		} `json:"clips"`
 	}
 	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/benchmarks/clips", nil, http.StatusOK), &offered); err != nil {
@@ -164,7 +167,7 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	found := map[int64]bool{}
 	for _, c := range offered.Clips {
 		found[c.ID] = true
-		if c.ID == c2 && (c.SegmentsTotal != 1 || c.SegmentsCorrected != 0 || fmt.Sprint(c.ValidatedPersons) != "[Alice]") {
+		if c.ID == c2 && (c.SegmentsTotal != 1 || c.SegmentsCorrected != 0 || len(c.ValidatedPersons) != 1 || c.ValidatedPersons[0].Name != "Alice" || c.ValidatedPersons[0].ID < 1) {
 			t.Fatalf("the clip describes its transcript and validated voices: %+v", c)
 		}
 	}
@@ -186,6 +189,56 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(ctx, `UPDATE clips SET visibility='shared' WHERE id=$1`, c0); err != nil {
 		t.Fatal(err)
 	}
+	// A clip only found in a private folder is never offered nor accepted, even when it is shared. A clip with
+	// another live provenance stays open (ADR 0026), so this one has only the private file.
+	var admin, source, secret int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM users ORDER BY id LIMIT 1`).Scan(&admin); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'secret.mp4',1,now(),now()) RETURNING id`, admin).Scan(&secret); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'transcription.audio.1','secret-transcription','done',$2::jsonb)`, secret, `{"provider":"fixture","model":"m","audio_stream_index":1,"segments":[{"start":0,"end":1,"text":"secret","words":[]}]}`); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO clip_sources(name,root_path,owner_id) VALUES('bench-private','/bench-private',$1) RETURNING id`, admin).Scan(&source); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,clip_id,size_bytes,modified_at,last_seen_generation,status) VALUES($1,'secret/a.mp4',$2,1,now(),1,'ready')`, source, secret); err != nil {
+		t.Fatal(err)
+	}
+	offeredIDs := func() map[int64]bool {
+		t.Helper()
+		var list struct {
+			Clips []struct {
+				ID int64 `json:"id"`
+			} `json:"clips"`
+		}
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/benchmarks/clips", nil, http.StatusOK), &list); err != nil {
+			t.Fatal(err)
+		}
+		out := map[int64]bool{}
+		for _, c := range list.Clips {
+			out[c.ID] = true
+		}
+		return out
+	}
+	if !offeredIDs()[secret] {
+		t.Fatal("a shared clip outside any private folder is offered")
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO private_folders(source_id,folder) VALUES($1,'secret')`, source); err != nil {
+		t.Fatal(err)
+	}
+	if offeredIDs()[secret] {
+		t.Fatal("a clip in a private folder is never offered")
+	}
+	bad(corpus("x", []int64{c2, secret}, []int64{c0, c1}, []int64{}), http.StatusUnprocessableEntity)
+	if _, err := pool.Exec(ctx, `DELETE FROM private_folders WHERE source_id=$1`, source); err != nil {
+		t.Fatal(err)
+	}
+	// Certifying a clip that has neither a transcript nor a validated voice vouches for nothing.
+	bad(corpus("x", []int64{c2, c4}, []int64{c0, c1}, []int64{c4}), http.StatusUnprocessableEntity)
+
 	var models struct {
 		Models []struct {
 			ID           string `json:"id"`

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"slices"
@@ -17,17 +18,23 @@ import (
 
 const benchMaxClips = 500
 
+type benchmarkPerson struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
 type benchmarkClipView struct {
-	ID                int64    `json:"id"`
-	Name              string   `json:"name"`
-	DurationSeconds   *float64 `json:"duration_seconds"`
-	SegmentsTotal     int      `json:"segments_total"`
-	SegmentsCorrected int      `json:"segments_corrected"`
-	ValidatedPersons  []string `json:"validated_persons"`
+	ID                int64             `json:"id"`
+	Name              string            `json:"name"`
+	DurationSeconds   *float64          `json:"duration_seconds"`
+	SegmentsTotal     int               `json:"segments_total"`
+	SegmentsCorrected int               `json:"segments_corrected"`
+	ValidatedPersons  []benchmarkPerson `json:"validated_persons"`
 }
 
 // listBenchmarkClips lists the clips that can enter a corpus: shared clips with a transcript or a human-validated
-// voice. Private clips are never offered: a benchmark would expose their names to every Administrator.
+// voice, outside the private folders. Neither a private clip nor a clip only found in a private folder is ever
+// offered (ADR 0026): a benchmark would expose their names and Persons to every Administrator.
 func (s *Server) listBenchmarkClips(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Pool.Query(r.Context(), `
 		WITH tj AS (
@@ -35,12 +42,12 @@ func (s *Server) listBenchmarkClips(w http.ResponseWriter, r *http.Request) {
 			FROM jobs WHERE step LIKE 'transcription.audio.%' AND status='done' AND requested_model_id IS NULL ORDER BY clip_id,step,id DESC),
 		tstat AS (SELECT clip_id,sum(segs)::int AS total FROM tj GROUP BY clip_id),
 		cstat AS (SELECT sc.clip_id,count(*)::int AS corrected FROM segment_corrections sc JOIN tj ON tj.id=sc.transcription_job_id WHERE sc.text IS NOT NULL AND sc.stale_at IS NULL GROUP BY sc.clip_id),
-		vs AS (SELECT ls.clip_id,array_agg(DISTINCT p.display_name ORDER BY p.display_name) AS persons
+		vs AS (SELECT ls.clip_id,jsonb_agg(DISTINCT jsonb_build_object('id',p.id,'name',p.display_name)) AS persons
 			FROM local_speakers ls JOIN speaker_attributions a ON a.local_speaker_id=ls.id AND a.validation_state='validated' JOIN persons p ON p.id=a.person_id
 			WHERE ls.kind='diarized' GROUP BY ls.clip_id)
-		SELECT c.id,c.original_name,c.duration_seconds,COALESCE(t.total,0),COALESCE(cs.corrected,0),COALESCE(vs.persons,'{}')
+		SELECT c.id,c.original_name,c.duration_seconds,COALESCE(t.total,0),COALESCE(cs.corrected,0),COALESCE(vs.persons,'[]'::jsonb)
 		FROM clips c LEFT JOIN tstat t ON t.clip_id=c.id LEFT JOIN cstat cs ON cs.clip_id=c.id LEFT JOIN vs ON vs.clip_id=c.id
-		WHERE c.visibility='shared' AND (COALESCE(t.total,0)>0 OR vs.persons IS NOT NULL)
+		WHERE c.visibility='shared' AND clip_folder_open(c.id) AND (COALESCE(t.total,0)>0 OR vs.persons IS NOT NULL)
 		ORDER BY c.id DESC LIMIT $1`, benchMaxClips)
 	if err != nil {
 		s.internal(w, err)
@@ -50,7 +57,12 @@ func (s *Server) listBenchmarkClips(w http.ResponseWriter, r *http.Request) {
 	out := []benchmarkClipView{}
 	for rows.Next() {
 		var c benchmarkClipView
-		if err = rows.Scan(&c.ID, &c.Name, &c.DurationSeconds, &c.SegmentsTotal, &c.SegmentsCorrected, &c.ValidatedPersons); err != nil {
+		var persons []byte
+		if err = rows.Scan(&c.ID, &c.Name, &c.DurationSeconds, &c.SegmentsTotal, &c.SegmentsCorrected, &persons); err != nil {
+			s.internal(w, err)
+			return
+		}
+		if err = json.Unmarshal(persons, &c.ValidatedPersons); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -192,13 +204,31 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 	}
 	slices.Sort(ids)
 	var shared int
-	if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM clips WHERE id=ANY($1) AND visibility='shared'`, ids).Scan(&shared); err != nil {
+	if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM clips WHERE id=ANY($1) AND visibility='shared' AND clip_folder_open(id)`, ids).Scan(&shared); err != nil {
 		s.internal(w, err)
 		return
 	}
 	if shared != len(ids) {
 		fail(w, http.StatusUnprocessableEntity, "benchmark_clip_invalid")
 		return
+	}
+	// A certification vouches for a transcript or speakers: a clip with neither has nothing to certify.
+	if len(verified) > 0 {
+		verifiedIDs := make([]int64, 0, len(verified))
+		for id := range verified {
+			verifiedIDs = append(verifiedIDs, id)
+		}
+		var withContent int
+		if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM clips c WHERE c.id=ANY($1) AND (
+			EXISTS(SELECT 1 FROM jobs j WHERE j.clip_id=c.id AND j.step LIKE 'transcription.audio.%' AND j.status='done' AND j.requested_model_id IS NULL AND jsonb_typeof(j.result->'segments')='array' AND jsonb_array_length(j.result->'segments')>0)
+			OR EXISTS(SELECT 1 FROM local_speakers ls JOIN speaker_attributions a ON a.local_speaker_id=ls.id AND a.validation_state='validated' WHERE ls.clip_id=c.id AND ls.kind='diarized' AND a.person_id IS NOT NULL))`, verifiedIDs).Scan(&withContent); err != nil {
+			s.internal(w, err)
+			return
+		}
+		if withContent != len(verifiedIDs) {
+			fail(w, http.StatusUnprocessableEntity, "benchmark_verified_empty")
+			return
+		}
 	}
 	// The ground truth of the voices is the human validation, never a machine attribution. A microphone voice is
 	// designated, not recognised, so it is no test of a model.

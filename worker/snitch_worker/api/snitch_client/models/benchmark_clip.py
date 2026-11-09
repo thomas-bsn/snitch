@@ -10,6 +10,8 @@ from ..types import UNSET, Unset
 
 from typing import cast
 
+if TYPE_CHECKING:
+  from ..models.benchmark_person import BenchmarkPerson
 
 
 
@@ -28,7 +30,7 @@ class BenchmarkClip:
             duration_seconds (float | None):
             segments_total (int):
             segments_corrected (int):
-            validated_persons (list[str]):
+            validated_persons (list[BenchmarkPerson]):
      """
 
     id: int
@@ -36,7 +38,7 @@ class BenchmarkClip:
     duration_seconds: float | None
     segments_total: int
     segments_corrected: int
-    validated_persons: list[str]
+    validated_persons: list[BenchmarkPerson]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -44,6 +46,7 @@ class BenchmarkClip:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.benchmark_person import BenchmarkPerson # noqa: PLC0415
         id = self.id
 
         name = self.name
@@ -55,7 +58,10 @@ class BenchmarkClip:
 
         segments_corrected = self.segments_corrected
 
-        validated_persons = self.validated_persons
+        validated_persons = []
+        for validated_persons_item_data in self.validated_persons:
+            validated_persons_item = validated_persons_item_data.to_dict()
+            validated_persons.append(validated_persons_item)
 
 
 
@@ -77,6 +83,7 @@ class BenchmarkClip:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.benchmark_person import BenchmarkPerson # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -94,7 +101,14 @@ class BenchmarkClip:
 
         segments_corrected = d.pop("segments_corrected")
 
-        validated_persons = cast(list[str], d.pop("validated_persons"))
+        validated_persons = []
+        _validated_persons = d.pop("validated_persons")
+        for validated_persons_item_data in (_validated_persons):
+            validated_persons_item = BenchmarkPerson.from_dict(validated_persons_item_data)
+
+
+
+            validated_persons.append(validated_persons_item)
 
 
         benchmark_clip = cls(

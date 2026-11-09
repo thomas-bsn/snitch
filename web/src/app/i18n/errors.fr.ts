@@ -487,4 +487,6 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   benchmark_stage_unavailable: "Cette étape ne peut pas encore être mesurée.",
   benchmark_stage_unsupported_by_dataset:
     "Ce corpus ne permet pas de mesurer cette étape.",
+  benchmark_verified_empty:
+    "Un clip certifié demande une transcription ou une voix validée.",
 };

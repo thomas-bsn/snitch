@@ -84,6 +84,7 @@ from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
 from .benchmark_job_error import BenchmarkJobError
 from .benchmark_model import BenchmarkModel
 from .benchmark_model_list import BenchmarkModelList
+from .benchmark_person import BenchmarkPerson
 from .benchmark_progress import BenchmarkProgress
 from .benchmark_result import BenchmarkResult
 from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
@@ -745,6 +746,7 @@ __all__ = (
     "BenchmarkJobError",
     "BenchmarkModel",
     "BenchmarkModelList",
+    "BenchmarkPerson",
     "BenchmarkProgress",
     "BenchmarkResult",
     "BenchmarkResultResourcesType0",
