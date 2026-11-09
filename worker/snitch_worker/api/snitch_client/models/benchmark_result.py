@@ -35,7 +35,10 @@ class BenchmarkResult:
             state (BenchmarkResultState):
             items_total (int):
             items_scored (int):
-            metrics (FingerprintBenchmarkMetrics):
+            metrics (FingerprintBenchmarkMetrics): Mesures d'un seul modèle, jamais comparables en score brut à celles d'un
+                autre. Précision, rappel, faux positifs et faux négatifs sont pris au seuil EER du modèle sur la Personne la
+                mieux notée de chaque test : une mauvaise Personne acceptée compte à la fois comme faux positif et comme faux
+                négatif.
             elapsed_seconds (float | None | Unset):
             resources (BenchmarkResultResourcesType0 | None | Unset): RAM/VRAM : non remontés par le Worker, toujours null
                 pour l'instant.

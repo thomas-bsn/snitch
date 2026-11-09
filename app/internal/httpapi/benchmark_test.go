@@ -171,6 +171,17 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	if result.Metrics.EER == nil || *result.Metrics.EER != 0 || result.Metrics.Top1Accuracy == nil || *result.Metrics.Top1Accuracy != 1 || result.Metrics.Precision == nil || *result.Metrics.Precision != 1 || result.Metrics.Recall == nil || *result.Metrics.Recall != 1 {
 		t.Fatalf("two well separated persons must be perfectly identified: %+v", result.Metrics)
 	}
+	// The fingerprints of a run are not the staging space of a model transition: they never count as a
+	// recomputed reference and would never be promoted to production by its switch.
+	refs, err := loadReferences(ctx, pool, "fixture-embedding", benchModelRepo)
+	if err != nil || len(refs) == 0 {
+		t.Fatalf("the production references are listed: %d (%v)", len(refs), err)
+	}
+	for _, r := range refs {
+		if r.Done {
+			t.Fatalf("a benchmark run fingerprint must not stand for a transition recomputation: %+v", r)
+		}
+	}
 	// Reading again changes nothing: the settlement is idempotent.
 	if again := h.benchRun(second); len(again.Results) != 1 || again.Status != "completed" {
 		t.Fatalf("settling twice must not duplicate results: %+v", again)
@@ -249,12 +260,36 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodDelete, fmt.Sprintf("%s/%d", datasets, spare), nil, http.StatusNoContent)
 	h.adminCall(http.MethodDelete, fmt.Sprintf("%s/%d", datasets, spare), nil, http.StatusNotFound)
 
+	// A run nobody read since its jobs ended does not block the next one.
+	fifth := h.benchID(h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusCreated))
+	if _, err := pool.Exec(ctx, `UPDATE jobs SET status='dead',last_error='worker_error' WHERE id IN (SELECT job_id FROM benchmark_run_jobs WHERE run_id=$1)`, fifth); err != nil {
+		t.Fatal(err)
+	}
+	// An open fingerprint transition recomputes the same groups: no benchmark starts meanwhile.
+	if _, err := pool.Exec(ctx, `INSERT INTO voice_fingerprint_transitions(from_model_id,to_model_id,announced_references,author_name) VALUES($1,$2,1,'test')`, activeBefore, benchModelID); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusConflict)
+	if _, err := pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions`); err != nil {
+		t.Fatal(err)
+	}
+	sixth := h.benchID(h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusCreated))
+	if got := h.benchRun(fifth); got.Status != "failed" {
+		t.Fatalf("the unread run was settled when the next one started: %+v", got)
+	}
+	h.adminCall(http.MethodPost, fmt.Sprintf("%s/%d/cancel", runs, sixth), nil, http.StatusOK)
+
+	// A test voice from the clip of its own reference would measure the recording, not the model.
+	sameClip := h.fixtureSpeaker(h.clipIDs[0], "SAMECLIP", usableAt(3))
+	h.validate(sameClip, alice)
+	h.adminCall(http.MethodPost, datasets, map[string]any{"name": "Même clip", "reference_speaker_ids": []int64{refA.ID, refB.ID}, "test_speaker_ids": []int64{sameClip.ID}}, http.StatusUnprocessableEntity)
+
 	// The dataset stays while a run refers to it, and the list shows every run.
 	h.adminCall(http.MethodDelete, fmt.Sprintf("%s/%d", datasets, dataset), nil, http.StatusConflict)
 	var list struct {
 		Runs []benchRunBody `json:"runs"`
 	}
-	if err := json.Unmarshal(h.adminCall(http.MethodGet, runs, nil, http.StatusOK), &list); err != nil || len(list.Runs) != 4 {
-		t.Fatalf("the history lists the four runs, got %d (%v)", len(list.Runs), err)
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, runs, nil, http.StatusOK), &list); err != nil || len(list.Runs) != 6 {
+		t.Fatalf("the history lists the six runs, got %d (%v)", len(list.Runs), err)
 	}
 }

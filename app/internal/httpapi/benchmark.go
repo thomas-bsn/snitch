@@ -113,20 +113,20 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 	}
 	// The ground truth is the human validation, never a machine attribution. A microphone voice is designated,
 	// not recognised, so it is no test of a model.
-	rows, err := s.Pool.Query(r.Context(), `SELECT ls.id,a.person_id FROM local_speakers ls JOIN speaker_attributions a ON a.local_speaker_id=ls.id AND a.validation_state='validated' WHERE ls.id=ANY($1) AND ls.kind='diarized' AND a.person_id IS NOT NULL`, ids)
+	rows, err := s.Pool.Query(r.Context(), `SELECT ls.id,a.person_id,ls.clip_id FROM local_speakers ls JOIN speaker_attributions a ON a.local_speaker_id=ls.id AND a.validation_state='validated' WHERE ls.id=ANY($1) AND ls.kind='diarized' AND a.person_id IS NOT NULL`, ids)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	defer rows.Close()
-	person := map[int64]int64{}
+	person, clip := map[int64]int64{}, map[int64]int64{}
 	for rows.Next() {
-		var id, p int64
-		if err = rows.Scan(&id, &p); err != nil {
+		var id, p, c int64
+		if err = rows.Scan(&id, &p, &c); err != nil {
 			s.internal(w, err)
 			return
 		}
-		person[id] = p
+		person[id], clip[id] = p, c
 	}
 	if err = rows.Err(); err != nil {
 		s.internal(w, err)
@@ -138,11 +138,22 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	refPersons, testPersons := map[int64]bool{}, map[int64]bool{}
+	type voiceInClip struct{ person, clip int64 }
+	refClips := map[voiceInClip]bool{}
 	for id, p := range person {
 		if split[id] == "reference" {
 			refPersons[p] = true
+			refClips[voiceInClip{p, clip[id]}] = true
 		} else {
 			testPersons[p] = true
+		}
+	}
+	for id, p := range person {
+		// A test taken from the recording of its own reference shares its voice, channel and noise: the score
+		// would measure the recording, not the model.
+		if split[id] == "test" && refClips[voiceInClip{p, clip[id]}] {
+			fail(w, http.StatusUnprocessableEntity, "benchmark_test_same_clip_as_reference")
+			return
 		}
 	}
 	for p := range testPersons {
@@ -195,6 +206,12 @@ func (s *Server) deleteBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 	}
 	// A dataset a run was made on stays: the history of the results points at it (ON DELETE RESTRICT).
 	tag, err := s.Pool.Exec(r.Context(), `DELETE FROM benchmark_datasets d WHERE d.id=$1 AND NOT EXISTS(SELECT 1 FROM benchmark_runs WHERE dataset_id=d.id)`, id)
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23503" {
+		// A run started between the check and the deletion: the foreign key holds the dataset.
+		fail(w, http.StatusConflict, "benchmark_dataset_used")
+		return
+	}
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -403,6 +420,26 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
 		return
 	}
+	// A run nobody read since its jobs ended would block the next one: settle it first.
+	var running int64
+	switch err := s.Pool.QueryRow(r.Context(), `SELECT id FROM benchmark_runs WHERE status='running'`).Scan(&running); {
+	case err == nil:
+		if err = s.settleBenchmarkRun(r.Context(), running); err != nil {
+			s.internal(w, err)
+			return
+		}
+	case !errors.Is(err, pgx.ErrNoRows):
+		s.internal(w, err)
+		return
+	}
+	// A fingerprint transition recomputes the same model groups: the two must not run together.
+	if _, open, err := openTransition(r.Context(), s.Pool); err != nil {
+		s.internal(w, err)
+		return
+	} else if open {
+		fail(w, http.StatusConflict, "benchmark_transition_open")
+		return
+	}
 	var name string
 	err := s.Pool.QueryRow(r.Context(), `SELECT name FROM benchmark_datasets WHERE id=$1`, input.DatasetID).Scan(&name)
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -472,7 +509,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 				_, err = s.Pool.Exec(r.Context(), `INSERT INTO benchmark_run_jobs(run_id,job_id,model_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, runID, job.ID, model)
 			}
 			if err != nil {
-				s.abortBenchmarkRun(r.Context(), runID, ss.User.ID)
+				s.abortBenchmarkRun(context.WithoutCancel(r.Context()), runID, ss.User.ID)
 				if errors.Is(err, jobs.ErrInvalidInput) || errors.Is(err, jobs.ErrClipNotFound) {
 					fail(w, http.StatusUnprocessableEntity, "benchmark_dataset_stale")
 				} else {

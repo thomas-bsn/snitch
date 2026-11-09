@@ -3937,7 +3937,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines. */
     get: operations["listBenchmarkDatasets"];
     put?: never;
-    /** @description Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de deux personnes), benchmark_dataset_name_taken. */
+    /** @description Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de deux personnes), benchmark_dataset_name_taken. */
     post: operations["createBenchmarkDataset"];
     delete?: never;
     options?: never;
@@ -3972,7 +3972,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
     get: operations["listBenchmarkRuns"];
     put?: never;
-    /** @description Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_model_invalid, benchmark_dataset_stale. */
+    /** @description Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (un changement de modèle d'empreinte est en cours), benchmark_model_invalid, benchmark_dataset_stale. */
     post: operations["startBenchmarkRun"];
     delete?: never;
     options?: never;
@@ -8011,6 +8011,7 @@ export interface components {
       active: number;
       errors: components["schemas"]["BenchmarkJobError"][];
     };
+    /** @description Mesures d'un seul modèle, jamais comparables en score brut à celles d'un autre. Précision, rappel, faux positifs et faux négatifs sont pris au seuil EER du modèle sur la Personne la mieux notée de chaque test : une mauvaise Personne acceptée compte à la fois comme faux positif et comme faux négatif. */
     FingerprintBenchmarkMetrics: {
       references: number;
       tests: number;

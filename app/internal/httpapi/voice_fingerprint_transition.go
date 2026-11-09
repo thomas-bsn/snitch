@@ -20,6 +20,9 @@ import (
 // When every reference has its target fingerprint, Snitch switches the active model and swaps the two spaces in
 // one transaction. The fingerprints of the previous model are kept, outside the production space.
 //
+// The fingerprints of a benchmark run (benchmark_run_jobs, ADR 0056) share the benchmark flag but are never part of
+// this staging space: every query below that reads or promotes it leaves them out.
+//
 // The progress is always read from the data (fingerprints and jobs), never from a counter, so an interrupted
 // transition resumes by running the same idempotent step again.
 
@@ -90,7 +93,7 @@ type reference struct {
 // staging space of toRepo. A Person whose voice profile is deleted has no reference.
 func loadReferences(ctx context.Context, db pgQuerier, fromRepo, toRepo string) ([]reference, error) {
 	rows, err := db.Query(ctx, `SELECT DISTINCT ON (f.local_speaker_id) f.local_speaker_id,f.clip_id,vs.person_id,j.step,j.input_version,
-		EXISTS (SELECT 1 FROM voice_fingerprints g WHERE g.local_speaker_id=f.local_speaker_id AND g.benchmark AND g.scope='speaker' AND g.model=$2)
+		EXISTS (SELECT 1 FROM voice_fingerprints g WHERE g.local_speaker_id=f.local_speaker_id AND g.benchmark AND g.scope='speaker' AND g.model=$2 AND g.fingerprint_job_id NOT IN (SELECT job_id FROM benchmark_run_jobs))
 		FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id JOIN jobs j ON j.id=f.fingerprint_job_id
 		WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL)
 		  AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1
@@ -259,7 +262,7 @@ func (s *Server) transitionStateView(ctx context.Context, t fingerprintTransitio
 	}
 	if t.Phase == "switched" {
 		view.ReferencesTotal, view.ReferencesDone = t.Announced, t.Announced
-		err = s.Pool.QueryRow(ctx, `SELECT count(DISTINCT f.local_speaker_id) FROM voice_fingerprints f WHERE f.benchmark AND f.usable AND f.scope='speaker' AND f.model=$1
+		err = s.Pool.QueryRow(ctx, `SELECT count(DISTINCT f.local_speaker_id) FROM voice_fingerprints f WHERE f.benchmark AND f.usable AND f.scope='speaker' AND f.model=$1 AND f.fingerprint_job_id NOT IN (SELECT job_id FROM benchmark_run_jobs)
 			AND NOT EXISTS (SELECT 1 FROM voice_fingerprints g WHERE g.local_speaker_id=f.local_speaker_id AND NOT g.benchmark AND g.scope='speaker')`, from.Repo).Scan(&view.CatchUpRemaining)
 		return view, err
 	}
@@ -483,7 +486,7 @@ func (s *Server) switchFingerprintModel(ctx context.Context, t fingerprintTransi
 		if _, err = tx.Exec(ctx, `UPDATE voice_fingerprints SET benchmark=true WHERE NOT benchmark AND model=$1`, from.Repo); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE voice_fingerprints SET benchmark=false WHERE benchmark AND model=$1`, to.Repo); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE voice_fingerprints SET benchmark=false WHERE benchmark AND model=$1 AND fingerprint_job_id NOT IN (SELECT job_id FROM benchmark_run_jobs)`, to.Repo); err != nil {
 			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE voice_active_model SET model_id=$1 WHERE kind='fingerprint'`, to.ID); err != nil {
@@ -515,7 +518,7 @@ func (s *Server) scheduleCatchUp(ctx context.Context, t fingerprintTransition) e
 		return err
 	}
 	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT j.clip_id,j.step,j.input_version FROM voice_fingerprints f JOIN jobs j ON j.id=f.fingerprint_job_id
-		WHERE f.benchmark AND f.scope='speaker' AND f.model=$1
+		WHERE f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.fingerprint_job_id NOT IN (SELECT job_id FROM benchmark_run_jobs)
 		  AND NOT EXISTS (SELECT 1 FROM voice_fingerprints g WHERE g.local_speaker_id=f.local_speaker_id AND NOT g.benchmark AND g.scope='speaker')`, from.Repo)
 	if err != nil {
 		return err

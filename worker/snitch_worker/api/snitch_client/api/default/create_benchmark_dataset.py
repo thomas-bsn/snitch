@@ -82,7 +82,8 @@ def sync_detailed(
 ) -> Response[BenchmarkCreated | Error]:
     """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
     une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de
+    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
+    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
     deux personnes), benchmark_dataset_name_taken.
 
     Args:
@@ -122,7 +123,8 @@ def sync(
 ) -> BenchmarkCreated | Error | None:
     """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
     une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de
+    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
+    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
     deux personnes), benchmark_dataset_name_taken.
 
     Args:
@@ -157,7 +159,8 @@ async def asyncio_detailed(
 ) -> Response[BenchmarkCreated | Error]:
     """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
     une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de
+    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
+    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
     deux personnes), benchmark_dataset_name_taken.
 
     Args:
@@ -197,7 +200,8 @@ async def asyncio(
 ) -> BenchmarkCreated | Error | None:
     """  Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais
     une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate
-    (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de
+    (une voix des deux côtés), benchmark_test_without_reference, benchmark_test_same_clip_as_reference
+    (un test du même clip qu'une référence de la même personne), benchmark_dataset_too_small (moins de
     deux personnes), benchmark_dataset_name_taken.
 
     Args:

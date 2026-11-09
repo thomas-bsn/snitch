@@ -464,4 +464,27 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_install_event: "Cet événement d’installation n’est pas valide.",
   worker_token_invalid: "Ce jeton de Worker n’est pas valide.",
   worker_token_required: "Un jeton de Worker est requis.",
+  benchmark_speaker_duplicate:
+    "Une voix ne peut pas être à la fois référence et test, ni apparaître deux fois.",
+  benchmark_speaker_not_validated:
+    "Chaque voix d’un jeu de données de benchmark doit d’abord être validée sur une personne.",
+  benchmark_test_without_reference:
+    "Chaque personne testée a besoin d’au moins une voix de référence.",
+  benchmark_test_same_clip_as_reference:
+    "Une voix de test ne peut pas venir du même clip qu’une référence de la même personne.",
+  benchmark_dataset_too_small:
+    "Un jeu de données demande au moins deux personnes et une voix de test pour mesurer des erreurs.",
+  benchmark_dataset_name_taken:
+    "Un jeu de données de benchmark porte déjà ce nom.",
+  benchmark_dataset_used:
+    "Un benchmark a utilisé ce jeu de données : il ne peut plus être supprimé.",
+  benchmark_dataset_stale:
+    "Le jeu de données renvoie à des clips réanalysés : créez-en un nouveau.",
+  benchmark_model_invalid:
+    "Choisissez des modèles d’empreinte du catalogue, activés et pris en charge.",
+  benchmark_run_active:
+    "Un benchmark est déjà en cours : attendez sa fin ou annulez-le d’abord.",
+  benchmark_not_running: "Ce benchmark n’est plus en cours.",
+  benchmark_transition_open:
+    "Un changement du modèle d’empreinte est en cours : terminez-le ou annulez-le avant de lancer un benchmark.",
 };

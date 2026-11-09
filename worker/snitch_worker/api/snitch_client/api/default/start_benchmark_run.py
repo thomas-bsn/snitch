@@ -83,6 +83,7 @@ def sync_detailed(
     """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
     données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
+    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
     benchmark_model_invalid, benchmark_dataset_stale.
 
     Args:
@@ -123,6 +124,7 @@ def sync(
     """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
     données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
+    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
     benchmark_model_invalid, benchmark_dataset_stale.
 
     Args:
@@ -158,6 +160,7 @@ async def asyncio_detailed(
     """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
     données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
+    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
     benchmark_model_invalid, benchmark_dataset_stale.
 
     Args:
@@ -198,6 +201,7 @@ async def asyncio(
     """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de
     données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
     modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
+    benchmark_transition_open (un changement de modèle d'empreinte est en cours),
     benchmark_model_invalid, benchmark_dataset_stale.
 
     Args:

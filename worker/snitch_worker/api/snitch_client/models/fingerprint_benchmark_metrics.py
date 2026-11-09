@@ -22,7 +22,10 @@ T = TypeVar("T", bound="FingerprintBenchmarkMetrics")
 
 @_attrs_define
 class FingerprintBenchmarkMetrics:
-    """
+    """ Mesures d'un seul modèle, jamais comparables en score brut à celles d'un autre. Précision, rappel, faux positifs et
+    faux négatifs sont pris au seuil EER du modèle sur la Personne la mieux notée de chaque test : une mauvaise Personne
+    acceptée compte à la fois comme faux positif et comme faux négatif.
+
         Attributes:
             references (int):
             tests (int):
