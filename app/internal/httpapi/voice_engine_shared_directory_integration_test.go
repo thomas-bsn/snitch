@@ -51,7 +51,9 @@ func testVoiceEngineSharedDirectory(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(t.Context(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision,family) VALUES('shared-dir-titanet','fingerprint','nemo-titanet','synthetic/shared-dir-titanet','0123456789abcdef0123456789abcdef01234567','nemo')`); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM voice_model_catalog WHERE id='shared-dir-titanet'`) })
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM voice_model_catalog WHERE id='shared-dir-titanet'`)
+	})
 	// A model of the fingerprint kind is bound to the fingerprint engine.
 	h.bindModel(fixture, fingerprint, "shared-dir-titanet", "ord_bind_shared_dir_00001")
 
