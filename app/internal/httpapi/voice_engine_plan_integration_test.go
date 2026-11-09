@@ -63,12 +63,15 @@ func testVoiceEngineFamiliesAndPlan(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/voice-engines/families", nil, http.StatusOK), &listed); err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Families) != 2 {
+	if len(listed.Families) != 3 || listed.Families[1].Family != "speechbrain" || listed.Families[2].Family != "wespeaker" {
 		t.Fatalf("families: %+v", listed.Families)
 	}
 	// SpeechBrain (#374) covers fingerprint and separation; its engine differs from the signed ECAPA release.
-	if sb := listed.Families[1]; sb.Family != "speechbrain" || sb.Engine != "speechbrain" || sb.DefaultVersion != "1.0.3" || len(sb.Kinds) != 2 || sb.Kinds[0] != "fingerprint" || sb.Kinds[1] != "separation" {
+	if sb := listed.Families[1]; sb.Engine != "speechbrain" || sb.DefaultVersion != "1.0.3" || len(sb.Kinds) != 2 || sb.Kinds[0] != "fingerprint" || sb.Kinds[1] != "separation" {
 		t.Fatalf("speechbrain family: %+v", sb)
+	}
+	if w := listed.Families[2]; w.Engine != "wespeaker" || w.DefaultVersion != "1.0.1" || len(w.Kinds) != 1 || w.Kinds[0] != "fingerprint" || w.CUDA != "" || w.VRAMBytes != 0 {
+		t.Fatalf("wespeaker family: %+v", w)
 	}
 	f := listed.Families[0]
 	if f.Family != "nemo" || f.Engine != "nemo-toolkit" || f.DefaultVersion != "3.0.0" || len(f.Kinds) != 2 || f.Kinds[0] != "diarization" ||

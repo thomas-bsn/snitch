@@ -357,7 +357,10 @@ FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "
             # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter. Separation (SepFormer) is installed
             # for but has no adapter: the engine goes with the model, separation stays disabled in Snitch.
             "speechbrain": {"engine": "speechbrain", "distribution": "speechbrain", "extras": "", "kinds": ("fingerprint", "separation"),
-                            "probe": "speechbrain.lobes.models.ECAPA_TDNN"}}
+                            "probe": "speechbrain.lobes.models.ECAPA_TDNN"},
+            # WeSpeaker is not published on PyPI; its ONNX inference package is `wespeakerruntime` (#375). Fingerprint only.
+            "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
+                          "probe": "wespeakerruntime"}}
 _ON_DEMAND_ENGINES = {family["engine"] for family in FAMILIES.values()}
 _ON_DEMAND_FIELDS = {"source", "family", "engine", "distribution", "version", "kind", "kinds", "python", "platform", "cuda",
                      "disk_bytes", "vram_bytes", "ram_bytes", "estimated_seconds"}

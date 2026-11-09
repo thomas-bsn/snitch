@@ -101,3 +101,11 @@ def build_speechbrain_wheelhouse(directory: Path) -> Path:
     build_wheel(directory, "speechbrain", "1.1.0", package)
     build_wheel(directory, "speechbrain", "2.0.0", {"speechbrain/__init__.py": ""})
     return directory
+
+
+def build_wespeaker_wheelhouse(directory: Path) -> Path:
+    """The real distribution is `wespeakerruntime` (ONNX inference); `wespeaker` itself is not on PyPI (#375)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    build_wheel(directory, "wespeakerruntime", "1.0.1", {"wespeakerruntime/__init__.py": "class Speaker:\n    pass\n"})
+    build_wheel(directory, "wespeakerruntime", "1.0.0", {"wespeakerruntime/__init__.py": "class Speaker:\n    pass\n"})
+    return directory

@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from snitch_worker import voice_wespeaker
 from snitch_worker.voice import VoiceProviderUnavailable
 from snitch_worker.voice_pyannote import DecodedAudio, PyannoteProvider
 
@@ -24,6 +25,9 @@ def _speaker_loader(engine: str, path: str, device: str) -> Any:
         # On-demand SpeechBrain engine (#374): any ECAPA-TDNN revision, same data-only YAML and weights_only rules, no pins.
         from snitch_worker import voice_ecapa
         return voice_ecapa.speaker_loader(path, device, pinned=False)
+    if engine == "wespeaker":
+        # Generic family adapter: an ONNX graph read as data, configuration as data, no repository code.
+        return voice_wespeaker.speaker_loader(path, device)
     import torch
     import torchaudio
 
@@ -50,6 +54,8 @@ def _speaker_loader(engine: str, path: str, device: str) -> Any:
 class SpeakerProvider(PyannoteProvider):
     def __init__(self, engine: str, **kwargs: Any) -> None:
         self.engine = engine
+        if engine == "wespeaker":
+            kwargs.setdefault("device_probe", lambda: "cpu")  # the ONNX graph runs on the CPU: no GPU is probed
         super().__init__(load_embedder=lambda p, d: _speaker_loader(engine, p, d), **kwargs)
 
     def _embedding_identity(self, config: dict[str, Any] | None = None) -> tuple[str, str]:
@@ -74,16 +80,17 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
     env["SNITCH_WORKER_MODELS_DIR"] = str(Path(request["manifest_path"]).parent)
     env[voice_manifest.EMBEDDING_PATH_ENV if kind == "fingerprint" else voice_manifest.DIARIZATION_PATH_ENV] = path
     env["SNITCH_VOICE_EMBEDDING_MODEL_VERSION"] = "runtime-selftest"
-    if manifest.get("source") == "on_demand" and manifest.get("family") == "speechbrain":
+    if manifest.get("source") == "on_demand" and engine == "speechbrain":
         # Generic ECAPA-TDNN adapter of the SpeechBrain family (#374); the kind was checked above.
         provider = SpeakerProvider("speechbrain", environ=env)
-    elif manifest.get("source") == "on_demand":
+    elif manifest.get("source") == "on_demand" and engine != "wespeaker":
         # Generic adapter of the family (NeMo): the kind decides, never the model (ADR 0056).
         from snitch_worker import voice_nemo_family
         provider = voice_nemo_family.provider(manifest, env)
         engine = "nemo" if kind == "diarization" else engine
     else:
-        provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa"}
+        # The WeSpeaker family is fingerprint only and has its own generic adapter (voice_wespeaker).
+        provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}
                     else (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=env))
     if request["operation"] == "verify":
         if kind == "fingerprint":
