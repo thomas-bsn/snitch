@@ -60,7 +60,7 @@ func testVoiceModelOnDemandEngine(t *testing.T, pool *pgxpool.Pool) {
 	for _, m := range [][]string{
 		{"synthetic-nemo-diar", "diarization", "nemo", "synthetic/nemo-diar", "nemo"},
 		{"synthetic-nemo-fp", "fingerprint", "nemo", "synthetic/nemo-fp", "nemo"},
-		{"synthetic-speechbrain-fp", "fingerprint", "speechbrain-ecapa", "synthetic/sb-fp", "speechbrain"},
+		{"synthetic-speechbrain-fp", "fingerprint", "speechbrain-ecapa", "synthetic/sb-fp", "mystery-lib"},
 		{"synthetic-embedded-sortformer", "diarization", "nemo", "synthetic/sortformer", ""},
 	} {
 		if _, err := pool.Exec(t.Context(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision,family) VALUES($1,$2,$3,$4,$5,$6)`, m[0], m[1], m[2], m[3], rev, m[4]); err != nil {

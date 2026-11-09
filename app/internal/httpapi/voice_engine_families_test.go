@@ -5,6 +5,45 @@ import (
 	"testing"
 )
 
+// The WeSpeaker family (#375): fingerprint only, from the package that PyPI actually publishes for WeSpeaker
+// inference. `wespeaker` itself is not on PyPI; `wespeakerruntime` 1.0.1 is its latest release (ONNX inference).
+func TestWeSpeakerFamily(t *testing.T) {
+	f, ok := engineFamilies["wespeaker"]
+	if !ok {
+		t.Fatal("the wespeaker family is missing")
+	}
+	if f.Engine != "wespeaker" || f.Distribution != "wespeakerruntime" || f.DefaultVer != "1.0.1" {
+		t.Fatalf("family identity: %+v", f)
+	}
+	if len(f.Kinds) != 1 || f.Kinds[0] != "fingerprint" {
+		t.Fatalf("kinds: %v", f.Kinds)
+	}
+	if !engineVersion.MatchString(f.DefaultVer) {
+		t.Fatal("the default version must be a valid engine version")
+	}
+	// No GPU is required: the ONNX graph runs on the CPU, so a CPU-only Worker hosts the family.
+	m := engineManifest{Python: f.Python, Platform: f.Platform, CUDA: f.CUDA, DiskBytes: f.DiskBytes, RAMBytes: f.RAMBytes, VRAMBytes: f.VRAMBytes}
+	cpu := &workerHardware{Python: "3.12", Platform: "linux-x86_64", RAMBytes: 16 << 30, DiskFreeBytes: 100 << 30}
+	if v := checkEngineResources(m, cpu, 0, false); v.Cause != "" {
+		t.Fatalf("a CPU Worker must host the family: %+v", v)
+	}
+	// The manifest delivered to a Worker names the family and its kind, and its identity differs from NeMo's.
+	raw, digest, err := onDemandManifest(f, f.DefaultVer, "fingerprint")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var delivered map[string]any
+	if err := json.Unmarshal(raw, &delivered); err != nil {
+		t.Fatal(err)
+	}
+	if delivered["family"] != "wespeaker" || delivered["kind"] != "fingerprint" || delivered["distribution"] != "wespeakerruntime" {
+		t.Fatalf("manifest: %v", delivered)
+	}
+	if digest == onDemandDigest("nemo", f.DefaultVer, "fingerprint") || digest != onDemandDigest("wespeaker", "1.0.1", "fingerprint") {
+		t.Fatal("identity")
+	}
+}
+
 func TestOnDemandEngineIdentity(t *testing.T) {
 	a := onDemandDigest("nemo", "3.0.0", "diarization")
 	if len(a) != 64 || !engineDigest.MatchString(a) {
@@ -76,7 +115,7 @@ func TestCatalogEntryEngineNeed(t *testing.T) {
 		{"signed fingerprint adapter", voiceCatalogEntry{Engine: "nemo-titanet", Kind: "fingerprint"}, false, true},
 		{"a newer NeMo model asks for the family", voiceCatalogEntry{Engine: "nemo", Kind: "diarization", Family: "nemo"}, true, true},
 		{"NeMo fingerprint", voiceCatalogEntry{Engine: "nemo", Kind: "fingerprint", Family: "nemo"}, true, true},
-		{"a family the table does not know", voiceCatalogEntry{Engine: "speechbrain-ecapa", Kind: "fingerprint", Family: "speechbrain"}, true, false},
+		{"a family the table does not know", voiceCatalogEntry{Engine: "speechbrain-ecapa", Kind: "fingerprint", Family: "mystery-lib"}, true, false},
 		{"a kind the family does not cover", voiceCatalogEntry{Engine: "nemo", Kind: "separation", Family: "nemo"}, true, false},
 	}
 	for _, c := range cases {

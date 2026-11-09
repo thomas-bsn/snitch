@@ -16402,6 +16402,34 @@
         }
       }
     },
+    "/api/admin/voice-engines/families": {
+      "get": {
+        "operationId": "listEngineFamilies",
+        "description": "Administrateur : les familles de bibliothèque que Snitch sait installer à la demande (table du serveur), avec version par défaut, tâches, contraintes matérielles et estimations de disque et de durée. Ne dépend d'aucune Release signée importée.",
+        "responses": {
+          "200": {
+            "description": "Familles supportées",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EngineFamilies"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/voice-engines/on-demand-orders": {
       "post": {
         "operationId": "createOnDemandEngineOrders",
@@ -16442,6 +16470,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/VoiceEngineOrderResults"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-engines/on-demand-plan": {
+      "post": {
+        "operationId": "planOnDemandEngine",
+        "description": "Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OnDemandEnginePlanInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Plan",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OnDemandEnginePlan"
                 }
               }
             }
@@ -29740,6 +29825,178 @@
           "reported_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "EngineFamily": {
+        "type": "object",
+        "required": [
+          "family",
+          "engine",
+          "default_version",
+          "kinds",
+          "python",
+          "platform",
+          "cuda",
+          "vram_bytes",
+          "ram_bytes",
+          "disk_bytes",
+          "estimated_seconds"
+        ],
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string",
+            "description": "Nom d'engine utilisé par le registre, les ordres et l'inventaire."
+          },
+          "default_version": {
+            "type": "string"
+          },
+          "kinds": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "python": {
+            "type": "string"
+          },
+          "platform": {
+            "type": "string"
+          },
+          "cuda": {
+            "type": "string",
+            "description": "Vide : tourne avec ou sans GPU."
+          },
+          "vram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ram_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "disk_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "estimated_seconds": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "EngineFamilies": {
+        "type": "object",
+        "required": [
+          "families"
+        ],
+        "properties": {
+          "families": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EngineFamily"
+            }
+          }
+        }
+      },
+      "OnDemandEnginePlanInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "family",
+          "worker_ids"
+        ],
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string",
+            "description": "La version par défaut de la famille si omise."
+          },
+          "worker_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 100,
+            "items": {
+              "type": "string"
+            }
+          },
+          "kind": {
+            "type": "string",
+            "description": "Tâche couverte par l'engine ; la première tâche de la famille si omise."
+          }
+        }
+      },
+      "OnDemandEnginePlanWorker": {
+        "type": "object",
+        "required": [
+          "worker_id",
+          "status"
+        ],
+        "properties": {
+          "worker_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "refused"
+            ]
+          },
+          "cause_code": {
+            "type": "string",
+            "description": "Cause stable du refus (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk, engine_order_in_progress, engine_already_installed, worker_not_found)."
+          },
+          "required_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "available_bytes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "OnDemandEnginePlan": {
+        "type": "object",
+        "required": [
+          "family",
+          "version",
+          "accepted",
+          "disk_bytes",
+          "estimated_seconds",
+          "workers"
+        ],
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "accepted": {
+            "type": "integer"
+          },
+          "disk_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Disque cumulé des Workers acceptés."
+          },
+          "estimated_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Durée estimée d'une installation ; les Workers installent en parallèle."
+          },
+          "workers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OnDemandEnginePlanWorker"
+            }
           }
         }
       },

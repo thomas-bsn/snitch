@@ -48,6 +48,15 @@ var engineFamilies = map[string]engineFamily{
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
 	},
+	// WeSpeaker is not published on PyPI: the installable package is `wespeakerruntime` (ONNX inference, latest
+	// release 1.0.1, depends on onnxruntime, kaldiio and torchaudio). The ONNX graph runs on the CPU, so no GPU
+	// is required. Disk covers torchaudio's torch wheel from PyPI, which dominates the install.
+	"wespeaker": {
+		Key: "wespeaker", Engine: "wespeaker", Distribution: "wespeakerruntime", DefaultVer: "1.0.1",
+		Kinds:  []string{"fingerprint"},
+		Python: "3.12", Platform: "linux-x86_64",
+		RAMBytes: 4 << 30, DiskBytes: 8 << 30, EstimatedSeconds: 300,
+	},
 }
 
 func (f engineFamily) covers(kind string) bool {

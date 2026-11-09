@@ -161,6 +161,26 @@ export const en = {
     registryEmpty: "No approved release matches.",
     constraints: "{kind} · disk {disk} MiB · VRAM {vram} MiB · CUDA {cuda}",
     install: "Install {count} engine(s)",
+    family: {
+      lead: "Engines Snitch can install on a Worker from their library. Pick a family; the version is pre-filled and can be edited. Nothing starts before you confirm.",
+      choose: "Engine family",
+      version: "Version",
+      versionHint:
+        "Default version: {version}. A Worker installs it with pip in an isolated environment.",
+      meta: "{kinds} · about {disk} GiB of disk · about {minutes} min",
+      loading: "Loading the supported engines…",
+      none: "No engine family is available on this server.",
+      planLoading: "Computing the plan…",
+      plan: "{count} Worker(s) accepted · {disk} GiB of disk in total · about {minutes} min",
+      refusedWorker: "{worker}: {reason}",
+      refusedDetail: "needs {required} GiB, {available} GiB available",
+      noWorker: "Select at least one Worker.",
+      invalidVersion: "This version is not valid.",
+    },
+    advanced: {
+      title: "Advanced",
+      lead: "Signed releases and their trust key. Reserved to the owner; the usual way to add an engine is the button above.",
+    },
     cancel: "Cancel",
     models: {
       title: "Bound models",
