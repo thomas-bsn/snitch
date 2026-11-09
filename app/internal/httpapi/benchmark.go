@@ -153,12 +153,12 @@ func (s *Server) listBenchmarkRuns(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close()
 	for i := range out {
-		if out[i].Status != "running" {
-			continue // a read writes nothing for a run that is over
-		}
-		if err = s.settleBenchmarkRun(r.Context(), out[i].ID); err != nil {
-			s.internal(w, err)
-			return
+		// A read writes nothing for a run that is over; its results are still loaded.
+		if out[i].Status == "running" {
+			if err = s.settleBenchmarkRun(r.Context(), out[i].ID); err != nil {
+				s.internal(w, err)
+				return
+			}
 		}
 		if out[i], err = s.loadBenchmarkRun(r.Context(), out[i].ID, false); err != nil {
 			s.internal(w, err)
