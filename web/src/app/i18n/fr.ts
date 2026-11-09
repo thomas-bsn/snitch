@@ -67,6 +67,12 @@ export const fr: Messages = {
         "La version de CUDA du Worker ne correspond pas à cet engine.",
       insufficient_ram: "Mémoire vive insuffisante sur le Worker.",
       insufficient_vram: "Mémoire vidéo (VRAM) insuffisante sur le Worker.",
+      package_not_found:
+        "L’index de paquets ne connaît pas cette bibliothèque ou cette version pour cet engine.",
+      resolution_failed:
+        "Les dépendances de la bibliothèque n’ont pas pu être résolues ensemble.",
+      build_failed:
+        "Un paquet de la bibliothèque n’a pas pu être compilé sur le Worker.",
       cancelled: "L’installation a été annulée.",
       runtime_in_use:
         "Un modèle du Worker utilise encore ce runtime : il n’a pas été retiré.",

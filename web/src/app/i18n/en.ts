@@ -66,6 +66,11 @@ export const en = {
         "The Worker's CUDA version does not match this engine.",
       insufficient_ram: "Not enough memory (RAM) on the Worker.",
       insufficient_vram: "Not enough video memory (VRAM) on the Worker.",
+      package_not_found:
+        "The package index has no such library or version for this engine.",
+      resolution_failed:
+        "The library's dependencies could not be resolved together.",
+      build_failed: "A package of the library failed to build on the Worker.",
       cancelled: "The installation was cancelled.",
       runtime_in_use:
         "A model on the Worker still uses this runtime: it was not removed.",

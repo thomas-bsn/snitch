@@ -36,6 +36,8 @@ export const errorsEn = {
     "This Worker does not have enough memory (RAM) for this engine.",
   insufficient_vram:
     "This Worker does not have enough video memory (VRAM) for this engine.",
+  unsupported_engine_family:
+    "This engine family is not supported by Snitch, so nothing was ordered.",
   insufficient_disk:
     "This Worker does not have enough free disk, counting the orders already in progress.",
   engine_not_failed:

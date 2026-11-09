@@ -22,7 +22,9 @@ import (
 
 var engineStates = map[string]int{"requested": 0, "downloading_runtime": 1, "installing": 2, "verifying": 3, "ready": 4, "failed": 4, "removed": 4}
 var engineFailureCauses = map[string]bool{"disk_full": true, "runtime_incompatible": true, "hf_network": true, "invalid_order": true, "runtime_missing": true, "cancelled": true, "runtime_in_use": true,
-	causePlatform: true, causeCUDA: true, causeInsufficient: true, causeVRAM: true}
+	causePlatform: true, causeCUDA: true, causeInsufficient: true, causeVRAM: true,
+	// Causes of a package resolved by pip (#370). The Worker maps pip's output to these and never relays its text.
+	"package_not_found": true, "resolution_failed": true, "build_failed": true}
 var localIdentity = regexp.MustCompile(`^[0-9a-f]{64}$`)
 
 type engineOrderView struct {
@@ -51,6 +53,7 @@ func scanEngineOrder(row pgx.Row) (engineOrderView, error) {
 
 func (s *Server) registerVoiceEngineOrderRoutes(mux *http.ServeMux) {
 	mux.Handle("POST /api/admin/voice-engine-orders", s.protected(true, http.HandlerFunc(s.createVoiceEngineOrders)))
+	mux.Handle("POST /api/admin/voice-engines/on-demand-orders", s.protected(true, http.HandlerFunc(s.createOnDemandEngineOrders)))
 	mux.Handle("GET /api/admin/voice-engines/workers", s.protected(true, http.HandlerFunc(s.listEnginesByWorker)))
 	s.registerVoiceEngineRecoveryRoutes(mux)
 	mux.Handle("GET /api/admin/voice-engines/uninstall-preview", s.protected(true, http.HandlerFunc(s.uninstallPreview)))

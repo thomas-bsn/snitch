@@ -11,7 +11,7 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
-  from ..models.voice_engine_manifest import VoiceEngineManifest
+  from ..models.engine_runtime import EngineRuntime
 
 
 
@@ -27,12 +27,14 @@ class EngineCleanup:
         Attributes:
             order_id (str):
             digest (str):
-            runtime (VoiceEngineManifest):
+            runtime (EngineRuntime): Runtime figé dans un ordre d'engine : manifeste signé d'une Release
+                (VoiceEngineManifest) ou description d'un engine à la demande (OnDemandEngineRuntime). Seuls les champs communs
+                sont requis ici ; le Worker valide chaque forme.
      """
 
     order_id: str
     digest: str
-    runtime: VoiceEngineManifest
+    runtime: EngineRuntime
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -40,7 +42,7 @@ class EngineCleanup:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.voice_engine_manifest import VoiceEngineManifest # noqa: PLC0415
+        from ..models.engine_runtime import EngineRuntime # noqa: PLC0415
         order_id = self.order_id
 
         digest = self.digest
@@ -62,13 +64,13 @@ class EngineCleanup:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.voice_engine_manifest import VoiceEngineManifest # noqa: PLC0415
+        from ..models.engine_runtime import EngineRuntime # noqa: PLC0415
         d = dict(src_dict)
         order_id = d.pop("order_id")
 
         digest = d.pop("digest")
 
-        runtime = VoiceEngineManifest.from_dict(d.pop("runtime"))
+        runtime = EngineRuntime.from_dict(d.pop("runtime"))
 
 
 

@@ -845,14 +845,15 @@ type VoiceEngineRegistry struct {
 	Engine        string             `json:"engine"`
 	Version       string             `json:"version"`
 	Kind          string             `json:"kind"`
-	KeyID         string             `json:"key_id"`
-	SignedPayload string             `json:"signed_payload"`
-	Signature     string             `json:"signature"`
+	KeyID         pgtype.Text        `json:"key_id"`
+	SignedPayload pgtype.Text        `json:"signed_payload"`
+	Signature     pgtype.Text        `json:"signature"`
 	Manifest      []byte             `json:"manifest"`
 	Revoked       bool               `json:"revoked"`
 	AuthorID      pgtype.Int8        `json:"author_id"`
 	AuthorName    string             `json:"author_name"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Source        string             `json:"source"`
 }
 
 type VoiceFingerprint struct {

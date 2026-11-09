@@ -154,7 +154,7 @@ func (s *Server) registerVoiceEngineRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE /api/admin/voice-engines/{digest}", s.protectedFor(isSuperAdministrator, http.HandlerFunc(s.revokeVoiceEngine)))
 }
 func (s *Server) listVoiceEngines(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.Pool.Query(r.Context(), `SELECT digest,manifest,revoked FROM voice_engine_registry ORDER BY engine,created_at DESC`)
+	rows, err := s.Pool.Query(r.Context(), `SELECT digest,manifest,revoked FROM voice_engine_registry WHERE source='signed' ORDER BY engine,created_at DESC`)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -216,7 +216,7 @@ func (s *Server) revokeVoiceEngine(w http.ResponseWriter, r *http.Request) {
 	}
 	// Serialize with model order creation: no order can acquire a revoked release.
 	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
-		tag, err := tx.Exec(r.Context(), `UPDATE voice_engine_registry SET revoked=true WHERE digest=$1`, digest)
+		tag, err := tx.Exec(r.Context(), `UPDATE voice_engine_registry SET revoked=true WHERE digest=$1 AND source='signed'`, digest)
 		if err != nil {
 			return err
 		}
@@ -253,17 +253,17 @@ func approvedEngine(ctx context.Context, db pgQuerier, engine, kind string, dige
 		if !engineDigest.MatchString(digest[0]) {
 			return nil, orderFailure{http.StatusBadRequest, "invalid_engine_digest"}
 		}
-		err := db.QueryRow(ctx, `SELECT manifest FROM voice_engine_registry WHERE digest=$1 AND engine=$2 AND manifest->>'kind'=$3 AND NOT revoked`, digest[0], engine, kind).Scan(&release)
+		err := db.QueryRow(ctx, `SELECT manifest FROM voice_engine_registry WHERE digest=$1 AND engine=$2 AND manifest->>'kind'=$3 AND NOT revoked AND source='signed'`, digest[0], engine, kind).Scan(&release)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, orderFailure{http.StatusConflict, "engine_release_unavailable"}
 		}
 		return release, err
 	}
-	err := db.QueryRow(ctx, `SELECT manifest FROM voice_engine_registry WHERE engine=$1 AND NOT revoked AND manifest->>'kind'=$2 ORDER BY created_at DESC,digest LIMIT 1`, engine, kind).Scan(&release)
+	err := db.QueryRow(ctx, `SELECT manifest FROM voice_engine_registry WHERE engine=$1 AND NOT revoked AND source='signed' AND manifest->>'kind'=$2 ORDER BY created_at DESC,digest LIMIT 1`, engine, kind).Scan(&release)
 	if errors.Is(err, pgx.ErrNoRows) {
 		// Existing installations remain usable without a registry. New adapters fail closed.
 		var registered bool
-		if e := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_engine_registry WHERE engine=$1 AND manifest->>'kind'=$2)`, engine, kind).Scan(&registered); e != nil {
+		if e := db.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_engine_registry WHERE engine=$1 AND source='signed' AND manifest->>'kind'=$2)`, engine, kind).Scan(&registered); e != nil {
 			return nil, e
 		}
 		if !registered && (engine == "pyannote" || engine == "nemo" || engine == "silero-jit") {
