@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -130,22 +131,26 @@ func (s *Server) listBenchmarkModels(w http.ResponseWriter, r *http.Request) {
 }
 
 type benchmarkDataset struct {
-	ID              int64     `json:"id"`
-	Name            string    `json:"name"`
-	AuthorName      string    `json:"author_name"`
-	CreatedAt       time.Time `json:"created_at"`
-	Stages          []string  `json:"stages"`
-	TestClips       int       `json:"test_clips"`
-	ReferenceClips  int       `json:"reference_clips"`
-	VerifiedClips   int       `json:"verified_clips"`
-	Persons         int       `json:"persons"`
-	DurationSeconds float64   `json:"duration_seconds"`
+	ID             int64     `json:"id"`
+	Name           string    `json:"name"`
+	AuthorName     string    `json:"author_name"`
+	CreatedAt      time.Time `json:"created_at"`
+	Stages         []string  `json:"stages"`
+	TestClips      int       `json:"test_clips"`
+	ReferenceClips int       `json:"reference_clips"`
+	VerifiedClips  int       `json:"verified_clips"`
+	// ReferenceSources lists where the references of the certified clips come from: "production" (corrected output
+	// of the production pipeline, biased in its favour) and/or "import" (an STM or RTTM written by hand).
+	ReferenceSources []string `json:"reference_sources"`
+	Persons          int      `json:"persons"`
+	DurationSeconds  float64  `json:"duration_seconds"`
 }
 
 func (s *Server) listBenchmarkDatasets(w http.ResponseWriter, r *http.Request) {
 	rows, err := s.Pool.Query(r.Context(), `SELECT d.id,d.name,d.author_name,d.created_at,d.stages,
 		count(c.clip_id) FILTER (WHERE c.role='test'),count(c.clip_id) FILTER (WHERE c.role='reference'),count(c.clip_id) FILTER (WHERE c.verified),
-		(SELECT count(DISTINCT person_id) FROM benchmark_dataset_items WHERE dataset_id=d.id),COALESCE(sum(cl.duration_seconds),0)
+		(SELECT count(DISTINCT person_id) FROM benchmark_dataset_items WHERE dataset_id=d.id),COALESCE(sum(cl.duration_seconds),0),
+		COALESCE(array_agg(DISTINCT c.reference_source ORDER BY c.reference_source) FILTER (WHERE c.reference_source IS NOT NULL),'{}')
 		FROM benchmark_datasets d LEFT JOIN benchmark_dataset_clips c ON c.dataset_id=d.id LEFT JOIN clips cl ON cl.id=c.clip_id
 		GROUP BY d.id ORDER BY d.id DESC`)
 	if err != nil {
@@ -156,7 +161,7 @@ func (s *Server) listBenchmarkDatasets(w http.ResponseWriter, r *http.Request) {
 	out := []benchmarkDataset{}
 	for rows.Next() {
 		var d benchmarkDataset
-		if err = rows.Scan(&d.ID, &d.Name, &d.AuthorName, &d.CreatedAt, &d.Stages, &d.TestClips, &d.ReferenceClips, &d.VerifiedClips, &d.Persons, &d.DurationSeconds); err != nil {
+		if err = rows.Scan(&d.ID, &d.Name, &d.AuthorName, &d.CreatedAt, &d.Stages, &d.TestClips, &d.ReferenceClips, &d.VerifiedClips, &d.Persons, &d.DurationSeconds, &d.ReferenceSources); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -176,6 +181,8 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		TestClipIDs      []int64 `json:"test_clip_ids"`
 		ReferenceClipIDs []int64 `json:"reference_clip_ids"`
 		VerifiedClipIDs  []int64 `json:"verified_clip_ids"`
+		// ReferenceImports replace the production reference of a test clip by an STM and/or RTTM (ADR 0061).
+		ReferenceImports []benchmarkImportInput `json:"reference_imports"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -207,6 +214,23 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		}
 		verified[id] = true
 	}
+	imports, code := prepareReferenceImports(input.ReferenceImports, role)
+	if code != "" {
+		fail(w, http.StatusUnprocessableEntity, code)
+		return
+	}
+	// An imported clip is certified by its import, and the import replaces the production reference of the clip:
+	// only the clips that rely on production are read from it (prodVerified).
+	imported := map[int64]referenceImport{}
+	for _, item := range imports {
+		imported[item.clip] = item
+	}
+	prodVerified := map[int64]bool{}
+	for id := range verified {
+		if _, replaced := imported[id]; !replaced {
+			prodVerified[id] = true
+		}
+	}
 	ids := make([]int64, 0, len(role))
 	for id := range role {
 		ids = append(ids, id)
@@ -221,10 +245,24 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		fail(w, http.StatusUnprocessableEntity, "benchmark_clip_invalid")
 		return
 	}
+	// The imports carry no track: it is the one of the production transcript of the clip, which must be unique.
+	for i := range imports {
+		track, found, err := importTrack(r.Context(), s.Pool, imports[i].clip)
+		if err != nil {
+			s.internal(w, err)
+			return
+		}
+		if !found {
+			fail(w, http.StatusUnprocessableEntity, "benchmark_import_track")
+			return
+		}
+		imports[i].track = track
+		imported[imports[i].clip] = imports[i]
+	}
 	// A certification vouches for a transcript or speakers: a clip with neither has nothing to certify.
-	if len(verified) > 0 {
-		verifiedIDs := make([]int64, 0, len(verified))
-		for id := range verified {
+	if len(prodVerified) > 0 {
+		verifiedIDs := make([]int64, 0, len(prodVerified))
+		for id := range prodVerified {
 			verifiedIDs = append(verifiedIDs, id)
 		}
 		var withContent int
@@ -262,13 +300,13 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	rows.Close()
-	refPersons, testPersons, verifiedVoices := map[int64]bool{}, map[int64]bool{}, false
+	refPersons, testPersons, productionVoices := map[int64]bool{}, map[int64]bool{}, false
 	for _, v := range voices {
 		if role[v.clip] == "reference" {
 			refPersons[v.person] = true
 		} else {
 			testPersons[v.person] = true
-			verifiedVoices = verifiedVoices || verified[v.clip]
+			productionVoices = productionVoices || prodVerified[v.clip]
 		}
 	}
 	// The stages the corpus can measure. The voice fingerprint needs two Persons with a reference and each tested
@@ -277,10 +315,14 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 	for p := range testPersons {
 		fingerprint = fingerprint && refPersons[p]
 	}
-	transcription := false
-	if len(verified) > 0 {
-		verifiedIDs := make([]int64, 0, len(verified))
-		for id := range verified {
+	transcription, verifiedVoices := false, productionVoices
+	for _, item := range imports {
+		transcription = transcription || item.segments != nil
+		verifiedVoices = verifiedVoices || item.turns != nil
+	}
+	if len(prodVerified) > 0 && !transcription {
+		verifiedIDs := make([]int64, 0, len(prodVerified))
+		for id := range prodVerified {
 			verifiedIDs = append(verifiedIDs, id)
 		}
 		if err = s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM jobs WHERE clip_id=ANY($1) AND step LIKE 'transcription.audio.%' AND status='done' AND requested_model_id IS NULL AND jsonb_typeof(result->'segments')='array' AND jsonb_array_length(result->'segments')>0)`, verifiedIDs).Scan(&transcription); err != nil {
@@ -325,16 +367,16 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	for _, id := range ids {
-		if _, err = tx.Exec(r.Context(), `INSERT INTO benchmark_dataset_clips(dataset_id,clip_id,role,verified) VALUES($1,$2,$3,$4)`, datasetID, id, role[id], verified[id]); err != nil {
+		if _, err = tx.Exec(r.Context(), `INSERT INTO benchmark_dataset_clips(dataset_id,clip_id,role,verified,reference_source) VALUES($1,$2,$3,$4,$5)`, datasetID, id, role[id], verified[id] || imported[id].clip == id, referenceSource(id, verified, imported)); err != nil {
 			s.internal(w, err)
 			return
 		}
 	}
 	// The reference text is frozen now: the latest production transcript of each certified clip, a human correction
 	// replacing the text of its segment. Later corrections never reach an existing corpus.
-	if len(verified) > 0 {
-		verifiedIDs := make([]int64, 0, len(verified))
-		for id := range verified {
+	if len(prodVerified) > 0 {
+		verifiedIDs := make([]int64, 0, len(prodVerified))
+		for id := range prodVerified {
 			verifiedIDs = append(verifiedIDs, id)
 		}
 		if _, err = tx.Exec(r.Context(), `INSERT INTO benchmark_reference_segments(dataset_id,clip_id,audio_stream_index,ordinal,start_seconds,end_seconds,text,corrected)
@@ -349,22 +391,32 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
-	if verifiedVoices {
-		verifiedIDs := make([]int64, 0, len(verified))
-		for id := range verified {
-			verifiedIDs = append(verifiedIDs, id)
-		}
-		shifted, snapErr := s.snapshotReferenceTurns(r.Context(), tx, datasetID, verifiedIDs)
-		if snapErr != nil {
-			s.internal(w, snapErr)
+	for _, item := range imports {
+		if err = freezeImportedReference(r.Context(), tx, datasetID, item); err != nil {
+			s.internal(w, err)
 			return
 		}
-		// Who spoke each reference segment: the speaker whose turns overlap it the most.
-		if _, err = tx.Exec(r.Context(), `UPDATE benchmark_reference_segments s SET speaker=(
+	}
+	if verifiedVoices {
+		shifted := false
+		if productionVoices {
+			verifiedIDs := make([]int64, 0, len(prodVerified))
+			for id := range prodVerified {
+				verifiedIDs = append(verifiedIDs, id)
+			}
+			var snapErr error
+			if shifted, snapErr = s.snapshotReferenceTurns(r.Context(), tx, datasetID, verifiedIDs); snapErr != nil {
+				s.internal(w, snapErr)
+				return
+			}
+		}
+		// Who spoke each reference segment: the speaker whose turns overlap it the most (an imported text keeps the
+		// speaker of its file where no turn overlaps it).
+		if _, err = tx.Exec(r.Context(), `UPDATE benchmark_reference_segments s SET speaker=COALESCE((
 			SELECT t.speaker FROM benchmark_reference_turns t
 			WHERE t.dataset_id=s.dataset_id AND t.clip_id=s.clip_id AND t.audio_stream_index=s.audio_stream_index
 			  AND least(t.end_seconds,s.end_seconds)-greatest(t.start_seconds,s.start_seconds)>0
-			GROUP BY t.speaker ORDER BY sum(least(t.end_seconds,s.end_seconds)-greatest(t.start_seconds,s.start_seconds)) DESC,t.speaker LIMIT 1)
+			GROUP BY t.speaker ORDER BY sum(least(t.end_seconds,s.end_seconds)-greatest(t.start_seconds,s.start_seconds)) DESC,t.speaker LIMIT 1),s.speaker)
 			WHERE s.dataset_id=$1`, datasetID); err != nil {
 			s.internal(w, err)
 			return
@@ -413,4 +465,34 @@ func (s *Server) listTranscriptionBenchmarkModels(w http.ResponseWriter, r *http
 		out = append(out, benchmarkModelView{ID: model, Label: model, Repo: model, Engine: "transcription service", Active: true, ReadyWorkers: ready, TotalWorkers: total})
 	}
 	reply(w, http.StatusOK, map[string]any{"models": out})
+}
+
+// referenceSource says where the reference of a clip comes from: its import, else the production pipeline when the
+// administrator certified it, else nothing.
+func referenceSource(id int64, verified map[int64]bool, imported map[int64]referenceImport) any {
+	if _, ok := imported[id]; ok {
+		return "import"
+	}
+	if verified[id] {
+		return "production"
+	}
+	return nil
+}
+
+// freezeImportedReference stores the imported text and turns of a clip in the corpus. Speakers are free names, not
+// Persons: they are never joined to the Persons of the library.
+func freezeImportedReference(ctx context.Context, tx pgQuerier, datasetID int64, item referenceImport) error {
+	for i, seg := range item.segments {
+		if _, err := tx.Exec(ctx, `INSERT INTO benchmark_reference_segments(dataset_id,clip_id,audio_stream_index,ordinal,start_seconds,end_seconds,text,corrected,speaker) VALUES($1,$2,$3,$4,$5,$6,$7,false,$8)`,
+			datasetID, item.clip, item.track, i, seg.start, seg.end, seg.text, seg.speaker); err != nil {
+			return err
+		}
+	}
+	for _, turn := range item.turns {
+		if _, err := tx.Exec(ctx, `INSERT INTO benchmark_reference_turns(dataset_id,clip_id,audio_stream_index,speaker,start_seconds,end_seconds) VALUES($1,$2,$3,$4,$5,$6)`,
+			datasetID, item.clip, item.track, turn.speaker, turn.start, turn.end); err != nil {
+			return err
+		}
+	}
+	return nil
 }

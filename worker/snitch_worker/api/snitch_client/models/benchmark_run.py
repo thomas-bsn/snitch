@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.benchmark_reference_sources_item import BenchmarkReferenceSourcesItem
 from ..models.benchmark_run_stage import BenchmarkRunStage
 from ..models.benchmark_run_status import BenchmarkRunStatus
 from ..types import UNSET, Unset
@@ -34,6 +35,9 @@ class BenchmarkRun:
             id (int):
             dataset_id (int):
             dataset_name (str):
+            reference_sources (list[BenchmarkReferenceSourcesItem]): D'où viennent les références des clips certifiés :
+                production (sortie du pipeline de production corrigée par des humains, qui avantage le modèle de production)
+                et/ou import (STM ou RTTM écrit à la main). L'avertissement de biais ne s'applique que si production y figure.
             stage (BenchmarkRunStage):
             status (BenchmarkRunStatus):
             model_ids (list[str]):
@@ -49,6 +53,7 @@ class BenchmarkRun:
     id: int
     dataset_id: int
     dataset_name: str
+    reference_sources: list[BenchmarkReferenceSourcesItem]
     stage: BenchmarkRunStage
     status: BenchmarkRunStatus
     model_ids: list[str]
@@ -73,6 +78,13 @@ class BenchmarkRun:
         dataset_id = self.dataset_id
 
         dataset_name = self.dataset_name
+
+        reference_sources = []
+        for componentsschemas_benchmark_reference_sources_item_data in self.reference_sources:
+            componentsschemas_benchmark_reference_sources_item = componentsschemas_benchmark_reference_sources_item_data.value
+            reference_sources.append(componentsschemas_benchmark_reference_sources_item)
+
+
 
         stage = self.stage.value
 
@@ -117,6 +129,7 @@ class BenchmarkRun:
             "id": id,
             "dataset_id": dataset_id,
             "dataset_name": dataset_name,
+            "reference_sources": reference_sources,
             "stage": stage,
             "status": status,
             "model_ids": model_ids,
@@ -144,6 +157,16 @@ class BenchmarkRun:
         dataset_id = d.pop("dataset_id")
 
         dataset_name = d.pop("dataset_name")
+
+        reference_sources = []
+        _reference_sources = d.pop("reference_sources")
+        for componentsschemas_benchmark_reference_sources_item_data in (_reference_sources):
+            componentsschemas_benchmark_reference_sources_item = BenchmarkReferenceSourcesItem(componentsschemas_benchmark_reference_sources_item_data)
+
+
+
+            reference_sources.append(componentsschemas_benchmark_reference_sources_item)
+
 
         stage = BenchmarkRunStage(d.pop("stage"))
 
@@ -214,6 +237,7 @@ class BenchmarkRun:
             id=id,
             dataset_id=dataset_id,
             dataset_name=dataset_name,
+            reference_sources=reference_sources,
             stage=stage,
             status=status,
             model_ids=model_ids,

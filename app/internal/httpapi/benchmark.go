@@ -77,18 +77,21 @@ func (s *Server) deleteBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 }
 
 type benchmarkRunView struct {
-	ID          int64                 `json:"id"`
-	DatasetID   int64                 `json:"dataset_id"`
-	DatasetName string                `json:"dataset_name"`
-	Stage       string                `json:"stage"`
-	Status      string                `json:"status"`
-	ModelIDs    []string              `json:"model_ids"`
-	Chains      []benchmarkChain      `json:"chains"`
-	AuthorName  string                `json:"author_name"`
-	CreatedAt   time.Time             `json:"created_at"`
-	FinishedAt  *time.Time            `json:"finished_at"`
-	Progress    benchmarkProgress     `json:"progress"`
-	Results     []benchmarkResultView `json:"results"`
+	ID          int64            `json:"id"`
+	DatasetID   int64            `json:"dataset_id"`
+	DatasetName string           `json:"dataset_name"`
+	Stage       string           `json:"stage"`
+	Status      string           `json:"status"`
+	ModelIDs    []string         `json:"model_ids"`
+	Chains      []benchmarkChain `json:"chains"`
+	// ReferenceSources: where the references of the corpus come from (production and/or import); the bias warning
+	// applies only when production is among them.
+	ReferenceSources []string              `json:"reference_sources"`
+	AuthorName       string                `json:"author_name"`
+	CreatedAt        time.Time             `json:"created_at"`
+	FinishedAt       *time.Time            `json:"finished_at"`
+	Progress         benchmarkProgress     `json:"progress"`
+	Results          []benchmarkResultView `json:"results"`
 }
 
 type benchmarkProgress struct {
@@ -123,7 +126,7 @@ type benchmarkResultView struct {
 const benchmarkRunColumns = `id,dataset_id,dataset_name,stage,status,model_ids,author_name,created_at,finished_at`
 
 func scanBenchmarkRun(row pgx.Row) (benchmarkRunView, error) {
-	v := benchmarkRunView{Results: []benchmarkResultView{}, Chains: []benchmarkChain{}}
+	v := benchmarkRunView{Results: []benchmarkResultView{}, Chains: []benchmarkChain{}, ReferenceSources: []string{}}
 	err := row.Scan(&v.ID, &v.DatasetID, &v.DatasetName, &v.Stage, &v.Status, &v.ModelIDs, &v.AuthorName, &v.CreatedAt, &v.FinishedAt)
 	return v, err
 }
@@ -191,6 +194,9 @@ func (s *Server) loadBenchmarkRun(ctx context.Context, id int64, detail bool) (b
 		return v, err
 	}
 	v.Progress.Errored = []benchmarkJobError{}
+	if err = s.Pool.QueryRow(ctx, `SELECT COALESCE(array_agg(DISTINCT reference_source ORDER BY reference_source) FILTER (WHERE reference_source IS NOT NULL),'{}') FROM benchmark_dataset_clips WHERE dataset_id=$1`, v.DatasetID).Scan(&v.ReferenceSources); err != nil {
+		return v, err
+	}
 	// The pairs of models of an end-to-end run, which the ids of its results stand for.
 	var params []byte
 	if err = s.Pool.QueryRow(ctx, `SELECT params FROM benchmark_runs WHERE id=$1`, id).Scan(&params); err != nil {

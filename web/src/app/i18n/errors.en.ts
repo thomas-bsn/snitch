@@ -462,4 +462,15 @@ export const errorsEn = {
     "This corpus cannot measure this stage.",
   benchmark_verified_empty:
     "A certified clip needs a transcript or a validated voice.",
+  benchmark_import_format:
+    "The imported file is not a valid STM or RTTM: check each line against the expected format.",
+  benchmark_import_times:
+    "The imported file has inconsistent times: a start must not be negative and an end must come after its start.",
+  benchmark_import_speakers:
+    "The STM and the RTTM of this clip name no speaker in common.",
+  benchmark_import_size: "The imported files exceed 2 MB in total.",
+  benchmark_import_clip:
+    "An imported reference must target a test clip of the corpus, once.",
+  benchmark_import_track:
+    "The audio track of this clip is unknown or ambiguous (it needs one transcribed track).",
 };

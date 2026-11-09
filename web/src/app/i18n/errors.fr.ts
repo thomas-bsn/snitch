@@ -483,4 +483,15 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ce corpus ne permet pas de mesurer cette étape.",
   benchmark_verified_empty:
     "Un clip certifié demande une transcription ou une voix validée.",
+  benchmark_import_format:
+    "Le fichier importé n'est pas un STM ou un RTTM valide : vérifiez chaque ligne.",
+  benchmark_import_times:
+    "Le fichier importé a des temps incohérents : un début n'est pas négatif et une fin suit son début.",
+  benchmark_import_speakers:
+    "Le STM et le RTTM de ce clip ne nomment aucun locuteur en commun.",
+  benchmark_import_size: "Les fichiers importés dépassent 2 Mo au total.",
+  benchmark_import_clip:
+    "Une référence importée vise un clip de test du corpus, une seule fois.",
+  benchmark_import_track:
+    "La piste audio de ce clip est inconnue ou ambiguë (il lui faut une seule piste transcrite).",
 };

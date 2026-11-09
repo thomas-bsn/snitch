@@ -346,6 +346,13 @@ export function BenchmarkRunPage() {
                     minutes: minutes(d.duration_seconds),
                   })}
                 </span>
+                {d.reference_sources.map((source) => (
+                  <span key={source} className="text-sm text-mute">
+                    {source === "import"
+                      ? t("benchmark.run.corpusSourcesImport")
+                      : t("benchmark.run.corpusSourcesProduction")}
+                  </span>
+                ))}
                 {d.verified_clips > 0 && (
                   <span className="text-sm text-mute">
                     {t("benchmark.run.corpusCertified", {

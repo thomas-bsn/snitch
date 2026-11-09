@@ -69,6 +69,15 @@ test("seuls les administrateurs accèdent au benchmark", async ({ browser }) => 
   await context.close();
 });
 
+const STM =
+  ";; synthetic reference\nclip 1 alice 0.0 1.0 <o,f0,female> Bonjour tout le monde\nclip 1 bob 1.0 2.0 salut Alice\n";
+const RTTM =
+  "SPEAKER clip 1 0.0 1.0 <NA> <NA> alice <NA> <NA>\nSPEAKER clip 1 1.0 1.0 <NA> <NA> bob <NA> <NA>\n";
+
+function referenceFile(name: string, text: string) {
+  return { name, mimeType: "text/plain", buffer: Buffer.from(text) };
+}
+
 test("un administrateur crée un corpus de clips annotés", async ({ page }) => {
   await asAdmin(page);
   // Two reference clips enrol Alice and Bob; two test clips are measured.
@@ -145,6 +154,35 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
     "the production model has an advantage",
   );
 
+  // An imported reference replaces the production one: the clip counts as certified and the bias warning goes.
+  const testD = "fixture-bench-test-d.mp4";
+  const importArea = dialog.getByRole("group", {
+    name: new RegExp(`Import a reference · ${testD}`),
+  });
+  await importArea
+    .getByLabel(`STM file (text) · ${testD}`)
+    .setInputFiles(referenceFile("reference.stm", STM));
+  await importArea
+    .getByLabel(`RTTM file (speaker turns) · ${testD}`)
+    .setInputFiles(referenceFile("reference.rttm", RTTM));
+  await expect(importArea).toContainText("reference.stm");
+  await expect(importArea).toContainText("reference.rttm");
+  await expect(dialog.getByRole("note")).toHaveCount(0);
+  await expect(
+    stages.getByRole("listitem").filter({ hasText: "End to end" }),
+  ).toContainText("Measurable");
+  // Removing the files brings the production reference, and its warning, back.
+  await importArea
+    .getByRole("button", { name: "Remove reference.stm" })
+    .click();
+  await importArea
+    .getByRole("button", { name: "Remove reference.rttm" })
+    .click();
+  await expect(dialog.getByRole("note")).toContainText(
+    "the production model has an advantage",
+  );
+  await expectNoViolations(page);
+
   await dialog.getByLabel("Name").fill("Corpus e2e");
   await dialog.getByRole("button", { name: "Create the corpus" }).click();
   await expect(dialog).toBeHidden();
@@ -165,6 +203,47 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
     page.getByRole("button", { name: "Start the benchmark" }),
   ).toBeDisabled();
   await expect(page.getByText("Pick at least 2 models.")).toBeVisible();
+  await expectNoViolations(page);
+});
+
+test("un corpus à référence importée n'annonce pas le biais de production", async ({
+  page,
+}) => {
+  await asAdmin(page);
+  await page.goto("/admin/benchmark");
+  await page.getByRole("button", { name: "Create a corpus" }).click();
+  const dialog = page.getByRole("dialog", {
+    name: "Create a corpus of annotated clips",
+  });
+  const group = (name: string) =>
+    dialog.getByRole("group", { name: `Role · fixture-bench-${name}.mp4` });
+  for (const name of ["ref-a", "ref-b"])
+    await group(name).getByRole("button", { name: "Reference" }).click();
+  await group("test-c").getByRole("button", { name: "Test" }).click();
+  const importArea = dialog.getByRole("group", {
+    name: /Import a reference · fixture-bench-test-c.mp4/,
+  });
+  await importArea
+    .getByLabel("STM file (text) · fixture-bench-test-c.mp4")
+    .setInputFiles(referenceFile("reference.stm", STM));
+  await importArea
+    .getByLabel("RTTM file (speaker turns) · fixture-bench-test-c.mp4")
+    .setInputFiles(referenceFile("reference.rttm", RTTM));
+  await expect(dialog.getByRole("note")).toHaveCount(0);
+  await dialog.getByLabel("Name").fill("Corpus importé UI");
+  await dialog.getByRole("button", { name: "Create the corpus" }).click();
+  await expect(dialog).toBeHidden();
+  const label = page
+    .locator("label")
+    .filter({ has: page.getByRole("radio", { name: "Corpus importé UI" }) });
+  await expect(label).toContainText("Reference: imported (STM/RTTM)");
+  await expect(label).not.toContainText("production");
+  // The corpus built from the production reference says so.
+  await expect(
+    page
+      .locator("label")
+      .filter({ has: page.getByRole("radio", { name: "Corpus e2e" }) }),
+  ).toContainText("Reference: production, corrected");
   await expectNoViolations(page);
 });
 
@@ -327,6 +406,14 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await expect(page.getByRole("tooltip")).toContainText("wrong speaker");
   await page.mouse.move(0, 0);
   await expectNoViolations(page);
+
+  // A run on a corpus whose reference was imported has no production bias to announce.
+  await page.getByRole("link", { name: "Back to history" }).click();
+  await row("seed-asr-c").getByRole("link", { name: "Details" }).click();
+  await expect(page.getByRole("table").getByRole("row")).toHaveCount(3);
+  await expect(
+    page.getByText("the production model has an advantage"),
+  ).toHaveCount(0);
 
   // The transcription run: WER and CER, the bias warning, and no separation chart (a voice-only reading).
   await page.getByRole("link", { name: "Back to history" }).click();

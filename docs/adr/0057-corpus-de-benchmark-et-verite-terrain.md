@@ -12,7 +12,7 @@ Comparer des modèles de transcription, de diarisation et d'empreinte demande un
 - **Certification « relu en entier ».** L'administrateur atteste, clip de test par clip de test, que le texte et les locuteurs ont été relus en entier. Sans cette attestation, un clip ne sert qu'à l'empreinte. L'attestation est enregistrée dans le corpus (`benchmark_dataset_clips.verified`).
 - **Les étapes mesurables sont déduites du contenu**, à la création : empreinte (au moins deux Personnes avec référence, chaque Personne testée enrôlée), transcription (un clip certifié avec transcription), diarisation (un clip certifié avec voix validée), bout en bout (les trois). Un corpus sans aucune étape est refusé.
 - **Instantané.** La Personne de chaque voix est copiée à la création. Le texte de référence de la transcription sera lui aussi figé à la tranche qui mesure cette étape.
-- **Biais annoncé.** Les résultats de transcription, de diarisation et de bout en bout affichent que la référence vient du pipeline de production corrigé : le modèle de production est avantagé. L'import de références externes (STM, RTTM) lèverait ce biais ; il reste à faire.
+- **Biais annoncé.** Les résultats de transcription, de diarisation et de bout en bout affichent que la référence vient du pipeline de production corrigé : le modèle de production est avantagé. L'import de références externes (STM, RTTM) lève ce biais, voir l'[ADR 0061](0061-references-externes-stm-rttm.md).
 - Le catalogue des modèles proposés indique, par modèle, le nombre de Workers où il est prêt : un modèle prêt nulle part laisserait le run en attente.
 
 ## Alternatives écartées

@@ -399,6 +399,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAIBenchmarkDiarization(t, pool)
 	})
+	t.Run("ai benchmark reference import", func(t *testing.T) {
+		reset(t)
+		testAIBenchmarkReferenceImport(t, pool)
+	})
 	t.Run("ai benchmark end to end", func(t *testing.T) {
 		reset(t)
 		testAIBenchmarkEndToEnd(t, pool)

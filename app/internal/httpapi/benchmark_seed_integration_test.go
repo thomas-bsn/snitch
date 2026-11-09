@@ -26,10 +26,39 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 			`,"top1_accuracy":` + seedNum(top1) + `,"true_positives":7,"false_positives":` + strconv.Itoa(fp) + `,"false_negatives":` + strconv.Itoa(fn) +
 			`,"precision":` + seedNum(precision) + `,"recall":` + seedNum(recall) + `,"genuine_mean_score":` + seedNum(genuine) + `,"impostor_mean_score":` + seedNum(impostor) + `,"ignored_dimension":0}`
 	}
+	// A certified clip per corpus tells where its reference comes from (ADR 0061): the demonstration corpus relies on
+	// the production pipeline, so its results carry the bias warning; the second one on an imported file.
+	var owner, clip int64
+	if err := pool.QueryRow(ctx, `INSERT INTO users(username,role,approved) VALUES('seed-owner','user',true) RETURNING id`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'seed-reference.mp4',1,now(),now()) RETURNING id`, owner).Scan(&clip); err != nil {
+		t.Fatal(err)
+	}
+	var imported int64
+	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_datasets(name,author_name,stages) VALUES('Corpus importé','seed','{transcription}') RETURNING id`).Scan(&imported); err != nil {
+		t.Fatal(err)
+	}
+	exec(`INSERT INTO benchmark_dataset_clips(dataset_id,clip_id,role,verified,reference_source) VALUES($1,$2,'test',true,'import')`, imported, clip)
+	// The newest corpus is the one the screen offers first: the demonstration one, created last.
 	var dataset int64
 	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_datasets(name,author_name,stages) VALUES('Corpus de démonstration','seed','{fingerprint}') RETURNING id`).Scan(&dataset); err != nil {
 		t.Fatal(err)
 	}
+	exec(`INSERT INTO benchmark_dataset_clips(dataset_id,clip_id,role,verified,reference_source) VALUES($1,$2,'test',true,'production')`, dataset, clip)
+	// A transcription run on the imported corpus: no production bias to announce. It is the oldest run, so the best
+	// model of the stage stays the one of the demonstration corpus.
+	var importedRun int64
+	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,author_name,finished_at) VALUES($1,'Corpus importé','transcription','completed','{seed-asr-c,seed-asr-d}','seed',now()-interval '1 day') RETURNING id`, imported).Scan(&importedRun); err != nil {
+		t.Fatal(err)
+	}
+	wordMetrics := func(wer, cer float64) string {
+		return `{"clips":3,"reference_words":420,"word_errors":` + strconv.Itoa(int(wer*420)) + `,"reference_chars":2300,"character_errors":` + strconv.Itoa(int(cer*2300)) + `,"cer_skipped_clips":0,"wer":` + seedNum(wer) + `,"cer":` + seedNum(cer) + `}`
+	}
+	exec(`INSERT INTO benchmark_results(run_id,model_id,model,model_version,dimensions,state,items_total,items_scored,elapsed_seconds,metrics) VALUES
+		($1,'seed-asr-c','seed-asr-c','v1',0,'complete',3,3,95,$2::jsonb),
+		($1,'seed-asr-d','seed-asr-d','v1',0,'complete',3,3,140,$3::jsonb)`,
+		importedRun, wordMetrics(0.3, 0.15), wordMetrics(0.25, 0.12))
 	var finished, failed int64
 	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,author_name,finished_at) VALUES($1,'Corpus de démonstration','fingerprint','completed','{pyannote-wespeaker-resnet34,seed-titanet}','seed',now()) RETURNING id`, dataset).Scan(&finished); err != nil {
 		t.Fatal(err)
@@ -68,6 +97,7 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 		($1,'pyannote-community-1','pyannote/speaker-diarization-community-1','3533c8c',0,'complete',3,3,80,$2::jsonb),
 		($1,'nvidia-sortformer-4spk-v2.1','nvidia/diar_streaming_sortformer_4spk-v2.1','cd03eee',0,'complete',3,3,146,$3::jsonb)`,
 		diarization, der(0.114, 0.04, 0.03, 0.044), der(0.07, 0.03, 0.02, 0.02))
+
 }
 
 func seedNum(x float64) string { return strconv.FormatFloat(x, 'f', -1, 64) }

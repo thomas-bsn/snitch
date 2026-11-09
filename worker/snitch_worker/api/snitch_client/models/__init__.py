@@ -88,6 +88,8 @@ from .benchmark_model import BenchmarkModel
 from .benchmark_model_list import BenchmarkModelList
 from .benchmark_person import BenchmarkPerson
 from .benchmark_progress import BenchmarkProgress
+from .benchmark_reference_import import BenchmarkReferenceImport
+from .benchmark_reference_sources_item import BenchmarkReferenceSourcesItem
 from .benchmark_result import BenchmarkResult
 from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
 from .benchmark_result_state import BenchmarkResultState
@@ -751,6 +753,8 @@ __all__ = (
     "BenchmarkModelList",
     "BenchmarkPerson",
     "BenchmarkProgress",
+    "BenchmarkReferenceImport",
+    "BenchmarkReferenceSourcesItem",
     "BenchmarkResult",
     "BenchmarkResultResourcesType0",
     "BenchmarkResultState",

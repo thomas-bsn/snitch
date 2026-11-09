@@ -3920,7 +3920,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines. */
     get: operations["listBenchmarkDatasets"];
     put?: never;
-    /** @description Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken. */
+    /** @description Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken. */
     post: operations["createBenchmarkDataset"];
     delete?: never;
     options?: never;
@@ -7998,6 +7998,17 @@ export interface components {
       persons: number;
       /** Format: double */
       duration_seconds: number;
+      reference_sources: components["schemas"]["BenchmarkReferenceSources"];
+    };
+    /** @description D'où viennent les références des clips certifiés : production (sortie du pipeline de production corrigée par des humains, qui avantage le modèle de production) et/ou import (STM ou RTTM écrit à la main). L'avertissement de biais ne s'applique que si production y figure. */
+    BenchmarkReferenceSources: ("production" | "import")[];
+    BenchmarkReferenceImport: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @description Texte de référence : `<fichier> <canal> <locuteur> <début> <fin> [<étiquettes>] texte`, lignes `;;` ignorées. */
+      stm?: string;
+      /** @description Tours de parole de référence : `SPEAKER <fichier> <canal> <début> <durée> <NA> <NA> <locuteur> <NA> <NA>`. */
+      rttm?: string;
     };
     BenchmarkDatasetList: {
       datasets: components["schemas"]["BenchmarkDataset"][];
@@ -8008,6 +8019,8 @@ export interface components {
       reference_clip_ids: number[];
       /** @description Clips de test dont l'administrateur atteste que le texte et les locuteurs ont été relus en entier. */
       verified_clip_ids: number[];
+      /** @description Références externes (STM et/ou RTTM, 2 Mo au total) qui remplacent la référence de production d'un clip de test ; le clip compte alors comme certifié. La piste est celle de la transcription de production du clip. */
+      reference_imports?: components["schemas"]["BenchmarkReferenceImport"][];
     };
     BenchmarkCreated: {
       /** Format: int64 */
@@ -8061,6 +8074,7 @@ export interface components {
       /** Format: int64 */
       dataset_id: number;
       dataset_name: string;
+      reference_sources: components["schemas"]["BenchmarkReferenceSources"];
       /** @enum {string} */
       stage: "fingerprint" | "transcription" | "diarization" | "e2e";
       /** @enum {string} */

@@ -315,14 +315,15 @@ function RunDetail({ id }: { id: number }) {
                 ? t("benchmark.results.noteDiarization")
                 : t("benchmark.results.note")}
           </p>
-          {data.stage !== "fingerprint" && (
-            <p
-              role="note"
-              className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
-            >
-              {t("benchmark.corpus.bias")}
-            </p>
-          )}
+          {data.stage !== "fingerprint" &&
+            data.reference_sources.includes("production") && (
+              <p
+                role="note"
+                className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
+              >
+                {t("benchmark.corpus.bias")}
+              </p>
+            )}
           <section aria-labelledby="comparison-title" className={card}>
             <h3 id="comparison-title" className="text-base font-semibold">
               {t("benchmark.results.comparison")}

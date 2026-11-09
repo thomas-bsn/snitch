@@ -85,7 +85,10 @@ def sync_detailed(
     vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
     sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
     benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix
-    validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.
+    validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM
+    sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux
+    fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable
+    (aucune étape mesurable), benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -127,7 +130,10 @@ def sync(
     vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
     sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
     benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix
-    validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.
+    validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM
+    sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux
+    fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable
+    (aucune étape mesurable), benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -164,7 +170,10 @@ async def asyncio_detailed(
     vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
     sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
     benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix
-    validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.
+    validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM
+    sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux
+    fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable
+    (aucune étape mesurable), benchmark_dataset_name_taken.
 
     Args:
         origin (str):
@@ -206,7 +215,10 @@ async def asyncio(
     vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en
     sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé),
     benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix
-    validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.
+    validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM
+    sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux
+    fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable
+    (aucune étape mesurable), benchmark_dataset_name_taken.
 
     Args:
         origin (str):

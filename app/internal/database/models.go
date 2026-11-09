@@ -144,10 +144,11 @@ type BenchmarkDataset struct {
 }
 
 type BenchmarkDatasetClip struct {
-	DatasetID int64  `json:"dataset_id"`
-	ClipID    int64  `json:"clip_id"`
-	Role      string `json:"role"`
-	Verified  bool   `json:"verified"`
+	DatasetID       int64       `json:"dataset_id"`
+	ClipID          int64       `json:"clip_id"`
+	Role            string      `json:"role"`
+	Verified        bool        `json:"verified"`
+	ReferenceSource pgtype.Text `json:"reference_source"`
 }
 
 type BenchmarkDatasetItem struct {

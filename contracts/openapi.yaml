@@ -17001,7 +17001,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.",
+        "description": "Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken.",
         "parameters": [
           {
             "in": "header",
@@ -29915,6 +29915,9 @@
           "duration_seconds": {
             "type": "number",
             "format": "double"
+          },
+          "reference_sources": {
+            "$ref": "#/components/schemas/BenchmarkReferenceSources"
           }
         },
         "required": [
@@ -29927,7 +29930,39 @@
           "reference_clips",
           "verified_clips",
           "persons",
-          "duration_seconds"
+          "duration_seconds",
+          "reference_sources"
+        ]
+      },
+      "BenchmarkReferenceSources": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "production",
+            "import"
+          ]
+        },
+        "description": "D'où viennent les références des clips certifiés : production (sortie du pipeline de production corrigée par des humains, qui avantage le modèle de production) et/ou import (STM ou RTTM écrit à la main). L'avertissement de biais ne s'applique que si production y figure."
+      },
+      "BenchmarkReferenceImport": {
+        "type": "object",
+        "properties": {
+          "clip_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stm": {
+            "type": "string",
+            "description": "Texte de référence : `<fichier> <canal> <locuteur> <début> <fin> [<étiquettes>] texte`, lignes `;;` ignorées."
+          },
+          "rttm": {
+            "type": "string",
+            "description": "Tours de parole de référence : `SPEAKER <fichier> <canal> <début> <durée> <NA> <NA> <locuteur> <NA> <NA>`."
+          }
+        },
+        "required": [
+          "clip_id"
         ]
       },
       "BenchmarkDatasetList": {
@@ -29973,6 +30008,13 @@
               "format": "int64"
             },
             "description": "Clips de test dont l'administrateur atteste que le texte et les locuteurs ont été relus en entier."
+          },
+          "reference_imports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkReferenceImport"
+            },
+            "description": "Références externes (STM et/ou RTTM, 2 Mo au total) qui remplacent la référence de production d'un clip de test ; le clip compte alors comme certifié. La piste est celle de la transcription de production du clip."
           }
         },
         "required": [
@@ -30168,6 +30210,9 @@
           "dataset_name": {
             "type": "string"
           },
+          "reference_sources": {
+            "$ref": "#/components/schemas/BenchmarkReferenceSources"
+          },
           "stage": {
             "type": "string",
             "enum": [
@@ -30232,7 +30277,8 @@
           "created_at",
           "progress",
           "results",
-          "chains"
+          "chains",
+          "reference_sources"
         ]
       },
       "BenchmarkRunList": {

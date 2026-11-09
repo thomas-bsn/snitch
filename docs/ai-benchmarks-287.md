@@ -48,7 +48,10 @@ Onglet **Benchmark** de l'administration, réservé aux administrateurs : **Benc
 
 Référence visuelle : `design/ai-models/` (prototype jetable). Tests : `web/e2e/admin-benchmark.spec.ts` (accès réservé, création d'un corpus, résultats d'un run terminé, infobulles au survol et au clavier, accessibilité axe) ; les runs affichés sont semés par `benchmark_seed_integration_test.go`. Le suivi d'un run en cours (bandeau de progression, annulation) n'est couvert que par les tests d'API : le test navigateur demanderait deux modèles prêts sur un Worker.
 
+## Références externes (STM, RTTM)
+
+À la création d'un corpus, un clip de test peut recevoir un STM (texte) et/ou un RTTM (tours de parole) écrits à la main (`reference_imports`, 2 Mo au total). Ils remplacent la référence de production du clip, qui compte comme certifié ; la source est mémorisée par clip (`reference_source`, migration 00135) et exposée par la liste des corpus et le détail d'un run. L'avertissement de biais ne s'affiche que si une référence de production est utilisée. Voir l'[ADR 0061](adr/0061-references-externes-stm-rttm.md). Écran : zone « Importer une référence » par clip de test dans le constructeur de corpus. Tests : parseurs (unitaires), `TestFoundation/ai_benchmark_reference_import`, `web/e2e/admin-benchmark.spec.ts`. Limite : un clip multipiste ou sans transcription ni voix diarisée ne peut pas être importé (piste inconnue ou ambiguë).
+
 ## Restant
 
-- Import de références externes (STM, RTTM) pour lever le biais en faveur du modèle de production.
 - Activation du modèle de production avec plan de réanalyse (la transition de l'ADR 0044 reste le chemin).

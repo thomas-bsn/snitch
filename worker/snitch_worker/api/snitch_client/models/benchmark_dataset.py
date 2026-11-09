@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
+from ..models.benchmark_reference_sources_item import BenchmarkReferenceSourcesItem
 from typing import cast
 import datetime
 
@@ -36,6 +37,9 @@ class BenchmarkDataset:
             verified_clips (int):
             persons (int):
             duration_seconds (float):
+            reference_sources (list[BenchmarkReferenceSourcesItem]): D'où viennent les références des clips certifiés :
+                production (sortie du pipeline de production corrigée par des humains, qui avantage le modèle de production)
+                et/ou import (STM ou RTTM écrit à la main). L'avertissement de biais ne s'applique que si production y figure.
      """
 
     id: int
@@ -48,6 +52,7 @@ class BenchmarkDataset:
     verified_clips: int
     persons: int
     duration_seconds: float
+    reference_sources: list[BenchmarkReferenceSourcesItem]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -80,6 +85,13 @@ class BenchmarkDataset:
 
         duration_seconds = self.duration_seconds
 
+        reference_sources = []
+        for componentsschemas_benchmark_reference_sources_item_data in self.reference_sources:
+            componentsschemas_benchmark_reference_sources_item = componentsschemas_benchmark_reference_sources_item_data.value
+            reference_sources.append(componentsschemas_benchmark_reference_sources_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -94,6 +106,7 @@ class BenchmarkDataset:
             "verified_clips": verified_clips,
             "persons": persons,
             "duration_seconds": duration_seconds,
+            "reference_sources": reference_sources,
         })
 
         return field_dict
@@ -134,6 +147,16 @@ class BenchmarkDataset:
 
         duration_seconds = d.pop("duration_seconds")
 
+        reference_sources = []
+        _reference_sources = d.pop("reference_sources")
+        for componentsschemas_benchmark_reference_sources_item_data in (_reference_sources):
+            componentsschemas_benchmark_reference_sources_item = BenchmarkReferenceSourcesItem(componentsschemas_benchmark_reference_sources_item_data)
+
+
+
+            reference_sources.append(componentsschemas_benchmark_reference_sources_item)
+
+
         benchmark_dataset = cls(
             id=id,
             name=name,
@@ -145,6 +168,7 @@ class BenchmarkDataset:
             verified_clips=verified_clips,
             persons=persons,
             duration_seconds=duration_seconds,
+            reference_sources=reference_sources,
         )
 
 
