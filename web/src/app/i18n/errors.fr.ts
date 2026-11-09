@@ -500,4 +500,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Confirmez explicitement le changement de modèle.",
   benchmark_activation_stale:
     "Le modèle en production a changé depuis l’aperçu : relisez-le avant de confirmer.",
+  benchmark_activation_run_active:
+    "Un benchmark est en cours : attendez sa fin ou annulez-le avant de changer le modèle.",
+  benchmark_activation_run_mismatch:
+    "Ce benchmark n’a pas mesuré ce modèle pour cette étape.",
 };

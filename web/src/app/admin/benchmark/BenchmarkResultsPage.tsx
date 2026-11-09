@@ -253,11 +253,13 @@ function RunDetail({ id }: { id: number }) {
     transcriptionModels.reload();
     diarizationModels.reload();
   };
+  // A boolean, not the run: a new object at each read would tear the timer down and set it up again every time.
+  const running = run ? isRunning(run) : false;
   useEffect(() => {
-    if (!run || !isRunning(run)) return;
+    if (!running) return;
     const timer = setInterval(reload, 3000);
     return () => clearInterval(timer);
-  }, [run, reload]);
+  }, [running, reload]);
 
   const back = (
     <Link

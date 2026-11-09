@@ -479,4 +479,8 @@ export const errorsEn = {
     "Confirm the change of model explicitly.",
   benchmark_activation_stale:
     "The model in production changed since the preview: read it again before confirming.",
+  benchmark_activation_run_active:
+    "A benchmark is running: wait for it or cancel it before changing the model.",
+  benchmark_activation_run_mismatch:
+    "That benchmark did not measure this model for this stage.",
 };

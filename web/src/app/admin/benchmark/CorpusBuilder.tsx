@@ -122,6 +122,11 @@ export function CorpusBuilder({
     file: File | undefined,
   ) => {
     if (!file) return;
+    // Refused before it is read: a large file would be loaded whole in memory only for the server to refuse it.
+    if (file.size > 2 * 1024 * 1024) {
+      setImportFailure("benchmark.corpus.importTooBig");
+      return;
+    }
     try {
       const text = await file.text();
       setImportFailure(undefined);

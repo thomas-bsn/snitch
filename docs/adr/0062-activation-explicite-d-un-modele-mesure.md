@@ -14,6 +14,7 @@ Un benchmark désigne parfois un meilleur modèle que celui de la production. Le
 - **La confirmation nomme le modèle remplacé** (`expected_current`) : un changement survenu depuis l'aperçu est refusé (409), pas écrasé. Une case à cocher exprime que le changement ne vaut que pour le travail à venir. Un modèle déjà en production ne peut pas être « changé ».
 - **Diarisation** : le modèle doit être détenu par un Worker (même règle que l'activation existante) ; les seuils du pipeline restent. **Transcription** : seul le modèle change ; la langue, la préparation et la détection de parole restent.
 - **L'empreinte** change par sa transition (ADR 0044), qui recalcule les références avant de basculer ; une chaîne n'est pas un modèle. Les deux sont refusés ici (`benchmark_activation_unsupported`).
+- **Refusée pendant qu'un benchmark est en cours** (`benchmark_activation_run_active`) : ses tâches lisent le profil de production à leur prise en charge, et le changer en route mesurerait deux réglages. Les réglages de production lus (profil de transcription, pipeline vocal, avec leurs versions) sont aussi enregistrés dans les paramètres de chaque run. La confirmation relit le modèle remplacé sous verrou : deux confirmations du même aperçu ne gagnent pas toutes les deux ; le run cité doit avoir mesuré ce modèle pour cette étape.
 - **Chaque changement est enregistré** avec son auteur, son ancien et son nouveau modèle et le run qui l'a motivé (`benchmark_activations`).
 
 ## Alternatives écartées

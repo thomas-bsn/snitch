@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"errors"
+	"strings"
 	"testing"
 )
 
@@ -67,5 +68,20 @@ func TestImportedSpeakersOverlap(t *testing.T) {
 	}
 	if referenceSpeakersOverlap(stm, []rttmTurn{{speaker: "carol"}}) {
 		t.Fatal("no shared name must be refused")
+	}
+}
+
+func TestImportRefusesControlCharactersAndAbsurdLines(t *testing.T) {
+	// A NUL byte is refused by the database: it must be a format error, not a failure after the transaction began.
+	for _, text := range []string{"f 1 alice 0.0 1.0 bon\x00jour\n", "f 1 alice\x01 0.0 1.0 bonjour\n", "f 1 alice 0.0 1.0 " + strings.Repeat("a", benchMaxImportLine) + "\n"} {
+		if _, err := parseSTM(text); err == nil {
+			t.Fatalf("a control character or an absurd line is refused: %q", text[:min(len(text), 30)])
+		}
+	}
+	if _, err := parseRTTM("SPEAKER f 1 0.0 1.0 <NA> <NA> al\x00ice <NA> <NA>\n"); err == nil {
+		t.Fatal("a NUL in an RTTM is refused too")
+	}
+	if _, err := parseSTM("f 1 alice 0.0 1.0 bonjour\ttout\n"); err != nil {
+		t.Fatalf("a tab separates fields in the wild: %v", err)
 	}
 }

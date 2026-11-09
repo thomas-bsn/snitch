@@ -153,6 +153,9 @@ func (s *Server) listBenchmarkRuns(w http.ResponseWriter, r *http.Request) {
 	}
 	rows.Close()
 	for i := range out {
+		if out[i].Status != "running" {
+			continue // a read writes nothing for a run that is over
+		}
 		if err = s.settleBenchmarkRun(r.Context(), out[i].ID); err != nil {
 			s.internal(w, err)
 			return
@@ -413,6 +416,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+	params = s.withProfiles(r.Context(), params, input.Stage)
 	var runID int64
 	err = s.Pool.QueryRow(r.Context(), `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_id,author_name) VALUES($1,$2,$3,'running',$4,$5,$6,$7) RETURNING id`,
 		input.DatasetID, name, input.Stage, input.ModelIDs, params, ss.User.ID, ss.User.Username).Scan(&runID)
@@ -452,11 +456,11 @@ func (s *Server) abortBenchmarkRun(ctx context.Context, runID, adminID int64) {
 	}
 }
 
-func (s *Server) cancelBenchmarkJobs(ctx context.Context, runID, adminID int64) {
+func (s *Server) cancelBenchmarkJobs(ctx context.Context, runID, adminID int64) error {
 	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT j.id FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 AND j.status IN ('pending','leased','retry_wait')`, runID)
 	if err != nil {
 		s.Log.Error("benchmark jobs read failed", "kind", fmtError(err))
-		return
+		return err
 	}
 	var ids []int64
 	for rows.Next() {
@@ -466,11 +470,14 @@ func (s *Server) cancelBenchmarkJobs(ctx context.Context, runID, adminID int64) 
 		}
 	}
 	rows.Close()
+	var failed error
 	for _, id := range ids {
 		if err = s.Jobs.Cancel(ctx, id, adminID); err != nil && !errors.Is(err, jobs.ErrNotCancellable) && !errors.Is(err, jobs.ErrJobNotFound) {
 			s.Log.Error("benchmark job cancel failed", "kind", fmtError(err))
+			failed = err
 		}
 	}
+	return failed
 }
 
 func (s *Server) cancelBenchmarkRun(w http.ResponseWriter, r *http.Request) {
@@ -498,8 +505,12 @@ func (s *Server) cancelBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	// Cancelling never touches a production job: only the jobs this run scheduled for its own models.
-	s.cancelBenchmarkJobs(r.Context(), id, ss.User.ID)
+	// Cancelling never touches a production job: only the jobs this run scheduled for its own models. A task that could
+	// not be cancelled is told, not hidden: it may still be running on a Worker.
+	if err = s.cancelBenchmarkJobs(r.Context(), id, ss.User.ID); err != nil {
+		s.internal(w, err)
+		return
+	}
 	v, err := s.loadBenchmarkRun(r.Context(), id, true)
 	if err != nil {
 		s.internal(w, err)
@@ -546,6 +557,7 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 			if err = json.Unmarshal(paramsRaw, &p); err != nil {
 				return err
 			}
+			res = benchModelResult{model: model, state: "failed", metrics: []byte(`{}`)}
 			for _, c := range p.Chains {
 				if c.ID == model {
 					res, err = computeE2EResult(ctx, tx, runID, datasetID, c)

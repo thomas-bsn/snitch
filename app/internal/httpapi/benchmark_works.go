@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -108,4 +109,35 @@ func (s *Server) benchmarkWorks(w http.ResponseWriter, r *http.Request, stage st
 	}
 	raw, _ := json.Marshal(params)
 	return works, raw, true
+}
+
+// withProfiles records, in the parameters of a run, the production settings its tasks will read: the transcription
+// profile and the voice pipeline (with their versions). The tasks read them when a Worker takes them, so this is the
+// evidence of what was measured, and an activation is refused while a run is open (ADR 0062).
+func (s *Server) withProfiles(ctx context.Context, params []byte, stage string) []byte {
+	var p map[string]any
+	if json.Unmarshal(params, &p) != nil {
+		return params
+	}
+	profile := map[string]any{}
+	if stage == "transcription" || stage == "e2e" {
+		var version string
+		var config []byte
+		if s.Pool.QueryRow(ctx, `SELECT a.version,v.config FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &config) == nil {
+			profile["transcription"] = map[string]any{"version": version, "config": json.RawMessage(config)}
+		}
+	}
+	if stage != "transcription" {
+		var version string
+		var config []byte
+		if s.Pool.QueryRow(ctx, `SELECT a.version,v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&version, &config) == nil {
+			profile["voice"] = map[string]any{"version": version, "config": json.RawMessage(config)}
+		}
+	}
+	p["profile"] = profile
+	out, err := json.Marshal(p)
+	if err != nil {
+		return params
+	}
+	return out
 }

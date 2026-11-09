@@ -66,7 +66,32 @@ func testAIBenchmarkActivation(t *testing.T, pool *pgxpool.Pool) {
 	if activeTranscription() != before {
 		t.Fatal("a refused activation changes nothing")
 	}
-	h.adminCall(http.MethodPost, base, body("vendor/model-new", before, true), http.StatusOK)
+	// Only an administrator confirms, and the run named must have measured this model for this stage.
+	if status, _ := h.userStatus(member, http.MethodPost, base, body("vendor/model-new", before, true)); status != http.StatusForbidden {
+		t.Fatalf("a member must not confirm, got %d", status)
+	}
+	h.adminCall(http.MethodPost, base, map[string]any{"stage": "transcription", "model": "vendor/model-new", "expected_current": before, "confirm": true, "run_id": 999999}, http.StatusUnprocessableEntity)
+	// A benchmark under way reads the live profile: no model change meanwhile.
+	var dataset int64
+	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_datasets(name,author_name,stages) VALUES('activation','t','{transcription}') RETURNING id`).Scan(&dataset); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids) VALUES($1,'activation','transcription','running','{vendor/model-new,other}')`, dataset); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodPost, base, body("vendor/model-new", before, true), http.StatusConflict)
+	if activeTranscription() != before {
+		t.Fatal("a refused activation changes nothing")
+	}
+	var finished int64
+	if err := pool.QueryRow(ctx, `UPDATE benchmark_runs SET status='completed',finished_at=now() WHERE dataset_id=$1 RETURNING id`, dataset).Scan(&finished); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodPost, base, map[string]any{"stage": "transcription", "model": "vendor/model-new", "expected_current": before, "confirm": true, "run_id": finished}, http.StatusOK)
+	if n := h.count(`SELECT count(*) FROM benchmark_activations WHERE run_id=$1`, finished); n != 1 {
+		t.Fatalf("the change is traced to the run that measured the model, got %d", n)
+	}
+	h.adminCall(http.MethodPost, base, body("vendor/model-new", before, true), http.StatusConflict) // replay
 	if activeTranscription() != "vendor/model-new" {
 		t.Fatalf("the model is now the new one, got %q", activeTranscription())
 	}
@@ -78,10 +103,9 @@ func testAIBenchmarkActivation(t *testing.T, pool *pgxpool.Pool) {
 	if n := h.count(`SELECT count(*) FROM jobs`); n != jobsBefore {
 		t.Fatalf("activating a model schedules nothing: %d jobs then %d", jobsBefore, n)
 	}
-	if n := h.count(`SELECT count(*) FROM benchmark_activations WHERE stage='transcription' AND to_model='vendor/model-new' AND from_model=$1 AND author_name<>''`, before); n != 1 {
+	if n := h.count(`SELECT count(*) FROM benchmark_activations WHERE stage='transcription' AND to_model='vendor/model-new' AND from_model=$1 AND author_name<>''`, before); n != 1 { // one change, one row
 		t.Fatalf("the change is recorded with its author, got %d", n)
 	}
-	h.adminCall(http.MethodPost, base, body("vendor/model-new", before, true), http.StatusConflict) // the same preview cannot be replayed
 
 	// Diarization: a catalogue model that a Worker holds.
 	if _, err := pool.Exec(ctx, `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision) VALUES('bench-diar-act','diarization','pyannote','fixture/bench-diar-act','0123456789abcdef0123456789abcdef01234567') ON CONFLICT DO NOTHING`); err != nil {

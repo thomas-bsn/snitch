@@ -45,6 +45,9 @@ func importSeconds(raw string) (float64, bool) {
 }
 
 // importLines yields the meaningful lines of a file: blank lines and ";;" comments are dropped.
+// benchMaxImportLine bounds one line of an imported file: a segment of speech is far shorter.
+const benchMaxImportLine = 8192
+
 func importLines(text string) ([]string, error) {
 	raw := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
 	if len(raw) > benchMaxImportLines {
@@ -52,6 +55,10 @@ func importLines(text string) ([]string, error) {
 	}
 	out := make([]string, 0, len(raw))
 	for _, line := range raw {
+		// A control character (a NUL above all, which the database refuses) or an absurd line is not a transcript.
+		if len(line) > benchMaxImportLine || strings.ContainsFunc(line, func(r rune) bool { return r < 0x20 && r != '\t' }) {
+			return nil, errImportFormat
+		}
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, ";;") {
 			continue

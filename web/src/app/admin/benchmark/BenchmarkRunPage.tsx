@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { FlaskConical } from "lucide-react";
 import { api, errorCode, mutation } from "../../api/client";
@@ -88,7 +88,9 @@ export function BenchmarkRunPage() {
   const { reload: reloadModels } = models;
   const { reload: reloadTranscription } = transcriptionModels;
   const watched = useRef<number | undefined>(undefined);
-  const allRuns = runs.state.status === "ready" ? runs.state.value.runs : [];
+  const loadedRuns =
+    runs.state.status === "ready" ? runs.state.value.runs : undefined;
+  const allRuns = useMemo(() => loadedRuns ?? [], [loadedRuns]);
   useEffect(() => {
     if (active) {
       watched.current = active.id;

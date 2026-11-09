@@ -15,7 +15,7 @@ import (
 //
 // Since #350 the model also needs its pinned revision and, for an engine that needs one, its approved runtime
 // ready on that same Worker (RuntimeReadyClause).
-var requestedModelClaimGuard = `(j.requested_model_id IS NULL OR j.step LIKE 'benchmark.transcription.%' OR EXISTS (
+var requestedModelClaimGuard = `(j.requested_model_id IS NULL OR j.step LIKE '` + BenchmarkTranscriptionPrefix + `%' OR EXISTS (
 		      SELECT 1 FROM worker_voice_models wm JOIN voice_model_catalog rm ON rm.id=wm.model_id
 		      WHERE wm.worker_id=$4::text AND wm.model_id=j.requested_model_id AND wm.state='ready' AND NOT wm.removal_requested
 		        AND ` + RuntimeReadyClause("wm", "rm") + `))`
