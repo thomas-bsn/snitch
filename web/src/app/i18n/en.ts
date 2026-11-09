@@ -284,6 +284,10 @@ export const en = {
     label: "Display name",
     enabled: "Available for installation",
     edit: "Edit reference",
+    family: "On-demand engine family",
+    familyNone: "None (embedded or signed engine)",
+    familyHint:
+      "With a family, the model asks for the engine of that family, installed on demand, instead of an embedded or signed one. Not possible while an order of this model is open.",
     save: "Save reference",
     editHint:
       "The repository, revision, type and engine come from inspection. To change them, add another reference.",

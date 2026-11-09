@@ -103,6 +103,15 @@ func (e voiceCatalogEntry) engineNeed() (f engineFamily, needed, supported bool)
 	return f, true, ok && f.covers(e.Kind)
 }
 
+// signedOnlyAdapters are the adapters that exist only as a signed Release (ADR 0055): no embedded copy runs them.
+var signedOnlyAdapters = map[string]bool{"nemo-titanet": true, "speechbrain-ecapa": true}
+
+// signedReleaseRequired tells the interface whether the model needs an approved signed Release: it has no
+// on-demand family and its adapter is not embedded. The rule stays here, the interface never guesses it.
+func (e voiceCatalogEntry) signedReleaseRequired() bool {
+	return e.Family == "" && signedOnlyAdapters[e.Engine]
+}
+
 // adapterFamily maps the adapter a model was assessed with to the on-demand family that runs it (ADR 0056).
 // A model discovered through the Hugging Face addition is tried on its family: that is what lets Nemotron-3, a
 // new ECAPA-TDNN or a WeSpeaker graph run without a signed release or a new adapter. The seeded Sortformer keeps
@@ -117,6 +126,14 @@ func catalogFamily(engine, kind string) string {
 		return family
 	}
 	return ""
+}
+
+// familyAcceptsModel tells whether an owner may attach this model to the family (ADR 0056): the family is in the
+// table and covers the task of the model, and the model is not run by an embedded adapter or by none (pyannote,
+// silero-jit and a reference without an approved adapter stay what they are).
+func familyAcceptsModel(family string, e voiceCatalogEntry) bool {
+	f, ok := engineFamilies[family]
+	return ok && f.covers(e.Kind) && e.Engine != "" && e.Engine != "pyannote" && e.Engine != "silero-jit"
 }
 
 // onDemandDigest is the deterministic identity of an on-demand engine.

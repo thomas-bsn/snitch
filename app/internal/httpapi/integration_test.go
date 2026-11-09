@@ -419,6 +419,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceEngineOnDemand(t, pool)
 	})
+	t.Run("voice catalog family edition", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogFamilyEdition(t, pool)
+	})
+	t.Run("voice catalog family backfill", func(t *testing.T) {
+		reset(t)
+		testVoiceCatalogFamilyBackfill(t, pool)
+	})
 	t.Run("voice engine shared directory", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineSharedDirectory(t, pool)

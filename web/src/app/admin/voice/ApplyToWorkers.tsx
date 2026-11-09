@@ -85,9 +85,7 @@ export function ApplyToWorkers({
     : available[0]?.digest;
   const runtimeRequired =
     !onDemand &&
-    (releases.length > 0 ||
-      model?.engine === "nemo-titanet" ||
-      model?.engine === "speechbrain-ecapa");
+    (releases.length > 0 || model?.signed_release_required === true);
   const runtimeBlocked =
     !onDemand &&
     (registry.status !== "ready" || (runtimeRequired && !runtimeDigest));

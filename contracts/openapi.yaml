@@ -10181,7 +10181,7 @@
             "session": []
           }
         ],
-        "description": "Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat.",
+        "description": "Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le rajouter.",
         "parameters": [
           {
             "in": "header",
@@ -21188,6 +21188,11 @@
           },
           "enabled": {
             "type": "boolean"
+          },
+          "family": {
+            "type": "string",
+            "maxLength": 32,
+            "description": "Famille d'engine à la demande du modèle (ADR 0056) ; chaîne vide pour revenir au contrat embarqué ou signé. Doit exister dans la table des familles et couvrir la tâche du modèle (400 unsupported_engine_family) ; les modèles à adaptateur embarqué (pyannote, silero-jit) n'en reçoivent pas. Refusé (409 voice_model_order_in_progress) tant qu'un ordre ou une installation du modèle est ouvert."
           }
         }
       },
@@ -21298,6 +21303,7 @@
           "enabled",
           "supported",
           "unsupported_reason",
+          "signed_release_required",
           "workers"
         ],
         "properties": {
@@ -21312,6 +21318,10 @@
               "separation",
               "vad"
             ]
+          },
+          "signed_release_required": {
+            "type": "boolean",
+            "description": "Vrai quand le modèle n'a ni famille à la demande ni adaptateur embarqué : il s'exécute sur une Release d'engine signée approuvée (ADR 0055). Décidé par le serveur, jamais déduit du nom d'adaptateur par l'interface."
           },
           "label": {
             "type": "string"

@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   ChevronRight,
   Download,
@@ -189,7 +189,28 @@ export function VoiceReferenceDetails({
     size: String(model.size_bytes / 1_000_000),
     vram: String(model.vram_bytes / 1_000_000),
     enabled: model.enabled,
+    family: model.family ?? "",
   });
+  // The families come from the server table; the model may only take one that covers its task.
+  const [families, setFamilies] = useState<string[]>([]);
+  useEffect(() => {
+    if (!editing || !canEdit) return;
+    let current = true;
+    api
+      .GET("/api/admin/voice-engines/families")
+      .then((r) => {
+        if (current && r.data)
+          setFamilies(
+            r.data.families
+              .filter((f) => f.kinds.includes(model.kind))
+              .map((f) => f.family),
+          );
+      })
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [editing, canEdit, model.kind]);
   const [failure, setFailure] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [activating, setActivating] = useState(false);
@@ -224,6 +245,10 @@ export function VoiceReferenceDetails({
           size_bytes: Math.round(Number(draft.size) * 1_000_000),
           vram_bytes: Math.round(Number(draft.vram) * 1_000_000),
           enabled: draft.enabled,
+          // Only sent when changed: an unchanged form never touches the engine contract of the model.
+          ...(draft.family !== (model.family ?? "")
+            ? { family: draft.family }
+            : {}),
         },
       }),
     );
@@ -274,6 +299,23 @@ export function VoiceReferenceDetails({
               onChange={(e) => setDraft({ ...draft, vram: e.target.value })}
             />
           </div>
+          <label className="grid gap-1">
+            {t("voiceWorkspace.family")}
+            <select
+              value={draft.family}
+              onChange={(e) => setDraft({ ...draft, family: e.target.value })}
+            >
+              <option value="">{t("voiceWorkspace.familyNone")}</option>
+              {families.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+            <span className="text-sm text-mute">
+              {t("voiceWorkspace.familyHint")}
+            </span>
+          </label>
           <label className="flex min-h-11 items-center gap-2">
             <input
               type="checkbox"

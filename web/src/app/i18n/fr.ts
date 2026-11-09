@@ -284,6 +284,10 @@ export const fr: Messages = {
     label: "Nom affiché",
     enabled: "Disponible à l’installation",
     edit: "Modifier la référence",
+    family: "Famille d’engine à la demande",
+    familyNone: "Aucune (engine embarqué ou signé)",
+    familyHint:
+      "Avec une famille, le modèle demande l’engine de cette famille, installé à la demande, au lieu d’un engine embarqué ou signé. Impossible tant qu’un ordre de ce modèle est ouvert.",
     save: "Enregistrer la référence",
     editHint:
       "Le dépôt, la révision, le type et le moteur proviennent de l’inspection. Pour les changer, ajoutez une autre référence.",

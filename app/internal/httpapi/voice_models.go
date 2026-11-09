@@ -79,6 +79,7 @@ func voiceModelViewOf(entry voiceCatalogEntry) voiceModelView {
 		ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Family: entry.Family, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
 		Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers, Label: entry.Label, VRAMBytes: entry.VRAMBytes,
 		Enabled: entry.Enabled, Supported: entry.Supported, UnsupportedReason: entry.UnsupportedReason, Workers: []voiceModelWorkerState{},
+		SignedReleaseRequired: entry.signedReleaseRequired(),
 	}
 	if entry.MaxSpeakers > 0 {
 		limit := entry.MaxSpeakers
@@ -88,26 +89,27 @@ func voiceModelViewOf(entry voiceCatalogEntry) voiceModelView {
 }
 
 type voiceModelView struct {
-	ID                  string                  `json:"id"`
-	Kind                string                  `json:"kind"`
-	Engine              string                  `json:"engine"`
-	Family              string                  `json:"family,omitempty"`
-	Repo                string                  `json:"repo"`
-	Revision            string                  `json:"revision"`
-	License             string                  `json:"license"`
-	Gated               bool                    `json:"gated"`
-	MaxSpeakers         *int                    `json:"max_speakers"`
-	SizeBytes           int64                   `json:"size_bytes"`
-	SupportsNumSpeakers bool                    `json:"supports_num_speakers"`
-	Active              bool                    `json:"active"`
-	Candidate           bool                    `json:"candidate"`
-	Installed           bool                    `json:"installed"`
-	Label               string                  `json:"label"`
-	VRAMBytes           int64                   `json:"vram_bytes"`
-	Enabled             bool                    `json:"enabled"`
-	Supported           bool                    `json:"supported"`
-	UnsupportedReason   string                  `json:"unsupported_reason"`
-	Workers             []voiceModelWorkerState `json:"workers"`
+	ID                    string                  `json:"id"`
+	Kind                  string                  `json:"kind"`
+	Engine                string                  `json:"engine"`
+	Family                string                  `json:"family,omitempty"`
+	Repo                  string                  `json:"repo"`
+	Revision              string                  `json:"revision"`
+	License               string                  `json:"license"`
+	Gated                 bool                    `json:"gated"`
+	MaxSpeakers           *int                    `json:"max_speakers"`
+	SizeBytes             int64                   `json:"size_bytes"`
+	SupportsNumSpeakers   bool                    `json:"supports_num_speakers"`
+	Active                bool                    `json:"active"`
+	Candidate             bool                    `json:"candidate"`
+	Installed             bool                    `json:"installed"`
+	Label                 string                  `json:"label"`
+	VRAMBytes             int64                   `json:"vram_bytes"`
+	Enabled               bool                    `json:"enabled"`
+	Supported             bool                    `json:"supported"`
+	UnsupportedReason     string                  `json:"unsupported_reason"`
+	SignedReleaseRequired bool                    `json:"signed_release_required"`
+	Workers               []voiceModelWorkerState `json:"workers"`
 }
 
 func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {
@@ -606,6 +608,8 @@ func (s *Server) patchVoiceModel(w http.ResponseWriter, r *http.Request) {
 		SizeBytes *int64  `json:"size_bytes"`
 		VRAMBytes *int64  `json:"vram_bytes"`
 		Enabled   *bool   `json:"enabled"`
+		// Family moves the model to an on-demand engine family, or back to its embedded/signed contract when "".
+		Family *string `json:"family"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -616,7 +620,7 @@ func (s *Server) patchVoiceModel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	id := r.PathValue("id")
-	errNotFound, errInUse := errors.New("not found"), errors.New("in use")
+	errNotFound, errInUse, errFamily, errOpen := errors.New("not found"), errors.New("in use"), errors.New("family"), errors.New("open order")
 	err := s.withVoiceModelLock(r.Context(), func(tx pgx.Tx) error {
 		entry, ok, err := voiceCatalogByID(r.Context(), tx, id)
 		if err != nil {
@@ -646,10 +650,31 @@ func (s *Server) patchVoiceModel(w http.ResponseWriter, r *http.Request) {
 				return errInUse
 			}
 		}
-		_, err = tx.Exec(r.Context(), `UPDATE voice_model_catalog SET label=COALESCE($2,label),license=COALESCE($3,license),size_bytes=COALESCE($4,size_bytes),vram_bytes=COALESCE($5,vram_bytes),enabled=COALESCE($6,enabled),updated_at=now() WHERE id=$1`,
-			id, input.Label, input.License, input.SizeBytes, input.VRAMBytes, input.Enabled)
+		if input.Family != nil && *input.Family != entry.Family {
+			if *input.Family != "" && !familyAcceptsModel(*input.Family, entry) {
+				return errFamily
+			}
+			var open bool
+			if err = tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM worker_model_orders WHERE model_id=$1 AND status IN ('pending','acknowledged'))
+				OR EXISTS(SELECT 1 FROM worker_voice_models WHERE model_id=$1 AND state IN ('requested','downloading','verifying'))`, id).Scan(&open); err != nil {
+				return err
+			}
+			if open {
+				return errOpen
+			}
+		}
+		_, err = tx.Exec(r.Context(), `UPDATE voice_model_catalog SET label=COALESCE($2,label),license=COALESCE($3,license),size_bytes=COALESCE($4,size_bytes),vram_bytes=COALESCE($5,vram_bytes),enabled=COALESCE($6,enabled),family=COALESCE($7,family),updated_at=now() WHERE id=$1`,
+			id, input.Label, input.License, input.SizeBytes, input.VRAMBytes, input.Enabled, input.Family)
 		return err
 	})
+	if errors.Is(err, errFamily) {
+		fail(w, http.StatusBadRequest, "unsupported_engine_family")
+		return
+	}
+	if errors.Is(err, errOpen) {
+		fail(w, http.StatusConflict, "voice_model_order_in_progress")
+		return
+	}
 	if errors.Is(err, errNotFound) {
 		fail(w, http.StatusNotFound, "voice_model_not_found")
 		return

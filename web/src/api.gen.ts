@@ -2365,7 +2365,7 @@ export interface paths {
     delete?: never;
     options?: never;
     head?: never;
-    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. */
+    /** @description Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille, mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le rajouter. */
     patch: operations["patchVoiceModel"];
     trace?: never;
   };
@@ -5246,6 +5246,8 @@ export interface components {
       /** Format: int64 */
       vram_bytes?: number;
       enabled?: boolean;
+      /** @description Famille d'engine à la demande du modèle (ADR 0056) ; chaîne vide pour revenir au contrat embarqué ou signé. Doit exister dans la table des familles et couvrir la tâche du modèle (400 unsupported_engine_family) ; les modèles à adaptateur embarqué (pyannote, silero-jit) n'en reçoivent pas. Refusé (409 voice_model_order_in_progress) tant qu'un ordre ou une installation du modèle est ouvert. */
+      family?: string;
     };
     VoiceModelCandidate: {
       candidate: string;
@@ -5293,6 +5295,8 @@ export interface components {
       id: string;
       /** @enum {string} */
       kind: "diarization" | "fingerprint" | "separation" | "vad";
+      /** @description Vrai quand le modèle n'a ni famille à la demande ni adaptateur embarqué : il s'exécute sur une Release d'engine signée approuvée (ADR 0055). Décidé par le serveur, jamais déduit du nom d'adaptateur par l'interface. */
+      signed_release_required: boolean;
       label: string;
       /**
        * Format: int64

@@ -570,6 +570,15 @@ test("la matrice B conserve la sélection, le catalogue est éditable et les ong
   await details
     .getByRole("button", { name: "Edit reference", exact: true })
     .click();
+  // The family control lists the server's families for the task of the model, none being the default.
+  const family = details.getByLabel("On-demand engine family");
+  await expect(family).toHaveValue("");
+  await expect(family.locator("option")).toContainText([
+    "None (embedded or signed engine)",
+    "nemo",
+    "speechbrain",
+    "wespeaker",
+  ]);
   await details
     .getByLabel("Display name", { exact: true })
     .fill("Fingerprint catalogue B");

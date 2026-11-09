@@ -84,7 +84,9 @@ def sync_detailed(
 ) -> Response[Error | VoiceModel]:
     """  Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille,
     mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change
-    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat.
+    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le
+    modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le
+    rajouter.
 
     Args:
         id (str):
@@ -126,7 +128,9 @@ def sync(
 ) -> Error | VoiceModel | None:
     """  Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille,
     mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change
-    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat.
+    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le
+    modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le
+    rajouter.
 
     Args:
         id (str):
@@ -163,7 +167,9 @@ async def asyncio_detailed(
 ) -> Response[Error | VoiceModel]:
     """  Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille,
     mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change
-    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat.
+    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le
+    modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le
+    rajouter.
 
     Args:
         id (str):
@@ -205,7 +211,9 @@ async def asyncio(
 ) -> Error | VoiceModel | None:
     """  Super-administrateur uniquement. Modifie les métadonnées d'une référence (libellé, licence, taille,
     mémoire GPU) ou l'active/la désactive. L'identité (type, dépôt, révision, adaptateur) ne change
-    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat.
+    jamais. Refusé (voice_model_in_use) pour désactiver le modèle actif ou le candidat. Rattache le
+    modèle à une famille d'engine à la demande, ou l'en détache (family), sans le supprimer ni le
+    rajouter.
 
     Args:
         id (str):
