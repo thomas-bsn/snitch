@@ -3927,6 +3927,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/workers/{id}/voice-model-orders/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : ce que la confirmation d'un ordre de modèle doit montrer avant tout ordre : l'engine à la demande dont le modèle a besoin (famille, version, tâche), son état sur ce Worker (absent, en cours, prêt), le disque et la durée estimés tant qu'il reste à installer, et la cause de refus matériel éventuelle. Un modèle embarqué ou à adaptateur signé n'a besoin d'aucun engine à la demande (engine_required false). Famille inconnue de la table : 400 unsupported_engine_family, sans aucun ordre. Ne crée rien. */
+    get: operations["previewVoiceModelOrder"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7576,6 +7593,8 @@ export interface components {
         worker_id: string;
         idempotency_key: string;
       }[];
+      /** @description Tâche couverte par l'engine (diarization, fingerprint pour NeMo) ; la première tâche de la famille si omise. Chaque tâche est une identité distincte. */
+      kind?: string;
     };
     VoiceEngineOrderInput: {
       /** @description Identité signée de la version approuvée (empreinte du registre). */
@@ -7942,6 +7961,30 @@ export interface components {
       cpu_fallback: boolean;
       /** Format: date-time */
       reported_at: string;
+    };
+    VoiceModelOrderPreview: {
+      model_id: string;
+      /** @description Vrai quand le modèle demande un engine à la demande ; faux pour un moteur embarqué ou un adaptateur signé. */
+      engine_required: boolean;
+      family?: string;
+      engine?: string;
+      version?: string;
+      /** @description Tâche de l'engine (celle du modèle). */
+      kind?: string;
+      /** @enum {string} */
+      state?: "missing" | "in_progress" | "ready";
+      /**
+       * Format: int64
+       * @description Disque que l'engine va occuper ; 0 s'il est déjà prêt.
+       */
+      disk_bytes: number;
+      /**
+       * Format: int64
+       * @description Durée estimée de l'installation ; 0 s'il est déjà prêt.
+       */
+      estimated_seconds: number;
+      /** @description Cause stable qui refuserait l'ordre d'engine sur ce Worker (matériel), absente sinon. */
+      blocker?: string;
     };
   };
   responses: never;
@@ -18932,6 +18975,39 @@ export interface operations {
         content?: never;
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceModelOrder: {
+    parameters: {
+      query: {
+        model_id: string;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceModelOrderPreview"];
+        };
+      };
+      /** @description Erreur (400 unsupported_engine_family ou invalid_voice_model, 401 session required, 403 permission, 404 worker_not_found) */
       default: {
         headers: {
           [name: string]: unknown;

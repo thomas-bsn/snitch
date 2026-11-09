@@ -945,6 +945,7 @@ type VoiceModelCatalog struct {
 	UnsupportedReason   string             `json:"unsupported_reason"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	Family              string             `json:"family"`
 }
 
 type VoicePipelineActive struct {

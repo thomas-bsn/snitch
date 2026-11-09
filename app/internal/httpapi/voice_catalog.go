@@ -27,13 +27,16 @@ type voiceCatalogEntry struct {
 	Enabled             bool // a disabled reference can no longer be chosen; its history stays readable
 	Supported           bool // false: no approved adapter can run it
 	UnsupportedReason   string
+	// Family names the on-demand engine family the model asks for (ADR 0056); empty for the embedded and the
+	// signed adapters. Engine stays the adapter that loads the weights.
+	Family string
 }
 
-const voiceCatalogColumns = `id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason`
+const voiceCatalogColumns = `id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason,family`
 
 func scanVoiceCatalogEntry(row pgx.Row) (voiceCatalogEntry, error) {
 	var e voiceCatalogEntry
-	err := row.Scan(&e.ID, &e.Kind, &e.Engine, &e.Repo, &e.Revision, &e.Label, &e.License, &e.Gated, &e.MaxSpeakers, &e.SizeBytes, &e.VRAMBytes, &e.SupportsNumSpeakers, &e.Enabled, &e.Supported, &e.UnsupportedReason)
+	err := row.Scan(&e.ID, &e.Kind, &e.Engine, &e.Repo, &e.Revision, &e.Label, &e.License, &e.Gated, &e.MaxSpeakers, &e.SizeBytes, &e.VRAMBytes, &e.SupportsNumSpeakers, &e.Enabled, &e.Supported, &e.UnsupportedReason, &e.Family)
 	return e, err
 }
 

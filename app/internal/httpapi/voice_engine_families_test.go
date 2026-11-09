@@ -1,6 +1,9 @@
 package httpapi
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestOnDemandEngineIdentity(t *testing.T) {
 	a := onDemandDigest("nemo", "3.0.0", "diarization")
@@ -39,5 +42,50 @@ func TestOnDemandFamilyConstraints(t *testing.T) {
 	}
 	if v := checkEngineResources(m, cpu, 95<<30, false); v.Cause != causeDisk {
 		t.Fatalf("reserved disk must count: %+v", v)
+	}
+}
+
+func TestOnDemandManifestCarriesTheKind(t *testing.T) {
+	f := engineFamilies["nemo"]
+	for _, kind := range f.Kinds {
+		raw, digest, err := onDemandManifest(f, "3.0.0", kind)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var m map[string]any
+		if err := json.Unmarshal(raw, &m); err != nil {
+			t.Fatal(err)
+		}
+		if m["kind"] != kind || digest != onDemandDigest("nemo", "3.0.0", kind) {
+			t.Fatalf("%s: manifest kind %v digest %s", kind, m["kind"], digest)
+		}
+	}
+	if f.covers("separation") || !f.covers("fingerprint") || !f.covers("diarization") {
+		t.Fatal("a family covers exactly its kinds")
+	}
+}
+
+func TestCatalogEntryEngineNeed(t *testing.T) {
+	cases := []struct {
+		name      string
+		entry     voiceCatalogEntry
+		needed    bool
+		supported bool
+	}{
+		{"embedded Sortformer keeps its engine", voiceCatalogEntry{Engine: "nemo", Kind: "diarization"}, false, true},
+		{"signed fingerprint adapter", voiceCatalogEntry{Engine: "nemo-titanet", Kind: "fingerprint"}, false, true},
+		{"a newer NeMo model asks for the family", voiceCatalogEntry{Engine: "nemo", Kind: "diarization", Family: "nemo"}, true, true},
+		{"NeMo fingerprint", voiceCatalogEntry{Engine: "nemo", Kind: "fingerprint", Family: "nemo"}, true, true},
+		{"a family the table does not know", voiceCatalogEntry{Engine: "speechbrain-ecapa", Kind: "fingerprint", Family: "speechbrain"}, true, false},
+		{"a kind the family does not cover", voiceCatalogEntry{Engine: "nemo", Kind: "separation", Family: "nemo"}, true, false},
+	}
+	for _, c := range cases {
+		family, needed, supported := c.entry.engineNeed()
+		if needed != c.needed || supported != c.supported {
+			t.Errorf("%s: needed=%v supported=%v", c.name, needed, supported)
+		}
+		if needed && supported && family.Key != c.entry.Family {
+			t.Errorf("%s: family %q", c.name, family.Key)
+		}
 	}
 }

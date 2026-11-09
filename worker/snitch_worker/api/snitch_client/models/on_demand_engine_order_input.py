@@ -29,11 +29,14 @@ class OnDemandEngineOrderInput:
             family (str): Famille de bibliothèque de la table de Snitch (nemo).
             orders (list[OnDemandEngineOrderInputOrdersItem]):
             version (str | Unset): Version de la bibliothèque ; la version par défaut de la famille si omise.
+            kind (str | Unset): Tâche couverte par l'engine (diarization, fingerprint pour NeMo) ; la première tâche de la
+                famille si omise. Chaque tâche est une identité distincte.
      """
 
     family: str
     orders: list[OnDemandEngineOrderInputOrdersItem]
     version: str | Unset = UNSET
+    kind: str | Unset = UNSET
 
 
 
@@ -52,6 +55,8 @@ class OnDemandEngineOrderInput:
 
         version = self.version
 
+        kind = self.kind
+
 
         field_dict: dict[str, Any] = {}
 
@@ -61,6 +66,8 @@ class OnDemandEngineOrderInput:
         })
         if version is not UNSET:
             field_dict["version"] = version
+        if kind is not UNSET:
+            field_dict["kind"] = kind
 
         return field_dict
 
@@ -84,10 +91,13 @@ class OnDemandEngineOrderInput:
 
         version = d.pop("version", UNSET)
 
+        kind = d.pop("kind", UNSET)
+
         on_demand_engine_order_input = cls(
             family=family,
             orders=orders,
             version=version,
+            kind=kind,
         )
 
         return on_demand_engine_order_input

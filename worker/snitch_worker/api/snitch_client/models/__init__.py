@@ -499,6 +499,8 @@ from .voice_model_order_history_item_action import VoiceModelOrderHistoryItemAct
 from .voice_model_order_history_item_kind import VoiceModelOrderHistoryItemKind
 from .voice_model_order_history_item_status import VoiceModelOrderHistoryItemStatus
 from .voice_model_order_input import VoiceModelOrderInput
+from .voice_model_order_preview import VoiceModelOrderPreview
+from .voice_model_order_preview_state import VoiceModelOrderPreviewState
 from .voice_model_patch import VoiceModelPatch
 from .voice_model_removal_input import VoiceModelRemovalInput
 from .voice_model_retry import VoiceModelRetry
@@ -1141,6 +1143,8 @@ __all__ = (
     "VoiceModelOrderHistoryItemKind",
     "VoiceModelOrderHistoryItemStatus",
     "VoiceModelOrderInput",
+    "VoiceModelOrderPreview",
+    "VoiceModelOrderPreviewState",
     "VoiceModelPatch",
     "VoiceModelRemovalInput",
     "VoiceModelRetry",

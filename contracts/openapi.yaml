@@ -17026,6 +17026,53 @@
           }
         }
       }
+    },
+    "/api/admin/workers/{id}/voice-model-orders/preview": {
+      "get": {
+        "operationId": "previewVoiceModelOrder",
+        "description": "Administrateur : ce que la confirmation d'un ordre de modèle doit montrer avant tout ordre : l'engine à la demande dont le modèle a besoin (famille, version, tâche), son état sur ce Worker (absent, en cours, prêt), le disque et la durée estimés tant qu'il reste à installer, et la cause de refus matériel éventuelle. Un modèle embarqué ou à adaptateur signé n'a besoin d'aucun engine à la demande (engine_required false). Famille inconnue de la table : 400 unsupported_engine_family, sans aucun ordre. Ne crée rien.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64
+            }
+          },
+          {
+            "in": "query",
+            "name": "model_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceModelOrderPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 unsupported_engine_family ou invalid_voice_model, 401 session required, 403 permission, 404 worker_not_found)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -28710,6 +28757,10 @@
                 }
               }
             }
+          },
+          "kind": {
+            "type": "string",
+            "description": "Tâche couverte par l'engine (diarization, fingerprint pour NeMo) ; la première tâche de la famille si omise. Chaque tâche est une identité distincte."
           }
         }
       },
@@ -29685,6 +29736,60 @@
           "reported_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "VoiceModelOrderPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "model_id",
+          "engine_required",
+          "disk_bytes",
+          "estimated_seconds"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "engine_required": {
+            "type": "boolean",
+            "description": "Vrai quand le modèle demande un engine à la demande ; faux pour un moteur embarqué ou un adaptateur signé."
+          },
+          "family": {
+            "type": "string"
+          },
+          "engine": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Tâche de l'engine (celle du modèle)."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "missing",
+              "in_progress",
+              "ready"
+            ]
+          },
+          "disk_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Disque que l'engine va occuper ; 0 s'il est déjà prêt."
+          },
+          "estimated_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Durée estimée de l'installation ; 0 s'il est déjà prêt."
+          },
+          "blocker": {
+            "type": "string",
+            "description": "Cause stable qui refuserait l'ordre d'engine sur ce Worker (matériel), absente sinon."
           }
         }
       }
