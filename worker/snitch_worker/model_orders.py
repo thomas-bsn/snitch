@@ -38,7 +38,8 @@ _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
 # Intents of a model order: "install" (weights and runtime), or a runtime-only "update" / "rollback" (#352).
 RUNTIME_INTENTS = {"install", "update", "rollback"}
-ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use", "platform_incompatible", "cuda_incompatible", "insufficient_ram", "insufficient_vram"}
+ENGINE_CAUSES = {"disk_full", "runtime_incompatible", "hf_network", "cancelled", "runtime_in_use", "platform_incompatible", "cuda_incompatible", "insufficient_ram", "insufficient_vram",
+                "package_not_found", "resolution_failed", "build_failed"}
 # The inventory is observed on every pull but only sent when it changed or this long after the last send.
 INVENTORY_REFRESH_SECONDS = 60.0
 STATE_NAME = "orders.json"
@@ -217,7 +218,8 @@ class OrderExecutor:
         ):
             return False
         try:
-            engine_runtime.validate(runtime, engine, runtime.get("kind", ""))
+            # A signed manifest or an on-demand description: each is validated against its own closed schema.
+            engine_runtime.validate_runtime(runtime)
         except engine_runtime.RuntimeFailed:
             return False
         return runtime.get("engine") == engine and runtime.get("version") == order["version"]
@@ -286,8 +288,7 @@ class OrderExecutor:
             log.emit(logging.WARNING, "engine_cleanup_ignored", reason="malformed")
             return
         try:
-            engine_runtime.validate(runtime, runtime.get("engine", ""), runtime.get("kind", ""))
-            identity = engine_runtime.identity(runtime)
+            engine_runtime.validate_runtime(runtime)
         except engine_runtime.RuntimeFailed:
             log.emit(logging.WARNING, "engine_cleanup_ignored", reason="runtime")
             return
@@ -340,7 +341,7 @@ class OrderExecutor:
             else:
                 with engine_runtime.stop_when(lambda: order_id in self._cancelled):
                     self._install_runtime(runtime, self._env, report, True)
-                identity = engine_runtime.identity(runtime)
+                identity = engine_runtime.local_identity(runtime, self._env)
         except engine_runtime.RuntimeFailed as error:
             final, cause = "failed", error.cause if error.cause in ENGINE_CAUSES else "runtime_incompatible"
         except Exception:  # noqa: BLE001 - an order that cannot run must end as failed, not stay open
