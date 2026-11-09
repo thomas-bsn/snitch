@@ -369,8 +369,11 @@ FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "
                      "probe": "nemo.collections.asr.models"},
             # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter. Separation (SepFormer) is installed
             # for but has no adapter: the engine goes with the model, separation stays disabled in Snitch.
+            # SpeechBrain declares `torchaudio` with no upper bound, so pip takes the newest one; from torchaudio 2.9 the
+            # APIs it still calls at import (`list_audio_backends`) are gone, and the import fails. The pins are fixed
+            # values of this table, never taken from an order; raise them together with a version that supports more.
             "speechbrain": {"engine": "speechbrain", "distribution": "speechbrain", "extras": "", "kinds": ("fingerprint", "separation"),
-                            "probe": "speechbrain.lobes.models.ECAPA_TDNN"},
+                            "probe": "speechbrain.lobes.models.ECAPA_TDNN", "pins": ("torch<2.9", "torchaudio<2.9")},
             # WeSpeaker is not published on PyPI; its ONNX inference package is `wespeakerruntime` (#375). Fingerprint only.
             "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
                           "probe": "wespeakerruntime"}}
@@ -503,6 +506,12 @@ def _normal(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
 
+def on_demand_requirements(family: Mapping[str, Any], version: str) -> list[str]:
+    """The pip requirements of a family at a version: the library itself, then the fixed pins of its table entry."""
+    extras = f"[{family['extras']}]" if family["extras"] else ""
+    return [f"{family['distribution']}{extras}=={version}", *family.get("pins", ())]
+
+
 def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], report: Any) -> Path:
     validate_on_demand(runtime)
     family = FAMILIES[runtime["family"]]
@@ -522,14 +531,14 @@ def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], repo
             shutil.rmtree(target)
         target.mkdir()
         env = environment(environ)
-        requirement = f"{family['distribution']}[{family['extras']}]=={runtime['version']}" if family["extras"] else f"{family['distribution']}=={runtime['version']}"
+        requirements = on_demand_requirements(family, runtime["version"])
         try:
             checkpoint()
             report("installing")
             _step("venv", [sys.executable, "-m", "venv", str(target)], env, 120)
             checkpoint()
             python = str(target / "bin/python")
-            _pip(python, ["install", "--no-input", "--disable-pip-version-check", *_index_arguments(environ), requirement], env, PIP_TIMEOUT_SECONDS)
+            _pip(python, ["install", "--no-input", "--disable-pip-version-check", *_index_arguments(environ), *requirements], env, PIP_TIMEOUT_SECONDS)
             checkpoint()
             report("verifying")
             try:
