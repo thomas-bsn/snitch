@@ -113,7 +113,7 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Catalogue de modèles vocaux** : Les références de modèles locaux (diarisation, empreinte, séparation) que Snitch sait exécuter, éditées par le Super-administrateur. Seul un modèle du catalogue dont un adaptateur approuvé sait réellement le charger peut être installé ; un dépôt quelconque, ou un modèle sans adaptateur (`unsupported`), n'est jamais exécuté. Le moteur n'est pas un choix de l'utilisateur. ADR 0038.
 
-**Famille d'engine** : Une bibliothèque d'exécution connue de Snitch (NeMo, SpeechBrain, WeSpeaker) qui sait charger tout modèle du catalogue rattaché à elle, pour les tâches qu'elle couvre. Un modèle sans famille est refusé comme « famille non supportée », cause distincte d'un engine absent. ADR 0056.
+**Famille d'engine** : Un ensemble de modèles que Snitch sait exécuter avec une même bibliothèque d'exécution, pour les tâches qu'il couvre. Tout modèle du catalogue rattaché à la famille y est chargé sans code propre à ce modèle ; les familles connues sont celles de la table de Snitch. Un modèle sans famille est refusé comme « famille non supportée », cause distincte d'un engine absent. ADR 0056.
 
 **Engine à la demande** : Un engine désigné par une Famille d'engine et une version, installé sur un Worker après confirmation de l'Administrateur, sans signature ni import. Plusieurs versions d'une même famille coexistent sur un Worker. Sa résolution n'est pas reproductible d'une installation à l'autre, et sa confiance repose sur l'opérateur seul ; le parcours signé reste disponible sous « Avancé ». ADR 0056.
 
