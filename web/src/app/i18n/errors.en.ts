@@ -269,8 +269,6 @@ export const errorsEn = {
   invalid_worker_update_mode: "This update strategy is not valid.",
   invalid_worker_version:
     "This worker version is not a released version (vX.Y.Z).",
-  invalid_revoke_reason:
-    "The reason must be 200 characters or fewer, on a single line.",
   invalid_worker_models: "These worker models are not valid.",
   invalid_restart_request: "The restart request is not valid.",
   invalid_restart_result: "The restart result is not valid.",
@@ -436,10 +434,6 @@ export const errorsEn = {
   person_exists:
     "A person with this name already exists. Pick them, or confirm it is someone else.",
   worker_not_found: "This worker does not exist.",
-  worker_not_revoked:
-    "Only a deleted (revoked) Worker can be removed from the list.",
-  worker_cleanup_pending:
-    "The Worker's machine has not confirmed the revocation yet: it still needs this entry to clean up after itself.",
   install_invite_used:
     "The installation invitation was already used. Generate a new installation command in Admin > Workers.",
   invalid_install_event: "This installation event is not valid.",

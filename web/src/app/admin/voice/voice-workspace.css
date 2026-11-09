@@ -113,6 +113,8 @@
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  /* The add control carries its own success notice below its button: it must not stretch its siblings. */
+  align-items: flex-start;
   gap: 8px;
 }
 .voice-heading-actions > button:last-of-type {
@@ -813,6 +815,10 @@
   text-underline-offset: 3px;
 }
 /* VoiceModelAdd keeps its inspection form and success notice in its own wrapper. */
+.voice-heading-actions > div {
+  max-width: min(100%, 320px);
+  overflow-wrap: anywhere;
+}
 .voice-heading-actions > div > div:first-child > button {
   min-height: 38px;
   border-radius: 7px;

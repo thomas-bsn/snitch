@@ -522,6 +522,14 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceOverview(t, pool)
 	})
+	t.Run("worker deletion", func(t *testing.T) {
+		reset(t)
+		testWorkerDeletion(t, pool)
+	})
+	t.Run("voice ready from completed jobs", func(t *testing.T) {
+		reset(t)
+		testVoiceReadyFromCompletedJobs(t, pool)
+	})
 	t.Run("persons and attributions", func(t *testing.T) {
 		reset(t)
 		testPersonValidation(t, pool)
@@ -1245,14 +1253,6 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": "Synthetic contract group"}, me.CSRF, 204)
 		call(client, "PUT", "/api/admin/workers/"+contractWorker.ID+"/engine-group", map[string]string{"group_name": ""}, me.CSRF, 204)
 		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID, nil, me.CSRF, 204)
-		// A revoked Worker leaves the list only once its machine confirmed the revocation.
-		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 409)
-		// An explicit force=false keeps the protection; only force=true skips the confirmation.
-		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record?force=false", nil, me.CSRF, 409)
-		if _, e = pool.Exec(ctx, `UPDATE workers SET revocation_acknowledged_at=now() WHERE id=$1`, contractWorker.ID); e != nil {
-			t.Fatal(e)
-		}
-		call(client, "DELETE", "/api/admin/workers/"+contractWorker.ID+"/record", nil, me.CSRF, 204)
 		call(client, "GET", "/api/admin/workers/"+contractWorker.ID, nil, "", 404)
 		call(client, "POST", "/api/auth/logout", nil, "wrong", 403)
 		call(client, "GET", "/api/admin/vocabulary", nil, "", 200)

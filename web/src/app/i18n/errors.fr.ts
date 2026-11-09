@@ -287,8 +287,6 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette stratégie de mise à jour n’est pas valide.",
   invalid_worker_version:
     "Cette version de Worker n’est pas une version publiée (vX.Y.Z).",
-  invalid_revoke_reason:
-    "Le motif doit faire 200 caractères au plus, sur une seule ligne.",
   invalid_worker_models: "Ces modèles de Worker ne sont pas valides.",
   invalid_restart_request: "La demande de redémarrage n’est pas valide.",
   invalid_restart_result: "Le résultat du redémarrage n’est pas valide.",
@@ -455,10 +453,6 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   person_exists:
     "Une personne porte déjà ce nom. Choisissez-la, ou confirmez qu’il s’agit de quelqu’un d’autre.",
   worker_not_found: "Ce Worker n’existe pas.",
-  worker_not_revoked:
-    "Seul un Worker supprimé (révoqué) peut être retiré de la liste.",
-  worker_cleanup_pending:
-    "La machine du Worker n’a pas encore confirmé la révocation : elle a encore besoin de cette entrée pour se nettoyer.",
   install_invite_used:
     "Cette invitation d’installation a déjà été utilisée. Générez une nouvelle commande dans Admin > Workers.",
   invalid_install_event: "Cet événement d’installation n’est pas valide.",

@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"snitch/internal/workers"
@@ -72,6 +73,10 @@ func (s *Server) voiceInventory(ctx context.Context) (voiceInventoryView, error)
 	if err = s.withInstallProgressCtx(ctx, live, false); err != nil {
 		return voiceInventoryView{}, err
 	}
+	proven, err := s.workersWithCompletedVoiceJob(ctx)
+	if err != nil {
+		return voiceInventoryView{}, err
+	}
 	out := voiceInventoryView{voiceInventory: voiceInventory{Provider: pipeline.Provider, Workers: []voiceInventoryWorker{}}}
 	out.ActiveModels.Diarization = pipeline.Model
 	activeFingerprint, err := voiceActiveFingerprintRepo(ctx, s.Pool)
@@ -92,6 +97,11 @@ func (s *Server) voiceInventory(ctx context.Context) (voiceInventoryView, error)
 		voice := workers.InstallVoice{State: "pending"}
 		if item.Install != nil {
 			voice = item.Install.Voice
+		}
+		// The installation test is only one proof: a voice job really completed by this Worker is another, so
+		// a missing, trimmed or reset event does not hide a Worker that works. A failed test is never overridden.
+		if voice.State == "pending" && proven[item.ID] {
+			voice = workers.InstallVoice{State: "ready"}
 		}
 		switch {
 		case !row.HoldsActiveDiarization || !row.HoldsActiveFingerprint:
@@ -116,4 +126,22 @@ func (s *Server) voiceInventory(ctx context.Context) (voiceInventoryView, error)
 type voiceInventoryView struct {
 	voiceInventory
 	real bool
+}
+
+// workersWithCompletedVoiceJob lists the Workers that completed a local voice job (diarization or fingerprint).
+func (s *Server) workersWithCompletedVoiceJob(ctx context.Context) (map[string]bool, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT completed_by_worker_id FROM jobs WHERE status='done' AND completed_by_worker_id IS NOT NULL AND (step LIKE 'voice.diarization.%' OR step LIKE 'voice.fingerprint.%')`)
+	if err != nil {
+		return nil, fmt.Errorf("read workers with a completed voice job: %w", err)
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var id string
+		if err = rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan worker with a completed voice job: %w", err)
+		}
+		out[id] = true
+	}
+	return out, rows.Err()
 }

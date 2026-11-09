@@ -312,15 +312,10 @@ func testWorkerAdministration(t *testing.T, pool *pgxpool.Pool) {
 	call(admin, http.MethodPost, "/api/admin/workers/"+first.ID+"/token", nil, me.CSRF, "", http.StatusNotFound)
 	first.ID = renewed.ID
 
-	// Revocation takes effect at once and leaves the Worker (and its history) visible; a revoked
-	// Worker cannot get a new token.
+	// Deletion takes effect at once and removes the Worker from the list; its token is refused and it
+	// cannot get a new one.
 	call(admin, http.MethodDelete, "/api/admin/workers/"+first.ID, nil, me.CSRF, "", http.StatusNoContent)
 	call(anon, http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 1, "supported_steps": []string{"fixture.*"}}, "", renewed.Token, http.StatusUnauthorized)
 	call(admin, http.MethodPost, "/api/admin/workers/"+first.ID+"/token", nil, me.CSRF, "", http.StatusNotFound)
-	var revoked struct {
-		RevokedAt *string `json:"revoked_at"`
-	}
-	if err = json.Unmarshal(call(admin, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusOK), &revoked); err != nil || revoked.RevokedAt == nil {
-		t.Fatalf("revoked Worker detail: %v %+v", err, revoked)
-	}
+	call(admin, http.MethodGet, "/api/admin/workers/"+first.ID, nil, "", "", http.StatusNotFound)
 }

@@ -79,20 +79,10 @@ export function useWorkerActions() {
       });
       return data ? { ok: true, value: data } : failure(error);
     },
-    async forget(id: string, force = false): Promise<Result<null>> {
-      const { error } = await api.DELETE("/api/admin/workers/{id}/record", {
-        params: {
-          path: { id },
-          header: mutation(csrf),
-          query: force ? { force: true } : undefined,
-        },
-      });
-      return error ? failure(error) : { ok: true, value: null };
-    },
-    async revoke(id: string, reason: string): Promise<Result<null>> {
+    /** Deletes the Worker outright, active or revoked: no revocation step, no reason. */
+    async remove(id: string): Promise<Result<null>> {
       const { error } = await api.DELETE("/api/admin/workers/{id}", {
         params: { path: { id }, header: mutation(csrf) },
-        body: reason.trim() ? { reason: reason.trim() } : undefined,
       });
       return error ? failure(error) : { ok: true, value: null };
     },
