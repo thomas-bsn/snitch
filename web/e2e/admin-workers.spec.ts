@@ -495,36 +495,36 @@ test.describe.serial("administration et Workers", () => {
       page.getByRole("heading", { name: "gaming-pc" }),
     ).toBeVisible();
 
-    // Revocation: confirmation, then the Worker is revoked and its token refused.
+    // The replaced identity is revoked: it is deleted outright, after typing the word to confirm.
+    await page.goto(`/admin/workers/${firstId}`);
     await page.getByRole("button", { name: "Delete this Worker…" }).click();
     await expect(page.getByRole("alertdialog")).toContainText(
       "Delete gaming-pc?",
     );
     await expectNoViolations(page);
-    await page.getByRole("button", { name: "Delete", exact: true }).click();
-    await expect(page.getByText(/This Worker was deleted on/)).toBeVisible();
+    const confirmDelete = page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Delete", exact: true });
+    await expect(confirmDelete).toBeDisabled();
+    await page.getByLabel("Type DELETE to confirm").fill("delete");
+    await expect(confirmDelete).toBeDisabled();
+    await page.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await confirmDelete.click();
+    await expect(page).toHaveURL(/\/admin\/workers$/);
     await expect(
-      page.getByRole("button", { name: "Delete this Worker…" }),
-    ).toHaveCount(0);
-    // A revoked Worker gets no recovery path: its identity is gone.
-    await expect(
-      page.getByRole("button", { name: "Diagnose / Reconnect" }),
+      page.locator(`a[href="/admin/workers/${firstId}"]`),
     ).toHaveCount(0);
     expect(await pulse(firstToken)).toBe(401);
 
-    // #261: the machine never confirmed, yet the Administrator can drop the entry after an
-    // explicit warning that local cleanup is unconfirmed.
-    await page.getByRole("button", { name: "Remove from the list" }).click();
-    await expect(page.getByRole("alertdialog")).toContainText(
-      "Local cleanup was not confirmed",
-    );
-    await page.getByRole("button", { name: "Cancel" }).click();
-    await expect(page.getByRole("alertdialog")).toHaveCount(0);
-    await page.getByRole("button", { name: "Remove from the list" }).click();
-    await page.getByRole("button", { name: "Remove", exact: true }).click();
+    // An active Worker is deleted the same way, in one step (no revocation first).
+    await page.goto(`/admin/workers/${replacementId}`);
+    await page.getByRole("button", { name: "Delete this Worker…" }).click();
+    await page.getByLabel("Type DELETE to confirm").fill("DELETE");
+    await page
+      .getByRole("alertdialog")
+      .getByRole("button", { name: "Delete", exact: true })
+      .click();
     await expect(page).toHaveURL(/\/admin\/workers$/);
-    // The replaced identity keeps its revoked entry until it is forgotten too: target the
-    // replacement by its address rather than by the shared "gaming-pc" name.
     await expect(
       page.locator(`a[href="/admin/workers/${replacementId}"]`),
     ).toHaveCount(0);

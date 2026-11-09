@@ -2100,23 +2100,16 @@ export const en = {
         "New Worker created. Copy the command now: it works once and is not shown again.",
       revoke: "Delete",
       revokeBody:
-        "Deleting a Worker revokes its access at once and for good: its running tasks go back in the queue and its late results are refused. Only its name, deletion date and reason are kept. When the Worker detects the deletion, it erases its models and caches from its volume by itself and stops contacting Snitch. The empty Docker volume, the idle container and the launcher folder stay on its machine: the container cannot remove them.",
+        "Deleting a Worker removes it from the list at once and for good: its token stops working, its running tasks go back in the queue and its late results are refused. The history of the tasks it ran is kept, without the Worker’s name. Snitch does not tell the machine: its models volume, its container and the launcher folder stay there, to remove by hand.",
       revokeButton: "Delete this Worker…",
       revokeTitle: "Delete {name}?",
       revokeConfirm: "Delete",
       revokeConfirmBody:
-        "Access is revoked immediately and cannot be reactivated. At its next contact with Snitch, the Worker erases its models and caches by itself and goes idle, with no command to run. It cannot remove the empty Docker volume, its own container or the launcher folder: remove them on the machine if you wish. If the Worker is offline, it stays revoked here and local cleanup stays pending until it comes back.",
-      revokeReason: "Reason (optional)",
+        "This cannot be undone. The Worker is not notified: it will only see its token refused and will not clean up its machine. Remove the Docker volume, the container and the launcher folder there yourself if you wish.",
+      deleteTypeLabel: "Type {word} to confirm",
       revokedNotice:
         "This Worker was deleted on {date}. Its access is revoked for good.",
       revokedReason: "Reason: {reason}",
-      forget: "Remove from the list",
-      forgetBody:
-        "The machine confirmed the revocation. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
-      forgetUnconfirmedBody:
-        "Local cleanup was not confirmed: the machine never confirmed the revocation. The model volume, the container and the launcher folder may remain on that machine. Removing this entry deletes it from the list for good; the history of the tasks it ran is kept, without the Worker's name.",
-      forgetTitle: "Remove {name} from the list?",
-      forgetConfirm: "Remove",
       cleanupPending:
         "Local cleanup pending: the Worker has not confirmed the revocation yet. It erases its models and caches by itself at its next contact with Snitch.",
       cleanupDone:

@@ -50,9 +50,8 @@ func testWorkerRevocation(t *testing.T, pool *pgxpool.Pool) {
 	h.get(h.ts.URL+"/api/worker/revocation", "", http.StatusUnauthorized)
 	h.get(h.ts.URL+"/api/worker/revocation", "rw_unknown-synthetic-token", http.StatusUnauthorized)
 
-	// Revocation with a reason: validated, then immediate.
-	h.adminCall(http.MethodDelete, "/api/admin/workers/"+id, []byte(`{"reason":"`+strings.Repeat("x", 201)+`"}`), http.StatusBadRequest)
-	h.adminCall(http.MethodDelete, "/api/admin/workers/"+id, []byte(`{"reason":"machine retired"}`), http.StatusNoContent)
+	// Token renewal revokes the old identity: immediate (a deletion is covered by testWorkerDeletion).
+	h.adminCall(http.MethodPost, "/api/admin/workers/"+id+"/token", nil, http.StatusCreated)
 
 	// Running task back in the queue at once, without waiting for the lease to expire.
 	var status string
@@ -101,9 +100,8 @@ func testWorkerRevocation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("other worker did not receive the task: %+v %v", got, err)
 	}
 
-	// Definitive: no new token, a second deletion keeps the first audit.
+	// Definitive: a revoked identity gets no new token.
 	h.adminCall(http.MethodPost, "/api/admin/workers/"+id+"/token", nil, http.StatusNotFound)
-	h.adminCall(http.MethodDelete, "/api/admin/workers/"+id, []byte(`{"reason":"other"}`), http.StatusNoContent)
 	h.adminCall(http.MethodDelete, "/api/admin/workers/wk_unknown_synthetic_worker_id", nil, http.StatusNotFound)
 
 	// Narrow confirmation: revoked flag and date only, no configuration, no action; it acknowledges.
@@ -126,7 +124,7 @@ func testWorkerRevocation(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/workers/"+id, nil, http.StatusOK), &detail); err != nil {
 		t.Fatal(err)
 	}
-	if detail.Name != "synthetic-linux" || detail.RevokedAt == nil || detail.RevokeReason != "machine retired" || detail.RevocationAcknowledgedAt == nil || detail.Install != nil || detail.RemoteAddress != "" {
+	if detail.Name != "synthetic-linux" || detail.RevokedAt == nil || detail.RevokeReason != "token_renewed" || detail.RevocationAcknowledgedAt == nil || detail.Install != nil || detail.RemoteAddress != "" {
 		t.Fatalf("audit: %+v", detail)
 	}
 	var events, invites, cfg int
@@ -135,32 +133,59 @@ func testWorkerRevocation(t *testing.T, pool *pgxpool.Pool) {
 	}
 	// Offline Worker: never acknowledged, still revoked server-side, cleanup pending.
 	offline, _, _, _ := h.register("")
-	h.adminCall(http.MethodDelete, "/api/admin/workers/"+offline, nil, http.StatusNoContent)
+	h.adminCall(http.MethodPost, "/api/admin/workers/"+offline+"/token", nil, http.StatusCreated)
 	var off struct {
 		RevokedAt *string `json:"revoked_at"`
 		Reason    string  `json:"revoke_reason"`
 		Ack       *string `json:"revocation_acknowledged_at"`
 	}
-	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/workers/"+offline, nil, http.StatusOK), &off); err != nil || off.RevokedAt == nil || off.Ack != nil || off.Reason != "" {
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/workers/"+offline, nil, http.StatusOK), &off); err != nil || off.RevokedAt == nil || off.Ack != nil || off.Reason != "token_renewed" {
 		t.Fatalf("offline: %+v %v", off, err)
 	}
 
-	// #261: without confirmation the entry stays by default; only an explicit force removes it,
-	// and an active Worker cannot be removed even then. History (jobs, events) is untouched.
-	record := "/api/admin/workers/" + offline + "/record"
-	h.adminCall(http.MethodDelete, record, nil, http.StatusConflict)
-	h.adminCall(http.MethodDelete, record+"?force=false", nil, http.StatusConflict)
-	h.adminCall(http.MethodDelete, record+"?force=maybe", nil, http.StatusBadRequest)
-	active, _, _, _ := h.register("")
-	h.adminCall(http.MethodDelete, "/api/admin/workers/"+active+"/record?force=true", nil, http.StatusConflict)
+	// A revoked entry whose machine never confirmed can be deleted outright, with its history untouched.
 	var jobsBefore, eventsBefore int
 	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM jobs),(SELECT count(*) FROM job_events)`).Scan(&jobsBefore, &eventsBefore); err != nil {
 		t.Fatal(err)
 	}
-	h.adminCall(http.MethodDelete, record+"?force=true", nil, http.StatusNoContent)
+	h.adminCall(http.MethodDelete, "/api/admin/workers/"+offline, nil, http.StatusNoContent)
 	h.adminCall(http.MethodGet, "/api/admin/workers/"+offline, nil, http.StatusNotFound)
 	var jobsAfter, eventsAfter int
 	if err := pool.QueryRow(ctx, `SELECT (SELECT count(*) FROM jobs),(SELECT count(*) FROM job_events)`).Scan(&jobsAfter, &eventsAfter); err != nil || jobsAfter != jobsBefore || eventsAfter != eventsBefore {
 		t.Fatalf("history changed: jobs %d->%d events %d->%d %v", jobsBefore, jobsAfter, eventsBefore, eventsAfter, err)
+	}
+}
+
+// testWorkerDeletion: one action removes an active Worker from the list for good: its running task returns
+// to the queue, its token stops working, jobs and events keep their history, a second deletion is a 404.
+func testWorkerDeletion(t *testing.T, pool *pgxpool.Pool) {
+	ctx := context.Background()
+	h := newInstallHarness(t, pool, true)
+	id, token, _, _ := h.register("")
+	h.do(h.anon, http.MethodPost, h.ts.URL+"/api/worker/pulse", []byte(`{"capacity":1,"supported_steps":["fixture.*"]}`), "", token, false, http.StatusOK)
+	var ownerID, clipID, jobID int64
+	if err := pool.QueryRow(ctx, `SELECT id FROM users WHERE username='administrator'`).Scan(&ownerID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO clips(owner_id,original_name,size_bytes,modified_at,recorded_at) VALUES($1,'deletion-fixture.mp4',7,now(),now()) RETURNING id`, ownerID).Scan(&clipID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,max_attempts) VALUES($1,'fixture.delete','v1',3) RETURNING id`, clipID).Scan(&jobID); err != nil {
+		t.Fatal(err)
+	}
+	h.do(h.anon, http.MethodPost, h.ts.URL+"/api/worker/jobs/claim", nil, "", token, false, http.StatusOK)
+
+	h.adminCall(http.MethodDelete, "/api/admin/workers/"+id, nil, http.StatusNoContent)
+	h.adminCall(http.MethodGet, "/api/admin/workers/"+id, nil, http.StatusNotFound)
+	h.adminCall(http.MethodDelete, "/api/admin/workers/"+id, nil, http.StatusNotFound)
+	h.do(h.anon, http.MethodPost, h.ts.URL+"/api/worker/pulse", nil, "", token, false, http.StatusUnauthorized)
+	var listed int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM workers WHERE id=$1`, id).Scan(&listed); err != nil || listed != 0 {
+		t.Fatalf("row kept: %d %v", listed, err)
+	}
+	var status string
+	var owner *string
+	if err := pool.QueryRow(ctx, `SELECT status,lease_owner FROM jobs WHERE id=$1`, jobID).Scan(&status, &owner); err != nil || status != "pending" || owner != nil {
+		t.Fatalf("task not requeued: %s %v %v", status, owner, err)
 	}
 }

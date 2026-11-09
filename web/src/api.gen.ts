@@ -928,25 +928,8 @@ export interface paths {
     get: operations["getWorker"];
     put?: never;
     post?: never;
-    /** @description Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés, et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas effacé. Une seconde suppression est sans effet et garde le premier audit. */
-    delete: operations["revokeWorker"];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  "/api/admin/workers/{id}/record": {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    get?: never;
-    put?: never;
-    post?: never;
-    /** @description Retire de la liste un Worker révoqué ; les jobs et événements gardent leur historique. 409 worker_not_revoked tant qu'il n'est pas révoqué, worker_cleanup_pending tant que la machine n'a pas confirmé la révocation, sauf si force=true (choix explicite de l'administrateur : le nettoyage local n'est alors pas confirmé et le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur la machine). */
-    delete: operations["forgetWorker"];
+    /** @description Administrateurs uniquement. Supprime le Worker, actif ou déjà révoqué, en une seule action : son jeton cesse aussitôt de fonctionner, ses tâches en cours reviennent dans la file, ses résultats tardifs sont refusés et il disparaît de la liste. Les jobs et événements gardent leur historique. La machine n'est pas prévenue : son volume de modèles, son conteneur et son dossier de lanceur subsistent. */
+    delete: operations["deleteWorker"];
     options?: never;
     head?: never;
     patch?: never;
@@ -10460,7 +10443,7 @@ export interface operations {
       };
     };
   };
-  revokeWorker: {
+  deleteWorker: {
     parameters: {
       query?: never;
       header: {
@@ -10472,15 +10455,9 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: {
-      content: {
-        "application/json": {
-          reason?: string;
-        };
-      };
-    };
+    requestBody?: never;
     responses: {
-      /** @description Jeton révoqué */
+      /** @description Worker supprimé */
       204: {
         headers: {
           [name: string]: unknown;
@@ -10488,41 +10465,6 @@ export interface operations {
         content?: never;
       };
       /** @description Worker introuvable ou serveur indisponible */
-      default: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          "application/json": components["schemas"]["Error"];
-        };
-      };
-    };
-  };
-  forgetWorker: {
-    parameters: {
-      query?: {
-        /** @description Retire le Worker révoqué même si sa machine n'a pas confirmé la révocation. */
-        force?: boolean;
-      };
-      header: {
-        Origin: string;
-        "X-CSRF-Token": string;
-      };
-      path: {
-        id: string;
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Worker retiré de la liste */
-      204: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Worker introuvable, non révoqué ou nettoyage local non confirmé sans force */
       default: {
         headers: {
           [name: string]: unknown;
