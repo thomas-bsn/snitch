@@ -63,8 +63,11 @@ func testVoiceEngineFamiliesAndPlan(t *testing.T, pool *pgxpool.Pool) {
 	if err := json.Unmarshal(h.adminCall(http.MethodGet, "/api/admin/voice-engines/families", nil, http.StatusOK), &listed); err != nil {
 		t.Fatal(err)
 	}
-	if len(listed.Families) != 1 {
+	if len(listed.Families) != 2 || listed.Families[1].Family != "wespeaker" {
 		t.Fatalf("families: %+v", listed.Families)
+	}
+	if w := listed.Families[1]; w.Engine != "wespeaker" || w.DefaultVersion != "1.0.1" || len(w.Kinds) != 1 || w.Kinds[0] != "fingerprint" || w.CUDA != "" || w.VRAMBytes != 0 {
+		t.Fatalf("wespeaker family: %+v", w)
 	}
 	f := listed.Families[0]
 	if f.Family != "nemo" || f.Engine != "nemo-toolkit" || f.DefaultVersion != "3.0.0" || len(f.Kinds) != 2 || f.Kinds[0] != "diarization" ||

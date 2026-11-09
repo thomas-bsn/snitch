@@ -76,7 +76,10 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
     await expect(dialog).toContainText("Nothing starts before you confirm");
     // The list is never empty: the supported families come from Snitch, with no signed release imported.
     const family = dialog.getByLabel("Engine family");
-    await expect(family.locator("option")).toHaveText(["nemo-toolkit"]);
+    await expect(family.locator("option")).toHaveText([
+      "nemo-toolkit",
+      "wespeaker",
+    ]);
     // The default version is pre-filled and editable.
     const version = dialog.getByLabel("Version");
     await expect(version).toHaveValue("3.0.0");
