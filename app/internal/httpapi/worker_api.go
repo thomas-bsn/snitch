@@ -439,53 +439,15 @@ func (s *Server) renewWorkerToken(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusCreated, registration)
 }
 
-func (s *Server) revokeWorker(w http.ResponseWriter, r *http.Request) {
-	var input struct {
-		Reason string `json:"reason"`
-	}
-	if r.ContentLength != 0 && !decode(w, r, &input) {
-		return
-	}
-	err := s.Workers.Revoke(r.Context(), r.PathValue("id"), input.Reason)
-	if errors.Is(err, workers.ErrNotFound) {
-		fail(w, http.StatusNotFound, "worker_not_found")
-		return
-	}
-	if errors.Is(err, workers.ErrInvalidInput) {
-		fail(w, http.StatusBadRequest, "invalid_revoke_reason")
-		return
-	}
-	if err != nil {
-		s.internal(w, err)
-		return
-	}
-	s.Log.Info("worker_revoked", "worker_id", r.PathValue("id"))
-	w.WriteHeader(http.StatusNoContent)
-}
-
-// forgetWorker removes a revoked Worker from the list: once its machine confirmed the revocation,
-// or without confirmation when the Administrator passes force=true.
-func (s *Server) forgetWorker(w http.ResponseWriter, r *http.Request) {
-	force := false
-	switch r.URL.Query().Get("force") {
-	case "", "false":
-	case "true":
-		force = true
-	default:
-		fail(w, http.StatusBadRequest, "invalid_request")
-		return
-	}
-	switch err := s.Workers.Forget(r.Context(), r.PathValue("id"), force); {
+// deleteWorker removes a Worker outright, active or revoked: no revocation step, no reason.
+func (s *Server) deleteWorker(w http.ResponseWriter, r *http.Request) {
+	switch err := s.Workers.Delete(r.Context(), r.PathValue("id")); {
 	case errors.Is(err, workers.ErrNotFound):
 		fail(w, http.StatusNotFound, "worker_not_found")
-	case errors.Is(err, workers.ErrNotRevoked):
-		fail(w, http.StatusConflict, "worker_not_revoked")
-	case errors.Is(err, workers.ErrCleanupPending):
-		fail(w, http.StatusConflict, "worker_cleanup_pending")
 	case err != nil:
 		s.internal(w, err)
 	default:
-		s.Log.Info("worker_removed", "worker_id", r.PathValue("id"), "forced", force)
+		s.Log.Info("worker_deleted", "worker_id", r.PathValue("id"))
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

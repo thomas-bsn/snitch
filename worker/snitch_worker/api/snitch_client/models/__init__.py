@@ -342,7 +342,6 @@ from .request_worker_transcription_test_response_200 import RequestWorkerTranscr
 from .reset_member_password_response_200 import ResetMemberPasswordResponse200
 from .retry_clip_analysis_step_step import RetryClipAnalysisStepStep
 from .revoke_voice_engine_response_200 import RevokeVoiceEngineResponse200
-from .revoke_worker_body import RevokeWorkerBody
 from .runtime_binding import RuntimeBinding
 from .runtime_binding_history_entry import RuntimeBindingHistoryEntry
 from .runtime_binding_history_entry_intent import RuntimeBindingHistoryEntryIntent
@@ -1006,7 +1005,6 @@ __all__ = (
     "ResetMemberPasswordResponse200",
     "RetryClipAnalysisStepStep",
     "RevokeVoiceEngineResponse200",
-    "RevokeWorkerBody",
     "RuntimeBinding",
     "RuntimeBindingHistoryEntry",
     "RuntimeBindingHistoryEntryIntent",

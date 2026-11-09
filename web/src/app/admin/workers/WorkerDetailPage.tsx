@@ -59,6 +59,8 @@ function Fact({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+const DELETE_WORD = "DELETE";
+
 /** The page of one Worker: state, activity, declared models, deployment files, token, revocation. */
 export function WorkerDetailPage({ id }: { id: string }) {
   const { t, error } = useI18n();
@@ -69,10 +71,9 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const { state, reload, set } = useLoaded(load);
   // Live: the page follows the stream; the reload is the fallback while the stream is down.
   useEventStream<WorkerDetail>(`/api/admin/workers/${id}/events`, set, reload);
-  const [confirm, setConfirm] = useState<"token" | "revoke" | "forget" | null>(
-    null,
-  );
-  const [reason, setReason] = useState("");
+  const [confirm, setConfirm] = useState<"token" | "delete" | null>(null);
+  // Deleting is irreversible and the machine is not told: the Administrator types the word to go on.
+  const [typed, setTyped] = useState("");
   const [allowInsecure, setAllowInsecure] = useState(false);
   const insecure = window.location.protocol !== "https:";
   const [busy, setBusy] = useState(false);
@@ -111,11 +112,6 @@ export function WorkerDetailPage({ id }: { id: string }) {
   const worker = state.value;
   const { tone, label } = workerStatus(worker);
   const revoked = worker.revoked_at !== null;
-  // Removing a Worker whose machine never confirmed is forced, and the warning says so (#261).
-  const cleanupUnconfirmed = !worker.revocation_acknowledged_at;
-  const forgetBody = cleanupUnconfirmed
-    ? t("workers.detail.forgetUnconfirmedBody")
-    : t("workers.detail.forgetBody");
   // The local launcher exists only once the installation reached its first pulse.
   const installed =
     worker.install?.state === "connected" ||
@@ -133,26 +129,14 @@ export function WorkerDetailPage({ id }: { id: string }) {
     } else setFailure(result.code);
   }
 
-  async function forget() {
+  async function remove() {
     setBusy(true);
     setFailure(undefined);
-    const result = await actions.forget(id, cleanupUnconfirmed);
+    const result = await actions.remove(id);
     setBusy(false);
     setConfirm(null);
     if (result.ok) navigate("/admin/workers");
     else setFailure(result.code);
-  }
-
-  async function revoke() {
-    setBusy(true);
-    setFailure(undefined);
-    const result = await actions.revoke(id, reason);
-    setBusy(false);
-    setConfirm(null);
-    if (result.ok) {
-      setFresh(undefined);
-      reload();
-    } else setFailure(result.code);
   }
 
   return (
@@ -393,35 +377,21 @@ export function WorkerDetailPage({ id }: { id: string }) {
         </Section>
       )}
 
-      {revoked && (
-        <Section title={t("workers.detail.forget")}>
-          <p className="text-mute">{forgetBody}</p>
-          <div>
-            <button
-              type="button"
-              className={buttonClass("danger")}
-              onClick={() => setConfirm("forget")}
-            >
-              {t("workers.detail.forget")}
-            </button>
-          </div>
-        </Section>
-      )}
-
-      {!revoked && (
-        <Section title={t("workers.detail.revoke")}>
-          <p className="text-mute">{t("workers.detail.revokeBody")}</p>
-          <div>
-            <button
-              type="button"
-              className={buttonClass("danger")}
-              onClick={() => setConfirm("revoke")}
-            >
-              {t("workers.detail.revokeButton")}
-            </button>
-          </div>
-        </Section>
-      )}
+      <Section title={t("workers.detail.revoke")}>
+        <p className="text-mute">{t("workers.detail.revokeBody")}</p>
+        <div>
+          <button
+            type="button"
+            className={buttonClass("danger")}
+            onClick={() => {
+              setTyped("");
+              setConfirm("delete");
+            }}
+          >
+            {t("workers.detail.revokeButton")}
+          </button>
+        </div>
+      </Section>
 
       <ConfirmDialog
         open={confirm === "token"}
@@ -456,35 +426,26 @@ export function WorkerDetailPage({ id }: { id: string }) {
         )}
       </ConfirmDialog>
       <ConfirmDialog
-        open={confirm === "forget"}
-        onOpenChange={(open) => !open && setConfirm(null)}
-        title={t("workers.detail.forgetTitle", { name: worker.name })}
-        cancelLabel={t("workers.dialog.cancel")}
-        confirmLabel={t("workers.detail.forgetConfirm")}
-        onConfirm={() => void forget()}
-        danger
-        busy={busy}
-      >
-        <p>{forgetBody}</p>
-      </ConfirmDialog>
-      <ConfirmDialog
-        open={confirm === "revoke"}
+        open={confirm === "delete"}
         onOpenChange={(open) => !open && setConfirm(null)}
         title={t("workers.detail.revokeTitle", { name: worker.name })}
         cancelLabel={t("workers.dialog.cancel")}
         confirmLabel={t("workers.detail.revokeConfirm")}
-        onConfirm={() => void revoke()}
+        onConfirm={() => void remove()}
+        confirmDisabled={typed !== DELETE_WORD}
         danger
         busy={busy}
       >
         <p>{t("workers.detail.revokeConfirmBody")}</p>
         <label className="mt-3 flex flex-col gap-1 text-sm">
-          {t("workers.detail.revokeReason")}
+          {t("workers.detail.deleteTypeLabel", { word: DELETE_WORD })}
           <input
             type="text"
-            maxLength={200}
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            value={typed}
+            onChange={(event) => setTyped(event.target.value)}
             className="rounded-lg border border-line-strong bg-side px-3 py-2 text-ink"
           />
         </label>

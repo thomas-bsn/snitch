@@ -9,8 +9,6 @@ from ...types import Response, UNSET
 from ... import errors
 
 from ...models.error import Error
-from ...models.revoke_worker_body import RevokeWorkerBody
-from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -18,7 +16,6 @@ from typing import cast
 def _get_kwargs(
     id: str,
     *,
-    body: RevokeWorkerBody | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
@@ -39,11 +36,6 @@ def _get_kwargs(
         "url": "/api/admin/workers/{id}".format(id=quote(str(id), safe=""),),
     }
 
-
-    if not isinstance(body, Unset):
-        _kwargs["json"] = body.to_dict()
-
-    headers["Content-Type"] = "application/json"
 
     _kwargs["headers"] = headers
     return _kwargs
@@ -76,21 +68,20 @@ def sync_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RevokeWorkerBody | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour
-    toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés,
-    et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas
-    effacé. Une seconde suppression est sans effet et garde le premier audit.
+    """  Administrateurs uniquement. Supprime le Worker, actif ou déjà révoqué, en une seule action : son
+    jeton cesse aussitôt de fonctionner, ses tâches en cours reviennent dans la file, ses résultats
+    tardifs sont refusés et il disparaît de la liste. Les jobs et événements gardent leur historique. La
+    machine n'est pas prévenue : son volume de modèles, son conteneur et son dossier de lanceur
+    subsistent.
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
-        body (RevokeWorkerBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -103,7 +94,6 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
-body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -119,21 +109,20 @@ def sync(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RevokeWorkerBody | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour
-    toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés,
-    et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas
-    effacé. Une seconde suppression est sans effet et garde le premier audit.
+    """  Administrateurs uniquement. Supprime le Worker, actif ou déjà révoqué, en une seule action : son
+    jeton cesse aussitôt de fonctionner, ses tâches en cours reviennent dans la file, ses résultats
+    tardifs sont refusés et il disparaît de la liste. Les jobs et événements gardent leur historique. La
+    machine n'est pas prévenue : son volume de modèles, son conteneur et son dossier de lanceur
+    subsistent.
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
-        body (RevokeWorkerBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -147,7 +136,6 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
-body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -157,21 +145,20 @@ async def asyncio_detailed(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RevokeWorkerBody | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
 ) -> Response[Any | Error]:
-    """  Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour
-    toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés,
-    et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas
-    effacé. Une seconde suppression est sans effet et garde le premier audit.
+    """  Administrateurs uniquement. Supprime le Worker, actif ou déjà révoqué, en une seule action : son
+    jeton cesse aussitôt de fonctionner, ses tâches en cours reviennent dans la file, ses résultats
+    tardifs sont refusés et il disparaît de la liste. Les jobs et événements gardent leur historique. La
+    machine n'est pas prévenue : son volume de modèles, son conteneur et son dossier de lanceur
+    subsistent.
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
-        body (RevokeWorkerBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -184,7 +171,6 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
-body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 
@@ -200,21 +186,20 @@ async def asyncio(
     id: str,
     *,
     client: AuthenticatedClient | Client,
-    body: RevokeWorkerBody | Unset = UNSET,
     origin: str,
     x_csrf_token: str,
 
 ) -> Any | Error | None:
-    """  Administrateurs uniquement. Supprime le Worker : son jeton est révoqué immédiatement et pour
-    toujours, ses tâches en cours reviennent aussitôt dans la file, ses résultats tardifs sont refusés,
-    et seul l'audit minimal (nom, date, motif facultatif) est conservé. Le disque local n'est pas
-    effacé. Une seconde suppression est sans effet et garde le premier audit.
+    """  Administrateurs uniquement. Supprime le Worker, actif ou déjà révoqué, en une seule action : son
+    jeton cesse aussitôt de fonctionner, ses tâches en cours reviennent dans la file, ses résultats
+    tardifs sont refusés et il disparaît de la liste. Les jobs et événements gardent leur historique. La
+    machine n'est pas prévenue : son volume de modèles, son conteneur et son dossier de lanceur
+    subsistent.
 
     Args:
         id (str):
         origin (str):
         x_csrf_token (str):
-        body (RevokeWorkerBody | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -228,7 +213,6 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
-body=body,
 origin=origin,
 x_csrf_token=x_csrf_token,
 

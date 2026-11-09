@@ -2376,23 +2376,16 @@ export const fr: Messages = {
         "Nouveau Worker créé. Copiez la commande maintenant : elle ne fonctionne qu’une fois et ne sera plus affichée.",
       revoke: "Suppression",
       revokeBody:
-        "Supprimer un Worker révoque son accès tout de suite et définitivement : ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. Seuls son nom, la date de suppression et le motif sont conservés. Quand le Worker détecte la suppression, il efface lui-même ses modèles et caches de son volume et cesse de contacter Snitch. Le volume Docker vide, le conteneur inactif et le dossier du lanceur restent sur sa machine : le conteneur ne peut pas les supprimer.",
+        "Supprimer un Worker le retire de la liste tout de suite et définitivement : son jeton cesse de fonctionner, ses tâches en cours retournent dans la file et ses résultats tardifs sont refusés. L’historique des tâches qu’il a exécutées est conservé, sans le nom du Worker. Snitch ne prévient pas la machine : son volume de modèles, son conteneur et le dossier du lanceur y restent, à supprimer à la main.",
       revokeButton: "Supprimer ce Worker…",
       revokeTitle: "Supprimer {name} ?",
       revokeConfirm: "Supprimer",
       revokeConfirmBody:
-        "L’accès est révoqué immédiatement et ne peut pas être réactivé. À son prochain contact avec Snitch, le Worker efface lui-même ses modèles et caches puis devient inactif, sans commande à relancer. Il ne peut pas supprimer le volume Docker vide, son propre conteneur ni le dossier du lanceur : retirez-les sur la machine si vous le souhaitez. Si le Worker est hors ligne, il reste révoqué ici et le nettoyage local reste en attente jusqu’à son retour.",
-      revokeReason: "Motif (facultatif)",
+        "Cette action est irréversible. Le Worker n’est pas prévenu : il verra seulement son jeton refusé et ne nettoiera pas sa machine. Supprimez vous-même le volume Docker, le conteneur et le dossier du lanceur si vous le souhaitez.",
+      deleteTypeLabel: "Saisissez {word} pour confirmer",
       revokedNotice:
         "Ce Worker a été supprimé le {date}. Son accès est révoqué définitivement.",
       revokedReason: "Motif : {reason}",
-      forget: "Retirer de la liste",
-      forgetBody:
-        "La machine a confirmé la révocation. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
-      forgetUnconfirmedBody:
-        "Le nettoyage local n’a pas été confirmé : la machine n’a jamais confirmé la révocation. Le volume de modèles, le conteneur et le dossier du lanceur peuvent subsister sur cette machine. Retirer cette entrée la supprime définitivement de la liste ; l’historique des tâches qu’elle a exécutées est conservé, sans le nom du Worker.",
-      forgetTitle: "Retirer {name} de la liste ?",
-      forgetConfirm: "Retirer",
       cleanupPending:
         "Nettoyage local en attente : le Worker n’a pas encore confirmé la révocation. Il effacera lui-même ses modèles et caches à son prochain contact avec Snitch.",
       cleanupDone:
