@@ -86,7 +86,9 @@ def sync_detailed(
     ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
     production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
     certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
-    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage
+    e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes,
+    partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER.
 
     Args:
         origin (str):
@@ -129,7 +131,9 @@ def sync(
     ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
     production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
     certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
-    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage
+    e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes,
+    partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER.
 
     Args:
         origin (str):
@@ -167,7 +171,9 @@ async def asyncio_detailed(
     ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
     production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
     certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
-    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage
+    e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes,
+    partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER.
 
     Args:
         origin (str):
@@ -210,7 +216,9 @@ async def asyncio(
     ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
     production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
     certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
-    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage
+    e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes,
+    partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER.
 
     Args:
         origin (str):

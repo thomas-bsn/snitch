@@ -72,6 +72,7 @@ from .avatar_settings_input import AvatarSettingsInput
 from .avatar_settings_input_source import AvatarSettingsInputSource
 from .avatar_settings_source import AvatarSettingsSource
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
+from .benchmark_chain import BenchmarkChain
 from .benchmark_clip import BenchmarkClip
 from .benchmark_clip_list import BenchmarkClipList
 from .benchmark_created import BenchmarkCreated
@@ -92,6 +93,7 @@ from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
 from .benchmark_result_state import BenchmarkResultState
 from .benchmark_run import BenchmarkRun
 from .benchmark_run_input import BenchmarkRunInput
+from .benchmark_run_input_chains_item import BenchmarkRunInputChainsItem
 from .benchmark_run_input_stage import BenchmarkRunInputStage
 from .benchmark_run_list import BenchmarkRunList
 from .benchmark_run_stage import BenchmarkRunStage
@@ -734,6 +736,7 @@ __all__ = (
     "AvatarSettingsInputSource",
     "AvatarSettingsSource",
     "BackfillEmbeddingIndexResponse202",
+    "BenchmarkChain",
     "BenchmarkClip",
     "BenchmarkClipList",
     "BenchmarkCreated",
@@ -754,6 +757,7 @@ __all__ = (
     "BenchmarkResultState",
     "BenchmarkRun",
     "BenchmarkRunInput",
+    "BenchmarkRunInputChainsItem",
     "BenchmarkRunInputStage",
     "BenchmarkRunList",
     "BenchmarkRunStage",

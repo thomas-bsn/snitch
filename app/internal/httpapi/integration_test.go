@@ -399,6 +399,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAIBenchmarkDiarization(t, pool)
 	})
+	t.Run("ai benchmark end to end", func(t *testing.T) {
+		reset(t)
+		testAIBenchmarkEndToEnd(t, pool)
+	})
 	t.Run("voice catalog in database", func(t *testing.T) {
 		reset(t)
 		testVoiceCatalogInDatabase(t, pool)

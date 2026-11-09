@@ -40,13 +40,13 @@ func validBenchmarkDiarization(raw json.RawMessage) bool {
 // snapshotReferenceTurns freezes the speaking turns of the certified clips of a corpus (ADR 0059). A speaker is
 // the validated Person, or the local voice itself when nobody validated it. Times are put back on the clock of the
 // audio stream, as a Worker measures them.
-func (s *Server) snapshotReferenceTurns(ctx context.Context, tx pgQuerier, datasetID int64, clips []int64) error {
+func (s *Server) snapshotReferenceTurns(ctx context.Context, tx pgQuerier, datasetID int64, clips []int64) (shifted bool, err error) {
 	rows, err := tx.Query(ctx, `SELECT ls.diarization_job_id,ls.clip_id,ls.audio_stream_index,COALESCE('p'||a.person_id::text,'v'||ls.id::text),st.start_seconds,st.end_seconds
 		FROM local_speakers ls JOIN speaker_turns st ON st.local_speaker_id=ls.id
 		LEFT JOIN speaker_attributions a ON a.local_speaker_id=ls.id AND a.validation_state='validated'
 		WHERE ls.clip_id=ANY($1) AND ls.kind='diarized' ORDER BY ls.clip_id,ls.audio_stream_index,st.start_seconds`, clips)
 	if err != nil {
-		return err
+		return false, err
 	}
 	type turn struct {
 		clip           int64
@@ -60,32 +60,33 @@ func (s *Server) snapshotReferenceTurns(ctx context.Context, tx pgQuerier, datas
 		var t turn
 		if err = rows.Scan(&t.diarizationJob, &t.clip, &t.track, &t.speaker, &t.start, &t.end); err != nil {
 			rows.Close()
-			return err
+			return false, err
 		}
 		turns = append(turns, t)
 	}
 	rows.Close()
 	if err = rows.Err(); err != nil {
-		return err
+		return false, err
 	}
 	offsets := map[int64]float64{}
 	for _, t := range turns {
 		offset, known := offsets[t.diarizationJob]
 		if !known {
 			if offset, err = jobs.PlanTrackOffset(ctx, tx, t.diarizationJob); err != nil {
-				return err
+				return false, err
 			}
 			offsets[t.diarizationJob] = offset
+			shifted = shifted || offset != 0
 		}
 		start, end := math.Max(t.start-offset, 0), t.end-offset
 		if end <= start {
 			continue
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO benchmark_reference_turns(dataset_id,clip_id,audio_stream_index,speaker,start_seconds,end_seconds) VALUES($1,$2,$3,$4,$5,$6)`, datasetID, t.clip, t.track, t.speaker, start, end); err != nil {
-			return err
+			return false, err
 		}
 	}
-	return nil
+	return shifted, nil
 }
 
 type diarizationKey = transcriptKey

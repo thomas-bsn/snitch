@@ -2,6 +2,7 @@ from enum import StrEnum
 
 class BenchmarkRunInputStage(StrEnum):
     DIARIZATION = "diarization"
+    E2E = "e2e"
     FINGERPRINT = "fingerprint"
     TRANSCRIPTION = "transcription"
 

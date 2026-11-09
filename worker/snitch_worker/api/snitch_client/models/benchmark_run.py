@@ -15,6 +15,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
+  from ..models.benchmark_chain import BenchmarkChain
   from ..models.benchmark_progress import BenchmarkProgress
   from ..models.benchmark_result import BenchmarkResult
 
@@ -40,6 +41,8 @@ class BenchmarkRun:
             created_at (datetime.datetime):
             progress (BenchmarkProgress):
             results (list[BenchmarkResult]):
+            chains (list[BenchmarkChain]): Bout en bout : les paires de modèles que représentent les identifiants des
+                résultats.
             finished_at (datetime.datetime | None | Unset):
      """
 
@@ -53,6 +56,7 @@ class BenchmarkRun:
     created_at: datetime.datetime
     progress: BenchmarkProgress
     results: list[BenchmarkResult]
+    chains: list[BenchmarkChain]
     finished_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -61,6 +65,7 @@ class BenchmarkRun:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.benchmark_chain import BenchmarkChain # noqa: PLC0415
         from ..models.benchmark_progress import BenchmarkProgress # noqa: PLC0415
         from ..models.benchmark_result import BenchmarkResult # noqa: PLC0415
         id = self.id
@@ -90,6 +95,13 @@ class BenchmarkRun:
 
 
 
+        chains = []
+        for chains_item_data in self.chains:
+            chains_item = chains_item_data.to_dict()
+            chains.append(chains_item)
+
+
+
         finished_at: None | str | Unset
         if isinstance(self.finished_at, Unset):
             finished_at = UNSET
@@ -112,6 +124,7 @@ class BenchmarkRun:
             "created_at": created_at,
             "progress": progress,
             "results": results,
+            "chains": chains,
         })
         if finished_at is not UNSET:
             field_dict["finished_at"] = finished_at
@@ -122,6 +135,7 @@ class BenchmarkRun:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.benchmark_chain import BenchmarkChain # noqa: PLC0415
         from ..models.benchmark_progress import BenchmarkProgress # noqa: PLC0415
         from ..models.benchmark_result import BenchmarkResult # noqa: PLC0415
         d = dict(src_dict)
@@ -166,6 +180,16 @@ class BenchmarkRun:
             results.append(results_item)
 
 
+        chains = []
+        _chains = d.pop("chains")
+        for chains_item_data in (_chains):
+            chains_item = BenchmarkChain.from_dict(chains_item_data)
+
+
+
+            chains.append(chains_item)
+
+
         def _parse_finished_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -197,6 +221,7 @@ class BenchmarkRun:
             created_at=created_at,
             progress=progress,
             results=results,
+            chains=chains,
             finished_at=finished_at,
         )
 

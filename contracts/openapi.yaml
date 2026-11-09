@@ -17220,7 +17220,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.",
+        "description": "Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes, partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER.",
         "parameters": [
           {
             "in": "header",
@@ -30080,7 +30080,8 @@
             "enum": [
               "fingerprint",
               "transcription",
-              "diarization"
+              "diarization",
+              "e2e"
             ]
           },
           "model_ids": {
@@ -30089,13 +30090,34 @@
             "maxItems": 4,
             "items": {
               "type": "string"
+            },
+            "description": "Modèles comparés (empreinte, transcription, diarisation). Absent pour le bout en bout."
+          },
+          "chains": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "description": "Bout en bout : paires modèle de diarisation + modèle de transcription.",
+            "items": {
+              "type": "object",
+              "required": [
+                "diarization_model_id",
+                "transcription_model"
+              ],
+              "properties": {
+                "diarization_model_id": {
+                  "type": "string"
+                },
+                "transcription_model": {
+                  "type": "string"
+                }
+              }
             }
           }
         },
         "required": [
           "dataset_id",
-          "stage",
-          "model_ids"
+          "stage"
         ]
       },
       "BenchmarkJobError": {
@@ -30225,7 +30247,8 @@
             "enum": [
               "fingerprint",
               "transcription",
-              "diarization"
+              "diarization",
+              "e2e"
             ]
           },
           "status": {
@@ -30263,6 +30286,13 @@
             "items": {
               "$ref": "#/components/schemas/BenchmarkResult"
             }
+          },
+          "chains": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkChain"
+            },
+            "description": "Bout en bout : les paires de modèles que représentent les identifiants des résultats."
           }
         },
         "required": [
@@ -30275,7 +30305,8 @@
           "author_name",
           "created_at",
           "progress",
-          "results"
+          "results",
+          "chains"
         ]
       },
       "BenchmarkRunList": {
@@ -30439,7 +30470,7 @@
       },
       "BenchmarkMetrics": {
         "type": "object",
-        "description": "Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre.",
+        "description": "Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer (sans attribution) et der des mêmes sorties.",
         "properties": {
           "references": {
             "type": "integer"
@@ -30580,6 +30611,40 @@
             "type": "number",
             "format": "double",
             "nullable": true
+          },
+          "cpwer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Bout en bout : WER avec attribution des locuteurs (cpWER)."
+          },
+          "cp_word_errors": {
+            "type": "integer"
+          },
+          "reference_speakers": {
+            "type": "integer"
+          },
+          "model_speakers": {
+            "type": "integer"
+          }
+        }
+      },
+      "BenchmarkChain": {
+        "type": "object",
+        "required": [
+          "id",
+          "diarization_model_id",
+          "transcription_model"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "diarization_model_id": {
+            "type": "string"
+          },
+          "transcription_model": {
+            "type": "string"
           }
         }
       }

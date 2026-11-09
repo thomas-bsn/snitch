@@ -298,7 +298,9 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 	if verifiedVoices {
 		stages = append(stages, "diarization")
 	}
-	if fingerprint && transcription && verifiedVoices {
+	// The end-to-end stage composes the transcription and the diarization (ADR 0060); the identification of a Person
+	// is measured by the fingerprint stage on its own.
+	if transcription && verifiedVoices {
 		stages = append(stages, "e2e")
 	}
 	if len(stages) == 0 {
@@ -352,9 +354,29 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		for id := range verified {
 			verifiedIDs = append(verifiedIDs, id)
 		}
-		if err = s.snapshotReferenceTurns(r.Context(), tx, datasetID, verifiedIDs); err != nil {
+		shifted, snapErr := s.snapshotReferenceTurns(r.Context(), tx, datasetID, verifiedIDs)
+		if snapErr != nil {
+			s.internal(w, snapErr)
+			return
+		}
+		// Who spoke each reference segment: the speaker whose turns overlap it the most.
+		if _, err = tx.Exec(r.Context(), `UPDATE benchmark_reference_segments s SET speaker=(
+			SELECT t.speaker FROM benchmark_reference_turns t
+			WHERE t.dataset_id=s.dataset_id AND t.clip_id=s.clip_id AND t.audio_stream_index=s.audio_stream_index
+			  AND least(t.end_seconds,s.end_seconds)-greatest(t.start_seconds,s.start_seconds)>0
+			GROUP BY t.speaker ORDER BY sum(least(t.end_seconds,s.end_seconds)-greatest(t.start_seconds,s.start_seconds)) DESC,t.speaker LIMIT 1)
+			WHERE s.dataset_id=$1`, datasetID); err != nil {
 			s.internal(w, err)
 			return
+		}
+		// A multitrack stream whose clock is shifted against the transcript cannot be composed with it: the stage is
+		// withdrawn rather than measured on misaligned times.
+		if shifted && slices.Contains(stages, "e2e") {
+			stages = slices.DeleteFunc(stages, func(x string) bool { return x == "e2e" })
+			if _, err = tx.Exec(r.Context(), `UPDATE benchmark_datasets SET stages=$2 WHERE id=$1`, datasetID, stages); err != nil {
+				s.internal(w, err)
+				return
+			}
 		}
 	}
 	for _, v := range voices {

@@ -3972,7 +3972,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
     get: operations["listBenchmarkRuns"];
     put?: never;
-    /** @description Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. */
+    /** @description Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes, partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER. */
     post: operations["startBenchmarkRun"];
     delete?: never;
     options?: never;
@@ -8034,8 +8034,14 @@ export interface components {
       /** Format: int64 */
       dataset_id: number;
       /** @enum {string} */
-      stage: "fingerprint" | "transcription" | "diarization";
-      model_ids: string[];
+      stage: "fingerprint" | "transcription" | "diarization" | "e2e";
+      /** @description Modèles comparés (empreinte, transcription, diarisation). Absent pour le bout en bout. */
+      model_ids?: string[];
+      /** @description Bout en bout : paires modèle de diarisation + modèle de transcription. */
+      chains?: {
+        diarization_model_id: string;
+        transcription_model: string;
+      }[];
     };
     BenchmarkJobError: {
       /** Format: int64 */
@@ -8073,7 +8079,7 @@ export interface components {
       dataset_id: number;
       dataset_name: string;
       /** @enum {string} */
-      stage: "fingerprint" | "transcription" | "diarization";
+      stage: "fingerprint" | "transcription" | "diarization" | "e2e";
       /** @enum {string} */
       status: "running" | "completed" | "failed" | "cancelled";
       model_ids: string[];
@@ -8084,6 +8090,8 @@ export interface components {
       finished_at?: string | null;
       progress: components["schemas"]["BenchmarkProgress"];
       results: components["schemas"]["BenchmarkResult"][];
+      /** @description Bout en bout : les paires de modèles que représentent les identifiants des résultats. */
+      chains: components["schemas"]["BenchmarkChain"][];
     };
     BenchmarkRunList: {
       runs: components["schemas"]["BenchmarkRun"][];
@@ -8124,7 +8132,7 @@ export interface components {
       id: number;
       name: string;
     };
-    /** @description Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre. */
+    /** @description Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer (sans attribution) et der des mêmes sorties. */
     BenchmarkMetrics: {
       references?: number;
       tests?: number;
@@ -8193,6 +8201,19 @@ export interface components {
       false_alarm_rate?: number | null;
       /** Format: double */
       confusion_rate?: number | null;
+      /**
+       * Format: double
+       * @description Bout en bout : WER avec attribution des locuteurs (cpWER).
+       */
+      cpwer?: number | null;
+      cp_word_errors?: number;
+      reference_speakers?: number;
+      model_speakers?: number;
+    };
+    BenchmarkChain: {
+      id: string;
+      diarization_model_id: string;
+      transcription_model: string;
     };
   };
   responses: never;

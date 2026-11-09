@@ -20,6 +20,10 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 
 Étape exécutable : tâche `benchmark.diarization.N` (jamais une diarisation de production, qui remplacerait les locuteurs locaux), modèle du catalogue prêt sur un Worker, tours de référence figés à la création du corpus, DER avec association optimale des locuteurs et tolérance de 0,25 s. Voir l'[ADR 0059](adr/0059-benchmark-de-diarisation.md).
 
+## Bout en bout (tranche 6)
+
+Chaînes de deux modèles (diarisation + transcription) composées à partir des tâches des deux étapes et mesurées par le cpWER, avec le WER sans attribution et le DER des mêmes sorties. Voir l'[ADR 0060](adr/0060-benchmark-de-bout-en-bout.md). Côté API ; l'écran affiche l'étape « Bientôt » tant que le compositeur de chaînes n'y est pas.
+
 ## Restant
 
 - Écran Admin → AI Models (Models, Benchmarks, Results) : attend #281.
@@ -46,6 +50,5 @@ Référence visuelle : `design/ai-models/` (prototype jetable). Tests : `web/e2e
 
 ## Restant
 
-- Bout en bout : chaînes de trois modèles.
 - Import de références externes (STM, RTTM) pour lever le biais en faveur du modèle de production.
 - Activation du modèle de production avec plan de réanalyse (la transition de l'ADR 0044 reste le chemin).

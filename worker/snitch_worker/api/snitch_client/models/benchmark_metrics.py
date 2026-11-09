@@ -24,7 +24,8 @@ T = TypeVar("T", bound="BenchmarkMetrics")
 class BenchmarkMetrics:
     """ Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ;
     transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un
-    modèle à l'autre.
+    modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer (sans attribution) et
+    der des mêmes sorties.
 
         Attributes:
             references (int | Unset):
@@ -62,6 +63,10 @@ class BenchmarkMetrics:
             missed_speech_rate (float | None | Unset):
             false_alarm_rate (float | None | Unset):
             confusion_rate (float | None | Unset):
+            cpwer (float | None | Unset): Bout en bout : WER avec attribution des locuteurs (cpWER).
+            cp_word_errors (int | Unset):
+            reference_speakers (int | Unset):
+            model_speakers (int | Unset):
      """
 
     references: int | Unset = UNSET
@@ -98,6 +103,10 @@ class BenchmarkMetrics:
     missed_speech_rate: float | None | Unset = UNSET
     false_alarm_rate: float | None | Unset = UNSET
     confusion_rate: float | None | Unset = UNSET
+    cpwer: float | None | Unset = UNSET
+    cp_word_errors: int | Unset = UNSET
+    reference_speakers: int | Unset = UNSET
+    model_speakers: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -225,6 +234,18 @@ class BenchmarkMetrics:
         else:
             confusion_rate = self.confusion_rate
 
+        cpwer: float | None | Unset
+        if isinstance(self.cpwer, Unset):
+            cpwer = UNSET
+        else:
+            cpwer = self.cpwer
+
+        cp_word_errors = self.cp_word_errors
+
+        reference_speakers = self.reference_speakers
+
+        model_speakers = self.model_speakers
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -298,6 +319,14 @@ class BenchmarkMetrics:
             field_dict["false_alarm_rate"] = false_alarm_rate
         if confusion_rate is not UNSET:
             field_dict["confusion_rate"] = confusion_rate
+        if cpwer is not UNSET:
+            field_dict["cpwer"] = cpwer
+        if cp_word_errors is not UNSET:
+            field_dict["cp_word_errors"] = cp_word_errors
+        if reference_speakers is not UNSET:
+            field_dict["reference_speakers"] = reference_speakers
+        if model_speakers is not UNSET:
+            field_dict["model_speakers"] = model_speakers
 
         return field_dict
 
@@ -478,6 +507,22 @@ class BenchmarkMetrics:
         confusion_rate = _parse_confusion_rate(d.pop("confusion_rate", UNSET))
 
 
+        def _parse_cpwer(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        cpwer = _parse_cpwer(d.pop("cpwer", UNSET))
+
+
+        cp_word_errors = d.pop("cp_word_errors", UNSET)
+
+        reference_speakers = d.pop("reference_speakers", UNSET)
+
+        model_speakers = d.pop("model_speakers", UNSET)
+
         benchmark_metrics = cls(
             references=references,
             tests=tests,
@@ -513,6 +558,10 @@ class BenchmarkMetrics:
             missed_speech_rate=missed_speech_rate,
             false_alarm_rate=false_alarm_rate,
             confusion_rate=confusion_rate,
+            cpwer=cpwer,
+            cp_word_errors=cp_word_errors,
+            reference_speakers=reference_speakers,
+            model_speakers=model_speakers,
         )
 
 

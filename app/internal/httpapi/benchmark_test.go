@@ -145,8 +145,8 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("a certified clip opens every stage, got %v", stages)
 	}
 	noFingerprint, stages := create(corpus("Sans empreinte", []int64{c2}, []int64{}, []int64{c2}))
-	if fmt.Sprint(stages) != "[transcription diarization]" {
-		t.Fatalf("without references only transcription and diarization are measurable, got %v", stages)
+	if fmt.Sprint(stages) != "[transcription diarization e2e]" {
+		t.Fatalf("without references the fingerprint is out, the other three stages are measurable, got %v", stages)
 	}
 
 	// The clips and the models a screen offers.

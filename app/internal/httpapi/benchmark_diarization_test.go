@@ -34,7 +34,7 @@ func testAIBenchmarkDiarization(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 1)
 	clip := h.clipIDs[0]
 	for _, id := range []string{"bench-diar-a", "bench-diar-b"} {
-		if _, err := pool.Exec(ctx, `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision) VALUES($1,'diarization','pyannote',$2,'0123456789abcdef0123456789abcdef01234567')`, id, "fixture/"+id); err != nil {
+		if _, err := pool.Exec(ctx, `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision) VALUES($1,'diarization','pyannote',$2,'0123456789abcdef0123456789abcdef01234567') ON CONFLICT DO NOTHING`, id, "fixture/"+id); err != nil {
 			t.Fatal(err)
 		}
 		h.reportModel(id, "ready", "", 1, 1, http.StatusNoContent)

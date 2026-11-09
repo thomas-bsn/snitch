@@ -37,7 +37,8 @@ class BenchmarkResult:
             items_scored (int):
             metrics (BenchmarkMetrics): Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1,
                 précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables
-                en score brut d'un modèle à l'autre.
+                en score brut d'un modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer
+                (sans attribution) et der des mêmes sorties.
             elapsed_seconds (float | None | Unset):
             resources (BenchmarkResultResourcesType0 | None | Unset): RAM/VRAM : non remontés par le Worker, toujours null
                 pour l'instant.

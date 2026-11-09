@@ -10,6 +10,11 @@ import (
 
 // benchWork is one task of a run, before the model is chosen: a clip, a step and the input version that makes it
 // one work (the same for every model, so models are measured on the same inputs).
+type benchTask struct {
+	model string
+	work  benchWork
+}
+
 type benchWork struct {
 	clip    int64
 	step    string

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -82,6 +83,7 @@ type benchmarkRunView struct {
 	Stage       string                `json:"stage"`
 	Status      string                `json:"status"`
 	ModelIDs    []string              `json:"model_ids"`
+	Chains      []benchmarkChain      `json:"chains"`
 	AuthorName  string                `json:"author_name"`
 	CreatedAt   time.Time             `json:"created_at"`
 	FinishedAt  *time.Time            `json:"finished_at"`
@@ -121,7 +123,7 @@ type benchmarkResultView struct {
 const benchmarkRunColumns = `id,dataset_id,dataset_name,stage,status,model_ids,author_name,created_at,finished_at`
 
 func scanBenchmarkRun(row pgx.Row) (benchmarkRunView, error) {
-	v := benchmarkRunView{Results: []benchmarkResultView{}}
+	v := benchmarkRunView{Results: []benchmarkResultView{}, Chains: []benchmarkChain{}}
 	err := row.Scan(&v.ID, &v.DatasetID, &v.DatasetName, &v.Stage, &v.Status, &v.ModelIDs, &v.AuthorName, &v.CreatedAt, &v.FinishedAt)
 	return v, err
 }
@@ -189,6 +191,17 @@ func (s *Server) loadBenchmarkRun(ctx context.Context, id int64, detail bool) (b
 		return v, err
 	}
 	v.Progress.Errored = []benchmarkJobError{}
+	// The pairs of models of an end-to-end run, which the ids of its results stand for.
+	var params []byte
+	if err = s.Pool.QueryRow(ctx, `SELECT params FROM benchmark_runs WHERE id=$1`, id).Scan(&params); err != nil {
+		return v, err
+	}
+	var parsed struct {
+		Chains []benchmarkChain `json:"chains"`
+	}
+	if json.Unmarshal(params, &parsed) == nil && parsed.Chains != nil {
+		v.Chains = parsed.Chains
+	}
 	rows, err := s.Pool.Query(ctx, `SELECT j.id,rj.model_id,j.status,j.last_error FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 ORDER BY j.id,rj.model_id`, id)
 	if err != nil {
 		return v, err
@@ -237,11 +250,35 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		DatasetID int64    `json:"dataset_id"`
 		Stage     string   `json:"stage"`
 		ModelIDs  []string `json:"model_ids"`
+		Chains    []struct {
+			DiarizationModelID string `json:"diarization_model_id"`
+			TranscriptionModel string `json:"transcription_model"`
+		} `json:"chains"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.DatasetID < 1 || (input.Stage != "fingerprint" && input.Stage != "transcription" && input.Stage != "diarization") || len(input.ModelIDs) < 1 || len(input.ModelIDs) > benchMaxModels {
+	var chains []benchmarkChain
+	if input.Stage == "e2e" {
+		// A chain is a pair of models; its id stands for it in the results.
+		if len(input.ModelIDs) != 0 || len(input.Chains) < 1 || len(input.Chains) > benchMaxModels {
+			fail(w, http.StatusBadRequest, "invalid_request")
+			return
+		}
+		pairs := map[[2]string]bool{}
+		for i, c := range input.Chains {
+			key := [2]string{c.DiarizationModelID, c.TranscriptionModel}
+			if pairs[key] {
+				fail(w, http.StatusBadRequest, "invalid_request")
+				return
+			}
+			pairs[key] = true
+			id := fmt.Sprintf("c%d", i+1)
+			chains = append(chains, benchmarkChain{id, c.DiarizationModelID, c.TranscriptionModel})
+			input.ModelIDs = append(input.ModelIDs, id)
+		}
+	}
+	if input.DatasetID < 1 || (input.Stage != "fingerprint" && input.Stage != "transcription" && input.Stage != "diarization" && input.Stage != "e2e") || len(input.ModelIDs) < 1 || len(input.ModelIDs) > benchMaxModels {
 		fail(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
@@ -253,7 +290,29 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		}
 		seen[m] = true
 	}
-	if input.Stage == "transcription" {
+	if input.Stage == "e2e" {
+		diarizers := []string{}
+		for _, c := range chains {
+			if !jobs.ValidTranscriptionModelName(c.TranscriptionModel) {
+				fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
+				return
+			}
+			diarizers = append(diarizers, c.DiarizationModelID)
+		}
+		var valid int
+		if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM voice_model_catalog WHERE id=ANY($1) AND kind='diarization' AND enabled AND supported`, diarizers).Scan(&valid); err != nil {
+			s.internal(w, err)
+			return
+		}
+		distinct := map[string]bool{}
+		for _, d := range diarizers {
+			distinct[d] = true
+		}
+		if valid != len(distinct) {
+			fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
+			return
+		}
+	} else if input.Stage == "transcription" {
 		// A transcription model is a name of the external service: the Worker finds out if it exists (ADR 0058).
 		for _, m := range input.ModelIDs {
 			if !jobs.ValidTranscriptionModelName(m) {
@@ -308,9 +367,45 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnprocessableEntity, "benchmark_stage_unsupported_by_dataset")
 		return
 	}
-	works, params, ok := s.benchmarkWorks(w, r, input.Stage, input.DatasetID)
-	if !ok {
-		return
+	var tasks []benchTask
+	var params []byte
+	if input.Stage == "e2e" {
+		// The tasks of the two stages, shared by the chains that use the same model.
+		diarWorks, _, ok := s.benchmarkWorks(w, r, "diarization", input.DatasetID)
+		if !ok {
+			return
+		}
+		asrWorks, _, ok := s.benchmarkWorks(w, r, "transcription", input.DatasetID)
+		if !ok {
+			return
+		}
+		seenDiar, seenAsr := map[string]bool{}, map[string]bool{}
+		for _, c := range chains {
+			if !seenDiar[c.DiarizationModelID] {
+				seenDiar[c.DiarizationModelID] = true
+				for _, wk := range diarWorks {
+					tasks = append(tasks, benchTask{c.DiarizationModelID, wk})
+				}
+			}
+			if !seenAsr[c.TranscriptionModel] {
+				seenAsr[c.TranscriptionModel] = true
+				for _, wk := range asrWorks {
+					tasks = append(tasks, benchTask{c.TranscriptionModel, wk})
+				}
+			}
+		}
+		params, _ = json.Marshal(map[string]any{"chains": chains, "composition": "transcript segments take the speaker with the most overlap; cpWER", "profile": "production"})
+	} else {
+		works, p, ok := s.benchmarkWorks(w, r, input.Stage, input.DatasetID)
+		if !ok {
+			return
+		}
+		params = p
+		for _, model := range input.ModelIDs {
+			for _, wk := range works {
+				tasks = append(tasks, benchTask{model, wk})
+			}
+		}
 	}
 	var runID int64
 	err = s.Pool.QueryRow(r.Context(), `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_id,author_name) VALUES($1,$2,$3,'running',$4,$5,$6,$7) RETURNING id`,
@@ -324,21 +419,20 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	for _, model := range input.ModelIDs {
-		for _, wk := range works {
-			job, _, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: wk.clip, Step: wk.step, InputVersion: wk.version, RequestedModelID: model})
-			if err == nil {
-				_, err = s.Pool.Exec(r.Context(), `INSERT INTO benchmark_run_jobs(run_id,job_id,model_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, runID, job.ID, model)
+	for _, task := range tasks {
+		wk := task.work
+		job, _, err := s.Jobs.Schedule(r.Context(), jobs.ScheduleInput{ClipID: wk.clip, Step: wk.step, InputVersion: wk.version, RequestedModelID: task.model})
+		if err == nil {
+			_, err = s.Pool.Exec(r.Context(), `INSERT INTO benchmark_run_jobs(run_id,job_id,model_id) VALUES($1,$2,$3) ON CONFLICT DO NOTHING`, runID, job.ID, task.model)
+		}
+		if err != nil {
+			s.abortBenchmarkRun(context.WithoutCancel(r.Context()), runID, ss.User.ID)
+			if errors.Is(err, jobs.ErrInvalidInput) || errors.Is(err, jobs.ErrClipNotFound) {
+				fail(w, http.StatusUnprocessableEntity, "benchmark_dataset_stale")
+			} else {
+				s.internal(w, err)
 			}
-			if err != nil {
-				s.abortBenchmarkRun(context.WithoutCancel(r.Context()), runID, ss.User.ID)
-				if errors.Is(err, jobs.ErrInvalidInput) || errors.Is(err, jobs.ErrClipNotFound) {
-					fail(w, http.StatusUnprocessableEntity, "benchmark_dataset_stale")
-				} else {
-					s.internal(w, err)
-				}
-				return
-			}
+			return
 		}
 	}
 	reply(w, http.StatusCreated, map[string]any{"id": runID})
@@ -419,7 +513,8 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 	var status, stage string
 	var datasetID int64
 	var models []string
-	err = tx.QueryRow(ctx, `SELECT status,dataset_id,model_ids,stage FROM benchmark_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&status, &datasetID, &models, &stage)
+	var paramsRaw []byte
+	err = tx.QueryRow(ctx, `SELECT status,dataset_id,model_ids,stage,params FROM benchmark_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&status, &datasetID, &models, &stage, &paramsRaw)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && status != "running") {
 		return nil
 	}
@@ -438,6 +533,18 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 		var res benchModelResult
 		var err error
 		switch stage {
+		case "e2e":
+			var p struct {
+				Chains []benchmarkChain `json:"chains"`
+			}
+			if err = json.Unmarshal(paramsRaw, &p); err != nil {
+				return err
+			}
+			for _, c := range p.Chains {
+				if c.ID == model {
+					res, err = computeE2EResult(ctx, tx, runID, datasetID, c)
+				}
+			}
 		case "transcription":
 			res, err = computeTranscriptionResult(ctx, tx, runID, datasetID, model)
 		case "diarization":
