@@ -2374,6 +2374,48 @@ export const en = {
       diarization: "Diarization",
       fingerprint: "Voice fingerprint",
     },
+    logs: {
+      title: "Logs",
+      lead: "What the Worker wrote since its last start. Lines are cleaned of tokens, signed addresses and file paths before they leave the machine.",
+      session: "Current run",
+      live: "Live",
+      liveHint: "Follow new lines as they arrive",
+      older: "Load older lines",
+      loadingOlder: "Loading…",
+      empty:
+        "No log received yet. A Worker sends its log while it runs; start it to see lines here.",
+      loading: "Loading logs…",
+      region: "Worker log lines",
+      kept: "Only the last {count} lines are kept in this page.",
+      level: {
+        DEBUG: "Debug",
+        INFO: "Info",
+        WARN: "Warning",
+        ERROR: "Error",
+      },
+    },
+    control: {
+      title: "Pause and resume",
+      lead: "Pause stops new jobs from starting; jobs already running finish. It does not stop the container: the Worker stays connected and keeps sending its log.",
+      stateLabel: "State",
+      state: {
+        running: "Running",
+        pausing: "Pausing…",
+        paused: "Paused",
+        resuming: "Resuming…",
+      },
+      pending: "The instruction is waiting for the Worker's next check.",
+      pause: "Pause",
+      resume: "Resume",
+      pauseTitle: "Pause this Worker?",
+      pauseBody:
+        "It will not start new jobs until you resume it. Jobs already running finish normally.",
+      pauseConfirm: "Pause",
+      restartManaged:
+        "To restart the Worker, or to stop and start its container, use the managed restart in “Connection and recovery” on this page.",
+      restartNotManaged:
+        "Restarting, stopping or starting the container from Snitch needs the managed restart, which is enabled when the Worker is created (see the installation guide). Until then, use the commands in “Connection and recovery” on the machine.",
+    },
     detail: {
       back: "All Workers",
       notFound: "This Worker does not exist.",

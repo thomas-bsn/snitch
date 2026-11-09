@@ -491,6 +491,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelRuntimeUpdate(t, pool)
 	})
+	t.Run("worker control and logs", func(t *testing.T) {
+		reset(t)
+		testWorkerControl(t, pool)
+	})
 	t.Run("voice engine resources", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineResources(t, pool)
@@ -1516,7 +1520,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.Contains(path, "/voice-engine") || path == "/api/admin/voice-model-runtime-orders" || strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || strings.HasPrefix(path, "/api/admin/benchmarks") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/clips/{id}/audio-selection") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/updater" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || path == "/api/library/explorer/properties" || path == "/api/library/folder-logo" || path == "/api/library/folder-logo/history" {
+				if strings.Contains(path, "/voice-engine") || path == "/api/admin/voice-model-runtime-orders" || strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || strings.HasPrefix(path, "/api/admin/benchmarks") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/clips/{id}/audio-selection") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/updater" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || path == "/api/admin/workers/{id}/logs" || path == "/api/admin/workers/{id}/control" || path == "/api/worker/logs" || strings.HasPrefix(path, "/api/worker/control") || path == "/api/library/explorer/properties" || path == "/api/library/folder-logo" || path == "/api/library/folder-logo/history" {
 					continue // These contract operations are covered by their focused integration suites, including explorer properties, custom folder logos and audio selection.
 				}
 				if !seen[method+" "+path] {
@@ -1663,6 +1667,9 @@ func TestFoundation(t *testing.T) {
 		}
 		if os.Getenv("SNITCH_E2E_WORKERS_LIVE") == "1" {
 			suites = []string{"admin-workers-live.spec.ts"}
+		}
+		if os.Getenv("SNITCH_E2E_WORKER_CONTROL") == "1" {
+			suites = []string{"admin-worker-logs-control.spec.ts"}
 		}
 		if os.Getenv("SNITCH_E2E_CONTROLS") == "1" {
 			suites = []string{"admin-queue-folders.spec.ts"}

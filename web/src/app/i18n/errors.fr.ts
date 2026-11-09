@@ -31,6 +31,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette version ne correspond pas à l’engine de ce modèle.",
   engine_already_bound: "Ce modèle utilise déjà cette version du runtime.",
   invalid_runtime_order: "Cet ordre de mise à jour n’est pas valide.",
+  invalid_worker_logs: "Ce lot de logs du Worker n’est pas valide.",
+  invalid_worker_control: "Cette consigne de contrôle n’est pas valide.",
   invalid_worker_hardware: "Ce rapport matériel de Worker n’est pas valide.",
   platform_incompatible:
     "Cet engine ne prend pas en charge la version de Python ou la plateforme de ce Worker.",

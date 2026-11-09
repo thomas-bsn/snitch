@@ -11,6 +11,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import json
+import logging
 import os
 from pathlib import Path
 import platform
@@ -25,7 +26,7 @@ import urllib.parse
 import zipfile
 from typing import Any, Mapping
 
-from snitch_worker import voice_models
+from snitch_worker import log, voice_models
 from snitch_worker.voice_download import without_token
 
 ADAPTERS = {"pyannote": ("pyannote", {"diarization", "fingerprint"}), "nemo": ("sortformer", {"diarization"}),
@@ -38,6 +39,7 @@ _OPTIONAL = {"ram_bytes", "capabilities", "input_contract", "output_contract", "
 # Source separation is not an approved capability: the V2 separation stays inactive.
 _CAPABILITIES = {"diarization", "fingerprint"}
 _CONTRACT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
+LOG_TAIL_BYTES = 1500  # the end of a failed step's stderr that reaches the Worker log (scrubbed by log.py)
 CPU_FALLBACK_ENV = "SNITCH_VOICE_CPU_FALLBACK"
 
 
@@ -273,6 +275,22 @@ def _wheel_budget(directory: Path, budget: int) -> None:
         raise RuntimeFailed() from None
 
 
+def _step(name: str, command: list[str], env: Mapping[str, str], timeout: int, check: bool = True) -> int:
+    """Run one install step. A failure is logged with its step and the scrubbed end of its stderr: without it every
+    cause collapses into "runtime_incompatible" and the operator cannot tell what broke."""
+    try:
+        done = subprocess.run(command, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        log.emit(logging.WARNING, "engine_install_step_failed", step=name, reason_code="timeout", timeout_seconds=timeout)
+        raise
+    if done.returncode != 0:
+        tail = done.stderr[-LOG_TAIL_BYTES:].decode("utf-8", "replace") if isinstance(done.stderr, bytes) else ""
+        log.emit(logging.WARNING, "engine_install_step_failed", step=name, exit_code=done.returncode, stderr_tail=tail)
+        if check:
+            raise subprocess.CalledProcessError(done.returncode, command)
+    return done.returncode
+
+
 def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, detailed: bool = False) -> Path:
     if is_on_demand(manifest):
         return _install_on_demand(manifest, environ, report)
@@ -306,25 +324,21 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
                 # A model order reports one "verifying" step; an engine order tells installing and verifying apart.
                 checkpoint()
                 report("installing" if detailed else "verifying")
-                subprocess.run([sys.executable, "-m", "venv", str(target)], env=env, check=True,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                _step("venv", [sys.executable, "-m", "venv", str(target)], env, 120)
                 checkpoint()
                 python = str(target / "bin/python")
                 # Wheel paths are explicit and already hashed. --no-deps forbids a second resolver.
-                subprocess.run([python, "-I", "-m", "pip", "--isolated", "install", "--no-index", "--no-deps",
-                                "--only-binary=:all:", *[str(wheels / w["name"]) for w in manifest["wheels"]]],
-                               env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=1800)
+                _step("pip_install", [python, "-I", "-m", "pip", "--isolated", "install", "--no-index", "--no-deps",
+                                      "--only-binary=:all:", *[str(wheels / w["name"]) for w in manifest["wheels"]]], env, 1800)
                 checkpoint()
-                subprocess.run([python, "-I", "-m", "pip", "--isolated", "check"], env=env, check=True,
-                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=60)
+                _step("pip_check", [python, "-I", "-m", "pip", "--isolated", "check"], env, 60)
                 checkpoint()
                 if detailed:
                     report("verifying")
                 # Protocol import proves the approved adapter is usable before recording the runtime.
                 module = {"pyannote": "pyannote.audio", "nemo": "nemo.collections.asr.models",
                           "nemo-titanet": "nemo.collections.asr.models", "speechbrain-ecapa": "speechbrain.lobes.models.ECAPA_TDNN"}[manifest["engine"]]
-                subprocess.run([python, "-I", "-c", "import importlib; importlib.import_module(" + repr(module) + ")"],
-                               env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+                _step("import_adapter", [python, "-I", "-c", "import importlib; importlib.import_module(" + repr(module) + ")"], env, 120)
                 # Hardware is checked in this runtime, not against the base image's torch.
                 # Exit 2: CUDA absent or another version. Exit 3: not enough VRAM. A CUDA release without a GPU
                 # is refused: CPU execution requires a distinct approved CPU release.
@@ -333,8 +347,7 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
                          "if not torch.cuda.is_available(): sys.exit(2)\n"
                          "if torch.version.cuda!=cuda: sys.exit(2)\n"
                          "sys.exit(0 if torch.cuda.get_device_properties(0).total_memory>=need else 3)")
-                verdict = subprocess.run([python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"])], env=env,
-                                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120).returncode
+                verdict = _step("cuda_probe", [python, "-I", "-c", probe, manifest["cuda"], str(manifest["vram_bytes"])], env, 120, check=False)
                 if verdict != 0:
                     raise RuntimeFailed({2: "cuda_incompatible", 3: "insufficient_vram"}.get(verdict, "runtime_incompatible"))
             checkpoint()
@@ -450,7 +463,7 @@ def _index_arguments(environ: Mapping[str, str]) -> list[str]:
 
 
 def classify_pip(output: str) -> str:
-    """Map pip's output to a stable cause. The text itself is never kept, logged or sent anywhere."""
+    """Map pip's output to a stable cause. Only that cause is sent to Snitch; the end of the text goes to the Worker log, scrubbed."""
     text = output.lower()
     if "no space left on device" in text:
         return "disk_full"
@@ -469,13 +482,20 @@ def classify_pip(output: str) -> str:
 
 def _pip(python: str, arguments: list[str], env: Mapping[str, str], timeout: int) -> str:
     """Run pip in the engine environment with its output captured; it is returned only to be classified or recorded as the freeze."""
+    step = "pip_" + arguments[0]
     try:
         done = subprocess.run([python, "-I", "-m", "pip", "--isolated", *arguments], env=env, stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
+        log.emit(logging.WARNING, "engine_install_step_failed", step=step, reason_code="timeout", timeout_seconds=timeout)
         raise RuntimeFailed("hf_network") from None
     if done.returncode != 0:
-        raise RuntimeFailed(classify_pip(done.stdout or ""))
+        cause = classify_pip(done.stdout or "")
+        # The operator's only way to tell a real incompatibility from an unrecognised pip message: the end of the
+        # output, scrubbed by log.py (tokens, credentialed URLs, paths), never sent to Snitch as a cause.
+        log.emit(logging.WARNING, "engine_install_step_failed", step=step, exit_code=done.returncode, cause_code=cause,
+                 stderr_tail=(done.stdout or "")[-LOG_TAIL_BYTES:])
+        raise RuntimeFailed(cause)
     return done.stdout or ""
 
 
@@ -506,8 +526,7 @@ def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], repo
         try:
             checkpoint()
             report("installing")
-            subprocess.run([sys.executable, "-m", "venv", str(target)], env=env, check=True,
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+            _step("venv", [sys.executable, "-m", "venv", str(target)], env, 120)
             checkpoint()
             python = str(target / "bin/python")
             _pip(python, ["install", "--no-input", "--disable-pip-version-check", *_index_arguments(environ), requirement], env, PIP_TIMEOUT_SECONDS)
@@ -526,8 +545,7 @@ def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], repo
             (target / "ondemand.json").write_text(json.dumps({"family": runtime["family"], "version": runtime["version"]}, sort_keys=True))
             checkpoint()
             # The family's library must import before the runtime is recorded. No model weight is read or downloaded.
-            subprocess.run([python, "-I", "-c", "import importlib; importlib.import_module(" + repr(family["probe"]) + ")"],
-                           env=env, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=300)
+            _step("import_family", [python, "-I", "-c", "import importlib; importlib.import_module(" + repr(family["probe"]) + ")"], env, 300)
             checkpoint()
             (target / ".ready").write_text(_on_demand_identity(target, runtime))
         except RuntimeFailed:

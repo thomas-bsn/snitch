@@ -25,11 +25,14 @@ from snitch_client.api.default.complete_worker_job import sync as complete_job
 from snitch_client.api.default.fail_worker_job import sync as fail_job
 from snitch_client.api.default.get_worker_job_input import sync as get_job_input
 from snitch_client.api.default.heartbeat_worker_job import sync as heartbeat_job
+from snitch_client.api.default.post_worker_logs import sync_detailed as post_logs
 from snitch_client.api.default.worker_pulse import sync as pulse
 from snitch_client.client import AuthenticatedClient
 from snitch_client.models.error import Error
 from snitch_client.models.worker_failure_input import WorkerFailureInput
 from snitch_client.models.worker_job_logs_input import WorkerJobLogsInput
+from snitch_client.models.worker_log_batch import WorkerLogBatch
+from snitch_client.models.worker_log_batch_lines_item import WorkerLogBatchLinesItem
 from snitch_client.models.worker_pulse_input import WorkerPulseInput
 from snitch_client.models.worker_transcription_reachability_input import WorkerTranscriptionReachabilityInput
 from snitch_client.models.worker_result_input import WorkerResultInput
@@ -37,6 +40,7 @@ from snitch_client.models.worker_result_input_result import WorkerResultInputRes
 
 from snitch_worker import acoustic_dedup, audio_diagnostic, cancellation, log, revocation
 from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
+from snitch_worker import remote_control
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
 from snitch_worker.declared_machine import declared_machine
@@ -1016,6 +1020,7 @@ def _worker_loop(
     heartbeat_interval: float,
     guard: revocation.RevocationGuard | None = None,
     health: ClaimHealth | None = None,
+    control: remote_control.RemoteControl | None = None,
 ) -> None:
     """Claim until stopped. No recoverable error ends this loop (#321): a redeploy, a proxy page, a stale
     socket or an answer the generated client cannot read is logged and retried with a bounded backoff."""
@@ -1024,6 +1029,10 @@ def _worker_loop(
     while not stop.is_set():
         if guard is not None and guard.revoked.is_set():
             return
+        if control is not None and control.paused.is_set():
+            # Paused by an administrator (ADR 0063): nothing new is claimed, a job already running is not touched.
+            stop.wait(poll_interval)
+            continue
         cycle = ClaimCycle(health)
         try:
             completed = run_once(client, capacity, heartbeat_interval, stop, cycle=cycle)
@@ -1058,6 +1067,7 @@ def run_until_stopped(
     models_dir: str | None = None,
     presence_interval: float = PRESENCE_INTERVAL,
     reachability: ReachabilityMonitor | None = None,
+    control: remote_control.RemoteControl | None = None,
 ) -> bool:
     """Run a bounded pool; stop claiming on shutdown and drain active tasks.
 
@@ -1078,13 +1088,23 @@ def run_until_stopped(
     )
     probe = threading.Thread(target=monitor.run, args=(stop,), daemon=True, name="snitch-reachability")
     orders = threading.Thread(target=_models_loop, args=(client, stop, poll_interval, guard), daemon=True, name="snitch-model-orders")
+    controller = None
+    if control is not None:
+        # The wanted state is read once before the first claim, so a paused Worker that restarts stays paused.
+        try:
+            control.sync_once(client)
+        except Exception as error:  # noqa: BLE001 - Snitch out of reach at start: the loop below keeps trying
+            log.emit(logging.WARNING, "worker_control_unreachable", error_type=type(error).__name__)
+        controller = threading.Thread(target=remote_control.control_loop, args=(client, control, stop, poll_interval), daemon=True, name="snitch-remote-control")
     presence.start()
     probe.start()
     orders.start()
+    if controller is not None:
+        controller.start()
     with ThreadPoolExecutor(max_workers=capacity) as executor:
 
         def launch() -> Future[None]:
-            return executor.submit(_worker_loop, client, capacity, stop, poll_interval, heartbeat_interval, guard, ClaimHealth())
+            return executor.submit(_worker_loop, client, capacity, stop, poll_interval, heartbeat_interval, guard, ClaimHealth(), control)
 
         workers = [launch() for _ in range(capacity)]
         restarts = [0] * capacity
@@ -1113,11 +1133,30 @@ def run_until_stopped(
     presence.join()
     probe.join()
     orders.join()
+    if controller is not None:
+        controller.join()
     return guard.revoked.is_set()
+
+
+def _push_logs(client: AuthenticatedClient, session_id: str, lines: list[tuple[int, str]]) -> None:
+    """Hand a batch of the Worker's own journal to Snitch. Raises when Snitch did not take it."""
+    body = WorkerLogBatch(session_id=session_id, lines=[WorkerLogBatchLinesItem(seq=seq, line=line) for seq, line in lines])
+    answer = post_logs(client=client, body=body)
+    status = int(answer.status_code)
+    if 200 <= status < 300:
+        return
+    # A 4xx other than an unknown or expired token (401), a throttle (429) or a timeout (408) is a refusal of
+    # the batch itself: it would be refused again, so it is dropped rather than resent for ever.
+    if 400 <= status < 500 and status not in (401, 403, 404, 408, 429):
+        raise log.BatchRefused()
+    raise RuntimeError("worker logs not taken")
 
 
 def main() -> None:
     log.configure()
+    # The journal is sent from the very first line, so an administrator reads it from the start of the process.
+    uplink = log.WorkerLogUplink()
+    log.get_logger().addHandler(uplink)
     shutdown = threading.Event()
 
     def request_shutdown(_signum: int, _frame: object) -> None:
@@ -1166,7 +1205,9 @@ def main() -> None:
 
         signal.signal(signal.SIGTERM, request_stop)
         signal.signal(signal.SIGINT, request_stop)
-        revoked = run_until_stopped(client, capacity, stop, models_dir=models_dir)
+        uplink.start(lambda session_id, lines: _push_logs(client, session_id, lines))
+        revoked = run_until_stopped(client, capacity, stop, models_dir=models_dir, control=remote_control.RemoteControl())
+        uplink.close()
     if revoked:
         revocation.wait_inert(shutdown)
 

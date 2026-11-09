@@ -357,8 +357,10 @@ class OrderExecutor:
                 identity = engine_runtime.local_identity(runtime, self._env)
         except engine_runtime.RuntimeFailed as error:
             final, cause = "failed", error.cause if error.cause in ENGINE_CAUSES else "runtime_incompatible"
-        except Exception:  # noqa: BLE001 - an order that cannot run must end as failed, not stay open
+            log.emit(logging.WARNING, "engine_order_failed", order_id=order_id, cause_code=cause)
+        except Exception as error:  # noqa: BLE001 - an order that cannot run must end as failed, not stay open
             final, cause = "failed", "runtime_incompatible"
+            log.emit(logging.WARNING, "engine_order_failed", order_id=order_id, cause_code=cause, error_class=type(error).__name__)
         # The outcome is recorded before it is told: a lost report is repeated, never recomputed.
         self._cancelled.discard(order_id)
         self._record_engine_outcome(http, order_id, digest, final, cause, identity)

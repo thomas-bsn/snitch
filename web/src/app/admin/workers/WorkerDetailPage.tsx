@@ -13,6 +13,8 @@ import { useFormatDate } from "../format";
 import { DeploymentFiles } from "./DeploymentFiles";
 import { InstallProgress } from "./InstallProgress";
 import { InstallGuide } from "./InstallGuide";
+import { WorkerControlPanel } from "./WorkerControlPanel";
+import { WorkerLogsPanel } from "./WorkerLogsPanel";
 import { CommandLine, OfflineDiagnostics } from "./OfflineDiagnostics";
 import {
   fetchWorker,
@@ -204,6 +206,22 @@ export function WorkerDetailPage({ id }: { id: string }) {
           </Fact>
         </Facts>
       </Section>
+
+      {!revoked && (
+        <Section title={t("workers.control.title")}>
+          <WorkerControlPanel
+            key={id}
+            id={id}
+            managedRestart={worker.managed_restart ?? false}
+          />
+        </Section>
+      )}
+
+      {!revoked && (
+        <Section title={t("workers.logs.title")}>
+          <WorkerLogsPanel key={id} id={id} />
+        </Section>
+      )}
 
       <Section title={t("workers.detail.recentTasks")}>
         {worker.recent_tasks.length === 0 ? (

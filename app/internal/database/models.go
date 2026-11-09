@@ -1116,6 +1116,14 @@ type Worker struct {
 	LastClaimAt              pgtype.Timestamptz `json:"last_claim_at"`
 }
 
+type WorkerControl struct {
+	WorkerID      string             `json:"worker_id"`
+	Paused        bool               `json:"paused"`
+	AppliedPaused pgtype.Bool        `json:"applied_paused"`
+	RequestedBy   pgtype.Int8        `json:"requested_by"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 type WorkerEngineEvent struct {
 	ID         int64              `json:"id"`
 	WorkerID   string             `json:"worker_id"`
@@ -1209,6 +1217,15 @@ type WorkerInstallInvite struct {
 	TranscriptionLanguage    string             `json:"transcription_language"`
 	UsedAt                   pgtype.Timestamptz `json:"used_at"`
 	EncryptedSupervisorToken []byte             `json:"encrypted_supervisor_token"`
+}
+
+type WorkerLogLine struct {
+	ID        int64              `json:"id"`
+	WorkerID  string             `json:"worker_id"`
+	SessionID string             `json:"session_id"`
+	Seq       int64              `json:"seq"`
+	Line      string             `json:"line"`
+	LoggedAt  pgtype.Timestamptz `json:"logged_at"`
 }
 
 type WorkerModelEngineDependency struct {

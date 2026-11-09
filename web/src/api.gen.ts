@@ -3893,6 +3893,92 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/worker/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker pousse par lots les lignes de son journal (déjà expurgées : jetons, URLs signées, chemins). Une ligne déjà reçue pour la même session et le même numéro est ignorée : un lot renvoyé après une réponse perdue ne crée pas de doublon. Seules les 5000 dernières lignes de chaque Worker sont conservées. */
+    post: operations["postWorkerLogs"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Le Worker lit l'état voulu par un administrateur : en pause ou non. C'est un état, pas une file de commandes : une consigne donnée pendant que le Worker était hors ligne s'applique à son retour, une seule fois. */
+    get: operations["getWorkerControl"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/worker/control/ack": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Le Worker confirme l'état qu'il applique (en pause ou non). */
+    post: operations["ackWorkerControl"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/logs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Journal de la session en cours du Worker (son dernier processus), depuis son démarrage. Sans curseur : la page la plus récente. `after` suit la fin du journal en direct, `before` remonte vers le début de la session. */
+    get: operations["listWorkerLogs"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/workers/{id}/control": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État de pause voulu pour le Worker et état confirmé par lui. */
+    get: operations["getWorkerControlState"];
+    put?: never;
+    /** @description Administrateurs uniquement. Met le Worker en pause (il ne prend plus de nouveau job ; ceux en cours se terminent) ou le reprend. Le Worker ne reçoit rien : il lit cet état à son prochain relevé. Le redémarrage du conteneur reste le redémarrage géré (`/api/admin/workers/{id}/restart`). La demande est tracée avec l'administrateur qui l'a faite. */
+    post: operations["requestWorkerControl"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/benchmarks/datasets": {
     parameters: {
       query?: never;
@@ -8477,6 +8563,50 @@ export interface components {
       blocker?: string;
       /** @description Faux quand la famille s'installe pour cette tâche mais qu'aucun adaptateur ne l'exécute (séparation SpeechBrain) : l'engine est commandé avec le modèle, le modèle reste indisponible. */
       active: boolean;
+    };
+    WorkerLogBatch: {
+      /** @description Un processus du Worker. */
+      session_id: string;
+      lines: {
+        /**
+         * Format: int64
+         * @description Numéro de la ligne dans la session, à partir de 0.
+         */
+        seq: number;
+        line: string;
+      }[];
+    };
+    WorkerLogLine: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      seq: number;
+      /** Format: date-time */
+      at: string;
+      line: string;
+    };
+    WorkerLogPage: {
+      /** @description Vide tant qu'aucune ligne n'a été reçue. */
+      session_id: string;
+      lines: components["schemas"]["WorkerLogLine"][];
+      /** @description Des lignes plus anciennes existent dans cette session. */
+      has_more: boolean;
+    };
+    WorkerControlInput: {
+      /** @enum {string} */
+      action: "pause" | "resume";
+    };
+    WorkerControlState: {
+      /** @description Pause demandée. */
+      paused: boolean;
+      /** @description Pause confirmée par le Worker ; null tant qu'il n'a rien confirmé. Diffère de `paused` pendant que la consigne est en route. */
+      applied_paused: boolean | null;
+    };
+    WorkerControlInstruction: {
+      paused: boolean;
+    };
+    WorkerControlAck: {
+      paused: boolean;
     };
   };
   responses: never;
@@ -19387,6 +19517,203 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  postWorkerLogs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerLogBatch"];
+      };
+    };
+    responses: {
+      /** @description Lot reçu */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerControl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État à appliquer */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlInstruction"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  ackWorkerControl: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerControlAck"];
+      };
+    };
+    responses: {
+      /** @description Accusé enregistré */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listWorkerLogs: {
+    parameters: {
+      query?: {
+        /** @description Ne renvoie que les lignes postérieures à cet identifiant. */
+        after?: number;
+        /** @description Ne renvoie que les lignes antérieures à cet identifiant. */
+        before?: number;
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Lignes, dans l'ordre de lecture */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerLogPage"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getWorkerControlState: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État de contrôle */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  requestWorkerControl: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["WorkerControlInput"];
+      };
+    };
+    responses: {
+      /** @description État de contrôle après la demande */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkerControlState"];
+        };
       };
       /** @description Erreur */
       default: {

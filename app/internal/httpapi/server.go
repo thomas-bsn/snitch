@@ -451,6 +451,9 @@ func (s *Server) Handler() http.Handler {
 				limit = 4 << 20
 			}
 		}
+		if r.Method == http.MethodPost && r.URL.Path == "/api/worker/logs" {
+			limit = maxWorkerLogBody // a batch of real lines is far over the default 16 KiB
+		}
 		if r.Method == http.MethodPost && strings.HasPrefix(r.URL.Path, "/api/worker/jobs/") && strings.HasSuffix(r.URL.Path, "/complete") {
 			limit = maxVoiceResultBytes + 4096 // voice fingerprints are larger than transcripts
 		}
