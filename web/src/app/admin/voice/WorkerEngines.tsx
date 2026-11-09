@@ -176,6 +176,7 @@ export function WorkerEngines() {
     family: string,
     version: string,
     workerIds: string[],
+    kind?: string,
   ) {
     setBusy(true);
     setFailure(undefined);
@@ -189,6 +190,7 @@ export function WorkerEngines() {
           body: {
             family,
             version,
+            ...(kind ? { kind } : {}),
             orders: workerIds.map((worker_id) => ({
               worker_id,
               idempotency_key: crypto.randomUUID(),
@@ -557,20 +559,26 @@ export function WorkerEngines() {
           onConfirm={(key) => uninstall(uninstalling, key)}
         />
       )}
-      {adding && !replacing && current && (
-        <WorkerEngineAdd
-          worker={current}
-          workers={workers}
-          checked={checked}
-          busy={busy}
-          onClose={() => setAdding(false)}
-          onOrder={async (family, version, ids) => {
-            await orderFamily(family, version, ids);
-            setAdding(false);
-          }}
-        />
-      )}
-      {replacing && current && (
+      {((adding && !replacing) || replacing?.source === "on_demand") &&
+        current && (
+          <WorkerEngineAdd
+            replacing={replacing}
+            worker={current}
+            workers={workers}
+            checked={checked}
+            busy={busy}
+            onClose={() => {
+              setAdding(false);
+              setReplacing(undefined);
+            }}
+            onOrder={async (family, version, ids, kind) => {
+              await orderFamily(family, version, ids, kind);
+              setAdding(false);
+              setReplacing(undefined);
+            }}
+          />
+        )}
+      {replacing && replacing.source !== "on_demand" && current && (
         <WorkerEngineReplace
           replacing={replacing}
           worker={current}

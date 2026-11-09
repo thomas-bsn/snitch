@@ -192,6 +192,9 @@ export const en = {
       update: "Update",
       target: "Target version for {model}",
       choose: "Choose a version",
+      chooseVersion: "Version of the family",
+      planFamily:
+        "Update to version {version}: the engine is installed first if this Worker does not have it, the weights are reused, the model keeps serving on its current version and the binding is published after a successful test inference.",
       noTarget: "No other approved version.",
       plan: "Update to {version}: {disk} MiB of disk for the runtime, weights reused, binding published after a successful test inference.",
       confirm: "Confirm the update",

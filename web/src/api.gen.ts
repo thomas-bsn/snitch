@@ -5455,7 +5455,7 @@ export interface components {
       hf_token?: string;
       /** Format: date-time */
       created_at: string;
-      runtime?: components["schemas"]["VoiceEngineManifest"];
+      runtime?: components["schemas"]["EngineRuntime"];
       /**
        * @description install (poids et runtime) ou, pour un modèle déjà prêt, update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés.
        * @enum {string}
@@ -7722,6 +7722,11 @@ export interface components {
       engine: string;
       version: string;
       kind: string;
+      /**
+       * @description Release signée approuvée ou engine à la demande résolu par pip (ADR 0056).
+       * @enum {string}
+       */
+      source: "signed" | "on_demand";
       /** @enum {string} */
       state:
         | "requested"
@@ -7917,8 +7922,10 @@ export interface components {
     RuntimeOrderInput: {
       worker_id: string;
       model_id: string;
-      /** @description Identité signée de la version approuvée visée. */
-      digest: string;
+      /** @description Identité de la version visée : signée, ou d'un engine à la demande déjà connu. Exclusif avec `version`. */
+      digest?: string;
+      /** @description Version de la famille d'engine du modèle (ADR 0056) : Snitch en déduit l'identité et l'enregistre si elle est nouvelle. Exclusif avec `digest`. */
+      version?: string;
       /** @enum {string} */
       intent: "update" | "rollback";
       idempotency_key: string;
@@ -7951,6 +7958,10 @@ export interface components {
       model_id: string;
       model_label: string;
       engine: string;
+      /** @description Famille d'engine à la demande du modèle ; vide pour un modèle sur Release signée ou embarquée. */
+      family: string;
+      /** @description Versions de la famille proposées pour une mise à jour (connues de Snitch, non révoquées, et la version par défaut) ; vide hors famille. */
+      versions: string[];
       kind: string;
       /** @description Version liée au modèle ; vide si Snitch ne la connaît pas (modèle installé avant le suivi). */
       digest: string;

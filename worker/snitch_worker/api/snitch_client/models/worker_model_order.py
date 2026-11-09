@@ -17,7 +17,7 @@ from typing import cast
 import datetime
 
 if TYPE_CHECKING:
-  from ..models.voice_engine_manifest import VoiceEngineManifest
+  from ..models.engine_runtime import EngineRuntime
 
 
 
@@ -46,7 +46,9 @@ class WorkerModelOrder:
             created_at (datetime.datetime):
             hf_token (str | Unset): Jeton Hugging Face central, seulement à la première livraison d'un ordre qui télécharge
                 un modèle sous accès restreint.
-            runtime (VoiceEngineManifest | Unset):
+            runtime (EngineRuntime | Unset): Runtime figé dans un ordre d'engine : manifeste signé d'une Release
+                (VoiceEngineManifest) ou description d'un engine à la demande (OnDemandEngineRuntime). Seuls les champs communs
+                sont requis ici ; le Worker valide chaque forme.
             runtime_intent (WorkerModelOrderRuntimeIntent | Unset): install (poids et runtime) ou, pour un modèle déjà prêt,
                 update / rollback : seul le runtime change, les poids déjà validés sont réutilisés et jamais téléchargés.
      """
@@ -64,7 +66,7 @@ class WorkerModelOrder:
     size_bytes: int
     created_at: datetime.datetime
     hf_token: str | Unset = UNSET
-    runtime: VoiceEngineManifest | Unset = UNSET
+    runtime: EngineRuntime | Unset = UNSET
     runtime_intent: WorkerModelOrderRuntimeIntent | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -73,7 +75,7 @@ class WorkerModelOrder:
 
 
     def to_dict(self) -> dict[str, Any]:
-        from ..models.voice_engine_manifest import VoiceEngineManifest # noqa: PLC0415
+        from ..models.engine_runtime import EngineRuntime # noqa: PLC0415
         order_id = self.order_id
 
         worker_id = self.worker_id
@@ -139,7 +141,7 @@ class WorkerModelOrder:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.voice_engine_manifest import VoiceEngineManifest # noqa: PLC0415
+        from ..models.engine_runtime import EngineRuntime # noqa: PLC0415
         d = dict(src_dict)
         order_id = d.pop("order_id")
 
@@ -180,11 +182,11 @@ class WorkerModelOrder:
         hf_token = d.pop("hf_token", UNSET)
 
         _runtime = d.pop("runtime", UNSET)
-        runtime: VoiceEngineManifest | Unset
+        runtime: EngineRuntime | Unset
         if isinstance(_runtime,  Unset):
             runtime = UNSET
         else:
-            runtime = VoiceEngineManifest.from_dict(_runtime)
+            runtime = EngineRuntime.from_dict(_runtime)
 
 
 

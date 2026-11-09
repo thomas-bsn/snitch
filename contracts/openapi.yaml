@@ -21870,7 +21870,7 @@
             "format": "date-time"
           },
           "runtime": {
-            "$ref": "#/components/schemas/VoiceEngineManifest"
+            "$ref": "#/components/schemas/EngineRuntime"
           },
           "runtime_intent": {
             "type": "string",
@@ -29079,6 +29079,7 @@
           "engine",
           "version",
           "kind",
+          "source",
           "state",
           "cause_code",
           "bytes_received",
@@ -29108,6 +29109,14 @@
           },
           "kind": {
             "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "signed",
+              "on_demand"
+            ],
+            "description": "Release signée approuvée ou engine à la demande résolu par pip (ADR 0056)."
           },
           "state": {
             "type": "string",
@@ -29546,7 +29555,6 @@
         "required": [
           "worker_id",
           "model_id",
-          "digest",
           "intent",
           "idempotency_key"
         ],
@@ -29559,7 +29567,11 @@
           },
           "digest": {
             "type": "string",
-            "description": "Identité signée de la version approuvée visée."
+            "description": "Identité de la version visée : signée, ou d'un engine à la demande déjà connu. Exclusif avec `version`."
+          },
+          "version": {
+            "type": "string",
+            "description": "Version de la famille d'engine du modèle (ADR 0056) : Snitch en déduit l'identité et l'enregistre si elle est nouvelle. Exclusif avec `digest`."
           },
           "intent": {
             "type": "string",
@@ -29667,6 +29679,8 @@
           "model_id",
           "model_label",
           "engine",
+          "family",
+          "versions",
           "kind",
           "digest",
           "version",
@@ -29688,6 +29702,17 @@
           },
           "engine": {
             "type": "string"
+          },
+          "family": {
+            "type": "string",
+            "description": "Famille d'engine à la demande du modèle ; vide pour un modèle sur Release signée ou embarquée."
+          },
+          "versions": {
+            "type": "array",
+            "description": "Versions de la famille proposées pour une mise à jour (connues de Snitch, non révoquées, et la version par défaut) ; vide hors famille.",
+            "items": {
+              "type": "string"
+            }
           },
           "kind": {
             "type": "string"

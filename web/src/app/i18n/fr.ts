@@ -193,6 +193,9 @@ export const fr: Messages = {
       update: "Mettre à jour",
       target: "Version cible de {model}",
       choose: "Choisir une version",
+      chooseVersion: "Version de la famille",
+      planFamily:
+        "Mise à jour vers la version {version} : l’engine est d’abord installé si ce Worker ne l’a pas, les poids sont réutilisés, le modèle continue de servir sur sa version actuelle et la liaison est publiée après une inférence de test réussie.",
       noTarget: "Aucune autre version approuvée.",
       plan: "Mise à jour vers {version} : {disk} Mio de disque pour le runtime, poids réutilisés, liaison publiée après une inférence de test réussie.",
       confirm: "Confirmer la mise à jour",

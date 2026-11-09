@@ -13,6 +13,7 @@ from ..models.worker_engine_cleanup import WorkerEngineCleanup
 from ..models.worker_engine_order_cause_code import WorkerEngineOrderCauseCode
 from ..models.worker_engine_order_intent import WorkerEngineOrderIntent
 from ..models.worker_engine_order_status import WorkerEngineOrderStatus
+from ..models.worker_engine_source import WorkerEngineSource
 from ..models.worker_engine_state import WorkerEngineState
 from typing import cast
 import datetime
@@ -37,6 +38,7 @@ class WorkerEngine:
             engine (str):
             version (str):
             kind (str):
+            source (WorkerEngineSource): Release signée approuvée ou engine à la demande résolu par pip (ADR 0056).
             state (WorkerEngineState):
             cause_code (WorkerEngineCauseCode):
             bytes_received (int):
@@ -60,6 +62,7 @@ class WorkerEngine:
     engine: str
     version: str
     kind: str
+    source: WorkerEngineSource
     state: WorkerEngineState
     cause_code: WorkerEngineCauseCode
     bytes_received: int
@@ -92,6 +95,8 @@ class WorkerEngine:
         version = self.version
 
         kind = self.kind
+
+        source = self.source.value
 
         state = self.state.value
 
@@ -142,6 +147,7 @@ class WorkerEngine:
             "engine": engine,
             "version": version,
             "kind": kind,
+            "source": source,
             "state": state,
             "cause_code": cause_code,
             "bytes_received": bytes_received,
@@ -176,6 +182,11 @@ class WorkerEngine:
         version = d.pop("version")
 
         kind = d.pop("kind")
+
+        source = WorkerEngineSource(d.pop("source"))
+
+
+
 
         state = WorkerEngineState(d.pop("state"))
 
@@ -259,6 +270,7 @@ class WorkerEngine:
             engine=engine,
             version=version,
             kind=kind,
+            source=source,
             state=state,
             cause_code=cause_code,
             bytes_received=bytes_received,

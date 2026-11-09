@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.runtime_order_input_intent import RuntimeOrderInputIntent
+from ..types import UNSET, Unset
 
 
 
@@ -25,16 +26,20 @@ class RuntimeOrderInput:
         Attributes:
             worker_id (str):
             model_id (str):
-            digest (str): Identité signée de la version approuvée visée.
             intent (RuntimeOrderInputIntent):
             idempotency_key (str):
+            digest (str | Unset): Identité de la version visée : signée, ou d'un engine à la demande déjà connu. Exclusif
+                avec `version`.
+            version (str | Unset): Version de la famille d'engine du modèle (ADR 0056) : Snitch en déduit l'identité et
+                l'enregistre si elle est nouvelle. Exclusif avec `digest`.
      """
 
     worker_id: str
     model_id: str
-    digest: str
     intent: RuntimeOrderInputIntent
     idempotency_key: str
+    digest: str | Unset = UNSET
+    version: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -46,11 +51,13 @@ class RuntimeOrderInput:
 
         model_id = self.model_id
 
-        digest = self.digest
-
         intent = self.intent.value
 
         idempotency_key = self.idempotency_key
+
+        digest = self.digest
+
+        version = self.version
 
 
         field_dict: dict[str, Any] = {}
@@ -58,10 +65,13 @@ class RuntimeOrderInput:
         field_dict.update({
             "worker_id": worker_id,
             "model_id": model_id,
-            "digest": digest,
             "intent": intent,
             "idempotency_key": idempotency_key,
         })
+        if digest is not UNSET:
+            field_dict["digest"] = digest
+        if version is not UNSET:
+            field_dict["version"] = version
 
         return field_dict
 
@@ -74,8 +84,6 @@ class RuntimeOrderInput:
 
         model_id = d.pop("model_id")
 
-        digest = d.pop("digest")
-
         intent = RuntimeOrderInputIntent(d.pop("intent"))
 
 
@@ -83,12 +91,17 @@ class RuntimeOrderInput:
 
         idempotency_key = d.pop("idempotency_key")
 
+        digest = d.pop("digest", UNSET)
+
+        version = d.pop("version", UNSET)
+
         runtime_order_input = cls(
             worker_id=worker_id,
             model_id=model_id,
-            digest=digest,
             intent=intent,
             idempotency_key=idempotency_key,
+            digest=digest,
+            version=version,
         )
 
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,9 +42,13 @@ func bindInstalledRuntime(ctx context.Context, tx pgx.Tx, workerID, modelID, ord
 }
 
 type runtimeOrderInput struct {
-	WorkerID       string `json:"worker_id"`
-	ModelID        string `json:"model_id"`
+	WorkerID string `json:"worker_id"`
+	ModelID  string `json:"model_id"`
+	// Digest names a signed release or an on-demand engine already registered. Version names a version of the
+	// family of a model that asks for one (ADR 0056): the server derives the identity from the model's family
+	// and task, and registers it when it is new. Exactly one of the two is given.
 	Digest         string `json:"digest"`
+	Version        string `json:"version"`
 	Intent         string `json:"intent"`
 	IdempotencyKey string `json:"idempotency_key"`
 }
@@ -74,8 +79,14 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 	if !idempotencyKeyFormat.MatchString(in.IdempotencyKey) {
 		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_idempotency_key"}
 	}
-	if !engineDigest.MatchString(in.Digest) {
+	if (in.Digest == "") == (in.Version == "") {
+		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_runtime_order"}
+	}
+	if in.Digest != "" && !engineDigest.MatchString(in.Digest) {
 		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_engine_digest"}
+	}
+	if in.Version != "" && !engineVersion.MatchString(in.Version) {
+		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_runtime_order"}
 	}
 	if in.Intent != "update" && in.Intent != "rollback" {
 		return voiceModelOrderView{}, false, orderFailure{http.StatusBadRequest, "invalid_runtime_order"}
@@ -90,10 +101,22 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 		if !exists {
 			return orderFailure{http.StatusNotFound, "worker_not_found"}
 		}
+		entry, ok, err := voiceCatalogByID(ctx, tx, in.ModelID)
+		if err != nil {
+			return err
+		}
+		if in.Version != "" {
+			// A version is only meaningful for a model of an on-demand family; its identity follows from it.
+			f, needed, supported := entry.engineNeed()
+			if !ok || !needed || !supported {
+				return orderFailure{http.StatusBadRequest, "invalid_runtime_order"}
+			}
+			in.Digest = onDemandDigest(f.Key, in.Version, entry.Kind)
+		}
 		// The key first: a replay is answered with the recorded order whatever changed since.
 		var prior, priorWorker, priorModel, priorIntent string
 		var same bool
-		err := tx.QueryRow(ctx, `SELECT o.id,o.worker_id,o.model_id,o.runtime_intent,COALESCE(g.digest=$2,false) FROM worker_model_orders o LEFT JOIN voice_engine_registry g ON g.manifest=o.runtime WHERE o.idempotency_key=$1`, in.IdempotencyKey, in.Digest).Scan(&prior, &priorWorker, &priorModel, &priorIntent, &same)
+		err = tx.QueryRow(ctx, `SELECT o.id,o.worker_id,o.model_id,o.runtime_intent,COALESCE(g.digest=$2,false) FROM worker_model_orders o LEFT JOIN voice_engine_registry g ON g.manifest=o.runtime WHERE o.idempotency_key=$1`, in.IdempotencyKey, in.Digest).Scan(&prior, &priorWorker, &priorModel, &priorIntent, &same)
 		if err == nil {
 			if priorWorker != in.WorkerID || priorModel != in.ModelID || priorIntent != in.Intent || !same {
 				return orderFailure{http.StatusConflict, "idempotency_key_reused"}
@@ -102,10 +125,6 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 			return err
 		}
 		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
-		}
-		entry, ok, err := voiceCatalogByID(ctx, tx, in.ModelID)
-		if err != nil {
 			return err
 		}
 		if !ok || !entry.Enabled || !entry.Supported {
@@ -127,10 +146,17 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 		if open {
 			return orderFailure{http.StatusConflict, "runtime_order_in_progress"}
 		}
+		if in.Version != "" {
+			// A new version of the family is registered like an order by family would.
+			f, _, _ := entry.engineNeed()
+			if err = registerOnDemandEngine(ctx, tx, author, f, in.Version, entry.Kind); err != nil {
+				return err
+			}
+		}
 		var manifest json.RawMessage
-		var engine, kind string
+		var engine, kind, source, family string
 		var revoked bool
-		err = tx.QueryRow(ctx, `SELECT manifest,engine,manifest->>'kind',revoked FROM voice_engine_registry WHERE digest=$1`, in.Digest).Scan(&manifest, &engine, &kind, &revoked)
+		err = tx.QueryRow(ctx, `SELECT manifest,engine,manifest->>'kind',revoked,source,COALESCE(manifest->>'family','') FROM voice_engine_registry WHERE digest=$1`, in.Digest).Scan(&manifest, &engine, &kind, &revoked, &source, &family)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return orderFailure{http.StatusNotFound, "engine_not_found"}
 		}
@@ -141,7 +167,7 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 		if revoked {
 			return orderFailure{http.StatusConflict, "engine_release_unavailable"}
 		}
-		if engine != entry.Engine || kind != entry.Kind {
+		if !runtimeTargetFits(entry, source, engine, family, kind) {
 			return orderFailure{http.StatusConflict, "engine_release_mismatch"}
 		}
 		// A release the Administrator is removing from this Worker (#353) is never a target; one already removed
@@ -156,6 +182,7 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 		case held == "removed" && in.Intent == "rollback":
 			return orderFailure{http.StatusConflict, "engine_not_installed"}
 		}
+		var engineOrderID string
 		var current, previous *string
 		switch err = tx.QueryRow(ctx, `SELECT digest,previous_digest FROM worker_model_runtime_bindings WHERE worker_id=$1 AND model_id=$2`, in.WorkerID, in.ModelID).Scan(&current, &previous); {
 		case errors.Is(err, pgx.ErrNoRows):
@@ -176,13 +203,21 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 				return orderFailure{http.StatusConflict, "engine_not_installed"}
 			}
 		} else {
-			// An engine order for this engine on this Worker is already installing a release: wait for it.
-			var installing bool
-			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2 AND status IN ('pending','acknowledged'))`, in.WorkerID, engine).Scan(&installing); err != nil {
-				return err
-			}
-			if installing {
-				return orderFailure{http.StatusConflict, "engine_order_in_progress"}
+			if source == engineSourceOnDemand {
+				// The engine of the target is ordered together with the update, or reused when installed or in
+				// progress; another version of the family being installed refuses (one heavy install at a time).
+				if engineOrderID, err = s.modelEngineDependency(ctx, tx, author, in.WorkerID, manifest); err != nil {
+					return err
+				}
+			} else {
+				// An engine order for this engine on this Worker is already installing a release: wait for it.
+				var installing bool
+				if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM worker_engine_orders WHERE worker_id=$1 AND engine=$2 AND status IN ('pending','acknowledged'))`, in.WorkerID, engine).Scan(&installing); err != nil {
+					return err
+				}
+				if installing {
+					return orderFailure{http.StatusConflict, "engine_order_in_progress"}
+				}
 			}
 		}
 		// The same resource check as any order that gives a runtime to a Worker (#354). A release already ready
@@ -198,6 +233,11 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 		if _, err = tx.Exec(ctx, `INSERT INTO worker_model_orders(id,worker_id,kind,action,model_id,revision,idempotency_key,author_id,author_name,runtime,runtime_intent) VALUES($1,$2,$3,'install',$4,$5,$6,$7,$8,$9,$10)`,
 			id, in.WorkerID, entry.Kind, entry.ID, entry.Revision, in.IdempotencyKey, author.User.ID, author.User.Username, manifest, in.Intent); err != nil {
 			return err
+		}
+		if engineOrderID != "" {
+			if _, err = tx.Exec(ctx, `INSERT INTO worker_model_engine_dependencies(model_order_id,engine_order_id) VALUES($1,$2)`, id, engineOrderID); err != nil {
+				return err
+			}
 		}
 		if err = runtimeEvent(ctx, tx, in.WorkerID, id, in.Intent, "requested", "", false, ""); err != nil {
 			return err
@@ -291,10 +331,14 @@ type runtimePending struct {
 }
 
 type runtimeBinding struct {
-	WorkerID        string                `json:"worker_id"`
-	ModelID         string                `json:"model_id"`
-	ModelLabel      string                `json:"model_label"`
-	Engine          string                `json:"engine"`
+	WorkerID   string `json:"worker_id"`
+	ModelID    string `json:"model_id"`
+	ModelLabel string `json:"model_label"`
+	Engine     string `json:"engine"`
+	// Family and Versions are set for a model that runs on an on-demand family (ADR 0056): the versions the
+	// Administrator may move it to are the ones already known for the family and task, and its default one.
+	Family          string                `json:"family"`
+	Versions        []string              `json:"versions"`
 	Kind            string                `json:"kind"`
 	Digest          string                `json:"digest"`
 	Version         string                `json:"version"`
@@ -311,14 +355,16 @@ const runtimeHistoryLimit = 20
 // listRuntimeBindings lists, for each Ready model of a Worker that runs on an approved engine, the runtime it is
 // bound to, the one it can go back to, the order in progress and the history of its updates.
 func (s *Server) listRuntimeBindings(w http.ResponseWriter, r *http.Request) {
-	rows, err := s.Pool.Query(r.Context(), `SELECT m.worker_id,m.model_id,c.label,c.engine,c.kind,
+	rows, err := s.Pool.Query(r.Context(), `SELECT m.worker_id,m.model_id,c.label,c.engine,c.kind,c.family,
 			COALESCE(b.digest,''),COALESCE(g.manifest->>'version',''),COALESCE(g.revoked,false),
 			COALESCE(b.previous_digest,''),COALESCE(p.manifest->>'version',''),COALESCE(p.revoked,false)
 		FROM worker_voice_models m JOIN voice_model_catalog c ON c.id=m.model_id
 		JOIN workers k ON k.id=m.worker_id AND k.revoked_at IS NULL
 		LEFT JOIN worker_model_runtime_bindings b ON b.worker_id=m.worker_id AND b.model_id=m.model_id
 		LEFT JOIN voice_engine_registry g ON g.digest=b.digest LEFT JOIN voice_engine_registry p ON p.digest=b.previous_digest
-		WHERE m.state='ready' AND EXISTS(SELECT 1 FROM voice_engine_registry e WHERE e.engine=c.engine AND e.manifest->>'kind'=c.kind)
+		WHERE m.state='ready' AND (
+			(c.family='' AND EXISTS(SELECT 1 FROM voice_engine_registry e WHERE e.source='signed' AND e.engine=c.engine AND e.manifest->>'kind'=c.kind))
+			OR (c.family<>'' AND b.digest IS NOT NULL))
 		ORDER BY m.worker_id,m.model_id`)
 	if err != nil {
 		s.internal(w, err)
@@ -329,12 +375,13 @@ func (s *Server) listRuntimeBindings(w http.ResponseWriter, r *http.Request) {
 	}{Bindings: []runtimeBinding{}}
 	for rows.Next() {
 		var b runtimeBinding
-		if err = rows.Scan(&b.WorkerID, &b.ModelID, &b.ModelLabel, &b.Engine, &b.Kind, &b.Digest, &b.Version, &b.Revoked, &b.PreviousDigest, &b.PreviousVersion, &b.PreviousRevoked); err != nil {
+		if err = rows.Scan(&b.WorkerID, &b.ModelID, &b.ModelLabel, &b.Engine, &b.Kind, &b.Family, &b.Digest, &b.Version, &b.Revoked, &b.PreviousDigest, &b.PreviousVersion, &b.PreviousRevoked); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
 		}
 		b.History = []runtimeHistoryEntry{}
+		b.Versions = []string{}
 		out.Bindings = append(out.Bindings, b)
 	}
 	rows.Close()
@@ -344,6 +391,12 @@ func (s *Server) listRuntimeBindings(w http.ResponseWriter, r *http.Request) {
 	}
 	for i := range out.Bindings {
 		b := &out.Bindings[i]
+		if b.Family != "" {
+			if b.Versions, err = familyVersions(r.Context(), s.Pool, b.Family, b.Kind); err != nil {
+				s.internal(w, err)
+				return
+			}
+		}
 		var p runtimePending
 		switch err = s.Pool.QueryRow(r.Context(), `SELECT o.id,o.runtime_intent,g.digest,g.manifest->>'version',o.status FROM worker_model_orders o JOIN voice_engine_registry g ON g.manifest=o.runtime
 			WHERE o.worker_id=$1 AND o.model_id=$2 AND o.runtime_intent<>'install' AND o.status IN ('pending','acknowledged') ORDER BY o.created_at DESC LIMIT 1`, b.WorkerID, b.ModelID).Scan(&p.OrderID, &p.Intent, &p.Digest, &p.Version, &p.Status); {
@@ -371,4 +424,41 @@ func (s *Server) listRuntimeBindings(w http.ResponseWriter, r *http.Request) {
 		hist.Close()
 	}
 	reply(w, http.StatusOK, out)
+}
+
+// runtimeTargetFits tells whether a registered engine can be the runtime of a model. A model with no family runs on
+// a signed release of its adapter and task; a model of an on-demand family runs on an on-demand engine of that
+// family and of its own task. The two identities are never exchanged (ADR 0055, 0056).
+func runtimeTargetFits(entry voiceCatalogEntry, source, engine, family, kind string) bool {
+	if kind != entry.Kind {
+		return false
+	}
+	if entry.Family != "" {
+		return source == engineSourceOnDemand && family == entry.Family
+	}
+	return source == "signed" && engine == entry.Engine
+}
+
+// familyVersions lists the versions of a family a model of that task can move to: those already registered
+// (known to a Worker) and not revoked, and the default one, in a stable order.
+func familyVersions(ctx context.Context, db pgQuerier, family, kind string) ([]string, error) {
+	rows, err := db.Query(ctx, `SELECT version FROM voice_engine_registry WHERE source='on_demand' AND manifest->>'family'=$1 AND kind=$2 AND NOT revoked ORDER BY created_at,version`, family, kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []string{}
+	if f, ok := engineFamilies[family]; ok {
+		out = append(out, f.DefaultVer)
+	}
+	for rows.Next() {
+		var v string
+		if err = rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		if !slices.Contains(out, v) {
+			out = append(out, v)
+		}
+	}
+	return out, rows.Err()
 }

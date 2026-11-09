@@ -561,6 +561,7 @@ from .worker_engine_inventory_runtimes_item import WorkerEngineInventoryRuntimes
 from .worker_engine_order_cause_code import WorkerEngineOrderCauseCode
 from .worker_engine_order_intent import WorkerEngineOrderIntent
 from .worker_engine_order_status import WorkerEngineOrderStatus
+from .worker_engine_source import WorkerEngineSource
 from .worker_engine_state import WorkerEngineState
 from .worker_engine_status import WorkerEngineStatus
 from .worker_engine_status_cause_code import WorkerEngineStatusCauseCode
@@ -1211,6 +1212,7 @@ __all__ = (
     "WorkerEngineOrderCauseCode",
     "WorkerEngineOrderIntent",
     "WorkerEngineOrderStatus",
+    "WorkerEngineSource",
     "WorkerEnginesRow",
     "WorkerEngineState",
     "WorkerEngineStatus",

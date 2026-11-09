@@ -7,12 +7,18 @@ import { Modal } from "../../components/Modal";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 import { WorkerHardware } from "./WorkerHardware";
-import { engineTargets, type EngineWorker } from "./engineOrders";
+import {
+  engineTargets,
+  type EngineEntry,
+  type EngineWorker,
+} from "./engineOrders";
 
 type Family = components["schemas"]["EngineFamily"];
 type Plan = components["schemas"]["OnDemandEnginePlan"];
 
 type Props = {
+  /** A failed on-demand engine being replaced: its family and task are fixed, only the version changes. */
+  replacing?: EngineEntry;
   worker: EngineWorker;
   workers: EngineWorker[];
   checked: string[];
@@ -22,6 +28,7 @@ type Props = {
     family: string,
     version: string,
     workerIds: string[],
+    kind?: string,
   ) => Promise<void>;
 };
 
@@ -44,6 +51,7 @@ const minutes = (seconds: number) => Math.max(1, Math.ceil(seconds / 60));
  * computed by the server (hardware of each Worker included) and nothing is ordered before the confirmation.
  */
 export function WorkerEngineAdd({
+  replacing,
   worker,
   workers,
   checked,
@@ -63,7 +71,10 @@ export function WorkerEngineAdd({
     code?: string;
   }>();
   const list = families.state.status === "ready" ? families.state.value : [];
-  const family = list.find((f) => f.family === familyKey) ?? list[0];
+  const family = replacing
+    ? list.find((f) => f.engine === replacing.engine)
+    : (list.find((f) => f.family === familyKey) ?? list[0]);
+  const kind = replacing?.kind;
   // The version follows the family until the administrator edits it.
   const version =
     typed && typed.family === family?.family
@@ -71,7 +82,7 @@ export function WorkerEngineAdd({
       : (family?.default_version ?? "");
   const targets = engineTargets(workers, worker, checked, scope);
   const ids = targets.map((w) => w.worker_id);
-  const key = `${family?.family}|${version.trim()}|${ids.join(",")}`;
+  const key = `${family?.family}|${kind ?? ""}|${version.trim()}|${ids.join(",")}`;
   const csrf = session?.csrf_token;
 
   useEffect(() => {
@@ -87,6 +98,7 @@ export function WorkerEngineAdd({
               family: family.family,
               version: version.trim(),
               worker_ids: ids,
+              ...(kind ? { kind } : {}),
             },
           },
         );
@@ -123,7 +135,11 @@ export function WorkerEngineAdd({
       closeLabel={t("voiceModels.byWorker.close")}
       variant="wide"
     >
-      <p className="text-mute">{t("workerEngines.family.lead")}</p>
+      <p className="text-mute">
+        {replacing
+          ? t("workerEngines.action.replaceLead", { engine: replacing.engine })
+          : t("workerEngines.family.lead")}
+      </p>
       <WorkerHardware worker={worker} />
       {families.state.status === "loading" && (
         <p role="status">{t("workerEngines.family.loading")}</p>
@@ -140,6 +156,7 @@ export function WorkerEngineAdd({
             {t("workerEngines.family.choose")}
             <select
               value={family.family}
+              disabled={!!replacing}
               onChange={(e) => setFamilyKey(e.target.value)}
             >
               {list.map((f) => (
@@ -251,6 +268,7 @@ export function WorkerEngineAdd({
                 family.family,
                 version.trim(),
                 accepted.map((w) => w.worker_id),
+                kind,
               )
             }
           >

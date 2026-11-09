@@ -21,11 +21,15 @@ type gotRuntimeOrder struct {
 }
 
 type gotRuntimeBinding struct {
-	WorkerID        string `json:"worker_id"`
-	ModelID         string `json:"model_id"`
-	Digest          string `json:"digest"`
-	PreviousDigest  string `json:"previous_digest"`
-	PreviousRevoked bool   `json:"previous_revoked"`
+	WorkerID string `json:"worker_id"`
+	ModelID  string `json:"model_id"`
+	Digest   string `json:"digest"`
+	Version  string `json:"version"`
+	Family   string `json:"family"`
+	// Versions are the versions of the family the Engines tab proposes for an update.
+	Versions        []string `json:"versions"`
+	PreviousDigest  string   `json:"previous_digest"`
+	PreviousRevoked bool     `json:"previous_revoked"`
 	Pending         *struct {
 		OrderID string `json:"order_id"`
 		Intent  string `json:"intent"`

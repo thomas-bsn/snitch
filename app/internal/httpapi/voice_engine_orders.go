@@ -532,10 +532,12 @@ type engineHistoryEntry struct {
 }
 
 type workerEngineEntry struct {
-	Digest        string `json:"digest"`
-	Engine        string `json:"engine"`
-	Version       string `json:"version"`
-	Kind          string `json:"kind"`
+	Digest  string `json:"digest"`
+	Engine  string `json:"engine"`
+	Version string `json:"version"`
+	Kind    string `json:"kind"`
+	// Source is "signed" for an approved release and "on_demand" for an engine resolved by pip (ADR 0056).
+	Source        string `json:"source"`
 	State         string `json:"state"`
 	CauseCode     string `json:"cause_code"`
 	BytesReceived int64  `json:"bytes_received"`
@@ -579,7 +581,7 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	rows, err := s.Pool.Query(r.Context(), `SELECT i.worker_id,i.digest,i.engine,i.version,COALESCE(g.manifest->>'kind',''),i.state,i.cause_code,i.bytes_received,i.bytes_total,COALESCE(o.intent='install' AND o.cancel_requested_at IS NOT NULL AND o.status='acknowledged',false),CASE WHEN o.cleaned_at IS NOT NULL THEN 'done' WHEN o.cleanup_requested_at IS NOT NULL THEN 'requested' ELSE '' END,COALESCE(i.order_id,''),i.generation,g.revoked,COALESCE(o.author_name,''),i.updated_at,COALESCE(o.intent,''),COALESCE(o.status,''),COALESCE(o.cause_code,'')
+	rows, err := s.Pool.Query(r.Context(), `SELECT i.worker_id,i.digest,i.engine,i.version,COALESCE(g.manifest->>'kind',''),g.source,i.state,i.cause_code,i.bytes_received,i.bytes_total,COALESCE(o.intent='install' AND o.cancel_requested_at IS NOT NULL AND o.status='acknowledged',false),CASE WHEN o.cleaned_at IS NOT NULL THEN 'done' WHEN o.cleanup_requested_at IS NOT NULL THEN 'requested' ELSE '' END,COALESCE(i.order_id,''),i.generation,g.revoked,COALESCE(o.author_name,''),i.updated_at,COALESCE(o.intent,''),COALESCE(o.status,''),COALESCE(o.cause_code,'')
 		FROM worker_engine_inventory i JOIN voice_engine_registry g ON g.digest=i.digest LEFT JOIN worker_engine_orders o ON o.id=i.order_id ORDER BY i.engine,i.version`)
 	if err != nil {
 		s.internal(w, err)
@@ -589,7 +591,7 @@ func (s *Server) listEnginesByWorker(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		var workerID string
 		var e workerEngineEntry
-		if err = rows.Scan(&workerID, &e.Digest, &e.Engine, &e.Version, &e.Kind, &e.State, &e.CauseCode, &e.BytesReceived, &e.BytesTotal, &e.CancelRequested, &e.Cleanup, &e.OrderID, &e.Generation, &e.Revoked, &e.AuthorName, &e.UpdatedAt, &e.OrderIntent, &e.OrderStatus, &e.OrderCauseCode); err != nil {
+		if err = rows.Scan(&workerID, &e.Digest, &e.Engine, &e.Version, &e.Kind, &e.Source, &e.State, &e.CauseCode, &e.BytesReceived, &e.BytesTotal, &e.CancelRequested, &e.Cleanup, &e.OrderID, &e.Generation, &e.Revoked, &e.AuthorName, &e.UpdatedAt, &e.OrderIntent, &e.OrderStatus, &e.OrderCauseCode); err != nil {
 			rows.Close()
 			s.internal(w, err)
 			return
