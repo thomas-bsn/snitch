@@ -372,8 +372,11 @@ FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "
             # SpeechBrain declares `torchaudio` with no upper bound, so pip takes the newest one; from torchaudio 2.9 the
             # APIs it still calls at import (`list_audio_backends`) are gone, and the import fails. The pins are fixed
             # values of this table, never taken from an order; raise them together with a version that supports more.
+            # torchaudio.load (engine_bridge) needs a decoding backend inside this venv: without `soundfile` it only has
+            # ffmpeg, which depends on the host's FFmpeg 4-6 shared libraries. Same version as the signed Release lock.
             "speechbrain": {"engine": "speechbrain", "distribution": "speechbrain", "extras": "", "kinds": ("fingerprint", "separation"),
-                            "probe": "speechbrain.lobes.models.ECAPA_TDNN", "pins": ("torch<2.9", "torchaudio<2.9")},
+                            "probe": "speechbrain.lobes.models.ECAPA_TDNN", "pins": ("torch<2.9", "torchaudio<2.9",
+                                                                                  "soundfile==0.14.0")},
             # WeSpeaker is not published on PyPI; its ONNX inference package is `wespeakerruntime` (#375). Fingerprint only.
             "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
                           "probe": "wespeakerruntime"}}
