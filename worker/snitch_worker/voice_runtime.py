@@ -22,6 +22,13 @@ def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) ->
     """
     if manifest["cuda"] == "cpu":
         return "cpu"
+    if manifest["cuda"] == "":
+        # On-demand engine (ADR 0056): runs with or without a GPU. The adapter picks the device (auto); a GPU
+        # that is present must still hold the VRAM the family declares.
+        state = (gpu or engine_runtime.gpu_state)()
+        if state is not None and state[0] and state[2] < manifest["vram_bytes"]:
+            raise VoiceProviderUnavailable("gpu_out_of_memory")
+        return None
     state = (gpu or engine_runtime.gpu_state)()
     if state is None:
         return "cuda"
@@ -36,7 +43,7 @@ def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) ->
 
 
 def call(manifest: dict[str, Any], path: str, environ: Any, **request: Any) -> dict[str, Any]:
-    engine_runtime.validate(manifest, manifest.get("engine", ""), manifest.get("kind", ""))
+    engine_runtime.validate_runtime(manifest)
     if not engine_runtime.installed(manifest, environ):
         raise VoiceProviderUnavailable("ml_libraries_missing")
     device = inference_device(manifest, environ)

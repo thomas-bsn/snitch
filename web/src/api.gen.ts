@@ -3706,6 +3706,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-engines/families": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateur : les familles de bibliothèque que Snitch sait installer à la demande (table du serveur), avec version par défaut, tâches, contraintes matérielles et estimations de disque et de durée. Ne dépend d'aucune Release signée importée. */
+    get: operations["listEngineFamilies"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-engines/on-demand-orders": {
     parameters: {
       query?: never;
@@ -3717,6 +3734,23 @@ export interface paths {
     put?: never;
     /** @description Administrateur : ordonne l'installation d'un engine à la demande (famille de bibliothèque et version, version par défaut de la famille si omise) sur un ou plusieurs Workers. Aucune enveloppe signée n'est acceptée : l'identité est dérivée de la famille, de la version et de la tâche. Le matériel du Worker est contrôlé avant tout ordre ; clé idempotente, génération, livraison, accusé, inventaire et causes d'échec sont ceux des ordres d'engine signés. Famille inconnue : 400 unsupported_engine_family. */
     post: operations["createOnDemandEngineOrders"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-engines/on-demand-plan": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateur : plan d'un ordre d'engine à la demande (famille, version par défaut si omise) sur des Workers : disque cumulé, durée estimée et refus de matériel par Worker. Lecture seule : ne crée ni ordre ni identité de registre. Confirmation : createOnDemandEngineOrders. */
+    post: operations["planOnDemandEngine"];
     delete?: never;
     options?: never;
     head?: never;
@@ -7942,6 +7976,61 @@ export interface components {
       cpu_fallback: boolean;
       /** Format: date-time */
       reported_at: string;
+    };
+    EngineFamily: {
+      family: string;
+      /** @description Nom d'engine utilisé par le registre, les ordres et l'inventaire. */
+      engine: string;
+      default_version: string;
+      kinds: string[];
+      python: string;
+      platform: string;
+      /** @description Vide : tourne avec ou sans GPU. */
+      cuda: string;
+      /** Format: int64 */
+      vram_bytes: number;
+      /** Format: int64 */
+      ram_bytes: number;
+      /** Format: int64 */
+      disk_bytes: number;
+      /** Format: int64 */
+      estimated_seconds: number;
+    };
+    EngineFamilies: {
+      families: components["schemas"]["EngineFamily"][];
+    };
+    OnDemandEnginePlanInput: {
+      family: string;
+      /** @description La version par défaut de la famille si omise. */
+      version?: string;
+      worker_ids: string[];
+    };
+    OnDemandEnginePlanWorker: {
+      worker_id: string;
+      /** @enum {string} */
+      status: "ok" | "refused";
+      /** @description Cause stable du refus (platform_incompatible, cuda_incompatible, insufficient_ram, insufficient_vram, insufficient_disk, engine_order_in_progress, engine_already_installed, worker_not_found). */
+      cause_code?: string;
+      /** Format: int64 */
+      required_bytes?: number;
+      /** Format: int64 */
+      available_bytes?: number;
+    };
+    OnDemandEnginePlan: {
+      family: string;
+      version: string;
+      accepted: number;
+      /**
+       * Format: int64
+       * @description Disque cumulé des Workers acceptés.
+       */
+      disk_bytes: number;
+      /**
+       * Format: int64
+       * @description Durée estimée d'une installation ; les Workers installent en parallèle.
+       */
+      estimated_seconds: number;
+      workers: components["schemas"]["OnDemandEnginePlanWorker"][];
     };
   };
   responses: never;
@@ -18492,6 +18581,35 @@ export interface operations {
       };
     };
   };
+  listEngineFamilies: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Familles supportées */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EngineFamilies"];
+        };
+      };
+      /** @description Erreur (401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   createOnDemandEngineOrders: {
     parameters: {
       query?: never;
@@ -18516,6 +18634,43 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceEngineOrderResults"];
+        };
+      };
+      /** @description Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  planOnDemandEngine: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OnDemandEnginePlanInput"];
+      };
+    };
+    responses: {
+      /** @description Plan */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OnDemandEnginePlan"];
         };
       };
       /** @description Erreur (400 unsupported_engine_family ou invalid_engine_order, 401 session required, 403 permission) */

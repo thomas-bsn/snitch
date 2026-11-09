@@ -74,37 +74,60 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
       name: `Add an engine to ${name}`,
     });
     await expect(dialog).toContainText("Nothing starts before you confirm");
-    // Without a chosen release the plan is empty and the install button stays disabled.
-    await expect(dialog).toContainText("0 order(s)");
-    await expect(
-      dialog.getByRole("button", { name: "Install 0 engine(s)" }),
-    ).toBeDisabled();
+    // The list is never empty: the supported families come from Snitch, with no signed release imported.
+    const family = dialog.getByLabel("Engine family");
+    await expect(family.locator("option")).toHaveText(["nemo-toolkit"]);
+    // The default version is pre-filled and editable.
+    const version = dialog.getByLabel("Version");
+    await expect(version).toHaveValue("3.0.0");
+    await expect(dialog).toContainText("1 Worker(s) accepted");
+    await expect(dialog).toContainText("12 GiB of disk in total");
+    await expect(dialog).toContainText("about 10 min");
     // A scope with no checked Worker must never silently target the current Worker.
-    await dialog.getByRole("combobox").selectOption("this");
-    await dialog.getByRole("checkbox").check();
-    await expect(dialog).toContainText("1 order(s)");
-    await dialog.getByRole("combobox").selectOption("checked");
-    await expect(dialog).toContainText("0 order(s)");
+    await dialog.getByRole("combobox", { name: "On" }).selectOption("checked");
+    await expect(dialog).toContainText("Select at least one Worker.");
     await expect(
       dialog.getByRole("button", { name: "Install 0 engine(s)" }),
     ).toBeDisabled();
-    await dialog.getByRole("combobox").selectOption("this");
-    await expect(dialog).toContainText("1 order(s)");
+    await dialog.getByRole("combobox", { name: "On" }).selectOption("this");
+    await version.fill("3.1.0");
+    await expect(dialog).toContainText("1 Worker(s) accepted");
+    // Looking at the plan ordered nothing.
+    const before = await (
+      await api.get("/api/admin/voice-engines/workers")
+    ).json();
+    expect(
+      before.workers.find(
+        (w: { worker_id: string }) => w.worker_id === worker.id,
+      ).engines,
+    ).toEqual([]);
     const { violations } = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();
     expect(violations).toEqual([]);
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    // Confirming orders the edited version through the on-demand order route.
+    await dialog.getByRole("button", { name: "Install 1 engine(s)" }).click();
     await expect(dialog).toBeHidden();
+    await expect
+      .poll(async () => {
+        const view = await (
+          await api.get("/api/admin/voice-engines/workers")
+        ).json();
+        const row = view.workers.find(
+          (w: { worker_id: string }) => w.worker_id === worker.id,
+        );
+        return row.engines.map((e: { engine: string; version: string }) => [
+          e.engine,
+          e.version,
+        ]);
+      })
+      .toEqual([["nemo-toolkit", "3.1.0"]]);
 
-    // Looking at the screen ordered nothing: the Worker still has no engine.
-    const view = await (
-      await api.get("/api/admin/voice-engines/workers")
-    ).json();
-    const row = view.workers.find(
-      (w: { worker_id: string }) => w.worker_id === worker.id,
-    );
-    expect(row.engines).toEqual([]);
+    // The signed import lives under "Advanced", visible to the owner.
+    await page.getByText("Advanced", { exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: "Import approved release" }),
+    ).toBeVisible();
   } finally {
     for (const id of [worker.id, peer.id]) {
       await api.delete(`/api/admin/workers/${id}`, {
