@@ -1,0 +1,221 @@
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import Any, TypeVar, BinaryIO, TextIO, TYPE_CHECKING, Generator
+
+from attrs import define as _attrs_define
+from attrs import field as _attrs_field
+
+from ..types import UNSET, Unset
+
+from ..models.benchmark_run_stage import BenchmarkRunStage
+from ..models.benchmark_run_status import BenchmarkRunStatus
+from ..types import UNSET, Unset
+from typing import cast
+import datetime
+
+if TYPE_CHECKING:
+  from ..models.benchmark_progress import BenchmarkProgress
+  from ..models.benchmark_result import BenchmarkResult
+
+
+
+
+
+T = TypeVar("T", bound="BenchmarkRun")
+
+
+
+@_attrs_define
+class BenchmarkRun:
+    """
+        Attributes:
+            id (int):
+            dataset_id (int):
+            dataset_name (str):
+            stage (BenchmarkRunStage):
+            status (BenchmarkRunStatus):
+            model_ids (list[str]):
+            author_name (str):
+            created_at (datetime.datetime):
+            progress (BenchmarkProgress):
+            results (list[BenchmarkResult]):
+            finished_at (datetime.datetime | None | Unset):
+     """
+
+    id: int
+    dataset_id: int
+    dataset_name: str
+    stage: BenchmarkRunStage
+    status: BenchmarkRunStatus
+    model_ids: list[str]
+    author_name: str
+    created_at: datetime.datetime
+    progress: BenchmarkProgress
+    results: list[BenchmarkResult]
+    finished_at: datetime.datetime | None | Unset = UNSET
+    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
+
+
+
+
+
+    def to_dict(self) -> dict[str, Any]:
+        from ..models.benchmark_progress import BenchmarkProgress # noqa: PLC0415
+        from ..models.benchmark_result import BenchmarkResult # noqa: PLC0415
+        id = self.id
+
+        dataset_id = self.dataset_id
+
+        dataset_name = self.dataset_name
+
+        stage = self.stage.value
+
+        status = self.status.value
+
+        model_ids = self.model_ids
+
+
+
+        author_name = self.author_name
+
+        created_at = self.created_at.isoformat()
+
+        progress = self.progress.to_dict()
+
+        results = []
+        for results_item_data in self.results:
+            results_item = results_item_data.to_dict()
+            results.append(results_item)
+
+
+
+        finished_at: None | str | Unset
+        if isinstance(self.finished_at, Unset):
+            finished_at = UNSET
+        elif isinstance(self.finished_at, datetime.datetime):
+            finished_at = self.finished_at.isoformat()
+        else:
+            finished_at = self.finished_at
+
+
+        field_dict: dict[str, Any] = {}
+        field_dict.update(self.additional_properties)
+        field_dict.update({
+            "id": id,
+            "dataset_id": dataset_id,
+            "dataset_name": dataset_name,
+            "stage": stage,
+            "status": status,
+            "model_ids": model_ids,
+            "author_name": author_name,
+            "created_at": created_at,
+            "progress": progress,
+            "results": results,
+        })
+        if finished_at is not UNSET:
+            field_dict["finished_at"] = finished_at
+
+        return field_dict
+
+
+
+    @classmethod
+    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.benchmark_progress import BenchmarkProgress # noqa: PLC0415
+        from ..models.benchmark_result import BenchmarkResult # noqa: PLC0415
+        d = dict(src_dict)
+        id = d.pop("id")
+
+        dataset_id = d.pop("dataset_id")
+
+        dataset_name = d.pop("dataset_name")
+
+        stage = BenchmarkRunStage(d.pop("stage"))
+
+
+
+
+        status = BenchmarkRunStatus(d.pop("status"))
+
+
+
+
+        model_ids = cast(list[str], d.pop("model_ids"))
+
+
+        author_name = d.pop("author_name")
+
+        created_at = datetime.datetime.fromisoformat(d.pop("created_at"))
+
+
+
+
+        progress = BenchmarkProgress.from_dict(d.pop("progress"))
+
+
+
+
+        results = []
+        _results = d.pop("results")
+        for results_item_data in (_results):
+            results_item = BenchmarkResult.from_dict(results_item_data)
+
+
+
+            results.append(results_item)
+
+
+        def _parse_finished_at(data: object) -> datetime.datetime | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                finished_at_type_0 = datetime.datetime.fromisoformat(data)
+
+
+
+                return finished_at_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(datetime.datetime | None | Unset, data)
+
+        finished_at = _parse_finished_at(d.pop("finished_at", UNSET))
+
+
+        benchmark_run = cls(
+            id=id,
+            dataset_id=dataset_id,
+            dataset_name=dataset_name,
+            stage=stage,
+            status=status,
+            model_ids=model_ids,
+            author_name=author_name,
+            created_at=created_at,
+            progress=progress,
+            results=results,
+            finished_at=finished_at,
+        )
+
+
+        benchmark_run.additional_properties = d
+        return benchmark_run
+
+    @property
+    def additional_keys(self) -> list[str]:
+        return list(self.additional_properties.keys())
+
+    def __getitem__(self, key: str) -> Any:
+        return self.additional_properties[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.additional_properties[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        del self.additional_properties[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.additional_properties

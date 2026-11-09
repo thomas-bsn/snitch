@@ -134,6 +134,55 @@ type AvatarPreference struct {
 	DiscordLastError     pgtype.Text        `json:"discord_last_error"`
 }
 
+type BenchmarkDataset struct {
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	AuthorID   pgtype.Int8        `json:"author_id"`
+	AuthorName string             `json:"author_name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type BenchmarkDatasetItem struct {
+	DatasetID      int64  `json:"dataset_id"`
+	LocalSpeakerID int64  `json:"local_speaker_id"`
+	PersonID       int64  `json:"person_id"`
+	Split          string `json:"split"`
+}
+
+type BenchmarkResult struct {
+	RunID          int64              `json:"run_id"`
+	ModelID        string             `json:"model_id"`
+	Model          string             `json:"model"`
+	ModelVersion   string             `json:"model_version"`
+	Dimensions     int32              `json:"dimensions"`
+	State          string             `json:"state"`
+	ItemsTotal     int32              `json:"items_total"`
+	ItemsScored    int32              `json:"items_scored"`
+	ElapsedSeconds pgtype.Float8      `json:"elapsed_seconds"`
+	Metrics        []byte             `json:"metrics"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type BenchmarkRun struct {
+	ID          int64              `json:"id"`
+	DatasetID   int64              `json:"dataset_id"`
+	DatasetName string             `json:"dataset_name"`
+	Stage       string             `json:"stage"`
+	Status      string             `json:"status"`
+	ModelIds    []string           `json:"model_ids"`
+	Params      []byte             `json:"params"`
+	AuthorID    pgtype.Int8        `json:"author_id"`
+	AuthorName  string             `json:"author_name"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+}
+
+type BenchmarkRunJob struct {
+	RunID   int64  `json:"run_id"`
+	JobID   int64  `json:"job_id"`
+	ModelID string `json:"model_id"`
+}
+
 type Clip struct {
 	ID                  int64              `json:"id"`
 	OwnerID             int64              `json:"owner_id"`

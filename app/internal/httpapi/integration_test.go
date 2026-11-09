@@ -387,6 +387,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceBenchmarkIsolation(t, pool)
 	})
+	t.Run("ai benchmark fingerprints", func(t *testing.T) {
+		reset(t)
+		testAIBenchmarkFingerprints(t, pool)
+	})
 	t.Run("voice catalog in database", func(t *testing.T) {
 		reset(t)
 		testVoiceCatalogInDatabase(t, pool)

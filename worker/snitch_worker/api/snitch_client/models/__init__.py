@@ -72,6 +72,21 @@ from .avatar_settings_input import AvatarSettingsInput
 from .avatar_settings_input_source import AvatarSettingsInputSource
 from .avatar_settings_source import AvatarSettingsSource
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
+from .benchmark_created import BenchmarkCreated
+from .benchmark_dataset import BenchmarkDataset
+from .benchmark_dataset_input import BenchmarkDatasetInput
+from .benchmark_dataset_list import BenchmarkDatasetList
+from .benchmark_job_error import BenchmarkJobError
+from .benchmark_progress import BenchmarkProgress
+from .benchmark_result import BenchmarkResult
+from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
+from .benchmark_result_state import BenchmarkResultState
+from .benchmark_run import BenchmarkRun
+from .benchmark_run_input import BenchmarkRunInput
+from .benchmark_run_input_stage import BenchmarkRunInputStage
+from .benchmark_run_list import BenchmarkRunList
+from .benchmark_run_stage import BenchmarkRunStage
+from .benchmark_run_status import BenchmarkRunStatus
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
@@ -158,6 +173,7 @@ from .explorer_properties import ExplorerProperties
 from .explorer_properties_state import ExplorerPropertiesState
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
+from .fingerprint_benchmark_metrics import FingerprintBenchmarkMetrics
 from .fingerprint_transition import FingerprintTransition
 from .fingerprint_transition_input import FingerprintTransitionInput
 from .fingerprint_transition_phase import FingerprintTransitionPhase
@@ -709,6 +725,21 @@ __all__ = (
     "AvatarSettingsInputSource",
     "AvatarSettingsSource",
     "BackfillEmbeddingIndexResponse202",
+    "BenchmarkCreated",
+    "BenchmarkDataset",
+    "BenchmarkDatasetInput",
+    "BenchmarkDatasetList",
+    "BenchmarkJobError",
+    "BenchmarkProgress",
+    "BenchmarkResult",
+    "BenchmarkResultResourcesType0",
+    "BenchmarkResultState",
+    "BenchmarkRun",
+    "BenchmarkRunInput",
+    "BenchmarkRunInputStage",
+    "BenchmarkRunList",
+    "BenchmarkRunStage",
+    "BenchmarkRunStatus",
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
@@ -795,6 +826,7 @@ __all__ = (
     "ExplorerPropertiesState",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
+    "FingerprintBenchmarkMetrics",
     "FingerprintTransition",
     "FingerprintTransitionInput",
     "FingerprintTransitionPhase",

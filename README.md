@@ -102,3 +102,5 @@ fichiers partiels. Voir le [rapport d’audit des Workers](docs/worker-audit-202
 pour les corrections, validations et limites.
 
 Les runtimes vocaux approuvés sont documentés dans le [bilan #326](docs/worker-engines-326.md) et l'[ADR 0055](docs/adr/0055-runtimes-vocaux-approuves.md).
+
+Les benchmarks d'empreintes vocales isolés de la production (première tranche de #287) sont décrits dans le [bilan](docs/ai-benchmarks-287.md) et l'[ADR 0056](docs/adr/0056-benchmarks-ia-isoles.md).

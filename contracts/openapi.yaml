@@ -17035,6 +17035,347 @@
           }
         }
       }
+    },
+    "/api/admin/benchmarks/datasets": {
+      "get": {
+        "operationId": "listBenchmarkDatasets",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines.",
+        "responses": {
+          "200": {
+            "description": "Jeux de données",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkDatasetList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBenchmarkDataset",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de deux personnes), benchmark_dataset_name_taken.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkDatasetInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Jeu de données créé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkCreated"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/datasets/{id}": {
+      "delete": {
+        "operationId": "deleteBenchmarkDataset",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run (benchmark_dataset_used sinon).",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Supprimé"
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/runs": {
+      "get": {
+        "operationId": "listBenchmarkRuns",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées.",
+        "responses": {
+          "200": {
+            "description": "Runs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRunList"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startBenchmarkRun",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_model_invalid, benchmark_dataset_stale.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkRunInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Run démarré",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkCreated"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/runs/{id}": {
+      "get": {
+        "operationId": "getBenchmarkRun",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. État d'un run, progression, erreurs des tâches et résultats par modèle. Les scores de modèles différents ne sont pas comparables : chaque modèle a son propre seuil.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/benchmarks/runs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelBenchmarkRun",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Annule le run et ses tâches non terminées (benchmark_not_running si déjà terminé).",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Run annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkRun"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -29521,6 +29862,399 @@
             "format": "date-time"
           }
         }
+      },
+      "BenchmarkDataset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "name": {
+            "type": "string"
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "references": {
+            "type": "integer"
+          },
+          "tests": {
+            "type": "integer"
+          },
+          "persons": {
+            "type": "integer"
+          },
+          "clips": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "author_name",
+          "created_at",
+          "references",
+          "tests",
+          "persons",
+          "clips"
+        ]
+      },
+      "BenchmarkDatasetList": {
+        "type": "object",
+        "properties": {
+          "datasets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkDataset"
+            }
+          }
+        },
+        "required": [
+          "datasets"
+        ]
+      },
+      "BenchmarkDatasetInput": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "reference_speaker_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "test_speaker_ids": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        },
+        "required": [
+          "name",
+          "reference_speaker_ids",
+          "test_speaker_ids"
+        ]
+      },
+      "BenchmarkCreated": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      },
+      "BenchmarkRunInput": {
+        "type": "object",
+        "properties": {
+          "dataset_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "fingerprint"
+            ]
+          },
+          "model_ids": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4,
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "dataset_id",
+          "stage",
+          "model_ids"
+        ]
+      },
+      "BenchmarkJobError": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "job_id",
+          "model_id",
+          "status",
+          "error"
+        ]
+      },
+      "BenchmarkProgress": {
+        "type": "object",
+        "properties": {
+          "jobs": {
+            "type": "integer"
+          },
+          "done": {
+            "type": "integer"
+          },
+          "failed": {
+            "type": "integer"
+          },
+          "active": {
+            "type": "integer"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkJobError"
+            }
+          }
+        },
+        "required": [
+          "jobs",
+          "done",
+          "failed",
+          "active",
+          "errors"
+        ]
+      },
+      "FingerprintBenchmarkMetrics": {
+        "type": "object",
+        "properties": {
+          "references": {
+            "type": "integer"
+          },
+          "tests": {
+            "type": "integer"
+          },
+          "persons": {
+            "type": "integer"
+          },
+          "genuine_trials": {
+            "type": "integer"
+          },
+          "impostor_trials": {
+            "type": "integer"
+          },
+          "eer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "eer_threshold": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "top1_accuracy": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "true_positives": {
+            "type": "integer"
+          },
+          "false_positives": {
+            "type": "integer"
+          },
+          "false_negatives": {
+            "type": "integer"
+          },
+          "precision": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "recall": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "genuine_mean_score": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "impostor_mean_score": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "ignored_dimension": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "references",
+          "tests",
+          "persons",
+          "genuine_trials",
+          "impostor_trials",
+          "true_positives",
+          "false_positives",
+          "false_negatives",
+          "ignored_dimension"
+        ]
+      },
+      "BenchmarkResult": {
+        "type": "object",
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "integer"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "complete",
+              "partial",
+              "failed"
+            ]
+          },
+          "items_total": {
+            "type": "integer"
+          },
+          "items_scored": {
+            "type": "integer"
+          },
+          "elapsed_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/FingerprintBenchmarkMetrics"
+          },
+          "resources": {
+            "type": "object",
+            "nullable": true,
+            "description": "RAM/VRAM : non remontés par le Worker, toujours null pour l'instant."
+          }
+        },
+        "required": [
+          "model_id",
+          "model",
+          "model_version",
+          "dimensions",
+          "state",
+          "items_total",
+          "items_scored",
+          "metrics"
+        ]
+      },
+      "BenchmarkRun": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dataset_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dataset_name": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "fingerprint"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "failed",
+              "cancelled"
+            ]
+          },
+          "model_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "author_name": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "progress": {
+            "$ref": "#/components/schemas/BenchmarkProgress"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkResult"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "dataset_id",
+          "dataset_name",
+          "stage",
+          "status",
+          "model_ids",
+          "author_name",
+          "created_at",
+          "progress",
+          "results"
+        ]
+      },
+      "BenchmarkRunList": {
+        "type": "object",
+        "properties": {
+          "runs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkRun"
+            }
+          }
+        },
+        "required": [
+          "runs"
+        ]
       }
     }
   }

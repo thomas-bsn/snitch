@@ -3927,6 +3927,93 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/benchmarks/datasets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines. */
+    get: operations["listBenchmarkDatasets"];
+    put?: never;
+    /** @description Administrateurs uniquement. Crée un jeu de données depuis des voix validées par un humain (jamais une attribution automatique). Refus : benchmark_speaker_not_validated, benchmark_speaker_duplicate (une voix des deux côtés), benchmark_test_without_reference, benchmark_dataset_too_small (moins de deux personnes), benchmark_dataset_name_taken. */
+    post: operations["createBenchmarkDataset"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/datasets/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run (benchmark_dataset_used sinon). */
+    delete: operations["deleteBenchmarkDataset"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
+    get: operations["listBenchmarkRuns"];
+    put?: never;
+    /** @description Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du jeu de données, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_model_invalid, benchmark_dataset_stale. */
+    post: operations["startBenchmarkRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/runs/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État d'un run, progression, erreurs des tâches et résultats par modèle. Les scores de modèles différents ne sont pas comparables : chaque modèle a son propre seuil. */
+    get: operations["getBenchmarkRun"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/runs/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Annule le run et ses tâches non terminées (benchmark_not_running si déjà terminé). */
+    post: operations["cancelBenchmarkRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7878,6 +7965,113 @@ export interface components {
       cpu_fallback: boolean;
       /** Format: date-time */
       reported_at: string;
+    };
+    BenchmarkDataset: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      references: number;
+      tests: number;
+      persons: number;
+      clips: number;
+    };
+    BenchmarkDatasetList: {
+      datasets: components["schemas"]["BenchmarkDataset"][];
+    };
+    BenchmarkDatasetInput: {
+      name: string;
+      reference_speaker_ids: number[];
+      test_speaker_ids: number[];
+    };
+    BenchmarkCreated: {
+      /** Format: int64 */
+      id: number;
+    };
+    BenchmarkRunInput: {
+      /** Format: int64 */
+      dataset_id: number;
+      /** @enum {string} */
+      stage: "fingerprint";
+      model_ids: string[];
+    };
+    BenchmarkJobError: {
+      /** Format: int64 */
+      job_id: number;
+      model_id: string;
+      status: string;
+      error: string;
+    };
+    BenchmarkProgress: {
+      jobs: number;
+      done: number;
+      failed: number;
+      active: number;
+      errors: components["schemas"]["BenchmarkJobError"][];
+    };
+    FingerprintBenchmarkMetrics: {
+      references: number;
+      tests: number;
+      persons: number;
+      genuine_trials: number;
+      impostor_trials: number;
+      /** Format: double */
+      eer?: number | null;
+      /** Format: double */
+      eer_threshold?: number | null;
+      /** Format: double */
+      top1_accuracy?: number | null;
+      true_positives: number;
+      false_positives: number;
+      false_negatives: number;
+      /** Format: double */
+      precision?: number | null;
+      /** Format: double */
+      recall?: number | null;
+      /** Format: double */
+      genuine_mean_score?: number | null;
+      /** Format: double */
+      impostor_mean_score?: number | null;
+      ignored_dimension: number;
+    };
+    BenchmarkResult: {
+      model_id: string;
+      model: string;
+      model_version: string;
+      dimensions: number;
+      /** @enum {string} */
+      state: "complete" | "partial" | "failed";
+      items_total: number;
+      items_scored: number;
+      /** Format: double */
+      elapsed_seconds?: number | null;
+      metrics: components["schemas"]["FingerprintBenchmarkMetrics"];
+      /** @description RAM/VRAM : non remontés par le Worker, toujours null pour l'instant. */
+      resources?: Record<string, never> | null;
+    };
+    BenchmarkRun: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      dataset_id: number;
+      dataset_name: string;
+      /** @enum {string} */
+      stage: "fingerprint";
+      /** @enum {string} */
+      status: "running" | "completed" | "failed" | "cancelled";
+      model_ids: string[];
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at?: string | null;
+      progress: components["schemas"]["BenchmarkProgress"];
+      results: components["schemas"]["BenchmarkResult"][];
+    };
+    BenchmarkRunList: {
+      runs: components["schemas"]["BenchmarkRun"][];
     };
   };
   responses: never;
@@ -18867,6 +19061,233 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkDatasets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Jeux de données */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkDatasetList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createBenchmarkDataset: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BenchmarkDatasetInput"];
+      };
+    };
+    responses: {
+      /** @description Jeu de données créé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkCreated"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteBenchmarkDataset: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkRuns: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Runs */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkRunList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startBenchmarkRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BenchmarkRunInput"];
+      };
+    };
+    responses: {
+      /** @description Run démarré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkCreated"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getBenchmarkRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Run */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkRun"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelBenchmarkRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Run annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkRun"];
+        };
       };
       /** @description Erreur */
       default: {
