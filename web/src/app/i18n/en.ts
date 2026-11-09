@@ -1714,6 +1714,13 @@ export const en = {
       modelReady: "Ready on {ready} of {total} Workers",
       modelNowhere: "Ready on no Worker: install it in Voice processing first.",
       modelActive: "Active",
+      modelUnchecked: "Checked by a Worker when the task starts.",
+      modelServiceReady:
+        "Transcription configured on {ready} of {total} Workers",
+      addModel: "Add a model by name",
+      addModelHelp:
+        "Only a Worker reaches the transcription service, so its models cannot be listed here. Type the name as the service lists it; an unknown name fails on the Worker.",
+      addModelButton: "Add",
       modelsEmpty: "No model of this stage is available in the catalogue.",
       launchTitle: "3 · Launch",
       launchSummary: "{models} models on {clips} clips",
@@ -1793,6 +1800,9 @@ export const en = {
       loadFailed: "The clips could not be loaded.",
     },
     results: {
+      werChart: "Word error rate (lower is better)",
+      noteTranscription:
+        "WER and CER are computed after lower-casing and removing punctuation; accents count. Rates are summed over the clips, so a long clip weighs more. These figures describe this corpus, not a guarantee.",
       summaryTitle: "Best model per stage",
       summaryLead:
         "From the latest finished benchmark of each stage. The best model of a stage is not necessarily the best chain: check a combination with an end-to-end benchmark.",
@@ -1849,6 +1859,14 @@ export const en = {
       impostor: "impostor",
     },
     metrics: {
+      wer: {
+        name: "WER",
+        help: "Word Error Rate: share of words wrong, added or missing compared with the reviewed text. 0% is perfect. Lower is better.",
+      },
+      cer: {
+        name: "CER",
+        help: "Character Error Rate: like the WER but per character. Finer for proper names and accents. Lower is better.",
+      },
       eer: {
         name: "EER",
         help: "Equal Error Rate: the point where the model wrongly accepts as often as it wrongly refuses. Lower is better.",

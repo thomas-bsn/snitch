@@ -1748,6 +1748,13 @@ export const fr: Messages = {
       modelNowhere:
         "Prêt sur aucun Worker : installez-le d’abord dans Traitement vocal.",
       modelActive: "Actif",
+      modelUnchecked: "Vérifié par un Worker au démarrage de la tâche.",
+      modelServiceReady:
+        "Transcription configurée sur {ready} Worker(s) sur {total}",
+      addModel: "Ajouter un modèle par son nom",
+      addModelHelp:
+        "Seul un Worker joint le service de transcription : ses modèles ne peuvent pas être listés ici. Saisissez le nom tel que le service le liste ; un nom inconnu échoue sur le Worker.",
+      addModelButton: "Ajouter",
       modelsEmpty:
         "Aucun modèle de cette étape n’est disponible dans le catalogue.",
       launchTitle: "3 · Lancer",
@@ -1829,6 +1836,9 @@ export const fr: Messages = {
       loadFailed: "Les clips n’ont pas pu être chargés.",
     },
     results: {
+      werChart: "Taux d’erreur de mots (plus bas = meilleur)",
+      noteTranscription:
+        "Le WER et le CER sont calculés après passage en minuscules et retrait de la ponctuation ; les accents comptent. Les taux sont cumulés sur les clips : un long clip pèse plus. Ces chiffres décrivent ce corpus, pas une garantie.",
       summaryTitle: "Meilleur modèle par étape",
       summaryLead:
         "D’après le dernier benchmark terminé de chaque étape. Le meilleur modèle d’une étape n’est pas forcément la meilleure chaîne : vérifiez une combinaison avec un benchmark bout en bout.",
@@ -1886,6 +1896,14 @@ export const fr: Messages = {
       impostor: "impostor",
     },
     metrics: {
+      wer: {
+        name: "WER",
+        help: "Word Error Rate : part des mots faux, ajoutés ou manquants par rapport au texte relu. 0 % = parfait. Plus bas = mieux.",
+      },
+      cer: {
+        name: "CER",
+        help: "Character Error Rate : comme le WER, mais par caractère. Plus fin pour les noms propres et les accents. Plus bas = mieux.",
+      },
       eer: {
         name: "EER",
         help: "Equal Error Rate : le point où le modèle accepte à tort aussi souvent qu’il refuse à tort. Plus bas = mieux.",

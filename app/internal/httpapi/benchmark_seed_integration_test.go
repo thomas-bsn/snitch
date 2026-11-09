@@ -43,6 +43,18 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 	}
 	exec(`INSERT INTO benchmark_results(run_id,model_id,model,model_version,dimensions,state,items_total,items_scored,metrics) VALUES($1,'seed-titanet','nvidia/titanet-large','',0,'failed',18,0,$2::jsonb)`,
 		failed, `{"references":0,"tests":0,"persons":0,"genuine_trials":0,"impostor_trials":0,"true_positives":0,"false_positives":0,"false_negatives":0,"ignored_dimension":0}`)
+	// A finished transcription run: model-b is more accurate, so the summary crowns it and it differs from production.
+	var transcription int64
+	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,author_name,finished_at) VALUES($1,'Corpus de démonstration','transcription','completed','{seed-asr-a,seed-asr-b}','seed',now()) RETURNING id`, dataset).Scan(&transcription); err != nil {
+		t.Fatal(err)
+	}
+	words := func(wer, cer float64) string {
+		return `{"clips":3,"reference_words":420,"word_errors":` + strconv.Itoa(int(wer*420)) + `,"reference_chars":2300,"character_errors":` + strconv.Itoa(int(cer*2300)) + `,"cer_skipped_clips":0,"wer":` + seedNum(wer) + `,"cer":` + seedNum(cer) + `}`
+	}
+	exec(`INSERT INTO benchmark_results(run_id,model_id,model,model_version,dimensions,state,items_total,items_scored,elapsed_seconds,metrics) VALUES
+		($1,'seed-asr-a','seed-asr-a','v1',0,'complete',3,3,95,$2::jsonb),
+		($1,'seed-asr-b','seed-asr-b','v1',0,'complete',3,3,140,$3::jsonb)`,
+		transcription, words(0.12, 0.05), words(0.081, 0.032))
 }
 
 func seedNum(x float64) string { return strconv.FormatFloat(x, 'f', -1, 64) }

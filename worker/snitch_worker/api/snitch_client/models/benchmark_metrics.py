@@ -16,51 +16,66 @@ from typing import cast
 
 
 
-T = TypeVar("T", bound="FingerprintBenchmarkMetrics")
+T = TypeVar("T", bound="BenchmarkMetrics")
 
 
 
 @_attrs_define
-class FingerprintBenchmarkMetrics:
-    """ Mesures d'un seul modèle, jamais comparables en score brut à celles d'un autre. Précision, rappel, faux positifs et
-    faux négatifs sont pris au seuil EER du modèle sur la Personne la mieux notée de chaque test : une mauvaise Personne
-    acceptée compte à la fois comme faux positif et comme faux négatif.
+class BenchmarkMetrics:
+    """ Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ;
+    transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre.
 
         Attributes:
-            references (int):
-            tests (int):
-            persons (int):
-            genuine_trials (int):
-            impostor_trials (int):
-            true_positives (int):
-            false_positives (int):
-            false_negatives (int):
-            ignored_dimension (int):
+            references (int | Unset):
+            tests (int | Unset):
+            persons (int | Unset):
+            genuine_trials (int | Unset):
+            impostor_trials (int | Unset):
             eer (float | None | Unset):
             eer_threshold (float | None | Unset):
             top1_accuracy (float | None | Unset):
+            true_positives (int | Unset):
+            false_positives (int | Unset):
+            false_negatives (int | Unset):
             precision (float | None | Unset):
             recall (float | None | Unset):
             genuine_mean_score (float | None | Unset):
             impostor_mean_score (float | None | Unset):
+            ignored_dimension (int | Unset):
+            clips (int | Unset): Transcription : clips (et pistes) mesurés.
+            reference_words (int | Unset):
+            word_errors (int | Unset):
+            reference_chars (int | Unset):
+            character_errors (int | Unset):
+            cer_skipped_clips (int | Unset): Clips trop longs pour la comparaison par caractère, laissés hors du CER.
+            wer (float | None | Unset): Word Error Rate (transcription), micro-moyenne sur les clips.
+            cer (float | None | Unset): Character Error Rate (transcription).
      """
 
-    references: int
-    tests: int
-    persons: int
-    genuine_trials: int
-    impostor_trials: int
-    true_positives: int
-    false_positives: int
-    false_negatives: int
-    ignored_dimension: int
+    references: int | Unset = UNSET
+    tests: int | Unset = UNSET
+    persons: int | Unset = UNSET
+    genuine_trials: int | Unset = UNSET
+    impostor_trials: int | Unset = UNSET
     eer: float | None | Unset = UNSET
     eer_threshold: float | None | Unset = UNSET
     top1_accuracy: float | None | Unset = UNSET
+    true_positives: int | Unset = UNSET
+    false_positives: int | Unset = UNSET
+    false_negatives: int | Unset = UNSET
     precision: float | None | Unset = UNSET
     recall: float | None | Unset = UNSET
     genuine_mean_score: float | None | Unset = UNSET
     impostor_mean_score: float | None | Unset = UNSET
+    ignored_dimension: int | Unset = UNSET
+    clips: int | Unset = UNSET
+    reference_words: int | Unset = UNSET
+    word_errors: int | Unset = UNSET
+    reference_chars: int | Unset = UNSET
+    character_errors: int | Unset = UNSET
+    cer_skipped_clips: int | Unset = UNSET
+    wer: float | None | Unset = UNSET
+    cer: float | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -77,14 +92,6 @@ class FingerprintBenchmarkMetrics:
         genuine_trials = self.genuine_trials
 
         impostor_trials = self.impostor_trials
-
-        true_positives = self.true_positives
-
-        false_positives = self.false_positives
-
-        false_negatives = self.false_negatives
-
-        ignored_dimension = self.ignored_dimension
 
         eer: float | None | Unset
         if isinstance(self.eer, Unset):
@@ -103,6 +110,12 @@ class FingerprintBenchmarkMetrics:
             top1_accuracy = UNSET
         else:
             top1_accuracy = self.top1_accuracy
+
+        true_positives = self.true_positives
+
+        false_positives = self.false_positives
+
+        false_negatives = self.false_negatives
 
         precision: float | None | Unset
         if isinstance(self.precision, Unset):
@@ -128,26 +141,59 @@ class FingerprintBenchmarkMetrics:
         else:
             impostor_mean_score = self.impostor_mean_score
 
+        ignored_dimension = self.ignored_dimension
+
+        clips = self.clips
+
+        reference_words = self.reference_words
+
+        word_errors = self.word_errors
+
+        reference_chars = self.reference_chars
+
+        character_errors = self.character_errors
+
+        cer_skipped_clips = self.cer_skipped_clips
+
+        wer: float | None | Unset
+        if isinstance(self.wer, Unset):
+            wer = UNSET
+        else:
+            wer = self.wer
+
+        cer: float | None | Unset
+        if isinstance(self.cer, Unset):
+            cer = UNSET
+        else:
+            cer = self.cer
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
-            "references": references,
-            "tests": tests,
-            "persons": persons,
-            "genuine_trials": genuine_trials,
-            "impostor_trials": impostor_trials,
-            "true_positives": true_positives,
-            "false_positives": false_positives,
-            "false_negatives": false_negatives,
-            "ignored_dimension": ignored_dimension,
         })
+        if references is not UNSET:
+            field_dict["references"] = references
+        if tests is not UNSET:
+            field_dict["tests"] = tests
+        if persons is not UNSET:
+            field_dict["persons"] = persons
+        if genuine_trials is not UNSET:
+            field_dict["genuine_trials"] = genuine_trials
+        if impostor_trials is not UNSET:
+            field_dict["impostor_trials"] = impostor_trials
         if eer is not UNSET:
             field_dict["eer"] = eer
         if eer_threshold is not UNSET:
             field_dict["eer_threshold"] = eer_threshold
         if top1_accuracy is not UNSET:
             field_dict["top1_accuracy"] = top1_accuracy
+        if true_positives is not UNSET:
+            field_dict["true_positives"] = true_positives
+        if false_positives is not UNSET:
+            field_dict["false_positives"] = false_positives
+        if false_negatives is not UNSET:
+            field_dict["false_negatives"] = false_negatives
         if precision is not UNSET:
             field_dict["precision"] = precision
         if recall is not UNSET:
@@ -156,6 +202,24 @@ class FingerprintBenchmarkMetrics:
             field_dict["genuine_mean_score"] = genuine_mean_score
         if impostor_mean_score is not UNSET:
             field_dict["impostor_mean_score"] = impostor_mean_score
+        if ignored_dimension is not UNSET:
+            field_dict["ignored_dimension"] = ignored_dimension
+        if clips is not UNSET:
+            field_dict["clips"] = clips
+        if reference_words is not UNSET:
+            field_dict["reference_words"] = reference_words
+        if word_errors is not UNSET:
+            field_dict["word_errors"] = word_errors
+        if reference_chars is not UNSET:
+            field_dict["reference_chars"] = reference_chars
+        if character_errors is not UNSET:
+            field_dict["character_errors"] = character_errors
+        if cer_skipped_clips is not UNSET:
+            field_dict["cer_skipped_clips"] = cer_skipped_clips
+        if wer is not UNSET:
+            field_dict["wer"] = wer
+        if cer is not UNSET:
+            field_dict["cer"] = cer
 
         return field_dict
 
@@ -164,23 +228,15 @@ class FingerprintBenchmarkMetrics:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        references = d.pop("references")
+        references = d.pop("references", UNSET)
 
-        tests = d.pop("tests")
+        tests = d.pop("tests", UNSET)
 
-        persons = d.pop("persons")
+        persons = d.pop("persons", UNSET)
 
-        genuine_trials = d.pop("genuine_trials")
+        genuine_trials = d.pop("genuine_trials", UNSET)
 
-        impostor_trials = d.pop("impostor_trials")
-
-        true_positives = d.pop("true_positives")
-
-        false_positives = d.pop("false_positives")
-
-        false_negatives = d.pop("false_negatives")
-
-        ignored_dimension = d.pop("ignored_dimension")
+        impostor_trials = d.pop("impostor_trials", UNSET)
 
         def _parse_eer(data: object) -> float | None | Unset:
             if data is None:
@@ -211,6 +267,12 @@ class FingerprintBenchmarkMetrics:
 
         top1_accuracy = _parse_top1_accuracy(d.pop("top1_accuracy", UNSET))
 
+
+        true_positives = d.pop("true_positives", UNSET)
+
+        false_positives = d.pop("false_positives", UNSET)
+
+        false_negatives = d.pop("false_negatives", UNSET)
 
         def _parse_precision(data: object) -> float | None | Unset:
             if data is None:
@@ -252,28 +314,70 @@ class FingerprintBenchmarkMetrics:
         impostor_mean_score = _parse_impostor_mean_score(d.pop("impostor_mean_score", UNSET))
 
 
-        fingerprint_benchmark_metrics = cls(
+        ignored_dimension = d.pop("ignored_dimension", UNSET)
+
+        clips = d.pop("clips", UNSET)
+
+        reference_words = d.pop("reference_words", UNSET)
+
+        word_errors = d.pop("word_errors", UNSET)
+
+        reference_chars = d.pop("reference_chars", UNSET)
+
+        character_errors = d.pop("character_errors", UNSET)
+
+        cer_skipped_clips = d.pop("cer_skipped_clips", UNSET)
+
+        def _parse_wer(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        wer = _parse_wer(d.pop("wer", UNSET))
+
+
+        def _parse_cer(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        cer = _parse_cer(d.pop("cer", UNSET))
+
+
+        benchmark_metrics = cls(
             references=references,
             tests=tests,
             persons=persons,
             genuine_trials=genuine_trials,
             impostor_trials=impostor_trials,
-            true_positives=true_positives,
-            false_positives=false_positives,
-            false_negatives=false_negatives,
-            ignored_dimension=ignored_dimension,
             eer=eer,
             eer_threshold=eer_threshold,
             top1_accuracy=top1_accuracy,
+            true_positives=true_positives,
+            false_positives=false_positives,
+            false_negatives=false_negatives,
             precision=precision,
             recall=recall,
             genuine_mean_score=genuine_mean_score,
             impostor_mean_score=impostor_mean_score,
+            ignored_dimension=ignored_dimension,
+            clips=clips,
+            reference_words=reference_words,
+            word_errors=word_errors,
+            reference_chars=reference_chars,
+            character_errors=character_errors,
+            cer_skipped_clips=cer_skipped_clips,
+            wer=wer,
+            cer=cer,
         )
 
 
-        fingerprint_benchmark_metrics.additional_properties = d
-        return fingerprint_benchmark_metrics
+        benchmark_metrics.additional_properties = d
+        return benchmark_metrics
 
     @property
     def additional_keys(self) -> list[str]:

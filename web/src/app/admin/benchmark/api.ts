@@ -7,7 +7,7 @@ export type Clip = components["schemas"]["BenchmarkClip"];
 export type Model = components["schemas"]["BenchmarkModel"];
 export type Run = components["schemas"]["BenchmarkRun"];
 export type RunResult = components["schemas"]["BenchmarkResult"];
-export type Metrics = components["schemas"]["FingerprintBenchmarkMetrics"];
+export type Metrics = components["schemas"]["BenchmarkMetrics"];
 
 export type Stage = "transcription" | "diarization" | "fingerprint" | "e2e";
 
@@ -20,7 +20,10 @@ export const STAGES: Stage[] = [
 ];
 
 /** The stages a run can execute today; the others show as coming soon, never as a dead button. */
-export const EXECUTABLE_STAGES: Stage[] = ["fingerprint"];
+export const EXECUTABLE_STAGES: ModelStage[] = ["fingerprint", "transcription"];
+
+/** The stages whose models the server can list. */
+export type ModelStage = "fingerprint" | "transcription";
 
 /** Turns a call into the Result the loading hook expects: data, or the server's stable error code. */
 export async function settle<T>(
@@ -42,10 +45,10 @@ export const loadDatasets = () =>
 export const loadClips = () =>
   settle(() => api.GET("/api/admin/benchmarks/clips"));
 
-export const loadModels = () =>
+export const loadModels = (stage: ModelStage) =>
   settle(() =>
     api.GET("/api/admin/benchmarks/models", {
-      params: { query: { stage: "fingerprint" } },
+      params: { query: { stage } },
     }),
   );
 
@@ -59,3 +62,6 @@ export const loadRun = (id: number) =>
 
 /** A run still waiting for its tasks: the screen reads it again until it settles. */
 export const isRunning = (run: Pick<Run, "status">) => run.status === "running";
+
+export const loadFingerprintModels = () => loadModels("fingerprint");
+export const loadTranscriptionModels = () => loadModels("transcription");

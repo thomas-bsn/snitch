@@ -75,8 +75,9 @@ def sync_detailed(
     stage: ListBenchmarkModelsStage,
 
 ) -> Response[BenchmarkModelList | Error]:
-    """  Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers
-    où chacun est prêt (un modèle prêt nulle part laisserait le run en attente).
+    """  Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre
+    de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont
+    nommés par l'administrateur, car seul un Worker joint le service de transcription.
 
     Args:
         stage (ListBenchmarkModelsStage):
@@ -107,8 +108,9 @@ def sync(
     stage: ListBenchmarkModelsStage,
 
 ) -> BenchmarkModelList | Error | None:
-    """  Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers
-    où chacun est prêt (un modèle prêt nulle part laisserait le run en attente).
+    """  Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre
+    de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont
+    nommés par l'administrateur, car seul un Worker joint le service de transcription.
 
     Args:
         stage (ListBenchmarkModelsStage):
@@ -134,8 +136,9 @@ async def asyncio_detailed(
     stage: ListBenchmarkModelsStage,
 
 ) -> Response[BenchmarkModelList | Error]:
-    """  Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers
-    où chacun est prêt (un modèle prêt nulle part laisserait le run en attente).
+    """  Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre
+    de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont
+    nommés par l'administrateur, car seul un Worker joint le service de transcription.
 
     Args:
         stage (ListBenchmarkModelsStage):
@@ -166,8 +169,9 @@ async def asyncio(
     stage: ListBenchmarkModelsStage,
 
 ) -> BenchmarkModelList | Error | None:
-    """  Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers
-    où chacun est prêt (un modèle prêt nulle part laisserait le run en attente).
+    """  Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre
+    de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont
+    nommés par l'administrateur, car seul un Worker joint le service de transcription.
 
     Args:
         stage (ListBenchmarkModelsStage):

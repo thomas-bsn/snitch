@@ -3972,7 +3972,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
     get: operations["listBenchmarkRuns"];
     put?: never;
-    /** @description Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. */
+    /** @description Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. */
     post: operations["startBenchmarkRun"];
     delete?: never;
     options?: never;
@@ -4038,7 +4038,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers où chacun est prêt (un modèle prêt nulle part laisserait le run en attente). */
+    /** @description Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription. */
     get: operations["listBenchmarkModels"];
     put?: never;
     post?: never;
@@ -8034,7 +8034,7 @@ export interface components {
       /** Format: int64 */
       dataset_id: number;
       /** @enum {string} */
-      stage: "fingerprint";
+      stage: "fingerprint" | "transcription";
       model_ids: string[];
     };
     BenchmarkJobError: {
@@ -8051,32 +8051,6 @@ export interface components {
       active: number;
       errors: components["schemas"]["BenchmarkJobError"][];
     };
-    /** @description Mesures d'un seul modèle, jamais comparables en score brut à celles d'un autre. Précision, rappel, faux positifs et faux négatifs sont pris au seuil EER du modèle sur la Personne la mieux notée de chaque test : une mauvaise Personne acceptée compte à la fois comme faux positif et comme faux négatif. */
-    FingerprintBenchmarkMetrics: {
-      references: number;
-      tests: number;
-      persons: number;
-      genuine_trials: number;
-      impostor_trials: number;
-      /** Format: double */
-      eer?: number | null;
-      /** Format: double */
-      eer_threshold?: number | null;
-      /** Format: double */
-      top1_accuracy?: number | null;
-      true_positives: number;
-      false_positives: number;
-      false_negatives: number;
-      /** Format: double */
-      precision?: number | null;
-      /** Format: double */
-      recall?: number | null;
-      /** Format: double */
-      genuine_mean_score?: number | null;
-      /** Format: double */
-      impostor_mean_score?: number | null;
-      ignored_dimension: number;
-    };
     BenchmarkResult: {
       model_id: string;
       model: string;
@@ -8088,7 +8062,7 @@ export interface components {
       items_scored: number;
       /** Format: double */
       elapsed_seconds?: number | null;
-      metrics: components["schemas"]["FingerprintBenchmarkMetrics"];
+      metrics: components["schemas"]["BenchmarkMetrics"];
       /** @description RAM/VRAM : non remontés par le Worker, toujours null pour l'instant. */
       resources?: Record<string, never> | null;
     };
@@ -8099,7 +8073,7 @@ export interface components {
       dataset_id: number;
       dataset_name: string;
       /** @enum {string} */
-      stage: "fingerprint";
+      stage: "fingerprint" | "transcription";
       /** @enum {string} */
       status: "running" | "completed" | "failed" | "cancelled";
       model_ids: string[];
@@ -8149,6 +8123,50 @@ export interface components {
       /** Format: int64 */
       id: number;
       name: string;
+    };
+    /** @description Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre. */
+    BenchmarkMetrics: {
+      references?: number;
+      tests?: number;
+      persons?: number;
+      genuine_trials?: number;
+      impostor_trials?: number;
+      /** Format: double */
+      eer?: number | null;
+      /** Format: double */
+      eer_threshold?: number | null;
+      /** Format: double */
+      top1_accuracy?: number | null;
+      true_positives?: number;
+      false_positives?: number;
+      false_negatives?: number;
+      /** Format: double */
+      precision?: number | null;
+      /** Format: double */
+      recall?: number | null;
+      /** Format: double */
+      genuine_mean_score?: number | null;
+      /** Format: double */
+      impostor_mean_score?: number | null;
+      ignored_dimension?: number;
+      /** @description Transcription : clips (et pistes) mesurés. */
+      clips?: number;
+      reference_words?: number;
+      word_errors?: number;
+      reference_chars?: number;
+      character_errors?: number;
+      /** @description Clips trop longs pour la comparaison par caractère, laissés hors du CER. */
+      cer_skipped_clips?: number;
+      /**
+       * Format: double
+       * @description Word Error Rate (transcription), micro-moyenne sur les clips.
+       */
+      wer?: number | null;
+      /**
+       * Format: double
+       * @description Character Error Rate (transcription).
+       */
+      cer?: number | null;
     };
   };
   responses: never;
@@ -19409,7 +19427,7 @@ export interface operations {
   listBenchmarkModels: {
     parameters: {
       query: {
-        stage: "fingerprint";
+        stage: "fingerprint" | "transcription";
       };
       header?: never;
       path?: never;

@@ -15,7 +15,7 @@ import (
 //
 // Since #350 the model also needs its pinned revision and, for an engine that needs one, its approved runtime
 // ready on that same Worker (RuntimeReadyClause).
-var requestedModelClaimGuard = `(j.requested_model_id IS NULL OR EXISTS (
+var requestedModelClaimGuard = `(j.requested_model_id IS NULL OR j.step LIKE 'benchmark.transcription.%' OR EXISTS (
 		      SELECT 1 FROM worker_voice_models wm JOIN voice_model_catalog rm ON rm.id=wm.model_id
 		      WHERE wm.worker_id=$4::text AND wm.model_id=j.requested_model_id AND wm.state='ready' AND NOT wm.removal_requested
 		        AND ` + RuntimeReadyClause("wm", "rm") + `))`
@@ -26,6 +26,10 @@ var requestedModelClaimGuard = `(j.requested_model_id IS NULL OR EXISTS (
 func (s *Service) checkRequestedModel(ctx context.Context, step, modelID string) error {
 	if modelID == "" {
 		return nil
+	}
+	if strings.HasPrefix(step, BenchmarkTranscriptionPrefix) {
+		// A transcription model is a name known to the external service, not a catalogue entry (ADR 0058).
+		return checkTranscriptionModelName(modelID)
 	}
 	if !strings.HasPrefix(step, "voice.fingerprint.") {
 		return ErrInvalidInput
@@ -60,3 +64,25 @@ func withRequestedModel(job Job, modelID string) Job {
 	}
 	return job
 }
+
+// BenchmarkTranscriptionPrefix is the step of a transcription benchmark job. It is deliberately not
+// "transcription.audio.": the production readers of a clip's transcript, the embeddings and the corrections
+// never see it.
+const BenchmarkTranscriptionPrefix = "benchmark.transcription."
+
+// checkTranscriptionModelName accepts a model name as the transcription service lists it: printable, no space
+// at either end, at most 64 characters (the column limit).
+func checkTranscriptionModelName(name string) error {
+	if name == "" || len(name) > 64 || strings.TrimSpace(name) != name {
+		return ErrInvalidInput
+	}
+	for _, r := range name {
+		if r < 0x20 || r == 0x7f {
+			return ErrInvalidInput
+		}
+	}
+	return nil
+}
+
+// ValidTranscriptionModelName tells whether a name may be requested for a transcription benchmark.
+func ValidTranscriptionModelName(name string) bool { return checkTranscriptionModelName(name) == nil }

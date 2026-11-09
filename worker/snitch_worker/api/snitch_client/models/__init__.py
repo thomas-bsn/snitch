@@ -82,6 +82,7 @@ from .benchmark_dataset_input import BenchmarkDatasetInput
 from .benchmark_dataset_list import BenchmarkDatasetList
 from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
 from .benchmark_job_error import BenchmarkJobError
+from .benchmark_metrics import BenchmarkMetrics
 from .benchmark_model import BenchmarkModel
 from .benchmark_model_list import BenchmarkModelList
 from .benchmark_person import BenchmarkPerson
@@ -181,7 +182,6 @@ from .explorer_properties import ExplorerProperties
 from .explorer_properties_state import ExplorerPropertiesState
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
-from .fingerprint_benchmark_metrics import FingerprintBenchmarkMetrics
 from .fingerprint_transition import FingerprintTransition
 from .fingerprint_transition_input import FingerprintTransitionInput
 from .fingerprint_transition_phase import FingerprintTransitionPhase
@@ -744,6 +744,7 @@ __all__ = (
     "BenchmarkDatasetList",
     "BenchmarkDatasetStagesItem",
     "BenchmarkJobError",
+    "BenchmarkMetrics",
     "BenchmarkModel",
     "BenchmarkModelList",
     "BenchmarkPerson",
@@ -843,7 +844,6 @@ __all__ = (
     "ExplorerPropertiesState",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
-    "FingerprintBenchmarkMetrics",
     "FingerprintTransition",
     "FingerprintTransitionInput",
     "FingerprintTransitionPhase",

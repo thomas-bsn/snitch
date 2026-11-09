@@ -688,6 +688,22 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 		s.completeVoiceJob(w, r, id, step, status, input.InputVersion, input.Result)
 		return
 	}
+	if stepErr == nil && status != "done" && strings.HasPrefix(step, jobs.BenchmarkTranscriptionPrefix) {
+		// A benchmark transcript has the shape of a production one and is checked the same way; it is only stored.
+		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
+		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
+			fail(w, http.StatusConflict, "lease_not_owned")
+			return
+		}
+		if leaseErr != nil {
+			s.internal(w, leaseErr)
+			return
+		}
+		if !validTranscriptionResult(input.Result, "transcription.audio."+strings.TrimPrefix(leased.Job.Step, jobs.BenchmarkTranscriptionPrefix)) {
+			fail(w, http.StatusBadRequest, "invalid_transcription_result")
+			return
+		}
+	}
 	if stepErr == nil && status != "done" && strings.HasPrefix(step, "transcription.audio.") {
 		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
@@ -723,6 +739,9 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if stepErr == nil && strings.HasPrefix(step, "transcription.audio.") {
 		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks, Project: waveformProjection(step, input.Result)}
+	}
+	if stepErr == nil && strings.HasPrefix(step, jobs.BenchmarkTranscriptionPrefix) {
+		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks}
 	}
 	job, err := s.Jobs.CompleteWith(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r), input.InputVersion, input.Result, options)
 	if errors.Is(err, jobs.ErrInvalidInput) {

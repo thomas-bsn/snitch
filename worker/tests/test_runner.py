@@ -174,7 +174,7 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(
             # The diagnostic family depends on whether Torch is installed (covered in test_audio_diagnostic).
             [step for step in advertised["supported_steps"] if step != "audio.diagnostic.*"],
-            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*", "benchmark.transcription.*"],
         )
         complete.assert_called_once()
         result = complete.call_args.kwargs["body"].result.to_dict()
@@ -314,6 +314,50 @@ class FakeProviderTests(unittest.TestCase):
         result = complete.call_args.kwargs["body"].result.to_dict()
         self.assertEqual(result["audio_stream_index"], 2)
         self.assertEqual(result["segments"], [])
+
+    def test_benchmark_transcription_uses_the_requested_model_and_the_stream_of_its_step(self):
+        media_request = SimpleNamespace(raise_for_status=lambda: None, iter_bytes=lambda: [b"synthetic-media"])
+
+        class MediaStream:
+            def __enter__(self):
+                return media_request
+
+            def __exit__(self, *_args):
+                return False
+
+        http_client = SimpleNamespace(stream=Mock(return_value=MediaStream()))
+        client = SimpleNamespace(_base_url="https://snitch.example", get_httpx_client=lambda: http_client)
+        task = SimpleNamespace(id=95, step="benchmark.transcription.3", input_version="bt-d1-a3")
+        claim = SimpleNamespace(job=task, lease_token="lt_fixture-lease")
+        built = {}
+
+        def configured(model="", override=None):
+            built.update(model=model, override=override)
+            return SimpleNamespace()
+
+        input_value = SimpleNamespace(
+            media_url="/api/worker/jobs/95/media",
+            vocabulary=[],
+            pipeline={"model": "profile-model", "language": "fr"},
+            transcription_model="vendor/model-b",
+        )
+        with (
+            patch.object(runner, "pulse", return_value=object()),
+            patch.object(runner, "claim_job", return_value=claim),
+            patch.object(runner, "heartbeat_job", return_value=object()),
+            patch.object(runner, "get_job_input", return_value=input_value),
+            patch.object(runner, "prepare_audio") as prepare,
+            patch.object(runner, "configured_transcriber", side_effect=configured),
+            patch.object(runner, "transcribe_prepared_audio", return_value={"provider": "fixture", "model": "vendor/model-b", "version": "v", "language": "fr", "segments": []}),
+            patch.object(runner, "complete_job", return_value=object()) as complete,
+        ):
+            self.assertTrue(runner.run_once(client))
+
+        self.assertEqual(built["override"], "vendor/model-b")
+        self.assertEqual(prepare.call_args.args[2], 3)
+        result = complete.call_args.kwargs["body"].result.to_dict()
+        self.assertEqual(result["audio_stream_index"], 3)
+        self.assertEqual(result["model"], "vendor/model-b")
 
     def test_audio_plan_child_returns_clip_time_for_vad_spans_and_stream_offset(self):
         media_request = SimpleNamespace(raise_for_status=lambda: None, iter_bytes=lambda: [b"synthetic"])
@@ -543,7 +587,7 @@ class FakeProviderTests(unittest.TestCase):
         self.assertEqual(state["result"]["step"], "fixture.echo")
         self.assertEqual(
             [step for step in state["pulse"]["supported_steps"] if step != "audio.diagnostic.*"],
-            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"],
+            ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*", "benchmark.transcription.*"],
         )
 
 

@@ -514,7 +514,7 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
 def supported_steps() -> list[str]:
     """The step families this Worker can read. A diagnostic is declared only where Torch can run the detector;
     Snitch still dispatches one only after this Worker reports the pinned model ready (ADR 0048)."""
-    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"]
+    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*", "benchmark.transcription.*"]
     if audio_diagnostic.available():
         steps.append("audio.diagnostic.*")
     return steps
@@ -839,7 +839,8 @@ def _run_claimed(
                 result = run_audio_dedup(client, task_input, lease_token)
             elif re.fullmatch(r"audio\.diagnostic\.\d+", job.step):
                 result = run_audio_diagnostic(client, task_input, lease_token, job.step)
-            elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
+            elif re.fullmatch(r"transcription\.audio\.\d+|benchmark\.transcription\.\d+", job.step):
+                # A benchmark task transcribes like a production one, with the model the task asks for (ADR 0058).
                 with tempfile.TemporaryDirectory(
                     prefix="snitch-transcription-"
                 ) as temporary:

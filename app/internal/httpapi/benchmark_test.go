@@ -271,7 +271,8 @@ func testAIBenchmarkFingerprints(t *testing.T, pool *pgxpool.Pool) {
 
 	runs := "/api/admin/benchmarks/runs"
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "fingerprint", "model_ids": []string{"unknown-model"}}, http.StatusUnprocessableEntity)
-	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "transcription", "model_ids": []string{benchModelID}}, http.StatusBadRequest) // not executable yet
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "transcription", "model_ids": []string{benchModelID}}, http.StatusUnprocessableEntity) // this corpus has no certified clip
+	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": dataset, "stage": "diarization", "model_ids": []string{benchModelID}}, http.StatusBadRequest)            // not executable yet
 	h.adminCall(http.MethodPost, runs, map[string]any{"dataset_id": noFingerprint, "stage": "fingerprint", "model_ids": []string{benchModelID}}, http.StatusUnprocessableEntity)
 	_ = certified
 

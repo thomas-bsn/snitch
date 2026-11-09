@@ -98,12 +98,19 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
   await expect(
     page.getByRole("radio", { name: "Corpus de démonstration" }),
   ).toBeVisible();
+  // Transcription runs, but this corpus has no certified clip; diarization does not run yet.
   await expect(
     page.getByRole("button", { name: /Transcription/ }),
   ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: /Transcription/ }),
-  ).toContainText("Coming soon");
+  ).toContainText("cannot measure");
+  await expect(
+    page.getByRole("button", { name: /Diarization/ }),
+  ).toBeDisabled();
+  await expect(page.getByRole("button", { name: /Diarization/ })).toContainText(
+    "Coming soon",
+  );
 
   await page.getByRole("button", { name: "Create a corpus" }).click();
   const dialog = page.getByRole("dialog", {
@@ -163,6 +170,65 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
   await expectNoViolations(page);
 });
 
+test("un benchmark de transcription se lance, se suit et s'annule", async ({
+  page,
+}) => {
+  await asAdmin(page);
+  await page.goto("/admin/benchmark");
+  // The corpus created by the previous journey has a certified clip, so it can measure the transcription.
+  await page.getByRole("radio", { name: "Corpus e2e" }).check();
+  const transcription = page.getByRole("button", { name: /Transcription/ });
+  await expect(transcription).toBeEnabled();
+  await transcription.click();
+  await expect(transcription).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByRole("button", { name: "Start the benchmark" }),
+  ).toBeDisabled();
+
+  // Only a Worker reaches the service: the models are named by the administrator.
+  await page.getByLabel("Add a model by name").fill("vendor/model-a");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByLabel("Add a model by name").fill("vendor/model-b");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "vendor/model-a" }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: "vendor/model-b" }),
+  ).toBeChecked();
+  await expect(
+    page.getByText("Checked by a Worker when the task starts."),
+  ).toHaveCount(2);
+  await expectNoViolations(page);
+
+  await page.getByRole("button", { name: "Start the benchmark" }).click();
+  const running = page.getByRole("region", { name: /Benchmark running/ });
+  await expect(running).toContainText("Corpus e2e");
+  const progress = running.getByRole("progressbar", {
+    name: "Benchmark progress",
+  });
+  await expect(progress).toHaveAttribute("aria-valuenow", "0");
+  await expect(progress).toHaveAttribute("aria-valuemax", "2");
+  await expect(
+    page.getByRole("button", { name: "Start the benchmark" }),
+  ).toBeDisabled();
+  await expect(page.getByText("A benchmark is already running")).toBeVisible();
+  await expectNoViolations(page);
+
+  // No Worker takes the tasks here: the administrator cancels, and the screen says nothing is left running.
+  await running.getByRole("button", { name: "Cancel the benchmark" }).click();
+  const confirm = page.getByRole("alertdialog", {
+    name: "Cancel the benchmark?",
+  });
+  await expect(confirm).toContainText("Production is not touched");
+  await confirm.getByRole("button", { name: "Cancel the benchmark" }).click();
+  await expect(running).toBeHidden();
+  await expect(page).toHaveURL(/\/admin\/benchmark$/);
+  await expect(
+    page.getByRole("button", { name: "Start the benchmark" }),
+  ).toBeEnabled();
+});
+
 test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await asAdmin(page);
   await page.goto("/admin/benchmark/results");
@@ -171,17 +237,19 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   const best = page.getByRole("region", { name: "Best model per stage" });
   await expect(best).toContainText("EER 5.0%");
   await expect(best).toContainText("Already in production");
+  // Transcription: the more accurate model is crowned and differs from the production one.
+  await expect(best).toContainText("seed-asr-b");
+  await expect(best).toContainText("WER 8.1%");
+  await expect(best).toContainText("Differs from production");
   const history = page.getByRole("region", { name: "History" });
-  await expect(history.getByRole("row")).toHaveCount(3);
-  await expect(history.getByRole("row").nth(1)).toContainText("Failed");
-  await expect(history.getByRole("row").nth(2)).toContainText("Partial");
+  const row = (text: string) =>
+    history.getByRole("row").filter({ hasText: text });
+  await expect(row("Failed")).toHaveCount(1);
+  await expect(row("Cancelled")).toHaveCount(1); // the run cancelled by the previous journey
+  await expect(row("Partial")).toHaveCount(1);
   await expectNoViolations(page);
 
-  await history
-    .getByRole("row")
-    .nth(2)
-    .getByRole("link", { name: "Details" })
-    .click();
+  await row("Partial").getByRole("link", { name: "Details" }).click();
   await expect(page).toHaveURL(/\/admin\/benchmark\/results\?run=\d+/);
   await expect(page.getByRole("note")).toContainText(
     "raw scores of different models cannot be compared",
@@ -207,15 +275,37 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await expectNoViolations(page);
 
   await page.getByRole("link", { name: "Back to history" }).click();
-  await history
-    .getByRole("row")
-    .nth(1)
-    .getByRole("link", { name: "Details" })
-    .click();
+  await row("Failed").getByRole("link", { name: "Details" }).click();
   await expect(page.getByRole("alert")).toContainText(
     "No result was produced.",
   );
   await expect(
     page.getByRole("link", { name: "Open Voice processing" }),
   ).toBeVisible();
+
+  // The transcription run: WER and CER, the bias warning, and no separation chart (a voice-only reading).
+  await page.getByRole("link", { name: "Back to history" }).click();
+  await row("seed-asr-a").getByRole("link", { name: "Details" }).click();
+  await expect(
+    page.getByRole("heading", { name: /Transcription/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("the production model has an advantage"),
+  ).toBeVisible();
+  const werTable = page.getByRole("table");
+  await expect(werTable.getByRole("row")).toHaveCount(3);
+  await expect(werTable.getByRole("row").nth(1)).toContainText("12.0%");
+  await expect(werTable.getByRole("row").nth(2)).toContainText("8.1%");
+  await expect(
+    page.getByText("Word error rate (lower is better)"),
+  ).toBeVisible();
+  await expect(page.getByText("Separation of the mean scores")).toHaveCount(0);
+  const wer = werTable.getByRole("button", {
+    name: "Definition: WER",
+    exact: true,
+  });
+  await wer.hover();
+  await expect(page.getByRole("tooltip")).toContainText("Word Error Rate");
+  await page.mouse.move(0, 0);
+  await expectNoViolations(page);
 });

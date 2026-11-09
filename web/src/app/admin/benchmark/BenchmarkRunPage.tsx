@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { FlaskConical } from "lucide-react";
 import { api, errorCode, mutation } from "../../api/client";
@@ -18,6 +18,8 @@ import {
   loadModels,
   loadRuns,
   type Dataset,
+  type Model,
+  type ModelStage,
   type Run,
   type Stage,
 } from "./api";
@@ -34,11 +36,24 @@ export function BenchmarkRunPage() {
   const navigate = useNavigate();
   useDocumentTitle(t("admin.tabs.benchmark"));
   const datasets = useLoaded(loadDatasets);
-  const models = useLoaded(loadModels);
+  const [stage, setStage] = useState<Stage>("fingerprint");
+  const modelStage: ModelStage =
+    stage === "transcription" ? "transcription" : "fingerprint";
+  const loadStageModels = useCallback(
+    () => loadModels(modelStage),
+    [modelStage],
+  );
+  const models = useLoaded(loadStageModels);
   const runs = useLoaded(loadRuns);
   const [datasetId, setDatasetId] = useState<number>();
-  const [stage, setStage] = useState<Stage>("fingerprint");
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  // One choice per stage, so coming back to a stage finds its models ticked.
+  const [pickedByStage, setPickedByStage] = useState<
+    Partial<Record<ModelStage, Set<string>>>
+  >({});
+  const picked = pickedByStage[modelStage] ?? new Set<string>();
+  // Transcription models the administrator named: only a Worker reaches the service, so it cannot be listed here.
+  const [named, setNamed] = useState<string[]>([]);
+  const [nameDraft, setNameDraft] = useState("");
   const [building, setBuilding] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -77,16 +92,36 @@ export function BenchmarkRunPage() {
 
   const supported = (s: Stage) => dataset?.stages.includes(s) ?? false;
   const stageState = (s: Stage) =>
-    !EXECUTABLE_STAGES.includes(s)
+    !(EXECUTABLE_STAGES as Stage[]).includes(s)
       ? "soon"
       : !supported(s)
         ? "notInCorpus"
         : "ok";
-  const modelList =
+  const served: Model[] =
     models.state.status === "ready" ? models.state.value.models : [];
-  // A model that lost its last Worker no longer counts, even if it stays ticked.
+  const modelList: Model[] =
+    modelStage === "transcription"
+      ? [
+          ...served,
+          ...named
+            .filter((name) => !served.some((m) => m.id === name))
+            .map((name) => ({
+              id: name,
+              label: name,
+              repo: name,
+              revision: "",
+              engine: "",
+              active: false,
+              ready_workers: -1, // unknown: the Worker checks the name when the task starts
+              total_workers: 0,
+            })),
+        ]
+      : served;
+  // A fingerprint model that lost its last Worker no longer counts, even if it stays ticked.
   const chosen = modelList.filter(
-    (m) => picked.has(m.id) && m.ready_workers > 0,
+    (m) =>
+      picked.has(m.id) &&
+      (modelStage === "transcription" || m.ready_workers > 0),
   );
   const startReason = !dataset
     ? t("benchmark.run.needCorpus")
@@ -99,12 +134,24 @@ export function BenchmarkRunPage() {
           : undefined;
 
   const toggle = (id: string) =>
-    setPicked((current) => {
-      const next = new Set(current);
+    setPickedByStage((all) => {
+      const next = new Set(all[modelStage] ?? []);
       if (next.has(id)) next.delete(id);
       else if (next.size < MAX_MODELS) next.add(id);
-      return next;
+      return { ...all, [modelStage]: next };
     });
+
+  const nameOk =
+    nameDraft.trim() !== "" &&
+    nameDraft.trim().length <= 64 &&
+    !modelList.some((m) => m.id === nameDraft.trim());
+  const addName = () => {
+    const name = nameDraft.trim();
+    if (!nameOk) return;
+    setNamed((current) => [...current, name]);
+    setNameDraft("");
+    toggle(name);
+  };
 
   const start = async () => {
     if (!dataset) return;
@@ -116,7 +163,7 @@ export function BenchmarkRunPage() {
         body: {
           dataset_id: dataset.id,
           // The contract only accepts the stages a run can execute: widening it makes this line a type error.
-          stage: "fingerprint",
+          stage: modelStage,
           model_ids: chosen.map((m) => m.id),
         },
       });
@@ -388,16 +435,25 @@ export function BenchmarkRunPage() {
                     className="absolute top-3 right-3 size-4"
                   />
                   <strong className="pr-6">{m.label}</strong>
+                  {modelStage === "fingerprint" && (
+                    <span className="text-sm text-mute">
+                      {m.engine} · {m.revision.slice(0, 7)}
+                    </span>
+                  )}
                   <span className="text-sm text-mute">
-                    {m.engine} · {m.revision.slice(0, 7)}
-                  </span>
-                  <span className="text-sm text-mute">
-                    {nowhere
-                      ? t("benchmark.run.modelNowhere")
-                      : t("benchmark.run.modelReady", {
-                          ready: m.ready_workers,
-                          total: m.total_workers,
-                        })}
+                    {m.ready_workers < 0
+                      ? t("benchmark.run.modelUnchecked")
+                      : nowhere
+                        ? t("benchmark.run.modelNowhere")
+                        : modelStage === "transcription"
+                          ? t("benchmark.run.modelServiceReady", {
+                              ready: m.ready_workers,
+                              total: m.total_workers,
+                            })
+                          : t("benchmark.run.modelReady", {
+                              ready: m.ready_workers,
+                              total: m.total_workers,
+                            })}
                     {m.active && (
                       <span className="ml-2 rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok-fg">
                         {t("benchmark.run.modelActive")}
@@ -408,6 +464,40 @@ export function BenchmarkRunPage() {
               );
             })}
           </div>
+        )}
+        {modelStage === "transcription" && (
+          <form
+            className="flex flex-col gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              addName();
+            }}
+          >
+            <label className="flex flex-col gap-1">
+              <span className="text-sm font-medium">
+                {t("benchmark.run.addModel")}
+              </span>
+              <span className="text-xs text-mute">
+                {t("benchmark.run.addModelHelp")}
+              </span>
+              <span className="flex flex-wrap gap-2">
+                <input
+                  value={nameDraft}
+                  maxLength={64}
+                  onChange={(event) => setNameDraft(event.target.value)}
+                  placeholder="Systran/faster-whisper-large-v3"
+                  className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3 md:h-9"
+                />
+                <button
+                  type="submit"
+                  className={buttonClass()}
+                  disabled={!nameOk}
+                >
+                  {t("benchmark.run.addModelButton")}
+                </button>
+              </span>
+            </label>
+          </form>
         )}
       </section>
 

@@ -13,8 +13,8 @@ from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
+  from ..models.benchmark_metrics import BenchmarkMetrics
   from ..models.benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
-  from ..models.fingerprint_benchmark_metrics import FingerprintBenchmarkMetrics
 
 
 
@@ -35,10 +35,8 @@ class BenchmarkResult:
             state (BenchmarkResultState):
             items_total (int):
             items_scored (int):
-            metrics (FingerprintBenchmarkMetrics): Mesures d'un seul modèle, jamais comparables en score brut à celles d'un
-                autre. Précision, rappel, faux positifs et faux négatifs sont pris au seuil EER du modèle sur la Personne la
-                mieux notée de chaque test : une mauvaise Personne acceptée compte à la fois comme faux positif et comme faux
-                négatif.
+            metrics (BenchmarkMetrics): Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1,
+                précision, rappel… ; transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre.
             elapsed_seconds (float | None | Unset):
             resources (BenchmarkResultResourcesType0 | None | Unset): RAM/VRAM : non remontés par le Worker, toujours null
                 pour l'instant.
@@ -51,7 +49,7 @@ class BenchmarkResult:
     state: BenchmarkResultState
     items_total: int
     items_scored: int
-    metrics: FingerprintBenchmarkMetrics
+    metrics: BenchmarkMetrics
     elapsed_seconds: float | None | Unset = UNSET
     resources: BenchmarkResultResourcesType0 | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -61,8 +59,8 @@ class BenchmarkResult:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.benchmark_metrics import BenchmarkMetrics # noqa: PLC0415
         from ..models.benchmark_result_resources_type_0 import BenchmarkResultResourcesType0 # noqa: PLC0415
-        from ..models.fingerprint_benchmark_metrics import FingerprintBenchmarkMetrics # noqa: PLC0415
         model_id = self.model_id
 
         model = self.model
@@ -117,8 +115,8 @@ class BenchmarkResult:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.benchmark_metrics import BenchmarkMetrics # noqa: PLC0415
         from ..models.benchmark_result_resources_type_0 import BenchmarkResultResourcesType0 # noqa: PLC0415
-        from ..models.fingerprint_benchmark_metrics import FingerprintBenchmarkMetrics # noqa: PLC0415
         d = dict(src_dict)
         model_id = d.pop("model_id")
 
@@ -137,7 +135,7 @@ class BenchmarkResult:
 
         items_scored = d.pop("items_scored")
 
-        metrics = FingerprintBenchmarkMetrics.from_dict(d.pop("metrics"))
+        metrics = BenchmarkMetrics.from_dict(d.pop("metrics"))
 
 
 

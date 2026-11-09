@@ -9,8 +9,10 @@ import { useDocumentTitle } from "../../components/useDocumentTitle";
 import { useI18n } from "../../i18n";
 import type { MessageKey } from "../../i18n/messages";
 import {
+  EXECUTABLE_STAGES,
   isRunning,
-  loadModels,
+  loadFingerprintModels,
+  loadTranscriptionModels,
   loadRun,
   loadRuns,
   type Model,
@@ -18,7 +20,8 @@ import {
   type RunResult,
 } from "./api";
 import { dateTime, decimal, elapsed, percent } from "./format";
-import { InfoTip, type Metric } from "./InfoTip";
+import { InfoTip } from "./InfoTip";
+import { columnsOf, primaryOf, type Column } from "./stageMetrics";
 
 const card = "flex flex-col gap-3 rounded-xl border border-line bg-surface p-4";
 /** Static class names, so the stylesheet keeps them: a series is always drawn with a label too. */
@@ -62,9 +65,11 @@ function Overview() {
   const { t, error, language } = useI18n();
   useDocumentTitle(t("admin.tabs.benchmark"));
   const runs = useLoaded(loadRuns);
-  const models = useLoaded(loadModels);
-  const catalogue =
-    models.state.status === "ready" ? models.state.value.models : [];
+  const fingerprintModels = useLoaded(loadFingerprintModels);
+  const transcriptionModels = useLoaded(loadTranscriptionModels);
+  const catalogue = [fingerprintModels, transcriptionModels].flatMap((m) =>
+    m.state.status === "ready" ? m.state.value.models : [],
+  );
 
   if (runs.state.status === "loading")
     return <p role="status">{t("benchmark.results.loading")}</p>;
@@ -80,19 +85,6 @@ function Overview() {
       </div>
     );
   const list = runs.state.value.runs;
-  const finished = list.find(
-    (r) =>
-      r.stage === "fingerprint" &&
-      r.status === "completed" &&
-      r.results.some((x) => x.state === "complete"),
-  );
-  const comparable = (finished?.results ?? [])
-    .filter((x) => x.state === "complete" && x.metrics.eer != null)
-    .sort((a, b) => (a.metrics.eer ?? 1) - (b.metrics.eer ?? 1));
-  const best = comparable[0];
-  const second = comparable[1];
-  const production = catalogue.find((m) => m.active);
-
   return (
     <div className="flex flex-col gap-4">
       <section aria-labelledby="best-title" className={card}>
@@ -102,64 +94,15 @@ function Overview() {
         <p className="text-sm text-mute">
           {t("benchmark.results.summaryLead")}
         </p>
-        <div className="rounded-xl border border-line p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <strong>{t("benchmark.run.stageNames.fingerprint")}</strong>
-            <span className="flex-1" />
-            {best && (
-              <span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-ink">
-                EER {percent(language, best.metrics.eer)}
-                <InfoTip metric="eer" />
-              </span>
-            )}
-          </div>
-          {best && finished ? (
-            <div className="mt-2 flex flex-col gap-1">
-              <p className="text-base font-semibold">
-                {labelOf(catalogue, best.model_id, best.model)}
-              </p>
-              <p className="text-sm text-mute">
-                {production?.id === best.model_id ? (
-                  <span className="rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok-fg">
-                    {t("benchmark.results.inProduction")}
-                  </span>
-                ) : (
-                  production && (
-                    <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn-fg">
-                      {t("benchmark.results.differs", {
-                        model: production.label,
-                      })}
-                    </span>
-                  )
-                )}{" "}
-                {second &&
-                  t("benchmark.results.ahead", {
-                    gap: (
-                      ((second.metrics.eer ?? 0) - (best.metrics.eer ?? 0)) *
-                      100
-                    ).toFixed(1),
-                    other: labelOf(catalogue, second.model_id, second.model),
-                  })}
-              </p>
-              <p className="text-sm text-mute">
-                {dateTime(language, finished.created_at)} ·{" "}
-                {finished.dataset_name} ·{" "}
-                <Link
-                  className="text-accent-ink underline"
-                  to={`/admin/benchmark/results?run=${finished.id}`}
-                >
-                  {t("benchmark.results.details")}
-                </Link>
-              </p>
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-mute">
-              {t("benchmark.results.noBenchmark")}{" "}
-              <Link className="text-accent-ink underline" to="/admin/benchmark">
-                {t("benchmark.results.run")}
-              </Link>
-            </p>
-          )}
+        <div className="grid gap-3 md:grid-cols-2">
+          {EXECUTABLE_STAGES.map((stage) => (
+            <StageSummary
+              key={stage}
+              stage={stage}
+              runs={list}
+              catalogue={catalogue}
+            />
+          ))}
         </div>
       </section>
 
@@ -245,56 +188,17 @@ function Overview() {
   );
 }
 
-type Column = {
-  metric: Metric;
-  render: (x: RunResult, language: "en" | "fr") => ReactNode;
-  /** The best value of the column among comparable results: the lowest or the highest. */
-  best?: { value: (x: RunResult) => number | null | undefined; low: boolean };
-};
-
-const columns: Column[] = [
-  {
-    metric: "eer",
-    render: (x, l) => percent(l, x.metrics.eer),
-    best: { value: (x) => x.metrics.eer, low: true },
-  },
-  { metric: "thr", render: (x, l) => decimal(l, x.metrics.eer_threshold) },
-  {
-    metric: "top1",
-    render: (x, l) => percent(l, x.metrics.top1_accuracy),
-    best: { value: (x) => x.metrics.top1_accuracy, low: false },
-  },
-  {
-    metric: "precision",
-    render: (x, l) => percent(l, x.metrics.precision),
-    best: { value: (x) => x.metrics.precision, low: false },
-  },
-  {
-    metric: "recall",
-    render: (x, l) => percent(l, x.metrics.recall),
-    best: { value: (x) => x.metrics.recall, low: false },
-  },
-  {
-    metric: "fp",
-    render: (x) => x.metrics.false_positives,
-    best: { value: (x) => x.metrics.false_positives, low: true },
-  },
-  {
-    metric: "fn",
-    render: (x) => x.metrics.false_negatives,
-    best: { value: (x) => x.metrics.false_negatives, low: true },
-  },
-  { metric: "coverage", render: (x) => `${x.items_scored} / ${x.items_total}` },
-  { metric: "elapsed", render: (x) => elapsed(x.elapsed_seconds) },
-];
-
 function RunDetail({ id }: { id: number }) {
   const { t, error, language } = useI18n();
   useDocumentTitle(t("admin.tabs.benchmark"));
   const loader = useLoaded(() => loadRun(id));
-  const models = useLoaded(loadModels);
-  const catalogue =
-    models.state.status === "ready" ? models.state.value.models : [];
+  const models = useLoaded(
+    id > 0 ? loadFingerprintModels : loadTranscriptionModels,
+  );
+  const transcriptionModels = useLoaded(loadTranscriptionModels);
+  const catalogue = [models, transcriptionModels].flatMap((m) =>
+    m.state.status === "ready" ? m.state.value.models : [],
+  );
   const run = loader.state.status === "ready" ? loader.state.value : undefined;
   const { reload } = loader;
   useEffect(() => {
@@ -336,7 +240,12 @@ function RunDetail({ id }: { id: number }) {
     return c.best.low ? Math.min(...values) : Math.max(...values);
   };
   const partial = data.results.filter((x) => x.state === "partial");
-  const scale = Math.max(...data.results.map((x) => x.metrics.eer ?? 0), 0.01);
+  const columns = columnsOf(data.stage);
+  const primary = primaryOf(data.stage);
+  const scale = Math.max(
+    ...data.results.map((x) => primary.value(x) ?? 0),
+    0.01,
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -390,8 +299,18 @@ function RunDetail({ id }: { id: number }) {
             role="note"
             className="rounded-lg bg-accent-soft px-3 py-2.5 text-accent-ink"
           >
-            {t("benchmark.results.note")}
+            {data.stage === "transcription"
+              ? t("benchmark.results.noteTranscription")
+              : t("benchmark.results.note")}
           </p>
+          {data.stage === "transcription" && (
+            <p
+              role="note"
+              className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
+            >
+              {t("benchmark.corpus.bias")}
+            </p>
+          )}
           <section aria-labelledby="comparison-title" className={card}>
             <h3 id="comparison-title" className="text-base font-semibold">
               {t("benchmark.results.comparison")}
@@ -466,8 +385,10 @@ function RunDetail({ id }: { id: number }) {
 
           <section aria-labelledby="eer-title" className={card}>
             <h3 id="eer-title" className="text-base font-semibold">
-              {t("benchmark.results.eerChart")}
-              <InfoTip metric="eer" />
+              {data.stage === "transcription"
+                ? t("benchmark.results.werChart")
+                : t("benchmark.results.eerChart")}
+              <InfoTip metric={primary.metric} />
             </h3>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
               {data.results.map((x, i) => (
@@ -483,12 +404,12 @@ function RunDetail({ id }: { id: number }) {
                     <span
                       className={`block h-full ${SERIES[i % SERIES.length]}`}
                       style={{
-                        width: `${((x.metrics.eer ?? 0) / scale) * 100}%`,
+                        width: `${((primary.value(x) ?? 0) / scale) * 100}%`,
                       }}
                     />
                   </span>
                   <strong className="text-right tabular-nums">
-                    {percent(language, x.metrics.eer)}
+                    {percent(language, primary.value(x))}
                   </strong>
                 </li>
               ))}
@@ -498,46 +419,48 @@ function RunDetail({ id }: { id: number }) {
             </p>
           </section>
 
-          <section aria-labelledby="separation-title" className={card}>
-            <h3 id="separation-title" className="text-base font-semibold">
-              {t("benchmark.results.separation")}
-            </h3>
-            <p className="text-sm text-mute">
-              {t("benchmark.results.separationLead")}
-            </p>
-            <ul className="m-0 flex list-none flex-col gap-2 p-0">
-              {data.results.map((x, i) => {
-                const impostor = x.metrics.impostor_mean_score ?? 0;
-                const genuine = x.metrics.genuine_mean_score ?? 0;
-                return (
-                  <li
-                    key={x.model_id}
-                    className="grid grid-cols-[minmax(7rem,14rem)_1fr_9rem] items-center gap-3 text-sm"
-                  >
-                    <span>{label(x)}</span>
-                    <span
-                      aria-hidden="true"
-                      className="relative h-4 rounded border border-line bg-side"
+          {data.stage === "fingerprint" && (
+            <section aria-labelledby="separation-title" className={card}>
+              <h3 id="separation-title" className="text-base font-semibold">
+                {t("benchmark.results.separation")}
+              </h3>
+              <p className="text-sm text-mute">
+                {t("benchmark.results.separationLead")}
+              </p>
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {data.results.map((x, i) => {
+                  const impostor = x.metrics.impostor_mean_score ?? 0;
+                  const genuine = x.metrics.genuine_mean_score ?? 0;
+                  return (
+                    <li
+                      key={x.model_id}
+                      className="grid grid-cols-[minmax(7rem,14rem)_1fr_9rem] items-center gap-3 text-sm"
                     >
+                      <span>{label(x)}</span>
                       <span
-                        className={`absolute top-0 h-full ${SERIES[i % SERIES.length]}`}
-                        style={{
-                          left: `${Math.max(0, impostor) * 100}%`,
-                          width: `${Math.max(0, genuine - impostor) * 100}%`,
-                        }}
-                      />
-                    </span>
-                    <span className="text-right tabular-nums">
-                      {t("benchmark.results.impostor")}{" "}
-                      {decimal(language, impostor)} →{" "}
-                      {t("benchmark.results.genuine")}{" "}
-                      {decimal(language, genuine)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
+                        aria-hidden="true"
+                        className="relative h-4 rounded border border-line bg-side"
+                      >
+                        <span
+                          className={`absolute top-0 h-full ${SERIES[i % SERIES.length]}`}
+                          style={{
+                            left: `${Math.max(0, impostor) * 100}%`,
+                            width: `${Math.max(0, genuine - impostor) * 100}%`,
+                          }}
+                        />
+                      </span>
+                      <span className="text-right tabular-nums">
+                        {t("benchmark.results.impostor")}{" "}
+                        {decimal(language, impostor)} →{" "}
+                        {t("benchmark.results.genuine")}{" "}
+                        {decimal(language, genuine)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          )}
         </>
       )}
       <section aria-labelledby="next-title" className={card}>
@@ -549,6 +472,98 @@ function RunDetail({ id }: { id: number }) {
           {t("benchmark.results.openVoice")}
         </Link>
       </section>
+    </div>
+  );
+}
+
+/** The best model of one stage, from its latest finished benchmark, against the model in production. */
+function StageSummary({
+  stage,
+  runs,
+  catalogue,
+}: {
+  stage: Run["stage"];
+  runs: Run[];
+  catalogue: Model[];
+}) {
+  const { t, language } = useI18n();
+  const primary = primaryOf(stage);
+  const finished = runs.find(
+    (r) =>
+      r.stage === stage &&
+      r.status === "completed" &&
+      r.results.some((x) => x.state === "complete"),
+  );
+  // A partial result is never crowned: its figures do not cover the same clips.
+  const comparable = (finished?.results ?? [])
+    .filter((x) => x.state === "complete" && primary.value(x) != null)
+    .sort((a, b) => (primary.value(a) ?? 1) - (primary.value(b) ?? 1));
+  const best = comparable[0];
+  const second = comparable[1];
+  const production = catalogue.find(
+    (m) =>
+      m.active &&
+      (stage === "transcription"
+        ? m.engine !== "" && m.revision === ""
+        : m.revision !== ""),
+  );
+  return (
+    <div className="rounded-xl border border-line p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <strong>{t(`benchmark.run.stageNames.${stage}` as MessageKey)}</strong>
+        <span className="flex-1" />
+        {best && (
+          <span className="inline-flex items-center rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent-ink">
+            {primary.label} {percent(language, primary.value(best))}
+            <InfoTip metric={primary.metric} />
+          </span>
+        )}
+      </div>
+      {best && finished ? (
+        <div className="mt-2 flex flex-col gap-1">
+          <p className="text-base font-semibold">
+            {labelOf(catalogue, best.model_id, best.model)}
+          </p>
+          <p className="text-sm text-mute">
+            {production?.id === best.model_id ? (
+              <span className="rounded-full bg-ok-bg px-2 py-0.5 text-xs font-medium text-ok-fg">
+                {t("benchmark.results.inProduction")}
+              </span>
+            ) : (
+              production && (
+                <span className="rounded-full bg-warn-bg px-2 py-0.5 text-xs font-medium text-warn-fg">
+                  {t("benchmark.results.differs", { model: production.label })}
+                </span>
+              )
+            )}{" "}
+            {second &&
+              t("benchmark.results.ahead", {
+                gap: (
+                  ((primary.value(second) ?? 0) - (primary.value(best) ?? 0)) *
+                  100
+                ).toFixed(1),
+                other: labelOf(catalogue, second.model_id, second.model),
+              })}
+          </p>
+          <p className="text-sm text-mute">
+            {dateTime(language, finished.created_at)} · {finished.dataset_name}{" "}
+            ·{" "}
+            <Link
+              className="text-accent-ink underline"
+              to={`/admin/benchmark/results?run=${finished.id}`}
+            >
+              {t("benchmark.results.details")}
+            </Link>
+          </p>
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-mute">
+          {t("benchmark.results.noBenchmark")}{" "}
+          <Link className="text-accent-ink underline" to="/admin/benchmark">
+            {t("benchmark.results.run")}
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

@@ -17220,7 +17220,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.",
+        "description": "Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.",
         "parameters": [
           {
             "in": "header",
@@ -17418,7 +17418,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Modèles du catalogue comparables pour l'étape, avec le nombre de Workers où chacun est prêt (un modèle prêt nulle part laisserait le run en attente).",
+        "description": "Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription.",
         "parameters": [
           {
             "in": "query",
@@ -17427,7 +17427,8 @@
             "schema": {
               "type": "string",
               "enum": [
-                "fingerprint"
+                "fingerprint",
+                "transcription"
               ]
             }
           }
@@ -30076,7 +30077,8 @@
           "stage": {
             "type": "string",
             "enum": [
-              "fingerprint"
+              "fingerprint",
+              "transcription"
             ]
           },
           "model_ids": {
@@ -30148,85 +30150,6 @@
           "errors"
         ]
       },
-      "FingerprintBenchmarkMetrics": {
-        "type": "object",
-        "properties": {
-          "references": {
-            "type": "integer"
-          },
-          "tests": {
-            "type": "integer"
-          },
-          "persons": {
-            "type": "integer"
-          },
-          "genuine_trials": {
-            "type": "integer"
-          },
-          "impostor_trials": {
-            "type": "integer"
-          },
-          "eer": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "eer_threshold": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "top1_accuracy": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "true_positives": {
-            "type": "integer"
-          },
-          "false_positives": {
-            "type": "integer"
-          },
-          "false_negatives": {
-            "type": "integer"
-          },
-          "precision": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "recall": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "genuine_mean_score": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "impostor_mean_score": {
-            "type": "number",
-            "format": "double",
-            "nullable": true
-          },
-          "ignored_dimension": {
-            "type": "integer"
-          }
-        },
-        "required": [
-          "references",
-          "tests",
-          "persons",
-          "genuine_trials",
-          "impostor_trials",
-          "true_positives",
-          "false_positives",
-          "false_negatives",
-          "ignored_dimension"
-        ],
-        "description": "Mesures d'un seul modèle, jamais comparables en score brut à celles d'un autre. Précision, rappel, faux positifs et faux négatifs sont pris au seuil EER du modèle sur la Personne la mieux notée de chaque test : une mauvaise Personne acceptée compte à la fois comme faux positif et comme faux négatif."
-      },
       "BenchmarkResult": {
         "type": "object",
         "properties": {
@@ -30262,7 +30185,7 @@
             "nullable": true
           },
           "metrics": {
-            "$ref": "#/components/schemas/FingerprintBenchmarkMetrics"
+            "$ref": "#/components/schemas/BenchmarkMetrics"
           },
           "resources": {
             "type": "object",
@@ -30298,7 +30221,8 @@
           "stage": {
             "type": "string",
             "enum": [
-              "fingerprint"
+              "fingerprint",
+              "transcription"
             ]
           },
           "status": {
@@ -30509,6 +30433,106 @@
           "id",
           "name"
         ]
+      },
+      "BenchmarkMetrics": {
+        "type": "object",
+        "description": "Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre.",
+        "properties": {
+          "references": {
+            "type": "integer"
+          },
+          "tests": {
+            "type": "integer"
+          },
+          "persons": {
+            "type": "integer"
+          },
+          "genuine_trials": {
+            "type": "integer"
+          },
+          "impostor_trials": {
+            "type": "integer"
+          },
+          "eer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "eer_threshold": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "top1_accuracy": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "true_positives": {
+            "type": "integer"
+          },
+          "false_positives": {
+            "type": "integer"
+          },
+          "false_negatives": {
+            "type": "integer"
+          },
+          "precision": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "recall": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "genuine_mean_score": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "impostor_mean_score": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "ignored_dimension": {
+            "type": "integer"
+          },
+          "clips": {
+            "type": "integer",
+            "description": "Transcription : clips (et pistes) mesurés."
+          },
+          "reference_words": {
+            "type": "integer"
+          },
+          "word_errors": {
+            "type": "integer"
+          },
+          "reference_chars": {
+            "type": "integer"
+          },
+          "character_errors": {
+            "type": "integer"
+          },
+          "cer_skipped_clips": {
+            "type": "integer",
+            "description": "Clips trop longs pour la comparaison par caractère, laissés hors du CER."
+          },
+          "wer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Word Error Rate (transcription), micro-moyenne sur les clips."
+          },
+          "cer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Character Error Rate (transcription)."
+          }
+        }
       }
     }
   }

@@ -157,6 +157,17 @@ type BenchmarkDatasetItem struct {
 	Split          string `json:"split"`
 }
 
+type BenchmarkReferenceSegment struct {
+	DatasetID        int64   `json:"dataset_id"`
+	ClipID           int64   `json:"clip_id"`
+	AudioStreamIndex int32   `json:"audio_stream_index"`
+	Ordinal          int32   `json:"ordinal"`
+	StartSeconds     float64 `json:"start_seconds"`
+	EndSeconds       float64 `json:"end_seconds"`
+	Text             string  `json:"text"`
+	Corrected        bool    `json:"corrected"`
+}
+
 type BenchmarkResult struct {
 	RunID          int64              `json:"run_id"`
 	ModelID        string             `json:"model_id"`

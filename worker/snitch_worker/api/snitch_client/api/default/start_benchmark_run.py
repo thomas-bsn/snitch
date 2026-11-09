@@ -80,10 +80,11 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[BenchmarkCreated | Error]:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
-    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
-    modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
+    demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
+    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
+    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
+    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
     benchmark_stage_unsupported_by_dataset.
 
     Args:
@@ -121,10 +122,11 @@ def sync(
     x_csrf_token: str,
 
 ) -> BenchmarkCreated | Error | None:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
-    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
-    modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
+    demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
+    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
+    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
+    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
     benchmark_stage_unsupported_by_dataset.
 
     Args:
@@ -157,10 +159,11 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[BenchmarkCreated | Error]:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
-    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
-    modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
+    demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
+    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
+    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
+    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
     benchmark_stage_unsupported_by_dataset.
 
     Args:
@@ -198,10 +201,11 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> BenchmarkCreated | Error | None:
-    """  Administrateurs uniquement. Lance les modèles d'empreinte du catalogue sur les mêmes clips du
-    corpus, via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le
-    modèle actif ne sont modifiés. Un seul run actif (benchmark_run_active). Refus :
-    benchmark_transition_open, benchmark_model_invalid, benchmark_dataset_stale,
+    """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
+    demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
+    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
+    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
+    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
     benchmark_stage_unsupported_by_dataset.
 
     Args:

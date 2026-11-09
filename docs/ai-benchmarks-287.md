@@ -12,6 +12,10 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 - Résultats calculés à la lecture, de façon idempotente et reprenable.
 - Tests : métriques (unitaires) et parcours d'intégration (`TestFoundation/ai_benchmark_fingerprints`) couvrant permissions, règles du jeu de données, annulation, run complet, partiel et en échec, isolation de la production et du modèle actif, historique.
 
+## Transcription (tranche 4)
+
+Étape exécutable : tâche `benchmark.transcription.N` (étape à part, jamais lue comme transcription d'un clip), modèle demandé par la tâche, texte de référence figé à la création du corpus, WER et CER. Voir l'[ADR 0058](adr/0058-benchmark-de-transcription.md). Les modèles sont nommés par l'administrateur (seul un Worker joint le service) ; la découverte par les Workers reste à faire. Un Worker doit être mis à jour pour annoncer `benchmark.transcription.*`.
+
 ## Restant
 
 - Écran Admin → AI Models (Models, Benchmarks, Results) : attend #281.
@@ -38,7 +42,6 @@ Référence visuelle : `design/ai-models/` (prototype jetable). Tests : `web/e2e
 
 ## Restant
 
-- Transcription (WER/CER) : étape de tâche dédiée, texte de référence figé à la création du corpus, tables de résultats propres, côté Worker un modèle demandé.
 - Diarisation (DER) : même principe.
 - Bout en bout : chaînes de trois modèles.
 - Import de références externes (STM, RTTM) pour lever le biais en faveur du modèle de production.

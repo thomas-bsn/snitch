@@ -44,6 +44,8 @@ export function InfoTip({ metric }: { metric: Metric }) {
 }
 
 export type Metric =
+  | "wer"
+  | "cer"
   | "eer"
   | "thr"
   | "top1"

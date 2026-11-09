@@ -570,6 +570,23 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 	input.MediaURL = fmt.Sprintf("/api/worker/jobs/%d/media", id)
 	input.Vocabulary = []VocabularyTerm{}
 	input.Pipeline = json.RawMessage(`{"provider":"openai-compatible","model":"default","language":"fr","preparation":"wav-16khz-mono-v1","vad":{"mode":"off","version":"vad-off-v1"}}`)
+	if strings.HasPrefix(input.Job.Step, BenchmarkTranscriptionPrefix) {
+		// The model comes from the job, not from the Worker: the benchmark compares models on the same Worker. The
+		// production profile (language, preparation, speech detection) applies; no vocabulary, so a model is
+		// measured as it is.
+		if queryErr := s.pool.QueryRow(ctx, `SELECT COALESCE(requested_model_id,'') FROM jobs WHERE id=$1`, id).Scan(&input.TranscriptionModel); queryErr != nil {
+			return Input{}, fmt.Errorf("read requested transcription model: %w", queryErr)
+		}
+		var profile []byte
+		queryErr := s.pool.QueryRow(ctx, `SELECT v.config FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&profile)
+		if queryErr != nil && !errors.Is(queryErr, pgx.ErrNoRows) {
+			return Input{}, fmt.Errorf("read transcription profile: %w", queryErr)
+		}
+		if queryErr == nil {
+			input.Pipeline = profile
+		}
+		return input, nil
+	}
 	if strings.HasPrefix(input.Job.Step, "transcription.audio.") {
 		if queryErr := s.pool.QueryRow(ctx, `SELECT transcription_model FROM workers WHERE id=$1`, workerID).Scan(&input.TranscriptionModel); queryErr != nil {
 			return Input{}, fmt.Errorf("read worker transcription model: %w", queryErr)

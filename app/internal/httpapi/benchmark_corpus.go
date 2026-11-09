@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"snitch/internal/jobs"
 )
@@ -89,7 +90,12 @@ type benchmarkModelView struct {
 // listBenchmarkModels lists the catalogue models a benchmark of the stage may compare, with the number of Workers
 // that really hold each one: a model ready nowhere would leave the run waiting for ever, so the screen says so.
 func (s *Server) listBenchmarkModels(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("stage") != "fingerprint" {
+	switch r.URL.Query().Get("stage") {
+	case "fingerprint":
+	case "transcription":
+		s.listTranscriptionBenchmarkModels(w, r)
+		return
+	default:
 		fail(w, http.StatusUnprocessableEntity, "benchmark_stage_unavailable")
 		return
 	}
@@ -319,6 +325,25 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 	}
+	// The reference text is frozen now: the latest production transcript of each certified clip, a human correction
+	// replacing the text of its segment. Later corrections never reach an existing corpus.
+	if len(verified) > 0 {
+		verifiedIDs := make([]int64, 0, len(verified))
+		for id := range verified {
+			verifiedIDs = append(verifiedIDs, id)
+		}
+		if _, err = tx.Exec(r.Context(), `INSERT INTO benchmark_reference_segments(dataset_id,clip_id,audio_stream_index,ordinal,start_seconds,end_seconds,text,corrected)
+			SELECT $1,tj.clip_id,substring(tj.step FROM '[0-9]+$')::int,(seg.ord-1)::int,(seg.val->>'start')::float8,(seg.val->>'end')::float8,COALESCE(sc.text,seg.val->>'text'),sc.text IS NOT NULL
+			FROM (SELECT DISTINCT ON (clip_id,step) id,clip_id,step,result FROM jobs
+				WHERE clip_id=ANY($2) AND step LIKE 'transcription.audio.%' AND status='done' AND requested_model_id IS NULL AND jsonb_typeof(result->'segments')='array'
+				ORDER BY clip_id,step,id DESC) tj
+			CROSS JOIN LATERAL jsonb_array_elements(tj.result->'segments') WITH ORDINALITY AS seg(val,ord)
+			LEFT JOIN segment_corrections sc ON sc.transcription_job_id=tj.id AND sc.segment_index=seg.ord-1 AND sc.text IS NOT NULL AND sc.stale_at IS NULL
+			WHERE btrim(COALESCE(sc.text,seg.val->>'text'))<>''`, datasetID, verifiedIDs); err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
 	for _, v := range voices {
 		if _, err = tx.Exec(r.Context(), `INSERT INTO benchmark_dataset_items(dataset_id,local_speaker_id,person_id,split) VALUES($1,$2,$3,$4)`, datasetID, v.speaker, v.person, role[v.clip]); err != nil {
 			s.internal(w, err)
@@ -330,4 +355,27 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	reply(w, http.StatusCreated, map[string]any{"id": datasetID, "stages": stages})
+}
+
+// listTranscriptionBenchmarkModels offers the production model of the transcription service. The other models are
+// named by the administrator: the server does not reach the service itself (only the Workers do), so it cannot list
+// them; a name the service does not know fails on the Worker with its own error.
+func (s *Server) listTranscriptionBenchmarkModels(w http.ResponseWriter, r *http.Request) {
+	var model string
+	err := s.Pool.QueryRow(r.Context(), `SELECT COALESCE(v.config->>'model','') FROM transcription_pipeline_active a JOIN transcription_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&model)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		s.internal(w, err)
+		return
+	}
+	var ready, total int
+	if err = s.Pool.QueryRow(r.Context(), `SELECT count(*) FILTER (WHERE COALESCE(c.active_version,'')<>'' AND c.active_version=(SELECT version FROM transcription_settings WHERE id=true)),count(*)
+		FROM workers w LEFT JOIN worker_transcription_config c ON c.worker_id=w.id WHERE w.revoked_at IS NULL`).Scan(&ready, &total); err != nil {
+		s.internal(w, err)
+		return
+	}
+	out := []benchmarkModelView{}
+	if model != "" {
+		out = append(out, benchmarkModelView{ID: model, Label: model, Repo: model, Engine: "transcription service", Active: true, ReadyWorkers: ready, TotalWorkers: total})
+	}
+	reply(w, http.StatusOK, map[string]any{"models": out})
 }

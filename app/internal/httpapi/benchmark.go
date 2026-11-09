@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -242,7 +241,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.DatasetID < 1 || input.Stage != "fingerprint" || len(input.ModelIDs) < 1 || len(input.ModelIDs) > benchMaxModels {
+	if input.DatasetID < 1 || (input.Stage != "fingerprint" && input.Stage != "transcription") || len(input.ModelIDs) < 1 || len(input.ModelIDs) > benchMaxModels {
 		fail(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
@@ -254,15 +253,25 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		}
 		seen[m] = true
 	}
-	// Only enabled, supported fingerprint models of the catalogue: another kind would replace a production result.
-	var valid int
-	if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM voice_model_catalog WHERE id=ANY($1) AND kind='fingerprint' AND enabled AND supported`, input.ModelIDs).Scan(&valid); err != nil {
-		s.internal(w, err)
-		return
-	}
-	if valid != len(input.ModelIDs) {
-		fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
-		return
+	if input.Stage == "transcription" {
+		// A transcription model is a name of the external service: the Worker finds out if it exists (ADR 0058).
+		for _, m := range input.ModelIDs {
+			if !jobs.ValidTranscriptionModelName(m) {
+				fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
+				return
+			}
+		}
+	} else {
+		// Only enabled, supported fingerprint models of the catalogue: another kind would replace a production result.
+		var valid int
+		if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM voice_model_catalog WHERE id=ANY($1) AND kind='fingerprint' AND enabled AND supported`, input.ModelIDs).Scan(&valid); err != nil {
+			s.internal(w, err)
+			return
+		}
+		if valid != len(input.ModelIDs) {
+			fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
+			return
+		}
 	}
 	// A run nobody read since its jobs ended would block the next one: settle it first.
 	var running int64
@@ -280,7 +289,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 	if _, open, err := openTransition(r.Context(), s.Pool); err != nil {
 		s.internal(w, err)
 		return
-	} else if open {
+	} else if open && input.Stage == "fingerprint" {
 		fail(w, http.StatusConflict, "benchmark_transition_open")
 		return
 	}
@@ -299,49 +308,13 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnprocessableEntity, "benchmark_stage_unsupported_by_dataset")
 		return
 	}
-	// The distinct fingerprint works of the dataset: one per clip, audio track and diarization.
-	rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT ls.clip_id,ls.audio_stream_index,ls.diarization_job_id,dj.input_version
-		FROM benchmark_dataset_items i JOIN local_speakers ls ON ls.id=i.local_speaker_id JOIN jobs dj ON dj.id=ls.diarization_job_id
-		WHERE i.dataset_id=$1 ORDER BY 1,2,3`, input.DatasetID)
-	if err != nil {
-		s.internal(w, err)
+	works, params, ok := s.benchmarkWorks(w, r, input.Stage, input.DatasetID)
+	if !ok {
 		return
 	}
-	defer rows.Close()
-	type work struct {
-		clip    int64
-		step    string
-		version string
-	}
-	var works []work
-	for rows.Next() {
-		var clip, diarization int64
-		var track int
-		var diarizationVersion string
-		if err = rows.Scan(&clip, &track, &diarization, &diarizationVersion); err != nil {
-			s.internal(w, err)
-			return
-		}
-		pipeline, _, ok := jobs.VoiceInputVersion(diarizationVersion)
-		if !ok {
-			fail(w, http.StatusUnprocessableEntity, "benchmark_dataset_stale")
-			return
-		}
-		works = append(works, work{clip, fmt.Sprintf("voice.fingerprint.%d", track), fmt.Sprintf("f5-a%d-p%s-d%d", track, pipeline, diarization)})
-	}
-	if err = rows.Err(); err != nil {
-		s.internal(w, err)
-		return
-	}
-	rows.Close()
-	if len(works) == 0 {
-		fail(w, http.StatusUnprocessableEntity, "benchmark_dataset_stale")
-		return
-	}
-	params, _ := json.Marshal(map[string]any{"split": "reference/test", "scope": "speaker", "preprocessing": "worker pipeline", "clips": len(works)})
 	var runID int64
-	err = s.Pool.QueryRow(r.Context(), `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_id,author_name) VALUES($1,$2,'fingerprint','running',$3,$4,$5,$6) RETURNING id`,
-		input.DatasetID, name, input.ModelIDs, params, ss.User.ID, ss.User.Username).Scan(&runID)
+	err = s.Pool.QueryRow(r.Context(), `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_id,author_name) VALUES($1,$2,$3,'running',$4,$5,$6,$7) RETURNING id`,
+		input.DatasetID, name, input.Stage, input.ModelIDs, params, ss.User.ID, ss.User.Username).Scan(&runID)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		fail(w, http.StatusConflict, "benchmark_run_active")
@@ -443,10 +416,10 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 		return err
 	}
 	defer tx.Rollback(ctx)
-	var status string
+	var status, stage string
 	var datasetID int64
 	var models []string
-	err = tx.QueryRow(ctx, `SELECT status,dataset_id,model_ids FROM benchmark_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&status, &datasetID, &models)
+	err = tx.QueryRow(ctx, `SELECT status,dataset_id,model_ids,stage FROM benchmark_runs WHERE id=$1 FOR UPDATE`, runID).Scan(&status, &datasetID, &models, &stage)
 	if errors.Is(err, pgx.ErrNoRows) || (err == nil && status != "running") {
 		return nil
 	}
@@ -462,7 +435,13 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 	}
 	scored := 0
 	for _, model := range models {
-		res, err := computeFingerprintResult(ctx, tx, runID, datasetID, model)
+		var res benchModelResult
+		var err error
+		if stage == "transcription" {
+			res, err = computeTranscriptionResult(ctx, tx, runID, datasetID, model)
+		} else {
+			res, err = computeFingerprintResult(ctx, tx, runID, datasetID, model)
+		}
 		if err != nil {
 			return err
 		}
