@@ -48,6 +48,7 @@ export type Metric =
   | "missed"
   | "falseAlarm"
   | "confusion"
+  | "cpwer"
   | "wer"
   | "cer"
   | "eer"

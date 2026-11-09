@@ -107,17 +107,13 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
   await expect(
     page.getByRole("radio", { name: "Corpus de démonstration" }),
   ).toBeVisible();
-  // Transcription and diarization run, but this corpus has no certified clip; the end-to-end stage does not run yet.
-  for (const stage of [/Transcription/, /Diarization/]) {
+  // The three other stages run, but this corpus has no certified clip.
+  for (const stage of [/Transcription/, /Diarization/, /End to end/]) {
     await expect(page.getByRole("button", { name: stage })).toBeDisabled();
     await expect(page.getByRole("button", { name: stage })).toContainText(
       "cannot measure",
     );
   }
-  await expect(page.getByRole("button", { name: /End to end/ })).toBeDisabled();
-  await expect(page.getByRole("button", { name: /End to end/ })).toContainText(
-    "Coming soon",
-  );
 
   await page.getByRole("button", { name: "Create a corpus" }).click();
   const dialog = page.getByRole("dialog", {
@@ -257,10 +253,13 @@ test("la diarisation propose les modèles du catalogue et attend des Workers pr�
   await expect(diarization).toBeEnabled();
   await diarization.click();
   await expect(diarization).toHaveAttribute("aria-pressed", "true");
-  // The catalogue models are offered, none ready on a Worker here: nothing can start.
+  // The catalogue models are offered. Only the community one is ready (on the seeded Worker): a single model cannot start.
+  await expect(
+    page.getByRole("checkbox", { name: /sortformer/i }),
+  ).toBeDisabled();
   await expect(
     page.getByRole("checkbox", { name: /community/i }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await expect(page.getByText("Ready on no Worker").first()).toBeVisible();
   await expect(page.getByText("Pick at least 2 models.")).toBeVisible();
   await expect(
@@ -328,6 +327,98 @@ test("un benchmark de transcription se lance, se suit et s'annule", async ({
   ).toBeEnabled();
 });
 
+test("un benchmark de bout en bout se compose en chaînes, se lance et s'annule", async ({
+  page,
+}) => {
+  await asAdmin(page);
+  await page.goto("/admin/benchmark");
+  await page.getByRole("radio", { name: "Corpus e2e" }).check();
+  const e2e = page.getByRole("button", { name: /End to end/ });
+  await expect(e2e).toBeEnabled();
+  await e2e.click();
+  await expect(e2e).toHaveAttribute("aria-pressed", "true");
+  const start = page.getByRole("button", { name: "Start the benchmark" });
+
+  // Two empty chains to begin with: nothing can start, and a chain can only be removed above the minimum.
+  const chain = (n: number) => page.getByRole("group", { name: `Chain ${n}` });
+  await expect(chain(1)).toBeVisible();
+  await expect(chain(2)).toBeVisible();
+  await expect(chain(3)).toHaveCount(0);
+  await expect(chain(1).getByRole("button", { name: /Remove/ })).toBeDisabled();
+  await expect(start).toBeDisabled();
+  // Only a diarization model ready on a Worker can be picked.
+  await expect(
+    chain(1)
+      .getByLabel(/Diarization model/)
+      .getByRole("option", { name: /sortformer/i }),
+  ).toHaveAttribute("disabled", "");
+
+  // A transcription model typed by name goes to the first chain still waiting for one.
+  await page.getByLabel("Add a model by name").fill("vendor/model-a");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await page.getByLabel("Add a model by name").fill("vendor/model-b");
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(chain(1).getByLabel(/Transcription model/)).toHaveValue(
+    "vendor/model-a",
+  );
+  await expect(chain(2).getByLabel(/Transcription model/)).toHaveValue(
+    "vendor/model-b",
+  );
+  for (const n of [1, 2])
+    await chain(n)
+      .getByLabel(/Diarization model/)
+      .selectOption("pyannote-community-1");
+  await expect(page.getByText("2 chains on 4 clips")).toBeVisible();
+  await expect(start).toBeEnabled();
+
+  // A pair is measured once.
+  await chain(2)
+    .getByLabel(/Transcription model/)
+    .selectOption("vendor/model-a");
+  await expect(chain(2).getByRole("alert")).toContainText(
+    "Same pair as chain 1",
+  );
+  await expect(start).toBeDisabled();
+  await chain(2)
+    .getByLabel(/Transcription model/)
+    .selectOption("vendor/model-b");
+  await expect(chain(2).getByRole("alert")).toHaveCount(0);
+
+  // Chains are added up to four and removed down to two.
+  const add = page.getByRole("button", { name: "Add a chain" });
+  await add.click();
+  await add.click();
+  await expect(chain(4)).toBeVisible();
+  await expect(add).toBeDisabled();
+  await expect(start).toBeDisabled(); // two chains are still empty
+  await chain(4)
+    .getByRole("button", { name: /Remove/ })
+    .click();
+  await chain(3)
+    .getByRole("button", { name: /Remove/ })
+    .click();
+  await expect(chain(3)).toHaveCount(0);
+  await expect(page.getByText("2 chains on 4 clips")).toBeVisible();
+  await expectNoViolations(page);
+
+  await start.click();
+  const running = page.getByRole("region", { name: /Benchmark running/ });
+  await expect(running).toContainText("Corpus e2e");
+  await expect(
+    running.getByRole("progressbar", { name: "Benchmark progress" }),
+  ).toHaveAttribute("aria-valuenow", "0");
+  await expect(page.getByText("A benchmark is already running")).toBeVisible();
+  await expectNoViolations(page);
+
+  await running.getByRole("button", { name: "Cancel the benchmark" }).click();
+  const confirm = page.getByRole("alertdialog", {
+    name: "Cancel the benchmark?",
+  });
+  await confirm.getByRole("button", { name: "Cancel the benchmark" }).click();
+  await expect(running).toBeHidden();
+  await expect(page).toHaveURL(/\/admin\/benchmark$/);
+});
+
 test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await asAdmin(page);
   await page.goto("/admin/benchmark/results");
@@ -344,11 +435,20 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await expect(best).toContainText("seed-asr-b");
   await expect(best).toContainText("WER 8.1%");
   await expect(best).toContainText("Differs from production");
+  // End to end: the chain with the lowest cpWER is crowned, with its two models.
+  await expect(best).toContainText("cpWER 10.5%");
+  await expect(best).toContainText("community-1 + seed-asr-b");
   const history = page.getByRole("region", { name: "History" });
   const row = (text: string) =>
     history.getByRole("row").filter({ hasText: text });
+  // A model name can appear in several stages (the chains reuse them): tell the rows apart by their stage cell.
+  const stageRow = (stage: string, text: string) =>
+    history
+      .getByRole("row")
+      .filter({ has: page.getByRole("cell", { name: stage, exact: true }) })
+      .filter({ hasText: text });
   await expect(row("Failed")).toHaveCount(1);
-  await expect(row("Cancelled")).toHaveCount(1); // the run cancelled by the previous journey
+  await expect(row("Cancelled")).toHaveCount(2); // the runs cancelled by the two previous journeys
   await expect(row("Partial")).toHaveCount(1);
   await expectNoViolations(page);
 
@@ -388,7 +488,9 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
 
   // The diarization run: DER and its three parts, the matching note, and the bias warning.
   await page.getByRole("link", { name: "Back to history" }).click();
-  await row("Sortformer").getByRole("link", { name: "Details" }).click();
+  await stageRow("Diarization", "Sortformer")
+    .getByRole("link", { name: "Details" })
+    .click();
   await expect(
     page.getByRole("heading", { name: /^Diarization ·/ }),
   ).toBeVisible();
@@ -417,7 +519,9 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
 
   // The transcription run: WER and CER, the bias warning, and no separation chart (a voice-only reading).
   await page.getByRole("link", { name: "Back to history" }).click();
-  await row("seed-asr-a").getByRole("link", { name: "Details" }).click();
+  await stageRow("Transcription", "seed-asr-a")
+    .getByRole("link", { name: "Details" })
+    .click();
   await expect(
     page.getByRole("heading", { name: /Transcription/ }),
   ).toBeVisible();
@@ -438,6 +542,40 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   });
   await wer.hover();
   await expect(page.getByRole("tooltip")).toContainText("Word Error Rate");
+  await page.mouse.move(0, 0);
+  await expectNoViolations(page);
+
+  // The end-to-end run: cpWER first, then WER and DER; a chain is named after its two models.
+  await page.getByRole("link", { name: "Back to history" }).click();
+  await stageRow("End to end", "seed-asr-a")
+    .getByRole("link", { name: "Details" })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: /^End to end ·/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("note").first()).toContainText("wrong speaker");
+  await expect(
+    page.getByText("the production model has an advantage"),
+  ).toBeVisible();
+  const cpTable = page.getByRole("table");
+  await expect(cpTable.getByRole("columnheader").nth(1)).toContainText("cpWER");
+  await expect(cpTable.getByRole("row")).toHaveCount(3);
+  const first = cpTable.getByRole("row").nth(1);
+  await expect(first).toContainText("community-1 + seed-asr-a");
+  await expect(first).toContainText("19.0%"); // cpWER
+  await expect(first).toContainText("12.0%"); // WER
+  await expect(first).toContainText("11.4%"); // DER
+  await expect(first).toContainText("3 / 3");
+  await expect(cpTable.getByRole("row").nth(2)).toContainText("10.5%");
+  await expect(
+    page.getByText("Speaker-attributed word error rate, cpWER"),
+  ).toBeVisible();
+  const cp = cpTable.getByRole("button", {
+    name: "Definition: cpWER",
+    exact: true,
+  });
+  await cp.hover();
+  await expect(page.getByRole("tooltip")).toContainText("wrong speaker");
   await page.mouse.move(0, 0);
   await expectNoViolations(page);
 });

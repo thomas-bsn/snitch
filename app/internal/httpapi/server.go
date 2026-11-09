@@ -393,6 +393,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerPersonCorrectionRoutes(mux)
 	s.registerVoiceAutomationRoutes(mux)
 	s.registerBenchmarkRoutes(mux)
+	s.registerBenchmarkActivationRoutes(mux)
 	s.registerSegmentCorrectionRoutes(mux)
 	embedded, _ := fs.Sub(ui.Files, "dist")
 	files := http.FileServer(http.FS(embedded))

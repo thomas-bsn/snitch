@@ -1786,6 +1786,25 @@ export const fr: Messages = {
       retry: "Réessayer",
       loading: "Chargement…",
       started: "Benchmark lancé.",
+      chainsLead:
+        "Composez 2 à 4 chaînes. Une chaîne associe un modèle de diarisation (qui parle quand) et un modèle de transcription (ce qui est dit) : le benchmark mesure qui a dit quoi.",
+      chainLabel: "Chaîne {n}",
+      chainDiarization: "Modèle de diarisation",
+      chainTranscription: "Modèle de transcription",
+      chainPick: "Choisir un modèle",
+      chainProduction: "production",
+      chainAdd: "Ajouter une chaîne",
+      chainRemove: "Retirer la chaîne {n}",
+      chainRemoveShort: "Retirer",
+      chainsRange: "{min} à {max} chaînes, toutes différentes.",
+      chainDuplicate:
+        "Même paire que la chaîne {n} : une paire n’est mesurée qu’une fois.",
+      modelNowhereShort: "prêt sur aucun Worker",
+      needCompleteChains:
+        "Choisissez pour chaque chaîne un modèle de diarisation prêt sur un Worker et un modèle de transcription.",
+      needDistinctChains:
+        "Deux chaînes sont la même paire : modifiez-en une ou retirez-la.",
+      launchSummaryChains: "{chains} chaînes sur {clips} clips",
       stageNames: {
         fingerprint: "Empreinte vocale",
         transcription: "Transcription",
@@ -1848,6 +1867,10 @@ export const fr: Messages = {
     },
     results: {
       derChart: "Taux d’erreur de diarisation (plus bas = meilleur)",
+      cpwerChart:
+        "Taux d’erreur de mots avec attribution des locuteurs, cpWER (plus bas = meilleur)",
+      noteE2e:
+        "Chaque segment transcrit prend le locuteur dont les tours le recouvrent le plus ; les mots de chaque locuteur sont ensuite comparés au texte relu, les locuteurs étant associés à ceux de la référence de façon à minimiser les erreurs. Le cpWER voit ce que le WER ne voit pas : un bon texte donné au mauvais locuteur. Ces chiffres décrivent ce corpus, pas une garantie.",
       noteDiarization:
         "Les locuteurs du modèle sont anonymes : on les associe aux locuteurs de référence par l’affectation qui maximise leur temps de parole commun. Une tolérance de 0,25 s est accordée autour de chaque borne de référence. Les taux sont cumulés sur les clips. Ces chiffres décrivent ce corpus, pas une garantie.",
       werChart: "Taux d’erreur de mots (plus bas = meilleur)",
@@ -1910,6 +1933,10 @@ export const fr: Messages = {
       impostor: "impostor",
     },
     metrics: {
+      cpwer: {
+        name: "cpWER",
+        help: "Taux d’erreur de mots avec attribution des locuteurs : part des mots faux, manquants ou donnés au mauvais locuteur, après association des locuteurs du modèle à ceux de la référence. 0 % est parfait. Plus bas = mieux.",
+      },
       der: {
         name: "DER",
         help: "Diarization Error Rate : part de la parole de référence manquée, attribuée au mauvais locuteur ou inventée. Plus bas = mieux.",

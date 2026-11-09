@@ -407,6 +407,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAIBenchmarkEndToEnd(t, pool)
 	})
+	t.Run("ai benchmark activation", func(t *testing.T) {
+		reset(t)
+		testAIBenchmarkActivation(t, pool)
+	})
 	t.Run("voice catalog in database", func(t *testing.T) {
 		reset(t)
 		testVoiceCatalogInDatabase(t, pool)

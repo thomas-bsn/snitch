@@ -97,7 +97,24 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 		($1,'pyannote-community-1','pyannote/speaker-diarization-community-1','3533c8c',0,'complete',3,3,80,$2::jsonb),
 		($1,'nvidia-sortformer-4spk-v2.1','nvidia/diar_streaming_sortformer_4spk-v2.1','cd03eee',0,'complete',3,3,146,$3::jsonb)`,
 		diarization, der(0.114, 0.04, 0.03, 0.044), der(0.07, 0.03, 0.02, 0.02))
-
+	// A finished end-to-end run: two chains sharing a diarization model, the second one with the more accurate
+	// transcription. The ids of the results (c1, c2) stand for the pairs stored with the run.
+	var e2e int64
+	chains := `{"chains":[{"id":"c1","diarization_model_id":"pyannote-community-1","transcription_model":"seed-asr-a"},{"id":"c2","diarization_model_id":"pyannote-community-1","transcription_model":"seed-asr-b"}]}`
+	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_name,finished_at) VALUES($1,'Corpus de démonstration','e2e','completed','{c1,c2}',$2::jsonb,'seed',now()) RETURNING id`, dataset, chains).Scan(&e2e); err != nil {
+		t.Fatal(err)
+	}
+	attributed := func(cpwer, wer float64) string {
+		return `{"clips":3,"reference_words":420,"cp_word_errors":` + strconv.Itoa(int(cpwer*420)) + `,"word_errors":` + strconv.Itoa(int(wer*420)) + `,"cpwer":` + seedNum(cpwer) + `,"wer":` + seedNum(wer) +
+			`,"reference_speakers":2,"model_speakers":2,"der":0.114}`
+	}
+	exec(`INSERT INTO benchmark_results(run_id,model_id,model,model_version,dimensions,state,items_total,items_scored,elapsed_seconds,metrics) VALUES
+		($1,'c1','pyannote/speaker-diarization-community-1 + seed-asr-a','',0,'complete',3,3,175,$2::jsonb),
+		($1,'c2','pyannote/speaker-diarization-community-1 + seed-asr-b','',0,'complete',3,3,220,$3::jsonb)`,
+		e2e, attributed(0.19, 0.12), attributed(0.105, 0.081))
+	// One Worker with the community diarization model ready, so the browser can compose chains and start a run.
+	exec(`INSERT INTO workers(id,name,token_hash,max_concurrency,reported_concurrency,last_seen_at) VALUES('wk_seedbenchmarkworker0001','Seed benchmark worker',decode(repeat('ef',32),'hex'),1,1,now())`)
+	exec(`INSERT INTO worker_voice_models(worker_id,model_id,state) VALUES('wk_seedbenchmarkworker0001','pyannote-community-1','ready')`)
 }
 
 func seedNum(x float64) string { return strconv.FormatFloat(x, 'f', -1, 64) }

@@ -17,12 +17,20 @@ import {
   loadDatasets,
   loadModels,
   loadRuns,
+  loadTranscriptionModels,
   type Dataset,
   type Model,
   type ModelStage,
   type Run,
   type Stage,
 } from "./api";
+import {
+  ChainComposer,
+  duplicateOf,
+  emptyChains,
+  runnableChains,
+  type ChainDraft,
+} from "./ChainComposer";
 import { CorpusBuilder } from "./CorpusBuilder";
 import { minutes } from "./format";
 
@@ -37,16 +45,22 @@ export function BenchmarkRunPage() {
   useDocumentTitle(t("admin.tabs.benchmark"));
   const datasets = useLoaded(loadDatasets);
   const [stage, setStage] = useState<Stage>("fingerprint");
+  // The end-to-end stage composes diarization models with transcription models.
   const modelStage: ModelStage =
     stage === "transcription" || stage === "diarization"
       ? stage
-      : "fingerprint";
+      : stage === "e2e"
+        ? "diarization"
+        : "fingerprint";
+  const isE2e = stage === "e2e";
   const loadStageModels = useCallback(
     () => loadModels(modelStage),
     [modelStage],
   );
   const models = useLoaded(loadStageModels);
+  const transcriptionModels = useLoaded(loadTranscriptionModels);
   const runs = useLoaded(loadRuns);
+  const [chains, setChains] = useState<ChainDraft[]>(emptyChains);
   const [datasetId, setDatasetId] = useState<number>();
   // One choice per stage, so coming back to a stage finds its models ticked.
   const [pickedByStage, setPickedByStage] = useState<
@@ -72,6 +86,7 @@ export function BenchmarkRunPage() {
   // While a run waits for its tasks the server settles it when read: poll, then show its result.
   const { reload: reloadRuns } = runs;
   const { reload: reloadModels } = models;
+  const { reload: reloadTranscription } = transcriptionModels;
   const watched = useRef<number | undefined>(undefined);
   const allRuns = runs.state.status === "ready" ? runs.state.value.runs : [];
   useEffect(() => {
@@ -80,6 +95,7 @@ export function BenchmarkRunPage() {
       const timer = setInterval(() => {
         reloadRuns();
         reloadModels(); // a model can lose its Worker while the run waits
+        reloadTranscription();
       }, 3000);
       return () => clearInterval(timer);
     }
@@ -90,7 +106,14 @@ export function BenchmarkRunPage() {
       if (allRuns.find((r) => r.id === id)?.status === "completed")
         void navigate(`/admin/benchmark/results?run=${id}`);
     }
-  }, [active, allRuns, reloadRuns, reloadModels, navigate]);
+  }, [
+    active,
+    allRuns,
+    reloadRuns,
+    reloadModels,
+    reloadTranscription,
+    navigate,
+  ]);
 
   const supported = (s: Stage) => dataset?.stages.includes(s) ?? false;
   const stageState = (s: Stage) =>
@@ -101,24 +124,35 @@ export function BenchmarkRunPage() {
         : "ok";
   const served: Model[] =
     models.state.status === "ready" ? models.state.value.models : [];
-  const modelList: Model[] =
-    modelStage === "transcription"
-      ? [
-          ...served,
-          ...named
-            .filter((name) => !served.some((m) => m.id === name))
-            .map((name) => ({
-              id: name,
-              label: name,
-              repo: name,
-              revision: "",
-              engine: "",
-              active: false,
-              ready_workers: -1, // unknown: the Worker checks the name when the task starts
-              total_workers: 0,
-            })),
-        ]
-      : served;
+  const transcriptionServed: Model[] = isE2e
+    ? transcriptionModels.state.status === "ready"
+      ? transcriptionModels.state.value.models
+      : []
+    : served;
+  const showsNamed = stage === "transcription" || isE2e;
+  const transcribers: Model[] = showsNamed
+    ? [
+        ...transcriptionServed,
+        ...named
+          .filter((name) => !transcriptionServed.some((m) => m.id === name))
+          .map((name) => ({
+            id: name,
+            label: name,
+            repo: name,
+            revision: "",
+            engine: "",
+            active: false,
+            ready_workers: -1, // unknown: the Worker checks the name when the task starts
+            total_workers: 0,
+          })),
+      ]
+    : [];
+  const modelList: Model[] = stage === "transcription" ? transcribers : served;
+  const runnable = runnableChains(chains, served);
+  const hasDuplicate = chains.some((_, i) => {
+    const twin = duplicateOf(chains, i);
+    return twin !== -1 && twin !== i;
+  });
   // A fingerprint model that lost its last Worker no longer counts, even if it stays ticked.
   const chosen = modelList.filter(
     (m) =>
@@ -131,9 +165,15 @@ export function BenchmarkRunPage() {
       ? t("benchmark.run.stageNotInCorpus")
       : active
         ? t("benchmark.run.alreadyRunning")
-        : chosen.length < 2
-          ? t("benchmark.run.needModels")
-          : undefined;
+        : isE2e
+          ? hasDuplicate
+            ? t("benchmark.run.needDistinctChains")
+            : runnable.length < chains.length
+              ? t("benchmark.run.needCompleteChains")
+              : undefined
+          : chosen.length < 2
+            ? t("benchmark.run.needModels")
+            : undefined;
 
   const toggle = (id: string) =>
     setPickedByStage((all) => {
@@ -143,16 +183,26 @@ export function BenchmarkRunPage() {
       return { ...all, [modelStage]: next };
     });
 
-  const nameOk =
-    nameDraft.trim() !== "" &&
-    nameDraft.trim().length <= 64 &&
-    !modelList.some((m) => m.id === nameDraft.trim());
+  const nameFree = (name: string) =>
+    name !== "" &&
+    name.length <= 64 &&
+    !transcribers.some((m) => m.id === name);
+  const nameOk = nameFree(nameDraft.trim());
   const addName = () => {
     const name = nameDraft.trim();
     if (!nameOk) return;
     setNamed((current) => [...current, name]);
     setNameDraft("");
     toggle(name);
+  };
+  // A model named from the chains goes to the first chain still waiting for a transcription model.
+  const nameForChain = (name: string) => {
+    setNamed((current) => [...current, name]);
+    const open = chains.find((c) => c.transcription === "");
+    if (open)
+      setChains(
+        chains.map((c) => (c === open ? { ...c, transcription: name } : c)),
+      );
   };
 
   const start = async () => {
@@ -164,13 +214,24 @@ export function BenchmarkRunPage() {
         params: { header: mutation(session?.csrf_token) },
         body: {
           dataset_id: dataset.id,
-          // The contract only accepts the stages a run can execute: widening it makes this line a type error.
-          stage: modelStage,
-          model_ids: chosen.map((m) => m.id),
+          ...(isE2e
+            ? {
+                stage: "e2e" as const,
+                chains: runnable.map((c) => ({
+                  diarization_model_id: c.diarization,
+                  transcription_model: c.transcription,
+                })),
+              }
+            : {
+                stage: modelStage,
+                model_ids: chosen.map((m) => m.id),
+              }),
         },
       });
-      if (result.data) runs.reload();
-      else setFailure(errorCode(result.error) ?? "unknown");
+      if (result.data) {
+        setChains(emptyChains());
+        runs.reload();
+      } else setFailure(errorCode(result.error) ?? "unknown");
     } catch {
       setFailure("unavailable");
     } finally {
@@ -410,16 +471,32 @@ export function BenchmarkRunPage() {
         <p className="text-sm text-mute">
           {t(`benchmark.run.stageHints.${stage}` as MessageKey)}
         </p>
-        <p className="text-sm text-mute">{t("benchmark.run.modelsLead")}</p>
+        <p className="text-sm text-mute">
+          {isE2e
+            ? t("benchmark.run.chainsLead")
+            : t("benchmark.run.modelsLead")}
+        </p>
+        {isE2e && (
+          <ChainComposer
+            chains={chains}
+            onChange={setChains}
+            diarizers={served}
+            transcribers={transcribers}
+            nameOk={nameFree}
+            onName={nameForChain}
+          />
+        )}
         {models.state.status === "loading" && (
           <p role="status">{t("benchmark.run.loading")}</p>
         )}
-        {models.state.status === "ready" && modelList.length === 0 && (
-          <p className="rounded-lg bg-side px-3 py-6 text-center text-mute">
-            {t("benchmark.run.modelsEmpty")}
-          </p>
-        )}
-        {modelList.length > 0 && (
+        {models.state.status === "ready" &&
+          !isE2e &&
+          modelList.length === 0 && (
+            <p className="rounded-lg bg-side px-3 py-6 text-center text-mute">
+              {t("benchmark.run.modelsEmpty")}
+            </p>
+          )}
+        {!isE2e && modelList.length > 0 && (
           <div
             role="group"
             aria-label={t("benchmark.run.modelsLabel")}
@@ -474,7 +551,7 @@ export function BenchmarkRunPage() {
             })}
           </div>
         )}
-        {modelStage === "transcription" && (
+        {stage === "transcription" && (
           <form
             className="flex flex-col gap-2"
             onSubmit={(event) => {
@@ -519,10 +596,15 @@ export function BenchmarkRunPage() {
             <>
               <strong>{dataset.name}</strong> ·{" "}
               {t(`benchmark.run.stageNames.${stage}` as MessageKey)} ·{" "}
-              {t("benchmark.run.launchSummary", {
-                models: chosen.length,
-                clips: dataset.test_clips + dataset.reference_clips,
-              })}
+              {isE2e
+                ? t("benchmark.run.launchSummaryChains", {
+                    chains: runnable.length,
+                    clips: dataset.test_clips + dataset.reference_clips,
+                  })
+                : t("benchmark.run.launchSummary", {
+                    models: chosen.length,
+                    clips: dataset.test_clips + dataset.reference_clips,
+                  })}
             </>
           )}
         </p>

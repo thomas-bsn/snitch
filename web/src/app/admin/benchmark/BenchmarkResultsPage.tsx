@@ -10,6 +10,7 @@ import { useI18n } from "../../i18n";
 import type { MessageKey } from "../../i18n/messages";
 import {
   EXECUTABLE_STAGES,
+  chainLabel,
   isRunning,
   loadDiarizationModels,
   loadFingerprintModels,
@@ -30,6 +31,24 @@ const SERIES = ["bg-series-1", "bg-series-2", "bg-series-3", "bg-series-4"];
 
 function labelOf(models: Model[], id: string, repo?: string) {
   return models.find((m) => m.id === id)?.label ?? repo ?? id;
+}
+
+/** A result's name: a model, or for the end-to-end stage its chain, "diarization + transcription". */
+function resultLabel(
+  run: Pick<Run, "stage" | "chains">,
+  models: Model[],
+  x: Pick<RunResult, "model_id" | "model">,
+) {
+  const chain =
+    run.stage === "e2e"
+      ? run.chains.find((c) => c.id === x.model_id)
+      : undefined;
+  return chain
+    ? chainLabel(
+        labelOf(models, chain.diarization_model_id),
+        chain.transcription_model,
+      )
+    : labelOf(models, x.model_id, x.model);
 }
 
 function RunState({ status }: { status: Run["status"] }) {
@@ -76,6 +95,7 @@ function Overview() {
     fingerprint: listOf(fingerprintModels),
     transcription: listOf(transcriptionModels),
     diarization: listOf(diarizationModels),
+    e2e: [] as Model[], // a chain has no model in production to be told from
   };
   const catalogue = Object.values(byStage).flat();
 
@@ -163,9 +183,18 @@ function Overview() {
                     </td>
                     <td className="px-2 py-2.5">{r.dataset_name}</td>
                     <td className="px-2 py-2.5">
-                      {r.model_ids
-                        .map((id) => labelOf(catalogue, id))
-                        .join(", ")}
+                      {r.stage === "e2e"
+                        ? r.chains
+                            .map((c) =>
+                              chainLabel(
+                                labelOf(catalogue, c.diarization_model_id),
+                                c.transcription_model,
+                              ),
+                            )
+                            .join(", ")
+                        : r.model_ids
+                            .map((id) => labelOf(catalogue, id))
+                            .join(", ")}
                     </td>
                     <td className="px-2 py-2.5">
                       <span className="inline-flex flex-wrap items-center gap-1">
@@ -241,7 +270,7 @@ function RunDetail({ id }: { id: number }) {
     );
   const data = loader.state.value;
   const comparable = data.results.filter((x) => x.state === "complete");
-  const label = (x: RunResult) => labelOf(catalogue, x.model_id, x.model);
+  const label = (x: RunResult) => resultLabel(data, catalogue, x);
   const bestOf = (c: Column) => {
     const values = comparable
       .map((x) => c.best?.value(x))
@@ -313,7 +342,9 @@ function RunDetail({ id }: { id: number }) {
               ? t("benchmark.results.noteTranscription")
               : data.stage === "diarization"
                 ? t("benchmark.results.noteDiarization")
-                : t("benchmark.results.note")}
+                : data.stage === "e2e"
+                  ? t("benchmark.results.noteE2e")
+                  : t("benchmark.results.note")}
           </p>
           {data.stage !== "fingerprint" &&
             data.reference_sources.includes("production") && (
@@ -402,7 +433,9 @@ function RunDetail({ id }: { id: number }) {
                 ? t("benchmark.results.werChart")
                 : data.stage === "diarization"
                   ? t("benchmark.results.derChart")
-                  : t("benchmark.results.eerChart")}
+                  : data.stage === "e2e"
+                    ? t("benchmark.results.cpwerChart")
+                    : t("benchmark.results.eerChart")}
               <InfoTip metric={primary.metric} />
             </h3>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -533,7 +566,7 @@ function StageSummary({
       {best && finished ? (
         <div className="mt-2 flex flex-col gap-1">
           <p className="text-base font-semibold">
-            {labelOf(catalogue, best.model_id, best.model)}
+            {resultLabel(finished, catalogue, best)}
           </p>
           <p className="text-sm text-mute">
             {production?.id === best.model_id ? (
@@ -553,7 +586,7 @@ function StageSummary({
                   ((primary.value(second) ?? 0) - (primary.value(best) ?? 0)) *
                   100
                 ).toFixed(1),
-                other: labelOf(catalogue, second.model_id, second.model),
+                other: resultLabel(finished, catalogue, second),
               })}
           </p>
           <p className="text-sm text-mute">

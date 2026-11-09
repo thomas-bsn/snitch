@@ -7,6 +7,7 @@ export type Clip = components["schemas"]["BenchmarkClip"];
 export type Model = components["schemas"]["BenchmarkModel"];
 export type Run = components["schemas"]["BenchmarkRun"];
 export type RunResult = components["schemas"]["BenchmarkResult"];
+export type Chain = components["schemas"]["BenchmarkChain"];
 export type Metrics = components["schemas"]["BenchmarkMetrics"];
 
 export type Stage = "transcription" | "diarization" | "fingerprint" | "e2e";
@@ -20,10 +21,11 @@ export const STAGES: Stage[] = [
 ];
 
 /** The stages a run can execute today; the others show as coming soon, never as a dead button. */
-export const EXECUTABLE_STAGES: ModelStage[] = [
+export const EXECUTABLE_STAGES: Stage[] = [
   "fingerprint",
   "transcription",
   "diarization",
+  "e2e",
 ];
 
 /** The stages whose models the server can list. */
@@ -70,3 +72,7 @@ export const isRunning = (run: Pick<Run, "status">) => run.status === "running";
 export const loadFingerprintModels = () => loadModels("fingerprint");
 export const loadTranscriptionModels = () => loadModels("transcription");
 export const loadDiarizationModels = () => loadModels("diarization");
+
+/** The label of a chain: its diarization model and its transcription model. */
+export const chainLabel = (diarization: string, transcription: string) =>
+  `${diarization} + ${transcription}`;
