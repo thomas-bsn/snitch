@@ -473,4 +473,10 @@ export const errorsEn = {
     "An imported reference must target a test clip of the corpus, once.",
   benchmark_import_track:
     "The audio track of this clip is unknown or ambiguous (it needs one transcribed track).",
+  benchmark_activation_unsupported:
+    "The fingerprint model changes through its own transition, and a chain is not a model.",
+  benchmark_activation_confirm_required:
+    "Confirm the change of model explicitly.",
+  benchmark_activation_stale:
+    "The model in production changed since the preview: read it again before confirming.",
 };

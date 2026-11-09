@@ -1865,6 +1865,32 @@ export const fr: Messages = {
       created: "Corpus créé.",
       loadFailed: "Les clips n’ont pas pu être chargés.",
     },
+    activation: {
+      title: "Utiliser {model} en production ?",
+      current: "Modèle en production",
+      target: "Nouveau modèle",
+      none: "aucun",
+      already: "Ce modèle est déjà celui de la production.",
+      newWorkOnly: "Seul le travail à venir utilise le nouveau modèle.",
+      noReanalysis:
+        "Rien n’est réanalysé et rien n’est planifié : les clips déjà analysés gardent leur résultat.",
+      humanWork:
+        "{clips} clips ont été analysés avec l’ancien modèle ; {human} portent des corrections ou validations humaines.",
+      workers: "Prêt sur {count} Worker(s).",
+      noWorker:
+        "Aucun Worker ne détient ce modèle : il ne peut pas encore être activé.",
+      understood:
+        "Je comprends que cela change le modèle pour le travail à venir seulement, et que rien n’est réanalysé.",
+      confirm: "Utiliser en production",
+      confirming: "Changement…",
+      done: "Le modèle de production a changé.",
+      reanalysisLater:
+        "Pour refaire les clips déjà analysés, la réanalyse est une action à part : elle demande sa propre confirmation.",
+      openReanalysis: "Ouvrir l’écran de réanalyse",
+      button: "Utiliser en production…",
+      fingerprintNote:
+        "Le modèle d’empreinte change par sa propre transition dans Traitement vocal : elle montre l’impact et conserve les Personnes et validations.",
+    },
     results: {
       derChart: "Taux d’erreur de diarisation (plus bas = meilleur)",
       cpwerChart:

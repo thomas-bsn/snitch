@@ -494,4 +494,10 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Une référence importée vise un clip de test du corpus, une seule fois.",
   benchmark_import_track:
     "La piste audio de ce clip est inconnue ou ambiguë (il lui faut une seule piste transcrite).",
+  benchmark_activation_unsupported:
+    "Le modèle d’empreinte change par sa propre transition, et une chaîne n’est pas un modèle.",
+  benchmark_activation_confirm_required:
+    "Confirmez explicitement le changement de modèle.",
+  benchmark_activation_stale:
+    "Le modèle en production a changé depuis l’aperçu : relisez-le avant de confirmer.",
 };

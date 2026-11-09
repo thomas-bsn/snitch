@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router";
 import { ArrowLeft, CircleDashed, Loader } from "lucide-react";
 import { useLoaded } from "../../api/loaded";
@@ -24,6 +24,7 @@ import {
 import { dateTime, decimal, elapsed, percent } from "./format";
 import { InfoTip } from "./InfoTip";
 import { columnsOf, primaryOf, type Column } from "./stageMetrics";
+import { ActivationDialog, type ActivationStage } from "./ActivationDialog";
 
 const card = "flex flex-col gap-3 rounded-xl border border-line bg-surface p-4";
 /** Static class names, so the stylesheet keeps them: a series is always drawn with a label too. */
@@ -229,7 +230,13 @@ function Overview() {
 function RunDetail({ id }: { id: number }) {
   const { t, error, language } = useI18n();
   useDocumentTitle(t("admin.tabs.benchmark"));
-  const loader = useLoaded(() => loadRun(id));
+  const [activating, setActivating] = useState<{
+    model: string;
+    label: string;
+  }>();
+  // A stable loader: a new function at each render would reload without end.
+  const loadThisRun = useCallback(() => loadRun(id), [id]);
+  const loader = useLoaded(loadThisRun);
   const fingerprintModels = useLoaded(loadFingerprintModels);
   const transcriptionModels = useLoaded(loadTranscriptionModels);
   const diarizationModels = useLoaded(loadDiarizationModels);
@@ -240,6 +247,12 @@ function RunDetail({ id }: { id: number }) {
   ].flatMap((m) => (m.state.status === "ready" ? m.state.value.models : []));
   const run = loader.state.status === "ready" ? loader.state.value : undefined;
   const { reload } = loader;
+  // The model in production may have changed: read the catalogue again.
+  const reloadModels = () => {
+    fingerprintModels.reload();
+    transcriptionModels.reload();
+    diarizationModels.reload();
+  };
   useEffect(() => {
     if (!run || !isRunning(run)) return;
     const timer = setInterval(reload, 3000);
@@ -280,6 +293,10 @@ function RunDetail({ id }: { id: number }) {
   };
   const partial = data.results.filter((x) => x.state === "partial");
   const columns = columnsOf(data.stage);
+  // Only a finished run of a stage whose model production can change from here: the fingerprint has its transition.
+  const canActivate =
+    data.status === "completed" &&
+    (data.stage === "transcription" || data.stage === "diarization");
   const primary = primaryOf(data.stage);
   const scale = Math.max(
     ...data.results.map((x) => primary.value(x) ?? 0),
@@ -376,6 +393,13 @@ function RunDetail({ id }: { id: number }) {
                         <InfoTip metric={c.metric} />
                       </th>
                     ))}
+                    {canActivate && (
+                      <th scope="col" className="px-2 py-2">
+                        <span className="sr-only">
+                          {t("benchmark.activation.button")}
+                        </span>
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
@@ -416,6 +440,25 @@ function RunDetail({ id }: { id: number }) {
                           </td>
                         );
                       })}
+                      {canActivate && (
+                        <td className="px-2 py-2.5 text-right">
+                          {x.state === "complete" && (
+                            <button
+                              type="button"
+                              className={buttonClass()}
+                              onClick={() =>
+                                setActivating({
+                                  model: x.model_id,
+                                  label: label(x),
+                                })
+                              }
+                            >
+                              {t("benchmark.activation.button")}
+                              <span className="sr-only"> · {label(x)}</span>
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -511,6 +554,19 @@ function RunDetail({ id }: { id: number }) {
           )}
         </>
       )}
+      {activating &&
+        (data.stage === "transcription" || data.stage === "diarization") && (
+          <ActivationDialog
+            stage={data.stage as ActivationStage}
+            model={activating.model}
+            label={activating.label}
+            runId={data.id}
+            onClose={() => {
+              setActivating(undefined);
+              reloadModels();
+            }}
+          />
+        )}
       <section aria-labelledby="next-title" className={card}>
         <h3 id="next-title" className="text-base font-semibold">
           {t("benchmark.results.next")}

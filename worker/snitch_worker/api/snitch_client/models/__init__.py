@@ -72,6 +72,10 @@ from .avatar_settings_input import AvatarSettingsInput
 from .avatar_settings_input_source import AvatarSettingsInputSource
 from .avatar_settings_source import AvatarSettingsSource
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
+from .benchmark_activation_input import BenchmarkActivationInput
+from .benchmark_activation_input_stage import BenchmarkActivationInputStage
+from .benchmark_activation_preview import BenchmarkActivationPreview
+from .benchmark_activation_result import BenchmarkActivationResult
 from .benchmark_chain import BenchmarkChain
 from .benchmark_clip import BenchmarkClip
 from .benchmark_clip_list import BenchmarkClipList
@@ -324,6 +328,7 @@ from .post_worker_transcription_config_status_body_error_code import PostWorkerT
 from .post_worker_transcription_config_status_response_200 import PostWorkerTranscriptionConfigStatusResponse200
 from .post_worker_update_status_body import PostWorkerUpdateStatusBody
 from .post_worker_update_status_body_state import PostWorkerUpdateStatusBodyState
+from .preview_benchmark_activation_stage import PreviewBenchmarkActivationStage
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .put_clip_metadata_body import PutClipMetadataBody
 from .put_clip_metadata_response_200 import PutClipMetadataResponse200
@@ -737,6 +742,10 @@ __all__ = (
     "AvatarSettingsInputSource",
     "AvatarSettingsSource",
     "BackfillEmbeddingIndexResponse202",
+    "BenchmarkActivationInput",
+    "BenchmarkActivationInputStage",
+    "BenchmarkActivationPreview",
+    "BenchmarkActivationResult",
     "BenchmarkChain",
     "BenchmarkClip",
     "BenchmarkClipList",
@@ -989,6 +998,7 @@ __all__ = (
     "PostWorkerTranscriptionConfigStatusResponse200",
     "PostWorkerUpdateStatusBody",
     "PostWorkerUpdateStatusBodyState",
+    "PreviewBenchmarkActivationStage",
     "PreviewTranscriptionBatchResponse200",
     "PutClipMetadataBody",
     "PutClipMetadataResponse200",

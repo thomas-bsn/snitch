@@ -4031,6 +4031,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/benchmarks/activation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Aperçu du changement du modèle de production (transcription ou diarisation) : modèle remplacé, Workers prêts, clips qu'une réanalyse mettrait en jeu dont ceux qui portent un travail humain. L'empreinte passe par sa transition (benchmark_activation_unsupported). */
+    get: operations["previewBenchmarkActivation"];
+    put?: never;
+    /** @description Administrateurs uniquement. Change le modèle utilisé pour le travail à venir. Jamais une réanalyse : rien n'est planifié, aucune correction ni validation n'est touchée. Exige la confirmation (benchmark_activation_confirm_required) et le modèle remplacé vu à l'aperçu (benchmark_activation_stale). Chaque changement est enregistré avec son auteur et le run. */
+    post: operations["confirmBenchmarkActivation"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -8211,6 +8229,37 @@ export interface components {
       id: string;
       diarization_model_id: string;
       transcription_model: string;
+    };
+    BenchmarkActivationPreview: {
+      stage: string;
+      current_model: string;
+      target_model: string;
+      target_label: string;
+      already_active: boolean;
+      workers_ready: number;
+      clips_with_analysis: number;
+      /** @description Clips portant des corrections ou validations humaines : une réanalyse les mettrait en jeu. */
+      clips_with_human_work: number;
+      human_items: number;
+      /** @description Écran qui porte la réanalyse, qui n'est jamais lancée par l'activation. */
+      reanalysis: string;
+    };
+    BenchmarkActivationInput: {
+      /** @enum {string} */
+      stage: "transcription" | "diarization";
+      model: string;
+      /** Format: int64 */
+      run_id?: number;
+      /** @description Le modèle remplacé tel que l'aperçu l'a montré : un changement survenu depuis est refusé (benchmark_activation_stale). */
+      expected_current: string;
+      confirm: boolean;
+    };
+    BenchmarkActivationResult: {
+      version: string;
+      stage: string;
+      model: string;
+      reanalysis: string;
+      clips_with_human_work: number;
     };
   };
   responses: never;
@@ -19445,6 +19494,74 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["BenchmarkModelList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewBenchmarkActivation: {
+    parameters: {
+      query: {
+        stage: "transcription" | "diarization";
+        model: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkActivationPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  confirmBenchmarkActivation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BenchmarkActivationInput"];
+      };
+    };
+    responses: {
+      /** @description Modèle changé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkActivationResult"];
         };
       };
       /** @description Erreur */

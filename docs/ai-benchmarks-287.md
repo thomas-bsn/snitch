@@ -24,34 +24,12 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 
 Chaînes de deux modèles (diarisation + transcription) composées à partir des tâches des deux étapes et mesurées par le cpWER, avec le WER sans attribution et le DER des mêmes sorties. Voir l'[ADR 0060](adr/0060-benchmark-de-bout-en-bout.md). L'écran Benchmarks compose 2 à 4 chaînes (modèle de diarisation prêt sur un Worker + modèle de transcription, de production ou nommé), sans doublon ; les résultats classent par cpWER, avec WER, DER, couverture et temps écoulé. Tests navigateur : `web/e2e/admin-benchmark.spec.ts` (compositeur, lancement, annulation, détail d'un run semé).
 
-## Restant
+## Activation d'un modèle mesuré (tranche 8)
 
-- Écran Admin → AI Models (Models, Benchmarks, Results) : attend #281.
-- Diarisation (DER), transcription via le service externe (WER/CER), séparation (SI-SDRi), recherche (Recall@K, MRR).
-- Catalogue multi-modèles par Worker : charge à la demande, contraintes RAM/VRAM, suppression d'un modèle inutilisé (#265, #114 couvrent l'existant).
-- Activation du modèle de production avec plan de réanalyse : la transition de l'[ADR 0044](adr/0044-changement-du-modele-d-empreinte.md) reste le chemin ; aucun benchmark ne la déclenche.
-- E2E UI.
-
-## Écarts et limites
-
-- Le temps écoulé inclut l'attente en file ; ce n'est pas une latence d'inférence. RAM et VRAM ne sont pas remontées par le Worker : `resources` vaut `null`.
-- Un seul run actif à la fois.
-- Tests faits sur données synthétiques uniquement ; aucun benchmark sur la vraie bibliothèque, qui relève de la phase 7 et de son autorisation.
-
-## Corpus de clips (tranche 2)
-
-Le jeu de voix devient un corpus de clips annotés avec certification « relu en entier » ; les étapes mesurables en sont déduites. Voir l'[ADR 0057](adr/0057-corpus-de-benchmark-et-verite-terrain.md). Routes ajoutées : `GET /api/admin/benchmarks/clips` et `GET /api/admin/benchmarks/models?stage=fingerprint`. Seule l'étape empreinte est exécutable ; transcription, diarisation et bout en bout viennent ensuite. Références de transcription et de diarisation : sortie de production corrigée, donc biaisée en faveur du modèle de production (annoncé dans les résultats).
-
-## Écran Benchmark (tranche 3)
-
-Onglet **Benchmark** de l'administration, réservé aux administrateurs : **Benchmarks** (choisir un corpus, une étape et 2 à 4 modèles, lancer, suivre, annuler) et **Results** (meilleur modèle par étape, historique, détail d'un run avec infobulles « i » sur chaque mesure). Un corpus se crée depuis des clips : rôle test, référence ou exclu, et certification « relu en entier » ; les étapes mesurables sont annoncées en direct. Les étapes pas encore exécutables (transcription, diarisation, bout en bout) s'affichent « Bientôt », jamais comme un bouton factice. Un modèle prêt sur aucun Worker est désactivé avec la raison.
-
-Référence visuelle : `design/ai-models/` (prototype jetable). Tests : `web/e2e/admin-benchmark.spec.ts` (accès réservé, création d'un corpus, résultats d'un run terminé, infobulles au survol et au clavier, accessibilité axe) ; les runs affichés sont semés par `benchmark_seed_integration_test.go`. Le suivi d'un run en cours (bandeau de progression, annulation) n'est couvert que par les tests d'API : le test navigateur demanderait deux modèles prêts sur un Worker.
-
-## Références externes (STM, RTTM)
-
-À la création d'un corpus, un clip de test peut recevoir un STM (texte) et/ou un RTTM (tours de parole) écrits à la main (`reference_imports`, 2 Mo au total). Ils remplacent la référence de production du clip, qui compte comme certifié ; la source est mémorisée par clip (`reference_source`, migration 00135) et exposée par la liste des corpus et le détail d'un run. L'avertissement de biais ne s'affiche que si une référence de production est utilisée. Voir l'[ADR 0061](adr/0061-references-externes-stm-rttm.md). Écran : zone « Importer une référence » par clip de test dans le constructeur de corpus. Tests : parseurs (unitaires), `TestFoundation/ai_benchmark_reference_import`, `web/e2e/admin-benchmark.spec.ts`. Limite : un clip multipiste ou sans transcription ni voix diarisée ne peut pas être importé (piste inconnue ou ambiguë).
+Depuis le détail d'un résultat de transcription ou de diarisation : « Utiliser en production… », avec aperçu (modèle remplacé, Workers prêts, clips déjà analysés dont ceux portant un travail humain) et confirmation explicite. Elle ne change que le modèle du travail à venir : aucune réanalyse n'est lancée, aucune correction ni validation n'est touchée, et chaque changement est enregistré. Voir l'[ADR 0062](adr/0062-activation-explicite-d-un-modele-mesure.md). L'empreinte garde sa transition (ADR 0044).
 
 ## Restant
 
-- Activation du modèle de production avec plan de réanalyse (la transition de l'ADR 0044 reste le chemin).
+- Découverte des modèles de transcription par les Workers (aujourd'hui l'administrateur les nomme).
+- Un seul run actif à la fois ; RAM et VRAM non remontées par le Worker.
+- Tests navigateur : les modèles « prêts sur un Worker » ne sont jamais réellement prêts dans les fixtures.

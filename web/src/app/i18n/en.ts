@@ -1827,6 +1827,31 @@ export const en = {
       created: "Corpus created.",
       loadFailed: "The clips could not be loaded.",
     },
+    activation: {
+      title: "Use {model} in production?",
+      current: "Model in production",
+      target: "New model",
+      none: "none",
+      already: "This model is already the one in production.",
+      newWorkOnly: "Only the work to come uses the new model.",
+      noReanalysis:
+        "Nothing is reanalysed and nothing is scheduled: the clips already analysed keep their result.",
+      humanWork:
+        "{clips} clips were analysed with the previous model; {human} carry human corrections or validations.",
+      workers: "Ready on {count} Workers.",
+      noWorker: "No Worker holds this model: it cannot be activated yet.",
+      understood:
+        "I understand that this changes the model for new work only, and that nothing is reanalysed.",
+      confirm: "Use in production",
+      confirming: "Changing…",
+      done: "The model in production has changed.",
+      reanalysisLater:
+        "To redo clips already analysed, reanalysis is a separate action: it asks for its own confirmation.",
+      openReanalysis: "Open the reanalysis screen",
+      button: "Use in production…",
+      fingerprintNote:
+        "The fingerprint model changes through its own transition in Voice processing: it shows the impact and keeps the Persons and validations.",
+    },
     results: {
       derChart: "Diarization error rate (lower is better)",
       cpwerChart: "Speaker-attributed word error rate, cpWER (lower is better)",

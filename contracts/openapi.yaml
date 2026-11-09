@@ -17383,6 +17383,120 @@
           }
         }
       }
+    },
+    "/api/admin/benchmarks/activation": {
+      "get": {
+        "operationId": "previewBenchmarkActivation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Aperçu du changement du modèle de production (transcription ou diarisation) : modèle remplacé, Workers prêts, clips qu'une réanalyse mettrait en jeu dont ceux qui portent un travail humain. L'empreinte passe par sa transition (benchmark_activation_unsupported).",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "stage",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "transcription",
+                "diarization"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "model",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkActivationPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "confirmBenchmarkActivation",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Change le modèle utilisé pour le travail à venir. Jamais une réanalyse : rien n'est planifié, aucune correction ni validation n'est touchée. Exige la confirmation (benchmark_activation_confirm_required) et le modèle remplacé vu à l'aperçu (benchmark_activation_stale). Chaque changement est enregistré avec son auteur et le run.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BenchmarkActivationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Modèle changé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BenchmarkActivationResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -30617,6 +30731,114 @@
           },
           "transcription_model": {
             "type": "string"
+          }
+        }
+      },
+      "BenchmarkActivationPreview": {
+        "type": "object",
+        "required": [
+          "stage",
+          "current_model",
+          "target_model",
+          "target_label",
+          "already_active",
+          "workers_ready",
+          "clips_with_analysis",
+          "clips_with_human_work",
+          "human_items",
+          "reanalysis"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string"
+          },
+          "current_model": {
+            "type": "string"
+          },
+          "target_model": {
+            "type": "string"
+          },
+          "target_label": {
+            "type": "string"
+          },
+          "already_active": {
+            "type": "boolean"
+          },
+          "workers_ready": {
+            "type": "integer"
+          },
+          "clips_with_analysis": {
+            "type": "integer"
+          },
+          "clips_with_human_work": {
+            "type": "integer",
+            "description": "Clips portant des corrections ou validations humaines : une réanalyse les mettrait en jeu."
+          },
+          "human_items": {
+            "type": "integer"
+          },
+          "reanalysis": {
+            "type": "string",
+            "description": "Écran qui porte la réanalyse, qui n'est jamais lancée par l'activation."
+          }
+        }
+      },
+      "BenchmarkActivationInput": {
+        "type": "object",
+        "required": [
+          "stage",
+          "model",
+          "expected_current",
+          "confirm"
+        ],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": [
+              "transcription",
+              "diarization"
+            ]
+          },
+          "model": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expected_current": {
+            "type": "string",
+            "description": "Le modèle remplacé tel que l'aperçu l'a montré : un changement survenu depuis est refusé (benchmark_activation_stale)."
+          },
+          "confirm": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BenchmarkActivationResult": {
+        "type": "object",
+        "required": [
+          "version",
+          "stage",
+          "model",
+          "reanalysis",
+          "clips_with_human_work"
+        ],
+        "properties": {
+          "version": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "reanalysis": {
+            "type": "string"
+          },
+          "clips_with_human_work": {
+            "type": "integer"
           }
         }
       }

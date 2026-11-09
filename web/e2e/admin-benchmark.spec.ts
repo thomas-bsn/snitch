@@ -579,3 +579,66 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await page.mouse.move(0, 0);
   await expectNoViolations(page);
 });
+
+// Last: it changes the model in production, which the summary of the previous journey compares with.
+test("l'administrateur utilise un modèle mesuré en production, sans rien réanalyser", async ({
+  page,
+}) => {
+  await asAdmin(page);
+  await page.goto("/admin/benchmark/results");
+  const history = page.getByRole("region", { name: "History" });
+  await history
+    .getByRole("row")
+    .filter({ hasText: "seed-asr-a" })
+    .filter({ hasNotText: "End to end" }) // the end-to-end run names the same models
+    .first()
+    .getByRole("link", { name: "Details" })
+    .click();
+  const model = async () =>
+    (await (await page.request.get("/api/admin/transcription-settings")).json())
+      .model as string;
+  const before = await model();
+
+  await page
+    .getByRole("button", { name: /Use in production/ })
+    .filter({ hasText: "seed-asr-b" })
+    .click();
+  const dialog = page.getByRole("dialog", {
+    name: "Use seed-asr-b in production?",
+  });
+  await expect(dialog).toContainText(
+    "Only the work to come uses the new model",
+  );
+  await expect(dialog).toContainText("Nothing is reanalysed");
+  const confirm = dialog.getByRole("button", { name: "Use in production" });
+  await expect(confirm).toBeDisabled(); // never without the explicit acknowledgement
+  await expectNoViolations(page);
+  await dialog.getByRole("checkbox").check();
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect(dialog).toContainText("The model in production has changed");
+  await expect(
+    dialog.getByRole("link", { name: "Open the reanalysis screen" }),
+  ).toBeVisible();
+  expect(await model()).toBe("seed-asr-b");
+  expect(before).not.toBe("seed-asr-b");
+  // Nothing was reanalysed: no job was created by the change.
+  const jobs = await (
+    await page.request.get("/api/admin/jobs?status=pending")
+  ).json();
+  expect(JSON.stringify(jobs)).not.toContain("transcription.audio");
+
+  // Reopened, the model is reported as already the one in production and cannot be confirmed again.
+  await dialog.getByRole("button", { name: "Close" }).first().click();
+  await page
+    .getByRole("button", { name: /Use in production/ })
+    .filter({ hasText: "seed-asr-b" })
+    .click();
+  const again = page.getByRole("dialog", {
+    name: "Use seed-asr-b in production?",
+  });
+  await expect(again).toContainText("already the one in production");
+  await expect(
+    again.getByRole("button", { name: "Use in production" }),
+  ).toBeDisabled();
+});
