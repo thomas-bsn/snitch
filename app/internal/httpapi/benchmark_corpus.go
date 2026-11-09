@@ -90,8 +90,9 @@ type benchmarkModelView struct {
 // listBenchmarkModels lists the catalogue models a benchmark of the stage may compare, with the number of Workers
 // that really hold each one: a model ready nowhere would leave the run waiting for ever, so the screen says so.
 func (s *Server) listBenchmarkModels(w http.ResponseWriter, r *http.Request) {
-	switch r.URL.Query().Get("stage") {
-	case "fingerprint":
+	stage := r.URL.Query().Get("stage")
+	switch stage {
+	case "fingerprint", "diarization":
 	case "transcription":
 		s.listTranscriptionBenchmarkModels(w, r)
 		return
@@ -99,12 +100,14 @@ func (s *Server) listBenchmarkModels(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusUnprocessableEntity, "benchmark_stage_unavailable")
 		return
 	}
+	// The active model of a kind: the fingerprint one is stored apart, the diarization one lives in the pipeline.
 	rows, err := s.Pool.Query(r.Context(), `SELECT c.id,CASE WHEN c.label<>'' THEN c.label ELSE c.repo END,c.repo,c.revision,c.engine,
-		EXISTS(SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=c.id),
+		CASE WHEN c.kind='fingerprint' THEN EXISTS(SELECT 1 FROM voice_active_model a WHERE a.kind='fingerprint' AND a.model_id=c.id)
+		     ELSE c.repo=COALESCE((SELECT v.config->>'model' FROM voice_pipeline_active pa JOIN voice_pipeline_versions v ON v.version=pa.version WHERE pa.id=true),'') END,
 		(SELECT count(*) FROM worker_voice_models wm JOIN workers w ON w.id=wm.worker_id AND w.revoked_at IS NULL
 			WHERE wm.model_id=c.id AND wm.state='ready' AND NOT wm.removal_requested AND `+jobs.RuntimeReadyClause("wm", "c")+`),
 		(SELECT count(*) FROM workers WHERE revoked_at IS NULL)
-		FROM voice_model_catalog c WHERE c.kind='fingerprint' AND c.enabled AND c.supported ORDER BY c.id`)
+		FROM voice_model_catalog c WHERE c.kind=$1 AND c.enabled AND c.supported ORDER BY c.id`, stage)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -340,6 +343,16 @@ func (s *Server) createBenchmarkDataset(w http.ResponseWriter, r *http.Request) 
 			CROSS JOIN LATERAL jsonb_array_elements(tj.result->'segments') WITH ORDINALITY AS seg(val,ord)
 			LEFT JOIN segment_corrections sc ON sc.transcription_job_id=tj.id AND sc.segment_index=seg.ord-1 AND sc.text IS NOT NULL AND sc.stale_at IS NULL
 			WHERE btrim(COALESCE(sc.text,seg.val->>'text'))<>''`, datasetID, verifiedIDs); err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
+	if verifiedVoices {
+		verifiedIDs := make([]int64, 0, len(verified))
+		for id := range verified {
+			verifiedIDs = append(verifiedIDs, id)
+		}
+		if err = s.snapshotReferenceTurns(r.Context(), tx, datasetID, verifiedIDs); err != nil {
 			s.internal(w, err)
 			return
 		}

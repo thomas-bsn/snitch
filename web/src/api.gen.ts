@@ -3972,7 +3972,7 @@ export interface paths {
     /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
     get: operations["listBenchmarkRuns"];
     put?: never;
-    /** @description Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. */
+    /** @description Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. */
     post: operations["startBenchmarkRun"];
     delete?: never;
     options?: never;
@@ -4038,7 +4038,7 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    /** @description Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription. */
+    /** @description Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte et diarisation : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription. */
     get: operations["listBenchmarkModels"];
     put?: never;
     post?: never;
@@ -8034,7 +8034,7 @@ export interface components {
       /** Format: int64 */
       dataset_id: number;
       /** @enum {string} */
-      stage: "fingerprint" | "transcription";
+      stage: "fingerprint" | "transcription" | "diarization";
       model_ids: string[];
     };
     BenchmarkJobError: {
@@ -8073,7 +8073,7 @@ export interface components {
       dataset_id: number;
       dataset_name: string;
       /** @enum {string} */
-      stage: "fingerprint" | "transcription";
+      stage: "fingerprint" | "transcription" | "diarization";
       /** @enum {string} */
       status: "running" | "completed" | "failed" | "cancelled";
       model_ids: string[];
@@ -8124,7 +8124,7 @@ export interface components {
       id: number;
       name: string;
     };
-    /** @description Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre. */
+    /** @description Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre. */
     BenchmarkMetrics: {
       references?: number;
       tests?: number;
@@ -8167,6 +8167,32 @@ export interface components {
        * @description Character Error Rate (transcription).
        */
       cer?: number | null;
+      /** @description Diarisation : clips trop longs, laissés hors du calcul. */
+      skipped_clips?: number;
+      /** Format: double */
+      reference_speech_seconds?: number;
+      /** Format: double */
+      missed_speech_seconds?: number;
+      /** Format: double */
+      false_alarm_seconds?: number;
+      /** Format: double */
+      confusion_seconds?: number;
+      /**
+       * Format: double
+       * @description Tolérance autour de chaque borne de référence.
+       */
+      collar_seconds?: number;
+      /**
+       * Format: double
+       * @description Diarization Error Rate : parole manquée + fausse alarme + confusion, rapportées à la parole de référence.
+       */
+      der?: number | null;
+      /** Format: double */
+      missed_speech_rate?: number | null;
+      /** Format: double */
+      false_alarm_rate?: number | null;
+      /** Format: double */
+      confusion_rate?: number | null;
     };
   };
   responses: never;
@@ -19427,7 +19453,7 @@ export interface operations {
   listBenchmarkModels: {
     parameters: {
       query: {
-        stage: "fingerprint" | "transcription";
+        stage: "fingerprint" | "transcription" | "diarization";
       };
       header?: never;
       path?: never;

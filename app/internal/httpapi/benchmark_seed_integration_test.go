@@ -55,6 +55,19 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 		($1,'seed-asr-a','seed-asr-a','v1',0,'complete',3,3,95,$2::jsonb),
 		($1,'seed-asr-b','seed-asr-b','v1',0,'complete',3,3,140,$3::jsonb)`,
 		transcription, words(0.12, 0.05), words(0.081, 0.032))
+	// A finished diarization run: the Sortformer model has the lower DER, so it differs from the production model.
+	var diarization int64
+	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,author_name,finished_at) VALUES($1,'Corpus de démonstration','diarization','completed','{pyannote-community-1,nvidia-sortformer-4spk-v2.1}','seed',now()) RETURNING id`, dataset).Scan(&diarization); err != nil {
+		t.Fatal(err)
+	}
+	der := func(total, missed, falseAlarm, confusion float64) string {
+		return `{"clips":3,"skipped_clips":0,"reference_speech_seconds":600,"missed_speech_seconds":` + seedNum(missed*600) + `,"false_alarm_seconds":` + seedNum(falseAlarm*600) + `,"confusion_seconds":` + seedNum(confusion*600) +
+			`,"collar_seconds":0.25,"der":` + seedNum(total) + `,"missed_speech_rate":` + seedNum(missed) + `,"false_alarm_rate":` + seedNum(falseAlarm) + `,"confusion_rate":` + seedNum(confusion) + `}`
+	}
+	exec(`INSERT INTO benchmark_results(run_id,model_id,model,model_version,dimensions,state,items_total,items_scored,elapsed_seconds,metrics) VALUES
+		($1,'pyannote-community-1','pyannote/speaker-diarization-community-1','3533c8c',0,'complete',3,3,80,$2::jsonb),
+		($1,'nvidia-sortformer-4spk-v2.1','nvidia/diar_streaming_sortformer_4spk-v2.1','cd03eee',0,'complete',3,3,146,$3::jsonb)`,
+		diarization, der(0.114, 0.04, 0.03, 0.044), der(0.07, 0.03, 0.02, 0.02))
 }
 
 func seedNum(x float64) string { return strconv.FormatFloat(x, 'f', -1, 64) }

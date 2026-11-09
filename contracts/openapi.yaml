@@ -17220,7 +17220,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.",
+        "description": "Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.",
         "parameters": [
           {
             "in": "header",
@@ -17418,7 +17418,7 @@
             "session": []
           }
         ],
-        "description": "Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription.",
+        "description": "Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte et diarisation : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription.",
         "parameters": [
           {
             "in": "query",
@@ -17428,7 +17428,8 @@
               "type": "string",
               "enum": [
                 "fingerprint",
-                "transcription"
+                "transcription",
+                "diarization"
               ]
             }
           }
@@ -30078,7 +30079,8 @@
             "type": "string",
             "enum": [
               "fingerprint",
-              "transcription"
+              "transcription",
+              "diarization"
             ]
           },
           "model_ids": {
@@ -30222,7 +30224,8 @@
             "type": "string",
             "enum": [
               "fingerprint",
-              "transcription"
+              "transcription",
+              "diarization"
             ]
           },
           "status": {
@@ -30436,7 +30439,7 @@
       },
       "BenchmarkMetrics": {
         "type": "object",
-        "description": "Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre.",
+        "description": "Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre.",
         "properties": {
           "references": {
             "type": "integer"
@@ -30531,6 +30534,52 @@
             "format": "double",
             "nullable": true,
             "description": "Character Error Rate (transcription)."
+          },
+          "skipped_clips": {
+            "type": "integer",
+            "description": "Diarisation : clips trop longs, laissés hors du calcul."
+          },
+          "reference_speech_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "missed_speech_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "false_alarm_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "confusion_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "collar_seconds": {
+            "type": "number",
+            "format": "double",
+            "description": "Tolérance autour de chaque borne de référence."
+          },
+          "der": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Diarization Error Rate : parole manquée + fausse alarme + confusion, rapportées à la parole de référence."
+          },
+          "missed_speech_rate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "false_alarm_rate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "confusion_rate": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         }
       }

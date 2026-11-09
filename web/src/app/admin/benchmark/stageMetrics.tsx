@@ -71,8 +71,37 @@ const transcriptionColumns: Column[] = [
   elapsedColumn,
 ];
 
+const diarizationColumns: Column[] = [
+  {
+    metric: "der",
+    render: (x, l) => percent(l, x.metrics.der),
+    best: { value: (x) => x.metrics.der, low: true },
+  },
+  {
+    metric: "missed",
+    render: (x, l) => percent(l, x.metrics.missed_speech_rate),
+    best: { value: (x) => x.metrics.missed_speech_rate, low: true },
+  },
+  {
+    metric: "falseAlarm",
+    render: (x, l) => percent(l, x.metrics.false_alarm_rate),
+    best: { value: (x) => x.metrics.false_alarm_rate, low: true },
+  },
+  {
+    metric: "confusion",
+    render: (x, l) => percent(l, x.metrics.confusion_rate),
+    best: { value: (x) => x.metrics.confusion_rate, low: true },
+  },
+  coverage,
+  elapsedColumn,
+];
+
 export const columnsOf = (stage: Run["stage"]): Column[] =>
-  stage === "transcription" ? transcriptionColumns : fingerprintColumns;
+  stage === "transcription"
+    ? transcriptionColumns
+    : stage === "diarization"
+      ? diarizationColumns
+      : fingerprintColumns;
 
 /** The measure that ranks the models of a stage, lowest first, and the label of its chart. */
 export const primaryOf = (stage: Run["stage"]) =>
@@ -82,8 +111,14 @@ export const primaryOf = (stage: Run["stage"]) =>
         value: (x: RunResult) => x.metrics.wer,
         label: "WER",
       }
-    : {
-        metric: "eer" as const,
-        value: (x: RunResult) => x.metrics.eer,
-        label: "EER",
-      };
+    : stage === "diarization"
+      ? {
+          metric: "der" as const,
+          value: (x: RunResult) => x.metrics.der,
+          label: "DER",
+        }
+      : {
+          metric: "eer" as const,
+          value: (x: RunResult) => x.metrics.eer,
+          label: "EER",
+        };

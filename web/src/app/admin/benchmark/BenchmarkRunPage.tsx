@@ -38,7 +38,9 @@ export function BenchmarkRunPage() {
   const datasets = useLoaded(loadDatasets);
   const [stage, setStage] = useState<Stage>("fingerprint");
   const modelStage: ModelStage =
-    stage === "transcription" ? "transcription" : "fingerprint";
+    stage === "transcription" || stage === "diarization"
+      ? stage
+      : "fingerprint";
   const loadStageModels = useCallback(
     () => loadModels(modelStage),
     [modelStage],
@@ -435,7 +437,7 @@ export function BenchmarkRunPage() {
                     className="absolute top-3 right-3 size-4"
                   />
                   <strong className="pr-6">{m.label}</strong>
-                  {modelStage === "fingerprint" && (
+                  {modelStage !== "transcription" && (
                     <span className="text-sm text-mute">
                       {m.engine} · {m.revision.slice(0, 7)}
                     </span>

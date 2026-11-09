@@ -241,7 +241,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &input) {
 		return
 	}
-	if input.DatasetID < 1 || (input.Stage != "fingerprint" && input.Stage != "transcription") || len(input.ModelIDs) < 1 || len(input.ModelIDs) > benchMaxModels {
+	if input.DatasetID < 1 || (input.Stage != "fingerprint" && input.Stage != "transcription" && input.Stage != "diarization") || len(input.ModelIDs) < 1 || len(input.ModelIDs) > benchMaxModels {
 		fail(w, http.StatusBadRequest, "invalid_request")
 		return
 	}
@@ -262,9 +262,9 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	} else {
-		// Only enabled, supported fingerprint models of the catalogue: another kind would replace a production result.
+		// Only enabled, supported models of the stage's kind in the catalogue: another kind would replace a production result.
 		var valid int
-		if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM voice_model_catalog WHERE id=ANY($1) AND kind='fingerprint' AND enabled AND supported`, input.ModelIDs).Scan(&valid); err != nil {
+		if err := s.Pool.QueryRow(r.Context(), `SELECT count(*) FROM voice_model_catalog WHERE id=ANY($1) AND kind=$2 AND enabled AND supported`, input.ModelIDs, input.Stage).Scan(&valid); err != nil {
 			s.internal(w, err)
 			return
 		}
@@ -437,9 +437,12 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 	for _, model := range models {
 		var res benchModelResult
 		var err error
-		if stage == "transcription" {
+		switch stage {
+		case "transcription":
 			res, err = computeTranscriptionResult(ctx, tx, runID, datasetID, model)
-		} else {
+		case "diarization":
+			res, err = computeDiarizationResult(ctx, tx, runID, datasetID, model)
+		default:
 			res, err = computeFingerprintResult(ctx, tx, runID, datasetID, model)
 		}
 		if err != nil {

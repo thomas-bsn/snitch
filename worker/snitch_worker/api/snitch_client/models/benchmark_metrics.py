@@ -23,7 +23,8 @@ T = TypeVar("T", bound="BenchmarkMetrics")
 @_attrs_define
 class BenchmarkMetrics:
     """ Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ;
-    transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre.
+    transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un
+    modèle à l'autre.
 
         Attributes:
             references (int | Unset):
@@ -50,6 +51,17 @@ class BenchmarkMetrics:
             cer_skipped_clips (int | Unset): Clips trop longs pour la comparaison par caractère, laissés hors du CER.
             wer (float | None | Unset): Word Error Rate (transcription), micro-moyenne sur les clips.
             cer (float | None | Unset): Character Error Rate (transcription).
+            skipped_clips (int | Unset): Diarisation : clips trop longs, laissés hors du calcul.
+            reference_speech_seconds (float | Unset):
+            missed_speech_seconds (float | Unset):
+            false_alarm_seconds (float | Unset):
+            confusion_seconds (float | Unset):
+            collar_seconds (float | Unset): Tolérance autour de chaque borne de référence.
+            der (float | None | Unset): Diarization Error Rate : parole manquée + fausse alarme + confusion, rapportées à la
+                parole de référence.
+            missed_speech_rate (float | None | Unset):
+            false_alarm_rate (float | None | Unset):
+            confusion_rate (float | None | Unset):
      """
 
     references: int | Unset = UNSET
@@ -76,6 +88,16 @@ class BenchmarkMetrics:
     cer_skipped_clips: int | Unset = UNSET
     wer: float | None | Unset = UNSET
     cer: float | None | Unset = UNSET
+    skipped_clips: int | Unset = UNSET
+    reference_speech_seconds: float | Unset = UNSET
+    missed_speech_seconds: float | Unset = UNSET
+    false_alarm_seconds: float | Unset = UNSET
+    confusion_seconds: float | Unset = UNSET
+    collar_seconds: float | Unset = UNSET
+    der: float | None | Unset = UNSET
+    missed_speech_rate: float | None | Unset = UNSET
+    false_alarm_rate: float | None | Unset = UNSET
+    confusion_rate: float | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -167,6 +189,42 @@ class BenchmarkMetrics:
         else:
             cer = self.cer
 
+        skipped_clips = self.skipped_clips
+
+        reference_speech_seconds = self.reference_speech_seconds
+
+        missed_speech_seconds = self.missed_speech_seconds
+
+        false_alarm_seconds = self.false_alarm_seconds
+
+        confusion_seconds = self.confusion_seconds
+
+        collar_seconds = self.collar_seconds
+
+        der: float | None | Unset
+        if isinstance(self.der, Unset):
+            der = UNSET
+        else:
+            der = self.der
+
+        missed_speech_rate: float | None | Unset
+        if isinstance(self.missed_speech_rate, Unset):
+            missed_speech_rate = UNSET
+        else:
+            missed_speech_rate = self.missed_speech_rate
+
+        false_alarm_rate: float | None | Unset
+        if isinstance(self.false_alarm_rate, Unset):
+            false_alarm_rate = UNSET
+        else:
+            false_alarm_rate = self.false_alarm_rate
+
+        confusion_rate: float | None | Unset
+        if isinstance(self.confusion_rate, Unset):
+            confusion_rate = UNSET
+        else:
+            confusion_rate = self.confusion_rate
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -220,6 +278,26 @@ class BenchmarkMetrics:
             field_dict["wer"] = wer
         if cer is not UNSET:
             field_dict["cer"] = cer
+        if skipped_clips is not UNSET:
+            field_dict["skipped_clips"] = skipped_clips
+        if reference_speech_seconds is not UNSET:
+            field_dict["reference_speech_seconds"] = reference_speech_seconds
+        if missed_speech_seconds is not UNSET:
+            field_dict["missed_speech_seconds"] = missed_speech_seconds
+        if false_alarm_seconds is not UNSET:
+            field_dict["false_alarm_seconds"] = false_alarm_seconds
+        if confusion_seconds is not UNSET:
+            field_dict["confusion_seconds"] = confusion_seconds
+        if collar_seconds is not UNSET:
+            field_dict["collar_seconds"] = collar_seconds
+        if der is not UNSET:
+            field_dict["der"] = der
+        if missed_speech_rate is not UNSET:
+            field_dict["missed_speech_rate"] = missed_speech_rate
+        if false_alarm_rate is not UNSET:
+            field_dict["false_alarm_rate"] = false_alarm_rate
+        if confusion_rate is not UNSET:
+            field_dict["confusion_rate"] = confusion_rate
 
         return field_dict
 
@@ -348,6 +426,58 @@ class BenchmarkMetrics:
         cer = _parse_cer(d.pop("cer", UNSET))
 
 
+        skipped_clips = d.pop("skipped_clips", UNSET)
+
+        reference_speech_seconds = d.pop("reference_speech_seconds", UNSET)
+
+        missed_speech_seconds = d.pop("missed_speech_seconds", UNSET)
+
+        false_alarm_seconds = d.pop("false_alarm_seconds", UNSET)
+
+        confusion_seconds = d.pop("confusion_seconds", UNSET)
+
+        collar_seconds = d.pop("collar_seconds", UNSET)
+
+        def _parse_der(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        der = _parse_der(d.pop("der", UNSET))
+
+
+        def _parse_missed_speech_rate(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        missed_speech_rate = _parse_missed_speech_rate(d.pop("missed_speech_rate", UNSET))
+
+
+        def _parse_false_alarm_rate(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        false_alarm_rate = _parse_false_alarm_rate(d.pop("false_alarm_rate", UNSET))
+
+
+        def _parse_confusion_rate(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        confusion_rate = _parse_confusion_rate(d.pop("confusion_rate", UNSET))
+
+
         benchmark_metrics = cls(
             references=references,
             tests=tests,
@@ -373,6 +503,16 @@ class BenchmarkMetrics:
             cer_skipped_clips=cer_skipped_clips,
             wer=wer,
             cer=cer,
+            skipped_clips=skipped_clips,
+            reference_speech_seconds=reference_speech_seconds,
+            missed_speech_seconds=missed_speech_seconds,
+            false_alarm_seconds=false_alarm_seconds,
+            confusion_seconds=confusion_seconds,
+            collar_seconds=collar_seconds,
+            der=der,
+            missed_speech_rate=missed_speech_rate,
+            false_alarm_rate=false_alarm_rate,
+            confusion_rate=confusion_rate,
         )
 
 

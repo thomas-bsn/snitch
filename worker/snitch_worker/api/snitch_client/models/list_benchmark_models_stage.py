@@ -1,6 +1,7 @@
 from enum import StrEnum
 
 class ListBenchmarkModelsStage(StrEnum):
+    DIARIZATION = "diarization"
     FINGERPRINT = "fingerprint"
     TRANSCRIPTION = "transcription"
 

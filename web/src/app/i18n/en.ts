@@ -1800,6 +1800,9 @@ export const en = {
       loadFailed: "The clips could not be loaded.",
     },
     results: {
+      derChart: "Diarization error rate (lower is better)",
+      noteDiarization:
+        "The model’s speakers are anonymous: they are matched to the reference speakers by the assignment that maximises their common speaking time. A 0.25 s collar is forgiven around each reference boundary. Rates are summed over the clips. These figures describe this corpus, not a guarantee.",
       werChart: "Word error rate (lower is better)",
       noteTranscription:
         "WER and CER are computed after lower-casing and removing punctuation; accents count. Rates are summed over the clips, so a long clip weighs more. These figures describe this corpus, not a guarantee.",
@@ -1859,6 +1862,22 @@ export const en = {
       impostor: "impostor",
     },
     metrics: {
+      der: {
+        name: "DER",
+        help: "Diarization Error Rate: share of the reference speech that was missed, given to the wrong speaker or invented. Lower is better.",
+      },
+      missed: {
+        name: "Missed speech",
+        help: "Reference speech the model did not detect. Lower is better.",
+      },
+      falseAlarm: {
+        name: "False alarm",
+        help: "Speech the model detected where nobody speaks. Lower is better.",
+      },
+      confusion: {
+        name: "Confusion",
+        help: "Speech detected but given to the wrong speaker. Lower is better.",
+      },
       wer: {
         name: "WER",
         help: "Word Error Rate: share of words wrong, added or missing compared with the reviewed text. 0% is perfect. Lower is better.",

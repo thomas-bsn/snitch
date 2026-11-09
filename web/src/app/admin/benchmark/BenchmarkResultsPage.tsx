@@ -11,6 +11,7 @@ import type { MessageKey } from "../../i18n/messages";
 import {
   EXECUTABLE_STAGES,
   isRunning,
+  loadDiarizationModels,
   loadFingerprintModels,
   loadTranscriptionModels,
   loadRun,
@@ -67,9 +68,16 @@ function Overview() {
   const runs = useLoaded(loadRuns);
   const fingerprintModels = useLoaded(loadFingerprintModels);
   const transcriptionModels = useLoaded(loadTranscriptionModels);
-  const catalogue = [fingerprintModels, transcriptionModels].flatMap((m) =>
-    m.state.status === "ready" ? m.state.value.models : [],
-  );
+  const diarizationModels = useLoaded(loadDiarizationModels);
+  const listOf = (m: typeof fingerprintModels) =>
+    m.state.status === "ready" ? m.state.value.models : [];
+  // The models of each stage, so the one in production is told within its own stage.
+  const byStage = {
+    fingerprint: listOf(fingerprintModels),
+    transcription: listOf(transcriptionModels),
+    diarization: listOf(diarizationModels),
+  };
+  const catalogue = Object.values(byStage).flat();
 
   if (runs.state.status === "loading")
     return <p role="status">{t("benchmark.results.loading")}</p>;
@@ -101,6 +109,7 @@ function Overview() {
               stage={stage}
               runs={list}
               catalogue={catalogue}
+              stageModels={byStage[stage]}
             />
           ))}
         </div>
@@ -192,13 +201,14 @@ function RunDetail({ id }: { id: number }) {
   const { t, error, language } = useI18n();
   useDocumentTitle(t("admin.tabs.benchmark"));
   const loader = useLoaded(() => loadRun(id));
-  const models = useLoaded(
-    id > 0 ? loadFingerprintModels : loadTranscriptionModels,
-  );
+  const fingerprintModels = useLoaded(loadFingerprintModels);
   const transcriptionModels = useLoaded(loadTranscriptionModels);
-  const catalogue = [models, transcriptionModels].flatMap((m) =>
-    m.state.status === "ready" ? m.state.value.models : [],
-  );
+  const diarizationModels = useLoaded(loadDiarizationModels);
+  const catalogue = [
+    fingerprintModels,
+    transcriptionModels,
+    diarizationModels,
+  ].flatMap((m) => (m.state.status === "ready" ? m.state.value.models : []));
   const run = loader.state.status === "ready" ? loader.state.value : undefined;
   const { reload } = loader;
   useEffect(() => {
@@ -301,9 +311,11 @@ function RunDetail({ id }: { id: number }) {
           >
             {data.stage === "transcription"
               ? t("benchmark.results.noteTranscription")
-              : t("benchmark.results.note")}
+              : data.stage === "diarization"
+                ? t("benchmark.results.noteDiarization")
+                : t("benchmark.results.note")}
           </p>
-          {data.stage === "transcription" && (
+          {data.stage !== "fingerprint" && (
             <p
               role="note"
               className="rounded-lg bg-warn-bg px-3 py-2.5 text-warn-fg"
@@ -387,7 +399,9 @@ function RunDetail({ id }: { id: number }) {
             <h3 id="eer-title" className="text-base font-semibold">
               {data.stage === "transcription"
                 ? t("benchmark.results.werChart")
-                : t("benchmark.results.eerChart")}
+                : data.stage === "diarization"
+                  ? t("benchmark.results.derChart")
+                  : t("benchmark.results.eerChart")}
               <InfoTip metric={primary.metric} />
             </h3>
             <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -481,10 +495,12 @@ function StageSummary({
   stage,
   runs,
   catalogue,
+  stageModels,
 }: {
   stage: Run["stage"];
   runs: Run[];
   catalogue: Model[];
+  stageModels: Model[];
 }) {
   const { t, language } = useI18n();
   const primary = primaryOf(stage);
@@ -500,13 +516,7 @@ function StageSummary({
     .sort((a, b) => (primary.value(a) ?? 1) - (primary.value(b) ?? 1));
   const best = comparable[0];
   const second = comparable[1];
-  const production = catalogue.find(
-    (m) =>
-      m.active &&
-      (stage === "transcription"
-        ? m.engine !== "" && m.revision === ""
-        : m.revision !== ""),
-  );
+  const production = stageModels.find((m) => m.active);
   return (
     <div className="rounded-xl border border-line p-3">
       <div className="flex flex-wrap items-center gap-2">

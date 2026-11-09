@@ -570,6 +570,12 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 	input.MediaURL = fmt.Sprintf("/api/worker/jobs/%d/media", id)
 	input.Vocabulary = []VocabularyTerm{}
 	input.Pipeline = json.RawMessage(`{"provider":"openai-compatible","model":"default","language":"fr","preparation":"wav-16khz-mono-v1","vad":{"mode":"off","version":"vad-off-v1"}}`)
+	if strings.HasPrefix(input.Job.Step, BenchmarkDiarizationPrefix) {
+		if err = s.benchmarkDiarizationInput(ctx, &input); err != nil {
+			return Input{}, err
+		}
+		return input, nil
+	}
 	if strings.HasPrefix(input.Job.Step, BenchmarkTranscriptionPrefix) {
 		// The model comes from the job, not from the Worker: the benchmark compares models on the same Worker. The
 		// production profile (language, preparation, speech detection) applies; no vocabulary, so a model is

@@ -1836,6 +1836,9 @@ export const fr: Messages = {
       loadFailed: "Les clips n’ont pas pu être chargés.",
     },
     results: {
+      derChart: "Taux d’erreur de diarisation (plus bas = meilleur)",
+      noteDiarization:
+        "Les locuteurs du modèle sont anonymes : on les associe aux locuteurs de référence par l’affectation qui maximise leur temps de parole commun. Une tolérance de 0,25 s est accordée autour de chaque borne de référence. Les taux sont cumulés sur les clips. Ces chiffres décrivent ce corpus, pas une garantie.",
       werChart: "Taux d’erreur de mots (plus bas = meilleur)",
       noteTranscription:
         "Le WER et le CER sont calculés après passage en minuscules et retrait de la ponctuation ; les accents comptent. Les taux sont cumulés sur les clips : un long clip pèse plus. Ces chiffres décrivent ce corpus, pas une garantie.",
@@ -1896,6 +1899,22 @@ export const fr: Messages = {
       impostor: "impostor",
     },
     metrics: {
+      der: {
+        name: "DER",
+        help: "Diarization Error Rate : part de la parole de référence manquée, attribuée au mauvais locuteur ou inventée. Plus bas = mieux.",
+      },
+      missed: {
+        name: "Parole manquée",
+        help: "Parole de référence que le modèle n’a pas détectée. Plus bas = mieux.",
+      },
+      falseAlarm: {
+        name: "Fausse alarme",
+        help: "Parole détectée là où personne ne parle. Plus bas = mieux.",
+      },
+      confusion: {
+        name: "Confusion",
+        help: "Parole détectée mais attribuée au mauvais locuteur. Plus bas = mieux.",
+      },
       wer: {
         name: "WER",
         help: "Word Error Rate : part des mots faux, ajoutés ou manquants par rapport au texte relu. 0 % = parfait. Plus bas = mieux.",

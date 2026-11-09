@@ -168,6 +168,15 @@ type BenchmarkReferenceSegment struct {
 	Corrected        bool    `json:"corrected"`
 }
 
+type BenchmarkReferenceTurn struct {
+	DatasetID        int64   `json:"dataset_id"`
+	ClipID           int64   `json:"clip_id"`
+	AudioStreamIndex int32   `json:"audio_stream_index"`
+	Speaker          string  `json:"speaker"`
+	StartSeconds     float64 `json:"start_seconds"`
+	EndSeconds       float64 `json:"end_seconds"`
+}
+
 type BenchmarkResult struct {
 	RunID          int64              `json:"run_id"`
 	ModelID        string             `json:"model_id"`

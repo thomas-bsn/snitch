@@ -36,7 +36,8 @@ class BenchmarkResult:
             items_total (int):
             items_scored (int):
             metrics (BenchmarkMetrics): Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1,
-                précision, rappel… ; transcription : wer, cer…). Jamais comparables en score brut d'un modèle à l'autre.
+                précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables
+                en score brut d'un modèle à l'autre.
             elapsed_seconds (float | None | Unset):
             resources (BenchmarkResultResourcesType0 | None | Unset): RAM/VRAM : non remontés par le Worker, toujours null
                 pour l'instant.

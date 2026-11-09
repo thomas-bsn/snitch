@@ -31,12 +31,18 @@ func (s *Service) checkRequestedModel(ctx context.Context, step, modelID string)
 		// A transcription model is a name known to the external service, not a catalogue entry (ADR 0058).
 		return checkTranscriptionModelName(modelID)
 	}
-	if !strings.HasPrefix(step, "voice.fingerprint.") {
+	// A diarization benchmark has a step of its own: the production diarization replaces the local speakers of a
+	// clip, which a benchmark must never do (ADR 0059).
+	wanted := "fingerprint"
+	switch {
+	case strings.HasPrefix(step, BenchmarkDiarizationPrefix):
+		wanted = "diarization"
+	case !strings.HasPrefix(step, "voice.fingerprint."):
 		return ErrInvalidInput
 	}
 	var kind string
 	err := s.pool.QueryRow(ctx, `SELECT kind FROM voice_model_catalog WHERE id=$1 AND enabled AND supported`, modelID).Scan(&kind)
-	if errors.Is(err, pgx.ErrNoRows) || (err == nil && kind != "fingerprint") {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && kind != wanted) {
 		return ErrInvalidInput
 	}
 	if err != nil {
@@ -86,3 +92,6 @@ func checkTranscriptionModelName(name string) error {
 
 // ValidTranscriptionModelName tells whether a name may be requested for a transcription benchmark.
 func ValidTranscriptionModelName(name string) bool { return checkTranscriptionModelName(name) == nil }
+
+// BenchmarkDiarizationPrefix is the step of a diarization benchmark job (ADR 0059), never "voice.diarization.".
+const BenchmarkDiarizationPrefix = "benchmark.diarization."

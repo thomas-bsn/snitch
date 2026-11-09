@@ -82,10 +82,11 @@ def sync_detailed(
 ) -> Response[BenchmarkCreated | Error]:
     """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
     demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
-    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
-    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
-    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
-    benchmark_stage_unsupported_by_dataset.
+    Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon)
+    ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
+    production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
+    certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):
@@ -124,10 +125,11 @@ def sync(
 ) -> BenchmarkCreated | Error | None:
     """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
     demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
-    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
-    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
-    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
-    benchmark_stage_unsupported_by_dataset.
+    Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon)
+    ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
+    production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
+    certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):
@@ -161,10 +163,11 @@ async def asyncio_detailed(
 ) -> Response[BenchmarkCreated | Error]:
     """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
     demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
-    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
-    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
-    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
-    benchmark_stage_unsupported_by_dataset.
+    Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon)
+    ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
+    production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
+    certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):
@@ -203,10 +206,11 @@ async def asyncio(
 ) -> BenchmarkCreated | Error | None:
     """  Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle
     demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés.
-    Empreinte : modèles du catalogue (benchmark_model_invalid sinon). Transcription : noms de modèles du
-    service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif
-    (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale,
-    benchmark_stage_unsupported_by_dataset.
+    Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon)
+    ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de
+    production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip
+    certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open
+    (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset.
 
     Args:
         origin (str):

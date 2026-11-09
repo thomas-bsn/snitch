@@ -21,7 +21,30 @@ type benchWork struct {
 func (s *Server) benchmarkWorks(w http.ResponseWriter, r *http.Request, stage string, datasetID int64) ([]benchWork, []byte, bool) {
 	var works []benchWork
 	var params map[string]any
-	if stage == "transcription" {
+	switch stage {
+	case "diarization":
+		// One task per certified clip and audio track, on the same audio as the production diarization.
+		rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT clip_id,audio_stream_index FROM benchmark_reference_turns WHERE dataset_id=$1 ORDER BY 1,2`, datasetID)
+		if err != nil {
+			s.internal(w, err)
+			return nil, nil, false
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var clip int64
+			var track int
+			if err = rows.Scan(&clip, &track); err != nil {
+				s.internal(w, err)
+				return nil, nil, false
+			}
+			works = append(works, benchWork{clip, fmt.Sprintf("%s%d", jobs.BenchmarkDiarizationPrefix, track), fmt.Sprintf("bd-d%d-a%d", datasetID, track)})
+		}
+		if err = rows.Err(); err != nil {
+			s.internal(w, err)
+			return nil, nil, false
+		}
+		params = map[string]any{"reference": "frozen validated turns", "collar_seconds": derCollar, "resolution_seconds": derResolution, "profile": "production", "clips": len(works)}
+	case "transcription":
 		// One task per certified clip and audio track, on the production profile and without vocabulary.
 		rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT clip_id,audio_stream_index FROM benchmark_reference_segments WHERE dataset_id=$1 ORDER BY 1,2`, datasetID)
 		if err != nil {
@@ -43,7 +66,7 @@ func (s *Server) benchmarkWorks(w http.ResponseWriter, r *http.Request, stage st
 			return nil, nil, false
 		}
 		params = map[string]any{"reference": "frozen corrected segments", "normalisation": "lowercase, punctuation removed", "profile": "production", "vocabulary": "none", "clips": len(works)}
-	} else {
+	default:
 		// The distinct fingerprint works of the dataset: one per clip, audio track and diarization.
 		rows, err := s.Pool.Query(r.Context(), `SELECT DISTINCT ls.clip_id,ls.audio_stream_index,ls.diarization_job_id,dj.input_version
 			FROM benchmark_dataset_items i JOIN local_speakers ls ON ls.id=i.local_speaker_id JOIN jobs dj ON dj.id=ls.diarization_job_id

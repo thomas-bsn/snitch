@@ -20,10 +20,14 @@ export const STAGES: Stage[] = [
 ];
 
 /** The stages a run can execute today; the others show as coming soon, never as a dead button. */
-export const EXECUTABLE_STAGES: ModelStage[] = ["fingerprint", "transcription"];
+export const EXECUTABLE_STAGES: ModelStage[] = [
+  "fingerprint",
+  "transcription",
+  "diarization",
+];
 
 /** The stages whose models the server can list. */
-export type ModelStage = "fingerprint" | "transcription";
+export type ModelStage = "fingerprint" | "transcription" | "diarization";
 
 /** Turns a call into the Result the loading hook expects: data, or the server's stable error code. */
 export async function settle<T>(
@@ -65,3 +69,4 @@ export const isRunning = (run: Pick<Run, "status">) => run.status === "running";
 
 export const loadFingerprintModels = () => loadModels("fingerprint");
 export const loadTranscriptionModels = () => loadModels("transcription");
+export const loadDiarizationModels = () => loadModels("diarization");

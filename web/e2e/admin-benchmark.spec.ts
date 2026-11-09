@@ -98,17 +98,15 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
   await expect(
     page.getByRole("radio", { name: "Corpus de démonstration" }),
   ).toBeVisible();
-  // Transcription runs, but this corpus has no certified clip; diarization does not run yet.
-  await expect(
-    page.getByRole("button", { name: /Transcription/ }),
-  ).toBeDisabled();
-  await expect(
-    page.getByRole("button", { name: /Transcription/ }),
-  ).toContainText("cannot measure");
-  await expect(
-    page.getByRole("button", { name: /Diarization/ }),
-  ).toBeDisabled();
-  await expect(page.getByRole("button", { name: /Diarization/ })).toContainText(
+  // Transcription and diarization run, but this corpus has no certified clip; the end-to-end stage does not run yet.
+  for (const stage of [/Transcription/, /Diarization/]) {
+    await expect(page.getByRole("button", { name: stage })).toBeDisabled();
+    await expect(page.getByRole("button", { name: stage })).toContainText(
+      "cannot measure",
+    );
+  }
+  await expect(page.getByRole("button", { name: /End to end/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /End to end/ })).toContainText(
     "Coming soon",
   );
 
@@ -167,6 +165,28 @@ test("un administrateur crée un corpus de clips annotés", async ({ page }) => 
     page.getByRole("button", { name: "Start the benchmark" }),
   ).toBeDisabled();
   await expect(page.getByText("Pick at least 2 models.")).toBeVisible();
+  await expectNoViolations(page);
+});
+
+test("la diarisation propose les modèles du catalogue et attend des Workers prêts", async ({
+  page,
+}) => {
+  await asAdmin(page);
+  await page.goto("/admin/benchmark");
+  await page.getByRole("radio", { name: "Corpus e2e" }).check();
+  const diarization = page.getByRole("button", { name: /Diarization/ });
+  await expect(diarization).toBeEnabled();
+  await diarization.click();
+  await expect(diarization).toHaveAttribute("aria-pressed", "true");
+  // The catalogue models are offered, none ready on a Worker here: nothing can start.
+  await expect(
+    page.getByRole("checkbox", { name: /community/i }),
+  ).toBeDisabled();
+  await expect(page.getByText("Ready on no Worker").first()).toBeVisible();
+  await expect(page.getByText("Pick at least 2 models.")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Start the benchmark" }),
+  ).toBeDisabled();
   await expectNoViolations(page);
 });
 
@@ -237,6 +257,10 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   const best = page.getByRole("region", { name: "Best model per stage" });
   await expect(best).toContainText("EER 5.0%");
   await expect(best).toContainText("Already in production");
+  // Diarization: the Sortformer model has the lower DER (the fixtures run a fake diarizer, so no catalogue model is
+  // the one in production and no comparison with it is claimed).
+  await expect(best).toContainText("DER 7.0%");
+  await expect(best).toContainText(/sortformer/i);
   // Transcription: the more accurate model is crowned and differs from the production one.
   await expect(best).toContainText("seed-asr-b");
   await expect(best).toContainText("WER 8.1%");
@@ -282,6 +306,27 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await expect(
     page.getByRole("link", { name: "Open Voice processing" }),
   ).toBeVisible();
+
+  // The diarization run: DER and its three parts, the matching note, and the bias warning.
+  await page.getByRole("link", { name: "Back to history" }).click();
+  await row("Sortformer").getByRole("link", { name: "Details" }).click();
+  await expect(
+    page.getByRole("heading", { name: /^Diarization ·/ }),
+  ).toBeVisible();
+  await expect(page.getByRole("note").first()).toContainText("anonymous");
+  const derTable = page.getByRole("table");
+  await expect(derTable.getByRole("row")).toHaveCount(3);
+  await expect(derTable.getByRole("row").nth(1)).toContainText("7.0%"); // rows follow the model id
+  await expect(derTable.getByRole("row").nth(2)).toContainText("11.4%");
+  await expect(
+    page.getByText("Diarization error rate (lower is better)"),
+  ).toBeVisible();
+  await derTable
+    .getByRole("button", { name: "Definition: Confusion", exact: true })
+    .hover();
+  await expect(page.getByRole("tooltip")).toContainText("wrong speaker");
+  await page.mouse.move(0, 0);
+  await expectNoViolations(page);
 
   // The transcription run: WER and CER, the bias warning, and no separation chart (a voice-only reading).
   await page.getByRole("link", { name: "Back to history" }).click();
