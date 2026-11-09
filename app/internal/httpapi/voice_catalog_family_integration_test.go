@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"testing"
@@ -16,6 +17,9 @@ import (
 func testVoiceCatalogFamilyEdition(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
 	ctx := t.Context()
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `DELETE FROM voice_model_catalog WHERE id LIKE 'family-edit-%'`)
+	})
 	for _, row := range [][]string{
 		{"family-edit-nemotron", "diarization", "nemo", "synthetic/nemotron"},
 		{"family-edit-pyannote", "diarization", "pyannote", "synthetic/pyannote"},

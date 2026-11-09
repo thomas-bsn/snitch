@@ -3,6 +3,7 @@
 package httpapi
 
 import (
+	"context"
 	"strings"
 	"testing"
 
@@ -20,6 +21,7 @@ func testVoiceCatalogFamilyBackfill(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	up := strings.SplitN(strings.TrimPrefix(string(raw), "-- +goose Up"), "-- +goose Down", 2)[0]
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM voice_model_catalog WHERE id LIKE 'backfill-%'`) })
 	rev := "0123456789abcdef0123456789abcdef01234567"
 	for _, row := range [][]string{
 		{"backfill-titanet", "fingerprint", "nemo-titanet", "synthetic/b-titanet"},
