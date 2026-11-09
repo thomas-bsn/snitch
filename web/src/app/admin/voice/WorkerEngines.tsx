@@ -5,7 +5,10 @@ import { useLoaded, type Result } from "../../api/loaded";
 import { ErrorAlert } from "../../components/Alert";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
+import { VoiceEngines } from "./VoiceEngines";
 import { WorkerEngineAdd } from "./WorkerEngineAdd";
+import { WorkerEngineReplace } from "./WorkerEngineReplace";
+import { isSuperAdministrator } from "../../roles";
 import { WorkerEngineModels } from "./WorkerEngineModels";
 import { WorkerEngineUninstall } from "./WorkerEngineUninstall";
 import { WorkerHardware } from "./WorkerHardware";
@@ -58,7 +61,8 @@ const counts = (w: EngineWorker) => ({
  */
 export function WorkerEngines() {
   const { t, error } = useI18n();
-  const { session } = useSession();
+  const { user, session } = useSession();
+  const owner = user !== null && isSuperAdministrator(user);
   const view = useLoaded(useCallback(fetchView, []));
   const registry = useLoaded(useCallback(fetchReleases, []));
   const [query, setQuery] = useState("");
@@ -163,6 +167,47 @@ export function WorkerEngines() {
       setOutcome(refused);
       setBusy(false);
       setPicked([]);
+      reloadView();
+    }
+  }
+
+  /** An on-demand engine: one request for the family and version, decided per Worker by the server. */
+  async function orderFamily(
+    family: string,
+    version: string,
+    workerIds: string[],
+  ) {
+    setBusy(true);
+    setFailure(undefined);
+    setOutcome([]);
+    const refused: string[] = [];
+    try {
+      const result = await api.POST(
+        "/api/admin/voice-engines/on-demand-orders",
+        {
+          params: { header: mutation(session?.csrf_token) },
+          body: {
+            family,
+            version,
+            orders: workerIds.map((worker_id) => ({
+              worker_id,
+              idempotency_key: crypto.randomUUID(),
+            })),
+          },
+        },
+      );
+      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else
+        for (const r of result.data.results)
+          if (r.status === "refused" && r.cause_code)
+            refused.push(
+              `${workers.find((w) => w.worker_id === r.worker_id)?.name ?? r.worker_id} : ${error(r.cause_code)}`,
+            );
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setOutcome(refused);
+      setBusy(false);
       reloadView();
     }
   }
@@ -512,8 +557,21 @@ export function WorkerEngines() {
           onConfirm={(key) => uninstall(uninstalling, key)}
         />
       )}
-      {(adding || replacing) && current && (
+      {adding && !replacing && current && (
         <WorkerEngineAdd
+          worker={current}
+          workers={workers}
+          checked={checked}
+          busy={busy}
+          onClose={() => setAdding(false)}
+          onOrder={async (family, version, ids) => {
+            await orderFamily(family, version, ids);
+            setAdding(false);
+          }}
+        />
+      )}
+      {replacing && current && (
+        <WorkerEngineReplace
           replacing={replacing}
           worker={current}
           workers={workers}
@@ -533,6 +591,15 @@ export function WorkerEngines() {
             setReplacing(undefined);
           }}
         />
+      )}
+      {owner && (
+        <details className="engine-advanced">
+          <summary>{t("workerEngines.advanced.title")}</summary>
+          <p className="text-sm text-ink-soft">
+            {t("workerEngines.advanced.lead")}
+          </p>
+          <VoiceEngines />
+        </details>
       )}
     </div>
   );

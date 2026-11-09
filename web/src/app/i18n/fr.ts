@@ -162,6 +162,26 @@ export const fr: Messages = {
     registryEmpty: "Aucune version approuvée ne correspond.",
     constraints: "{kind} · disque {disk} Mio · VRAM {vram} Mio · CUDA {cuda}",
     install: "Installer {count} engine(s)",
+    family: {
+      lead: "Engines que Snitch sait installer sur un Worker depuis leur bibliothèque. Choisissez une famille ; la version est préremplie et modifiable. Rien ne démarre avant votre confirmation.",
+      choose: "Famille d’engine",
+      version: "Version",
+      versionHint:
+        "Version par défaut : {version}. Le Worker l’installe avec pip dans un environnement isolé.",
+      meta: "{kinds} · environ {disk} Gio de disque · environ {minutes} min",
+      loading: "Chargement des engines supportés…",
+      none: "Aucune famille d’engine n’est disponible sur ce serveur.",
+      planLoading: "Calcul du plan…",
+      plan: "{count} Worker(s) accepté(s) · {disk} Gio de disque au total · environ {minutes} min",
+      refusedWorker: "{worker} : {reason}",
+      refusedDetail: "demande {required} Gio, {available} Gio disponibles",
+      noWorker: "Sélectionnez au moins un Worker.",
+      invalidVersion: "Cette version n’est pas valide.",
+    },
+    advanced: {
+      title: "Avancé",
+      lead: "Versions signées et clé de confiance. Réservé au propriétaire ; le chemin habituel pour ajouter un engine est le bouton ci-dessus.",
+    },
     cancel: "Annuler",
     models: {
       title: "Modèles liés",

@@ -20,7 +20,6 @@ import { ApplyToWorkers } from "./ApplyToWorkers";
 import { OrderHistory, OrderHistoryContent } from "./OrderHistory";
 import { VoiceCatalogue, VoiceReferenceDetails } from "./VoiceCatalogue";
 import { VoiceModelAdd } from "./VoiceModelAdd";
-import { VoiceEngines } from "./VoiceEngines";
 import { WorkerEngines } from "./WorkerEngines";
 import { VoiceHuggingFace } from "./VoiceHuggingFace";
 import { VoiceHeader } from "./VoiceHeader";
@@ -366,7 +365,6 @@ export function VoiceWorkspace({
         {settings === "access" ? (
           <>
             <VoiceHuggingFace />
-            <VoiceEngines />
           </>
         ) : settings === "identification" ? (
           <>
