@@ -55,7 +55,12 @@ class InstallTests(SpeechBrainCase):
     def test_the_engine_installs_for_a_fingerprint_model(self):
         rt = runtime()
         target = self.install(rt)
-        self.assertIn("speechbrain==1.0.3", (target / "pip-freeze.txt").read_text().splitlines())
+        freeze = (target / "pip-freeze.txt").read_text().splitlines()
+        self.assertIn("speechbrain==1.0.3", freeze)
+        # pip must not take the newest torchaudio: 2.9+ no longer has list_audio_backends, which SpeechBrain 1.0.3
+        # calls at import (the install of a real Worker failed on exactly this).
+        self.assertIn("torchaudio==2.8.0", freeze)
+        self.assertIn("torch==2.8.0", freeze)
         self.assertTrue(runtime_module.installed(rt, self.env))
         self.assertEqual(runtime_module.inventory(self.env), [{"engine": "speechbrain", "local_identity": runtime_module.local_identity(rt, self.env)}])
 

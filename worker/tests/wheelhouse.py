@@ -100,6 +100,11 @@ def build_speechbrain_wheelhouse(directory: Path) -> Path:
     build_wheel(directory, "speechbrain", "1.0.3", package)
     build_wheel(directory, "speechbrain", "1.1.0", package)
     build_wheel(directory, "speechbrain", "2.0.0", {"speechbrain/__init__.py": ""})
+    # The real SpeechBrain declares torch and torchaudio unbounded. Two releases of each, so that a test can tell the
+    # newest one (2.9.1, which no longer has the APIs SpeechBrain imports) from the one the family pins (2.8.0).
+    for name in ("torch", "torchaudio"):
+        build_wheel(directory, name, "2.8.0", {f"{name}/__init__.py": ""})
+        build_wheel(directory, name, "2.9.1", {f"{name}/__init__.py": ""})
     return directory
 
 
