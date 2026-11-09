@@ -163,3 +163,38 @@ func testVoiceEngineOnDemandResources(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("state: %+v %v", e, ok)
 	}
 }
+
+// The WeSpeaker family through the administration API (#375): a fingerprint-only engine with its own identity,
+// installed beside NeMo on the same Worker, with the same lifecycle states.
+func testVoiceEngineWeSpeaker(t *testing.T, pool *pgxpool.Pool) {
+	h := newEngineOrderHarness(t, pool)
+	fixture := h.fixtureWorkerID()
+	nemo := h.orderFamily("nemo", "", http.StatusOK, map[string]string{"worker_id": fixture, "idempotency_key": "wespeaker-nemo-01"})[0].Order
+	r := h.orderFamily("wespeaker", "", http.StatusOK, map[string]string{"worker_id": fixture, "idempotency_key": "wespeaker-order-01"})
+	if len(r) != 1 || r[0].Status != "created" || r[0].Order == nil {
+		t.Fatalf("order: %+v", r)
+	}
+	order := r[0].Order
+	if order.Engine != "wespeaker" || order.Version != "1.0.1" || order.Digest == nemo.Digest {
+		t.Fatalf("order content: %+v", order)
+	}
+	var runtime map[string]any
+	if err := json.Unmarshal(order.Runtime, &runtime); err != nil || runtime["source"] != "on_demand" || runtime["family"] != "wespeaker" ||
+		runtime["distribution"] != "wespeakerruntime" || runtime["kind"] != "fingerprint" || runtime["cuda"] != "" {
+		t.Fatalf("runtime: %s (%v)", order.Runtime, err)
+	}
+	h.report(order.OrderID, order.Digest, "installing", "", http.StatusNoContent)
+	h.report(order.OrderID, order.Digest, "verifying", "", http.StatusNoContent)
+	h.report(order.OrderID, order.Digest, "ready", "", http.StatusNoContent)
+	if e, ok := h.entry(fixture, order.Digest); !ok || e.State != "ready" {
+		t.Fatalf("ready: %+v %v", e, ok)
+	}
+	if r := h.orderFamily("wespeaker", "", http.StatusOK, map[string]string{"worker_id": fixture, "idempotency_key": "wespeaker-order-02"}); r[0].Cause != "engine_already_installed" {
+		t.Fatalf("ready again: %+v", r)
+	}
+	// A version that is not a version is refused whole, and a package source is never accepted as one.
+	h.orderFamily("wespeaker", "--index-url=http://evil", http.StatusBadRequest, map[string]string{"worker_id": fixture, "idempotency_key": "wespeaker-order-03"})
+	if n := h.count(`SELECT count(*) FROM voice_engine_registry WHERE engine='wespeaker'`); n != 1 {
+		t.Fatalf("registry rows: %d", n)
+	}
+}

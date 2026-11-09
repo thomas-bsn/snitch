@@ -353,7 +353,10 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
 # not in this table, or that differs from it, is refused. Pip arguments are built only from these values and a
 # version that matches _VERSION (it cannot start with "-"), so an order cannot inject a pip option.
 FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "extras": "asr", "kinds": ("diarization", "fingerprint"),
-                     "probe": "nemo.collections.asr.models"}}
+                     "probe": "nemo.collections.asr.models"},
+            # WeSpeaker is not published on PyPI; its ONNX inference package is `wespeakerruntime` (#375). Fingerprint only.
+            "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
+                          "probe": "wespeakerruntime"}}
 _ON_DEMAND_ENGINES = {family["engine"] for family in FAMILIES.values()}
 _ON_DEMAND_FIELDS = {"source", "family", "engine", "distribution", "version", "kind", "kinds", "python", "platform", "cuda",
                      "disk_bytes", "vram_bytes", "ram_bytes", "estimated_seconds"}

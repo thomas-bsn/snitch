@@ -85,3 +85,11 @@ def build_nemo_wheelhouse(directory: Path) -> Path:
     build_failing_sdist(directory, "nemo-toolkit", "6.0.0")
     build_wheel(directory, "nemo-toolkit", "7.0.0", asr, requires=("not-in-the-house==1.0",), extras={"asr": ()})
     return directory
+
+
+def build_wespeaker_wheelhouse(directory: Path) -> Path:
+    """The real distribution is `wespeakerruntime` (ONNX inference); `wespeaker` itself is not on PyPI (#375)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    build_wheel(directory, "wespeakerruntime", "1.0.1", {"wespeakerruntime/__init__.py": "class Speaker:\n    pass\n"})
+    build_wheel(directory, "wespeakerruntime", "1.0.0", {"wespeakerruntime/__init__.py": "class Speaker:\n    pass\n"})
+    return directory

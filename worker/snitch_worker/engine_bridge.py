@@ -11,6 +11,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
+from snitch_worker import voice_wespeaker
 from snitch_worker.voice import VoiceProviderUnavailable
 from snitch_worker.voice_pyannote import DecodedAudio, PyannoteProvider
 
@@ -20,6 +21,9 @@ def _speaker_loader(engine: str, path: str, device: str) -> Any:
         # Pinned files, data-only YAML scan, fixed architecture: see voice_ecapa (never from_hparams).
         from snitch_worker import voice_ecapa
         return voice_ecapa.speaker_loader(path, device)
+    if engine == "wespeaker":
+        # Generic family adapter: an ONNX graph read as data, configuration as data, no repository code.
+        return voice_wespeaker.speaker_loader(path, device)
     import torch
     import torchaudio
 
@@ -46,6 +50,8 @@ def _speaker_loader(engine: str, path: str, device: str) -> Any:
 class SpeakerProvider(PyannoteProvider):
     def __init__(self, engine: str, **kwargs: Any) -> None:
         self.engine = engine
+        if engine == "wespeaker":
+            kwargs.setdefault("device_probe", lambda: "cpu")  # the ONNX graph runs on the CPU: no GPU is probed
         super().__init__(load_embedder=lambda p, d: _speaker_loader(engine, p, d), **kwargs)
 
     def _embedding_identity(self, config: dict[str, Any] | None = None) -> tuple[str, str]:
@@ -66,7 +72,7 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
     env["SNITCH_WORKER_MODELS_DIR"] = str(Path(request["manifest_path"]).parent)
     env[voice_manifest.EMBEDDING_PATH_ENV if kind == "fingerprint" else voice_manifest.DIARIZATION_PATH_ENV] = path
     env["SNITCH_VOICE_EMBEDDING_MODEL_VERSION"] = "runtime-selftest"
-    provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa"}
+    provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}
                 else (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=env))
     if request["operation"] == "verify":
         if kind == "fingerprint":
