@@ -365,6 +365,11 @@ _ON_DEMAND_ENGINES = {family["engine"] for family in FAMILIES.values()}
 # Kinds an adapter actually runs, per family; a kind of the family that is not here (SpeechBrain separation) gets an engine
 # and no model (ADR 0056). Mirrors ActiveKinds of Snitch's table.
 _INACTIVE_KINDS = {"speechbrain": ("separation",)}
+# Adapters that only exist as a signed Release (no embedded copy), and every engine name a fingerprint speaker
+# adapter runs: those plus the families that cover fingerprint only. Mirrors signedOnlyAdapters of Snitch's table;
+# scripts/check_engine_families.py fails the build when this file and the Go table drift apart.
+SIGNED_ONLY_ADAPTERS = frozenset({"nemo-titanet", "speechbrain-ecapa"})
+SPEAKER_ENGINES = SIGNED_ONLY_ADAPTERS | {family["engine"] for family in FAMILIES.values() if family["kinds"] == ("fingerprint",)}
 
 
 def runs_kind(runtime: Any) -> bool:

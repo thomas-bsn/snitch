@@ -123,7 +123,8 @@ jobs:
           .venv/bin/python scripts/check_generated.py
           .venv/bin/python scripts/check_compose.py
           .venv/bin/python scripts/check_error_codes.py
-          (cd scripts && ../.venv/bin/python -m unittest test_reserve_worker_version test_ci_metrics test_verify_workflow)
+          .venv/bin/python scripts/check_engine_families.py
+          (cd scripts && ../.venv/bin/python -m unittest test_reserve_worker_version test_ci_metrics test_verify_workflow test_check_engine_families)
 
   go-test:
     # Every Go package with the race detector and the integration tag (PostgreSQL through Testcontainers), except the

@@ -92,7 +92,7 @@ class RuntimeProvider:
                 named = engine_runtime.is_on_demand(manifest) or manifest["engine"] == expected
                 if not named or manifest["kind"] != kind or not engine_runtime.installed(manifest, self.legacy._environ):
                     raise VoiceProviderUnavailable("ml_libraries_missing")
-            if manifest is None and getattr(self.legacy, "engine", "pyannote") in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}:
+            if manifest is None and getattr(self.legacy, "engine", "pyannote") in engine_runtime.SPEAKER_ENGINES:
                 raise VoiceProviderUnavailable("ml_libraries_missing")
             return path, manifest
         except engine_runtime.RuntimeFailed:

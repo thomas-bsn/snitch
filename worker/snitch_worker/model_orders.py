@@ -26,14 +26,14 @@ import time
 from collections.abc import Mapping
 from typing import Any
 
-from snitch_worker import hf_token_sync, log, voice_download, voice_manifest, voice_models
+from snitch_worker import engine_runtime, hf_token_sync, log, voice_download, voice_manifest, voice_models
 
 _ORDER_ID = re.compile(r"^ord_[A-Za-z0-9_-]{16,64}$")
 _WORKER_ID = re.compile(r"^wk_[A-Za-z0-9_-]{20,60}$")
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{8,100}$")
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 # Engines an approved adapter exists for, by type (separation has none yet).
-ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote", "nemo-titanet", "speechbrain-ecapa"}, "vad": {"silero-jit"}}
+ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"} | engine_runtime.SIGNED_ONLY_ADAPTERS, "vad": {"silero-jit"}}
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.
 # Intents of a model order: "install" (weights and runtime), or a runtime-only "update" / "rollback" (#352).
@@ -126,7 +126,7 @@ class OrderExecutor:
         from snitch_worker import engine_runtime
         runtime = order.get("runtime")
         if runtime is None:
-            return order.get("engine") not in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}
+            return order.get("engine") not in engine_runtime.SPEAKER_ENGINES
         try:
             if engine_runtime.is_on_demand(runtime):
                 # The engine of a model installs by family and version; its kind must be the model's (ADR 0056).

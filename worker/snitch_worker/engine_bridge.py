@@ -11,7 +11,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from snitch_worker import voice_wespeaker
+from snitch_worker import engine_runtime, voice_wespeaker
 from snitch_worker.voice import VoiceProviderUnavailable
 from snitch_worker.voice_pyannote import DecodedAudio, PyannoteProvider
 
@@ -90,7 +90,7 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
         engine = "nemo" if kind == "diarization" else engine
     else:
         # The WeSpeaker family is fingerprint only and has its own generic adapter (voice_wespeaker).
-        provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa", "wespeaker"}
+        provider = (SpeakerProvider(engine, environ=env) if engine in engine_runtime.SPEAKER_ENGINES
                     else (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=env))
     if request["operation"] == "verify":
         if kind == "fingerprint":
