@@ -72,6 +72,38 @@ from .avatar_settings_input import AvatarSettingsInput
 from .avatar_settings_input_source import AvatarSettingsInputSource
 from .avatar_settings_source import AvatarSettingsSource
 from .backfill_embedding_index_response_202 import BackfillEmbeddingIndexResponse202
+from .benchmark_activation_input import BenchmarkActivationInput
+from .benchmark_activation_input_stage import BenchmarkActivationInputStage
+from .benchmark_activation_preview import BenchmarkActivationPreview
+from .benchmark_activation_result import BenchmarkActivationResult
+from .benchmark_chain import BenchmarkChain
+from .benchmark_clip import BenchmarkClip
+from .benchmark_clip_list import BenchmarkClipList
+from .benchmark_created import BenchmarkCreated
+from .benchmark_dataset import BenchmarkDataset
+from .benchmark_dataset_created import BenchmarkDatasetCreated
+from .benchmark_dataset_created_stages_item import BenchmarkDatasetCreatedStagesItem
+from .benchmark_dataset_input import BenchmarkDatasetInput
+from .benchmark_dataset_list import BenchmarkDatasetList
+from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
+from .benchmark_job_error import BenchmarkJobError
+from .benchmark_metrics import BenchmarkMetrics
+from .benchmark_model import BenchmarkModel
+from .benchmark_model_list import BenchmarkModelList
+from .benchmark_person import BenchmarkPerson
+from .benchmark_progress import BenchmarkProgress
+from .benchmark_reference_import import BenchmarkReferenceImport
+from .benchmark_reference_sources_item import BenchmarkReferenceSourcesItem
+from .benchmark_result import BenchmarkResult
+from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
+from .benchmark_result_state import BenchmarkResultState
+from .benchmark_run import BenchmarkRun
+from .benchmark_run_input import BenchmarkRunInput
+from .benchmark_run_input_chains_item import BenchmarkRunInputChainsItem
+from .benchmark_run_input_stage import BenchmarkRunInputStage
+from .benchmark_run_list import BenchmarkRunList
+from .benchmark_run_stage import BenchmarkRunStage
+from .benchmark_run_status import BenchmarkRunStatus
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
@@ -207,6 +239,7 @@ from .job_page import JobPage
 from .job_result_type_0 import JobResultType0
 from .job_status import JobStatus
 from .library_folder import LibraryFolder
+from .list_benchmark_models_stage import ListBenchmarkModelsStage
 from .list_clips_status import ListClipsStatus
 from .list_clips_visibility import ListClipsVisibility
 from .list_jobs_status import ListJobsStatus
@@ -295,6 +328,7 @@ from .post_worker_transcription_config_status_body_error_code import PostWorkerT
 from .post_worker_transcription_config_status_response_200 import PostWorkerTranscriptionConfigStatusResponse200
 from .post_worker_update_status_body import PostWorkerUpdateStatusBody
 from .post_worker_update_status_body_state import PostWorkerUpdateStatusBodyState
+from .preview_benchmark_activation_stage import PreviewBenchmarkActivationStage
 from .preview_transcription_batch_response_200 import PreviewTranscriptionBatchResponse200
 from .put_clip_metadata_body import PutClipMetadataBody
 from .put_clip_metadata_response_200 import PutClipMetadataResponse200
@@ -708,6 +742,38 @@ __all__ = (
     "AvatarSettingsInputSource",
     "AvatarSettingsSource",
     "BackfillEmbeddingIndexResponse202",
+    "BenchmarkActivationInput",
+    "BenchmarkActivationInputStage",
+    "BenchmarkActivationPreview",
+    "BenchmarkActivationResult",
+    "BenchmarkChain",
+    "BenchmarkClip",
+    "BenchmarkClipList",
+    "BenchmarkCreated",
+    "BenchmarkDataset",
+    "BenchmarkDatasetCreated",
+    "BenchmarkDatasetCreatedStagesItem",
+    "BenchmarkDatasetInput",
+    "BenchmarkDatasetList",
+    "BenchmarkDatasetStagesItem",
+    "BenchmarkJobError",
+    "BenchmarkMetrics",
+    "BenchmarkModel",
+    "BenchmarkModelList",
+    "BenchmarkPerson",
+    "BenchmarkProgress",
+    "BenchmarkReferenceImport",
+    "BenchmarkReferenceSourcesItem",
+    "BenchmarkResult",
+    "BenchmarkResultResourcesType0",
+    "BenchmarkResultState",
+    "BenchmarkRun",
+    "BenchmarkRunInput",
+    "BenchmarkRunInputChainsItem",
+    "BenchmarkRunInputStage",
+    "BenchmarkRunList",
+    "BenchmarkRunStage",
+    "BenchmarkRunStatus",
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
@@ -843,6 +909,7 @@ __all__ = (
     "JobResultType0",
     "JobStatus",
     "LibraryFolder",
+    "ListBenchmarkModelsStage",
     "ListClipsStatus",
     "ListClipsVisibility",
     "ListJobsStatus",
@@ -931,6 +998,7 @@ __all__ = (
     "PostWorkerTranscriptionConfigStatusResponse200",
     "PostWorkerUpdateStatusBody",
     "PostWorkerUpdateStatusBodyState",
+    "PreviewBenchmarkActivationStage",
     "PreviewTranscriptionBatchResponse200",
     "PutClipMetadataBody",
     "PutClipMetadataResponse200",

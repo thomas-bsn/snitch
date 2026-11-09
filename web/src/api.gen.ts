@@ -3910,6 +3910,145 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/benchmarks/datasets": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Jeux de données de benchmark : voix de référence et de test, dont la vérité terrain est un instantané des validations humaines. */
+    get: operations["listBenchmarkDatasets"];
+    put?: never;
+    /** @description Administrateurs uniquement. Crée un corpus de clips partagés : clips de test (éventuellement certifiés relus en entier) et clips de référence (enrôlement des Personnes pour l'empreinte). La vérité terrain des voix est la validation humaine, figée à la création. Les étapes mesurables en sont déduites (stages). Refus : benchmark_clip_duplicate, benchmark_clip_invalid (inconnu ou privé), benchmark_verified_not_test, benchmark_verified_empty (clip certifié sans transcription ni voix validée), benchmark_import_format, benchmark_import_times, benchmark_import_speakers (STM et RTTM sans locuteur commun), benchmark_import_size, benchmark_import_clip (clip non test ou importé deux fois), benchmark_import_track (piste du clip inconnue ou ambiguë), benchmark_dataset_unusable (aucune étape mesurable), benchmark_dataset_name_taken. */
+    post: operations["createBenchmarkDataset"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/datasets/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** @description Administrateurs uniquement. Supprime un jeu de données jamais utilisé par un run (benchmark_dataset_used sinon). */
+    delete: operations["deleteBenchmarkDataset"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Historique des 100 derniers runs ; lire règle les runs dont toutes les tâches sont terminées. */
+    get: operations["listBenchmarkRuns"];
+    put?: never;
+    /** @description Administrateurs uniquement. Lance des modèles sur les mêmes clips du corpus via des tâches à modèle demandé : aucun résultat de production, aucune validation ni le modèle actif ne sont modifiés. Empreinte et diarisation : modèles du catalogue de la même catégorie (benchmark_model_invalid sinon) ; la diarisation a une étape de tâche à part (benchmark.diarization), jamais une diarisation de production. Transcription : noms de modèles du service, une tâche benchmark.transcription par clip certifié et par piste. Un seul run actif (benchmark_run_active). Refus : benchmark_transition_open (empreinte), benchmark_dataset_stale, benchmark_stage_unsupported_by_dataset. Bout en bout (stage e2e) : des chaînes (diarisation + transcription), composées à partir des tâches des deux étapes, partagées entre chaînes qui utilisent le même modèle ; mesure par le cpWER. */
+    post: operations["startBenchmarkRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/runs/{id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. État d'un run, progression, erreurs des tâches et résultats par modèle. Les scores de modèles différents ne sont pas comparables : chaque modèle a son propre seuil. */
+    get: operations["getBenchmarkRun"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/runs/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Annule le run et ses tâches non terminées (benchmark_not_running si déjà terminé). */
+    post: operations["cancelBenchmarkRun"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/clips": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Clips partagés pouvant entrer dans un corpus : avec transcription ou voix validée par un humain, hors dossiers privés. Les clips privés ou rangés seulement dans un dossier privé ne sont jamais proposés. */
+    get: operations["listBenchmarkClips"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/models": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Modèles comparables pour l'étape. Empreinte et diarisation : catalogue, avec le nombre de Workers où chacun est prêt. Transcription : le modèle de production seulement ; les autres sont nommés par l'administrateur, car seul un Worker joint le service de transcription. */
+    get: operations["listBenchmarkModels"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/benchmarks/activation": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Aperçu du changement du modèle de production (transcription ou diarisation) : modèle remplacé, Workers prêts, clips qu'une réanalyse mettrait en jeu dont ceux qui portent un travail humain. L'empreinte passe par sa transition (benchmark_activation_unsupported). */
+    get: operations["previewBenchmarkActivation"];
+    put?: never;
+    /** @description Administrateurs uniquement. Change le modèle utilisé pour le travail à venir. Jamais une réanalyse : rien n'est planifié, aucune correction ni validation n'est touchée. Exige la confirmation (benchmark_activation_confirm_required) et le modèle remplacé vu à l'aperçu (benchmark_activation_stale). Chaque changement est enregistré avec son auteur et le run. */
+    post: operations["confirmBenchmarkActivation"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7861,6 +8000,266 @@ export interface components {
       cpu_fallback: boolean;
       /** Format: date-time */
       reported_at: string;
+    };
+    BenchmarkDataset: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Étapes que le corpus permet de mesurer. Une étape listée n'est pas forcément déjà exécutable. */
+      stages: ("fingerprint" | "transcription" | "diarization" | "e2e")[];
+      test_clips: number;
+      reference_clips: number;
+      verified_clips: number;
+      persons: number;
+      /** Format: double */
+      duration_seconds: number;
+      reference_sources: components["schemas"]["BenchmarkReferenceSources"];
+    };
+    /** @description D'où viennent les références des clips certifiés : production (sortie du pipeline de production corrigée par des humains, qui avantage le modèle de production) et/ou import (STM ou RTTM écrit à la main). L'avertissement de biais ne s'applique que si production y figure. */
+    BenchmarkReferenceSources: ("production" | "import")[];
+    BenchmarkReferenceImport: {
+      /** Format: int64 */
+      clip_id: number;
+      /** @description Texte de référence : `<fichier> <canal> <locuteur> <début> <fin> [<étiquettes>] texte`, lignes `;;` ignorées. */
+      stm?: string;
+      /** @description Tours de parole de référence : `SPEAKER <fichier> <canal> <début> <durée> <NA> <NA> <locuteur> <NA> <NA>`. */
+      rttm?: string;
+    };
+    BenchmarkDatasetList: {
+      datasets: components["schemas"]["BenchmarkDataset"][];
+    };
+    BenchmarkDatasetInput: {
+      name: string;
+      test_clip_ids: number[];
+      reference_clip_ids: number[];
+      /** @description Clips de test dont l'administrateur atteste que le texte et les locuteurs ont été relus en entier. */
+      verified_clip_ids: number[];
+      /** @description Références externes (STM et/ou RTTM, 2 Mo au total) qui remplacent la référence de production d'un clip de test ; le clip compte alors comme certifié. La piste est celle de la transcription de production du clip. */
+      reference_imports?: components["schemas"]["BenchmarkReferenceImport"][];
+    };
+    BenchmarkCreated: {
+      /** Format: int64 */
+      id: number;
+    };
+    BenchmarkRunInput: {
+      /** Format: int64 */
+      dataset_id: number;
+      /** @enum {string} */
+      stage: "fingerprint" | "transcription" | "diarization" | "e2e";
+      /** @description Modèles comparés (empreinte, transcription, diarisation). Absent pour le bout en bout. */
+      model_ids?: string[];
+      /** @description Bout en bout : paires modèle de diarisation + modèle de transcription. */
+      chains?: {
+        diarization_model_id: string;
+        transcription_model: string;
+      }[];
+    };
+    BenchmarkJobError: {
+      /** Format: int64 */
+      job_id: number;
+      model_id: string;
+      status: string;
+      error: string;
+    };
+    BenchmarkProgress: {
+      jobs: number;
+      done: number;
+      failed: number;
+      active: number;
+      errors: components["schemas"]["BenchmarkJobError"][];
+    };
+    BenchmarkResult: {
+      model_id: string;
+      model: string;
+      model_version: string;
+      dimensions: number;
+      /** @enum {string} */
+      state: "complete" | "partial" | "failed";
+      items_total: number;
+      items_scored: number;
+      /** Format: double */
+      elapsed_seconds?: number | null;
+      metrics: components["schemas"]["BenchmarkMetrics"];
+      /** @description RAM/VRAM : non remontés par le Worker, toujours null pour l'instant. */
+      resources?: Record<string, never> | null;
+    };
+    BenchmarkRun: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      dataset_id: number;
+      dataset_name: string;
+      reference_sources: components["schemas"]["BenchmarkReferenceSources"];
+      /** @enum {string} */
+      stage: "fingerprint" | "transcription" | "diarization" | "e2e";
+      /** @enum {string} */
+      status: "running" | "completed" | "failed" | "cancelled";
+      model_ids: string[];
+      author_name: string;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at?: string | null;
+      progress: components["schemas"]["BenchmarkProgress"];
+      results: components["schemas"]["BenchmarkResult"][];
+      /** @description Bout en bout : les paires de modèles que représentent les identifiants des résultats. */
+      chains: components["schemas"]["BenchmarkChain"][];
+    };
+    BenchmarkRunList: {
+      runs: components["schemas"]["BenchmarkRun"][];
+    };
+    BenchmarkDatasetCreated: {
+      /** Format: int64 */
+      id: number;
+      stages: ("fingerprint" | "transcription" | "diarization" | "e2e")[];
+    };
+    BenchmarkClip: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+      /** Format: double */
+      duration_seconds: number | null;
+      segments_total: number;
+      segments_corrected: number;
+      validated_persons: components["schemas"]["BenchmarkPerson"][];
+    };
+    BenchmarkClipList: {
+      clips: components["schemas"]["BenchmarkClip"][];
+    };
+    BenchmarkModel: {
+      id: string;
+      label: string;
+      repo: string;
+      revision: string;
+      engine: string;
+      active: boolean;
+      ready_workers: number;
+      total_workers: number;
+    };
+    BenchmarkModelList: {
+      models: components["schemas"]["BenchmarkModel"][];
+    };
+    BenchmarkPerson: {
+      /** Format: int64 */
+      id: number;
+      name: string;
+    };
+    /** @description Mesures d'un seul modèle ; les champs dépendent de l'étape (empreinte : eer, top1, précision, rappel… ; transcription : wer, cer… ; diarisation : der et ses trois composantes). Jamais comparables en score brut d'un modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer (sans attribution) et der des mêmes sorties. */
+    BenchmarkMetrics: {
+      references?: number;
+      tests?: number;
+      persons?: number;
+      genuine_trials?: number;
+      impostor_trials?: number;
+      /** Format: double */
+      eer?: number | null;
+      /** Format: double */
+      eer_threshold?: number | null;
+      /** Format: double */
+      top1_accuracy?: number | null;
+      true_positives?: number;
+      false_positives?: number;
+      false_negatives?: number;
+      /** Format: double */
+      precision?: number | null;
+      /** Format: double */
+      recall?: number | null;
+      /** Format: double */
+      genuine_mean_score?: number | null;
+      /** Format: double */
+      impostor_mean_score?: number | null;
+      ignored_dimension?: number;
+      /** @description Transcription : clips (et pistes) mesurés. */
+      clips?: number;
+      reference_words?: number;
+      word_errors?: number;
+      reference_chars?: number;
+      character_errors?: number;
+      /** @description Clips trop longs pour la comparaison par caractère, laissés hors du CER. */
+      cer_skipped_clips?: number;
+      /**
+       * Format: double
+       * @description Word Error Rate (transcription), micro-moyenne sur les clips.
+       */
+      wer?: number | null;
+      /**
+       * Format: double
+       * @description Character Error Rate (transcription).
+       */
+      cer?: number | null;
+      /** @description Diarisation : clips trop longs, laissés hors du calcul. */
+      skipped_clips?: number;
+      /** Format: double */
+      reference_speech_seconds?: number;
+      /** Format: double */
+      missed_speech_seconds?: number;
+      /** Format: double */
+      false_alarm_seconds?: number;
+      /** Format: double */
+      confusion_seconds?: number;
+      /**
+       * Format: double
+       * @description Tolérance autour de chaque borne de référence.
+       */
+      collar_seconds?: number;
+      /**
+       * Format: double
+       * @description Diarization Error Rate : parole manquée + fausse alarme + confusion, rapportées à la parole de référence.
+       */
+      der?: number | null;
+      /** Format: double */
+      missed_speech_rate?: number | null;
+      /** Format: double */
+      false_alarm_rate?: number | null;
+      /** Format: double */
+      confusion_rate?: number | null;
+      /**
+       * Format: double
+       * @description Bout en bout : WER avec attribution des locuteurs (cpWER).
+       */
+      cpwer?: number | null;
+      cp_word_errors?: number;
+      reference_speakers?: number;
+      model_speakers?: number;
+    };
+    BenchmarkChain: {
+      id: string;
+      diarization_model_id: string;
+      transcription_model: string;
+    };
+    BenchmarkActivationPreview: {
+      stage: string;
+      current_model: string;
+      target_model: string;
+      target_label: string;
+      already_active: boolean;
+      workers_ready: number;
+      clips_with_analysis: number;
+      /** @description Clips portant des corrections ou validations humaines : une réanalyse les mettrait en jeu. */
+      clips_with_human_work: number;
+      human_items: number;
+      /** @description Écran qui porte la réanalyse, qui n'est jamais lancée par l'activation. */
+      reanalysis: string;
+    };
+    BenchmarkActivationInput: {
+      /** @enum {string} */
+      stage: "transcription" | "diarization";
+      model: string;
+      /** Format: int64 */
+      run_id?: number;
+      /** @description Le modèle remplacé tel que l'aperçu l'a montré : un changement survenu depuis est refusé (benchmark_activation_stale). */
+      expected_current: string;
+      confirm: boolean;
+    };
+    BenchmarkActivationResult: {
+      version: string;
+      stage: string;
+      model: string;
+      reanalysis: string;
+      clips_with_human_work: number;
     };
   };
   responses: never;
@@ -18809,6 +19208,361 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkDatasets: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Jeux de données */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkDatasetList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  createBenchmarkDataset: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BenchmarkDatasetInput"];
+      };
+    };
+    responses: {
+      /** @description Jeu de données créé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkDatasetCreated"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteBenchmarkDataset: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkRuns: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Runs */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkRunList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startBenchmarkRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BenchmarkRunInput"];
+      };
+    };
+    responses: {
+      /** @description Run démarré */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkCreated"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getBenchmarkRun: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Run */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkRun"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelBenchmarkRun: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Run annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkRun"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkClips: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Clips */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkClipList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  listBenchmarkModels: {
+    parameters: {
+      query: {
+        stage: "fingerprint" | "transcription" | "diarization";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Modèles */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkModelList"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewBenchmarkActivation: {
+    parameters: {
+      query: {
+        stage: "transcription" | "diarization";
+        model: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkActivationPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  confirmBenchmarkActivation: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["BenchmarkActivationInput"];
+      };
+    };
+    responses: {
+      /** @description Modèle changé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["BenchmarkActivationResult"];
+        };
       };
       /** @description Erreur */
       default: {

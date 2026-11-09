@@ -514,7 +514,7 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
 def supported_steps() -> list[str]:
     """The step families this Worker can read. A diagnostic is declared only where Torch can run the detector;
     Snitch still dispatches one only after this Worker reports the pinned model ready (ADR 0048)."""
-    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*"]
+    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*", "benchmark.transcription.*", "benchmark.diarization.*"]
     if audio_diagnostic.available():
         steps.append("audio.diagnostic.*")
     return steps
@@ -839,7 +839,8 @@ def _run_claimed(
                 result = run_audio_dedup(client, task_input, lease_token)
             elif re.fullmatch(r"audio\.diagnostic\.\d+", job.step):
                 result = run_audio_diagnostic(client, task_input, lease_token, job.step)
-            elif re.fullmatch(r"transcription\.audio\.\d+", job.step):
+            elif re.fullmatch(r"transcription\.audio\.\d+|benchmark\.transcription\.\d+", job.step):
+                # A benchmark task transcribes like a production one, with the model the task asks for (ADR 0058).
                 with tempfile.TemporaryDirectory(
                     prefix="snitch-transcription-"
                 ) as temporary:
@@ -881,7 +882,11 @@ def _run_claimed(
                         result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                         result["audio_stream_index"] = stream_index
                         attach_peaks(result, wav_path)
-            elif is_voice_step(job.step):
+            elif is_voice_step(job.step) or re.fullmatch(r"benchmark\.diarization\.\d+", job.step):
+                # A benchmark diarization runs the production code on the model the task asks for, under the name of
+                # the voice step it imitates; it computes no waveform peaks (ADR 0059).
+                benchmark = job.step.startswith("benchmark.")
+                voice_step = "voice." + job.step[len("benchmark."):] if benchmark else job.step
                 voice_value = getattr(task_input, "voice", None)
                 voice_input = voice_value.to_dict() if hasattr(voice_value, "to_dict") else {}
                 duration = getattr(task_input, "duration_seconds", None)
@@ -889,18 +894,18 @@ def _run_claimed(
                 voice_config = voice_input.get("config") or {}
                 if requires_audio(voice_config):
                     # Fail on a missing model path before downloading any media.
-                    ensure_provider_ready(voice_input, voice_providers, step=job.step)
+                    ensure_provider_ready(voice_input, voice_providers, step=voice_step)
                     with tempfile.TemporaryDirectory(prefix="snitch-voice-") as temporary:
                         original = os.path.join(temporary, "original.media")
                         wav_path = os.path.join(temporary, "prepared.wav")
                         download_media(client, task_input, lease_token, original)
                         prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
-                        result = process_voice_step(job.step, voice_input, duration, wav_path, voice_providers)
-                        if _is_diarization_step(job.step):
+                        result = process_voice_step(voice_step, voice_input, duration, wav_path, voice_providers)
+                        if _is_diarization_step(voice_step) and not benchmark:
                             attach_peaks(result, wav_path)
                 else:
                     # No audio is prepared here, so no peaks: a result without them is accepted (ADR 0034).
-                    result = process_voice_step(job.step, voice_input, duration, None, voice_providers)
+                    result = process_voice_step(voice_step, voice_input, duration, None, voice_providers)
             else:
                 raise ValueError("unsupported worker step")
         heartbeat_stop.set()

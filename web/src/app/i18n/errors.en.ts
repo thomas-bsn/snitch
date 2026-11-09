@@ -439,4 +439,48 @@ export const errorsEn = {
   invalid_install_event: "This installation event is not valid.",
   worker_token_invalid: "This worker token is not valid.",
   worker_token_required: "A worker token is required.",
+  benchmark_dataset_name_taken: "A benchmark dataset already has this name.",
+  benchmark_dataset_used:
+    "A benchmark run used this dataset: it can no longer be deleted.",
+  benchmark_dataset_stale:
+    "The dataset refers to clips that were analysed again: create a new dataset.",
+  benchmark_model_invalid:
+    "Pick enabled, supported fingerprint models of the catalogue.",
+  benchmark_run_active:
+    "A benchmark is already running: wait for it or cancel it first.",
+  benchmark_not_running: "This benchmark is no longer running.",
+  benchmark_transition_open:
+    "A fingerprint model change is under way: finish or cancel it before running a benchmark.",
+  benchmark_clip_duplicate: "A clip can be a test or a reference, once.",
+  benchmark_clip_invalid: "A selected clip does not exist or is private.",
+  benchmark_verified_not_test:
+    "Only a test clip can be certified as fully reviewed.",
+  benchmark_dataset_unusable:
+    "This corpus cannot measure any stage: add reviewed test clips or validated voices.",
+  benchmark_stage_unavailable: "This stage cannot be benchmarked yet.",
+  benchmark_stage_unsupported_by_dataset:
+    "This corpus cannot measure this stage.",
+  benchmark_verified_empty:
+    "A certified clip needs a transcript or a validated voice.",
+  benchmark_import_format:
+    "The imported file is not a valid STM or RTTM: check each line against the expected format.",
+  benchmark_import_times:
+    "The imported file has inconsistent times: a start must not be negative and an end must come after its start.",
+  benchmark_import_speakers:
+    "The STM and the RTTM of this clip name no speaker in common.",
+  benchmark_import_size: "The imported files exceed 2 MB in total.",
+  benchmark_import_clip:
+    "An imported reference must target a test clip of the corpus, once.",
+  benchmark_import_track:
+    "The audio track of this clip is unknown or ambiguous (it needs one transcribed track).",
+  benchmark_activation_unsupported:
+    "The fingerprint model changes through its own transition, and a chain is not a model.",
+  benchmark_activation_confirm_required:
+    "Confirm the change of model explicitly.",
+  benchmark_activation_stale:
+    "The model in production changed since the preview: read it again before confirming.",
+  benchmark_activation_run_active:
+    "A benchmark is running: wait for it or cancel it before changing the model.",
+  benchmark_activation_run_mismatch:
+    "That benchmark did not measure this model for this stage.",
 };

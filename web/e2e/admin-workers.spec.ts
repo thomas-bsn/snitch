@@ -165,6 +165,7 @@ test.describe.serial("administration et Workers", () => {
       "Location and metadata",
       "Transcription",
       "Voice processing",
+      "Benchmark",
       "Semantic index",
       "Users and access",
       "Exports",

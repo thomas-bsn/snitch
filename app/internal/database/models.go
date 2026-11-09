@@ -134,6 +134,96 @@ type AvatarPreference struct {
 	DiscordLastError     pgtype.Text        `json:"discord_last_error"`
 }
 
+type BenchmarkActivation struct {
+	ID         int64              `json:"id"`
+	Stage      string             `json:"stage"`
+	FromModel  string             `json:"from_model"`
+	ToModel    string             `json:"to_model"`
+	RunID      pgtype.Int8        `json:"run_id"`
+	AuthorID   pgtype.Int8        `json:"author_id"`
+	AuthorName string             `json:"author_name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type BenchmarkDataset struct {
+	ID         int64              `json:"id"`
+	Name       string             `json:"name"`
+	AuthorID   pgtype.Int8        `json:"author_id"`
+	AuthorName string             `json:"author_name"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	Stages     []string           `json:"stages"`
+}
+
+type BenchmarkDatasetClip struct {
+	DatasetID       int64       `json:"dataset_id"`
+	ClipID          int64       `json:"clip_id"`
+	Role            string      `json:"role"`
+	Verified        bool        `json:"verified"`
+	ReferenceSource pgtype.Text `json:"reference_source"`
+}
+
+type BenchmarkDatasetItem struct {
+	DatasetID      int64  `json:"dataset_id"`
+	LocalSpeakerID int64  `json:"local_speaker_id"`
+	PersonID       int64  `json:"person_id"`
+	Split          string `json:"split"`
+}
+
+type BenchmarkReferenceSegment struct {
+	DatasetID        int64       `json:"dataset_id"`
+	ClipID           int64       `json:"clip_id"`
+	AudioStreamIndex int32       `json:"audio_stream_index"`
+	Ordinal          int32       `json:"ordinal"`
+	StartSeconds     float64     `json:"start_seconds"`
+	EndSeconds       float64     `json:"end_seconds"`
+	Text             string      `json:"text"`
+	Corrected        bool        `json:"corrected"`
+	Speaker          pgtype.Text `json:"speaker"`
+}
+
+type BenchmarkReferenceTurn struct {
+	DatasetID        int64   `json:"dataset_id"`
+	ClipID           int64   `json:"clip_id"`
+	AudioStreamIndex int32   `json:"audio_stream_index"`
+	Speaker          string  `json:"speaker"`
+	StartSeconds     float64 `json:"start_seconds"`
+	EndSeconds       float64 `json:"end_seconds"`
+}
+
+type BenchmarkResult struct {
+	RunID          int64              `json:"run_id"`
+	ModelID        string             `json:"model_id"`
+	Model          string             `json:"model"`
+	ModelVersion   string             `json:"model_version"`
+	Dimensions     int32              `json:"dimensions"`
+	State          string             `json:"state"`
+	ItemsTotal     int32              `json:"items_total"`
+	ItemsScored    int32              `json:"items_scored"`
+	ElapsedSeconds pgtype.Float8      `json:"elapsed_seconds"`
+	Metrics        []byte             `json:"metrics"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type BenchmarkRun struct {
+	ID          int64              `json:"id"`
+	DatasetID   int64              `json:"dataset_id"`
+	DatasetName string             `json:"dataset_name"`
+	Stage       string             `json:"stage"`
+	Status      string             `json:"status"`
+	ModelIds    []string           `json:"model_ids"`
+	Params      []byte             `json:"params"`
+	AuthorID    pgtype.Int8        `json:"author_id"`
+	AuthorName  string             `json:"author_name"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+}
+
+type BenchmarkRunJob struct {
+	RunID   int64  `json:"run_id"`
+	JobID   int64  `json:"job_id"`
+	ModelID string `json:"model_id"`
+}
+
 type Clip struct {
 	ID                  int64              `json:"id"`
 	OwnerID             int64              `json:"owner_id"`
