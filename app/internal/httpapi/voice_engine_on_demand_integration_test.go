@@ -130,6 +130,47 @@ func testVoiceEngineOnDemand(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
+// The SpeechBrain family (#374) is ordered like NeMo: its runtime names the family, covers fingerprint and
+// separation, and is a different identity from the signed ECAPA release and from the NeMo family.
+func testVoiceEngineOnDemandSpeechBrain(t *testing.T, pool *pgxpool.Pool) {
+	h := newEngineOrderHarness(t, pool)
+	fixture := h.fixtureWorkerID()
+	signed := h.sign("1.0.3")
+
+	r := h.orderFamily("speechbrain", "", http.StatusOK, map[string]string{"worker_id": fixture, "idempotency_key": "speechbrain-order-01"})[0]
+	if r.Status != "created" || r.Order == nil {
+		t.Fatalf("order: %+v", r)
+	}
+	if r.Order.Engine != "speechbrain" || r.Order.Version != "1.0.3" || r.Order.Intent != "install" || r.Order.Digest == signed {
+		t.Fatalf("order content: %+v", r.Order)
+	}
+	var runtime map[string]any
+	if err := json.Unmarshal(r.Order.Runtime, &runtime); err != nil || runtime["source"] != "on_demand" || runtime["family"] != "speechbrain" || runtime["distribution"] != "speechbrain" {
+		t.Fatalf("runtime: %s (%v)", r.Order.Runtime, err)
+	}
+	if kinds, _ := runtime["kinds"].([]any); len(kinds) != 2 || kinds[0] != "fingerprint" || kinds[1] != "separation" {
+		t.Fatalf("kinds: %v", runtime["kinds"])
+	}
+	if e, ok := h.entry(fixture, r.Order.Digest); !ok || e.State != "requested" {
+		t.Fatalf("inventory: %+v %v", e, ok)
+	}
+	// The engine installs and becomes ready exactly like any other; nothing activates a separation model.
+	h.report(r.Order.OrderID, r.Order.Digest, "installing", "", http.StatusNoContent)
+	h.report(r.Order.OrderID, r.Order.Digest, "verifying", "", http.StatusNoContent)
+	h.report(r.Order.OrderID, r.Order.Digest, "ready", "", http.StatusNoContent)
+	if e, _ := h.entry(fixture, r.Order.Digest); e.State != "ready" {
+		t.Fatalf("ready: %+v", e)
+	}
+	if n := h.count(`SELECT count(*) FROM worker_voice_models WHERE model_id IN (SELECT id FROM voice_model_catalog WHERE kind='separation')`); n != 0 {
+		t.Fatalf("separation model rows: %d", n)
+	}
+	// The NeMo family and the SpeechBrain family never share an identity.
+	nemo := h.orderFamily("nemo", "1.0.3", http.StatusOK, map[string]string{"worker_id": h.secondID, "idempotency_key": "speechbrain-nemo-0001"})[0]
+	if nemo.Order == nil || nemo.Order.Digest == r.Order.Digest {
+		t.Fatalf("families share an identity: %+v", nemo)
+	}
+}
+
 func testVoiceEngineOnDemandResources(t *testing.T, pool *pgxpool.Pool) {
 	h := newEngineOrderHarness(t, pool)
 	worker := h.fixtureWorkerID()

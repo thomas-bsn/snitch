@@ -20,6 +20,10 @@ def _speaker_loader(engine: str, path: str, device: str) -> Any:
         # Pinned files, data-only YAML scan, fixed architecture: see voice_ecapa (never from_hparams).
         from snitch_worker import voice_ecapa
         return voice_ecapa.speaker_loader(path, device)
+    if engine == "speechbrain":
+        # On-demand SpeechBrain engine (#374): any ECAPA-TDNN revision, same data-only YAML and weights_only rules, no pins.
+        from snitch_worker import voice_ecapa
+        return voice_ecapa.speaker_loader(path, device, pinned=False)
     import torch
     import torchaudio
 
@@ -62,11 +66,15 @@ def execute(request: dict[str, Any]) -> dict[str, Any]:
 
     manifest, path = request["manifest"], request["path"]
     engine, kind = manifest["engine"], manifest["kind"]
+    if engine == "speechbrain" and kind != "fingerprint":
+        # The family is installed for separation models but no separation adapter exists: it stays disabled (#374).
+        from snitch_worker.voice_ecapa import UnsupportedVariant
+        raise UnsupportedVariant("separation_not_available" if kind == "separation" else "kind_not_supported")
     env = dict(os.environ)
     env["SNITCH_WORKER_MODELS_DIR"] = str(Path(request["manifest_path"]).parent)
     env[voice_manifest.EMBEDDING_PATH_ENV if kind == "fingerprint" else voice_manifest.DIARIZATION_PATH_ENV] = path
     env["SNITCH_VOICE_EMBEDDING_MODEL_VERSION"] = "runtime-selftest"
-    provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa"}
+    provider = (SpeakerProvider(engine, environ=env) if engine in {"nemo-titanet", "speechbrain-ecapa", "speechbrain"}
                 else (NemoProvider if engine == "nemo" else PyannoteProvider)(environ=env))
     if request["operation"] == "verify":
         if kind == "fingerprint":

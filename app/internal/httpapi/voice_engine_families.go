@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -28,9 +29,13 @@ type engineFamily struct {
 	Distribution string
 	DefaultVer   string
 	// Kinds are the tasks the family covers; the first one is the kind of the registry row.
-	Kinds    []string
-	Python   string
-	Platform string
+	Kinds []string
+	// ActiveKinds are the kinds an adapter actually runs. Nil means every kind of the family. A kind that is
+	// installed for but not listed here (SpeechBrain separation, #374) gets its engine and nothing more: the
+	// feature stays disabled until an adapter exists.
+	ActiveKinds []string
+	Python      string
+	Platform    string
 	// CUDA is "" for a family that runs with or without a GPU.
 	CUDA             string
 	VRAMBytes        int64
@@ -46,6 +51,22 @@ var engineFamilies = map[string]engineFamily{
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
 	},
+	// SpeechBrain: a generic adapter runs ECAPA-TDNN fingerprints; SepFormer separation models only get the
+	// engine installed. The engine name differs from the signed "speechbrain-ecapa" release (two identities).
+	"speechbrain": {
+		Key: "speechbrain", Engine: "speechbrain", Distribution: "speechbrain", DefaultVer: "1.0.3",
+		Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"},
+		Python: "3.12", Platform: "linux-x86_64",
+		RAMBytes: 6 << 30, DiskBytes: 10 << 30, EstimatedSeconds: 600,
+	},
+}
+
+// runs reports whether an adapter runs this kind of the family.
+func (f engineFamily) runs(kind string) bool {
+	if f.ActiveKinds == nil {
+		return slices.Contains(f.Kinds, kind)
+	}
+	return slices.Contains(f.ActiveKinds, kind)
 }
 
 // onDemandDigest is the deterministic identity of an on-demand engine.

@@ -39,6 +39,7 @@ export const fr: Messages = {
     generation: "ordre {generation}",
     revoked:
       "Version révoquée : elle continue de servir, aucune nouvelle installation.",
+    separationPending: "Engine installé, séparation pas encore disponible.",
     history: "Historique",
     ignored: "rapport tardif ignoré ({reason})",
     delivery: "Livré quand le Worker récupère ses ordres.",
