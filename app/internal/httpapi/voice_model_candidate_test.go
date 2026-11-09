@@ -44,6 +44,7 @@ type catalogModel struct {
 	ID                  string          `json:"id"`
 	Kind                string          `json:"kind"`
 	Engine              string          `json:"engine"`
+	Family              string          `json:"family"`
 	Repo                string          `json:"repo"`
 	Revision            string          `json:"revision"`
 	License             string          `json:"license"`

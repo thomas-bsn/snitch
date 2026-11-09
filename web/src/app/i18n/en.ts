@@ -888,6 +888,12 @@ export const en = {
       applySend: "Send {count} orders",
       applySent: "Order sent",
       applyFailed: "Refused: {reason}",
+      applyEngineMissing:
+        "{engine} {version} is installed first on {worker}: about {disk} GiB of disk and about {minutes} min, then the model. One confirmation orders both.",
+      applyEngineProgress:
+        "{engine} {version} is already being installed on {worker}; it is reused and nothing more is installed.",
+      applyEngineReady:
+        "{engine} {version} is already installed on {worker}; it is reused and nothing more is installed.",
       applyEnginePlan:
         "Two linked orders per Worker: engine {version} (disk budget {disk} MiB), then model (weights {weights} MiB). An engine already ready or being installed is reused. If the engine fails, the model waits; retry the engine from the Engines tab.",
       applyHint:

@@ -89,3 +89,20 @@ func TestCatalogEntryEngineNeed(t *testing.T) {
 		}
 	}
 }
+
+func TestCatalogFamilyOfADiscoveredModel(t *testing.T) {
+	cases := []struct{ engine, kind, want string }{
+		{"nemo", "diarization", "nemo"},     // a discovered NeMo model is tried on the on-demand family
+		{"pyannote", "diarization", ""},     // embedded
+		{"pyannote", "fingerprint", ""},     // embedded
+		{"nemo-titanet", "fingerprint", ""}, // signed adapter
+		{"speechbrain-ecapa", "fingerprint", ""},
+		{"silero-jit", "vad", ""},
+		{"", "separation", ""},
+	}
+	for _, c := range cases {
+		if got := catalogFamily(c.engine, c.kind); got != c.want {
+			t.Errorf("%s/%s: family %q, want %q", c.engine, c.kind, got, c.want)
+		}
+	}
+}

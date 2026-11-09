@@ -5271,6 +5271,8 @@ export interface components {
       supported: boolean;
       unsupported_reason: string;
       engine: string;
+      /** @description Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur embarqué ou un adaptateur signé. */
+      family?: string;
       repo: string;
       revision: string;
       license: string;

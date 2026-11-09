@@ -73,6 +73,18 @@ func (e voiceCatalogEntry) engineNeed() (f engineFamily, needed, supported bool)
 	return f, true, ok && f.covers(e.Kind)
 }
 
+// catalogFamily is the rule that gives a model discovered through the Hugging Face addition its engine family.
+// A model whose adapter is NeMo runs on the on-demand NeMo family, which is what lets Nemotron-3 and the models
+// to come use a newer NeMo than the one of the Worker image. The seeded Sortformer keeps an empty family and the
+// embedded NeMo. The other adapters (pyannote, silero-jit, the signed nemo-titanet and speechbrain-ecapa) keep
+// their contract; a family added to the table later (SpeechBrain, WeSpeaker) extends this rule.
+func catalogFamily(engine, kind string) string {
+	if engine == "nemo" && engineFamilies["nemo"].covers(kind) {
+		return "nemo"
+	}
+	return ""
+}
+
 // onDemandDigest is the deterministic identity of an on-demand engine.
 func onDemandDigest(family, version, kind string) string {
 	sum := sha256.Sum256([]byte("snitch:on-demand-engine:v1\n" + family + "\n" + version + "\n" + kind))

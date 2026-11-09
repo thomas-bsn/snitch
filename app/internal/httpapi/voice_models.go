@@ -76,7 +76,7 @@ type voiceModelWorkerState struct {
 // voiceModelViewOf is the reference itself, without the state of the Workers.
 func voiceModelViewOf(entry voiceCatalogEntry) voiceModelView {
 	view := voiceModelView{
-		ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
+		ID: entry.ID, Kind: entry.Kind, Engine: entry.Engine, Family: entry.Family, Repo: entry.Repo, Revision: entry.Revision, License: entry.License,
 		Gated: entry.Gated, SizeBytes: entry.SizeBytes, SupportsNumSpeakers: entry.SupportsNumSpeakers, Label: entry.Label, VRAMBytes: entry.VRAMBytes,
 		Enabled: entry.Enabled, Supported: entry.Supported, UnsupportedReason: entry.UnsupportedReason, Workers: []voiceModelWorkerState{},
 	}
@@ -91,6 +91,7 @@ type voiceModelView struct {
 	ID                  string                  `json:"id"`
 	Kind                string                  `json:"kind"`
 	Engine              string                  `json:"engine"`
+	Family              string                  `json:"family,omitempty"`
 	Repo                string                  `json:"repo"`
 	Revision            string                  `json:"revision"`
 	License             string                  `json:"license"`

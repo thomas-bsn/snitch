@@ -9,6 +9,7 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..models.voice_model_kind import VoiceModelKind
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
@@ -45,6 +46,8 @@ class VoiceModel:
             candidate (bool):
             installed (bool): Au moins un Worker a le modèle prêt.
             workers (list[VoiceModelWorkerState]):
+            family (str | Unset): Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur
+                embarqué ou un adaptateur signé.
      """
 
     id: str
@@ -66,6 +69,7 @@ class VoiceModel:
     candidate: bool
     installed: bool
     workers: list[VoiceModelWorkerState]
+    family: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -118,6 +122,8 @@ class VoiceModel:
 
 
 
+        family = self.family
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -142,6 +148,8 @@ class VoiceModel:
             "installed": installed,
             "workers": workers,
         })
+        if family is not UNSET:
+            field_dict["family"] = family
 
         return field_dict
 
@@ -206,6 +214,8 @@ class VoiceModel:
             workers.append(workers_item)
 
 
+        family = d.pop("family", UNSET)
+
         voice_model = cls(
             id=id,
             kind=kind,
@@ -226,6 +236,7 @@ class VoiceModel:
             candidate=candidate,
             installed=installed,
             workers=workers,
+            family=family,
         )
 
 

@@ -159,6 +159,7 @@ func (s *Server) addVoiceModel(w http.ResponseWriter, r *http.Request) {
 	}
 	if supported {
 		entry.Engine = a.Engine
+		entry.Family = catalogFamily(a.Engine, input.Kind)
 		entry.SupportsNumSpeakers = a.Engine == "pyannote" && input.Kind == "diarization"
 		if m := speakerLimit.FindStringSubmatch(repo); m != nil && a.Engine == "nemo" {
 			entry.MaxSpeakers, _ = strconv.Atoi(m[1])
@@ -169,9 +170,9 @@ func (s *Server) addVoiceModel(w http.ResponseWriter, r *http.Request) {
 	ids := []string{clip(slug, 64), clip(slug, 55) + "-" + input.Kind[:4], clip(slug, 50) + "-" + hex.EncodeToString(sum[:4])}
 	for _, id := range ids {
 		entry.ID = id
-		tag, err := s.Pool.Exec(r.Context(), `INSERT INTO voice_model_catalog (id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,0,$10,true,$11,$12) ON CONFLICT (id) DO NOTHING`,
-			entry.ID, entry.Kind, entry.Engine, entry.Repo, entry.Revision, entry.Label, entry.License, entry.Gated, entry.MaxSpeakers, entry.SupportsNumSpeakers, entry.Supported, entry.UnsupportedReason)
+		tag, err := s.Pool.Exec(r.Context(), `INSERT INTO voice_model_catalog (id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason,family)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,0,$10,true,$11,$12,$13) ON CONFLICT (id) DO NOTHING`,
+			entry.ID, entry.Kind, entry.Engine, entry.Repo, entry.Revision, entry.Label, entry.License, entry.Gated, entry.MaxSpeakers, entry.SupportsNumSpeakers, entry.Supported, entry.UnsupportedReason, entry.Family)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // the same repository already holds this type
 			fail(w, http.StatusConflict, "voice_model_exists")

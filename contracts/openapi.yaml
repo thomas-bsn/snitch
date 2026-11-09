@@ -21250,6 +21250,10 @@
           "engine": {
             "type": "string"
           },
+          "family": {
+            "type": "string",
+            "description": "Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur embarqué ou un adaptateur signé."
+          },
           "repo": {
             "type": "string"
           },

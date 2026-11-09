@@ -13,6 +13,7 @@ type Row = components["schemas"]["WorkerModelsRow"];
 type Kind = components["schemas"]["WorkerModelCell"]["kind"];
 
 type Order = { worker: Row; key: string; replaces?: string };
+type Preview = components["schemas"]["VoiceModelOrderPreview"];
 
 /**
  * "Apply to several Workers": an explicit action. One order is built per ticked Worker and listed before
@@ -50,6 +51,9 @@ export function ApplyToWorkers({
   const [outcome, setOutcome] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [chosenRuntime, setChosenRuntime] = useState("");
+  const [previews, setPreviews] = useState<Record<string, Preview>>({});
+  const [prepareError, setPrepareError] = useState("");
+  const [preparing, setPreparing] = useState(false);
   const { state: registry } = useLoaded(
     useCallback(async () => {
       try {
@@ -66,8 +70,10 @@ export function ApplyToWorkers({
     }, []),
   );
   const model = catalogue.models.find((m) => m.id === modelId);
+  // A model that names an on-demand family never uses a signed release: the engine is ordered with it (ADR 0056).
+  const onDemand = !!model?.family;
   const releases =
-    registry.status === "ready"
+    registry.status === "ready" && !onDemand
       ? registry.value.filter(
           (r) =>
             r.manifest.engine === model?.engine && r.manifest.kind === kind,
@@ -78,11 +84,13 @@ export function ApplyToWorkers({
     ? chosenRuntime
     : available[0]?.digest;
   const runtimeRequired =
-    releases.length > 0 ||
-    model?.engine === "nemo-titanet" ||
-    model?.engine === "speechbrain-ecapa";
+    !onDemand &&
+    (releases.length > 0 ||
+      model?.engine === "nemo-titanet" ||
+      model?.engine === "speechbrain-ecapa");
   const runtimeBlocked =
-    registry.status !== "ready" || (runtimeRequired && !runtimeDigest);
+    !onDemand &&
+    (registry.status !== "ready" || (runtimeRequired && !runtimeDigest));
   const models = catalogue.models.filter(
     (m) => m.kind === kind && m.enabled && m.supported,
   );
@@ -147,6 +155,7 @@ export function ApplyToWorkers({
     setOrders(undefined);
     setOutcome({});
     setConfirmed(false);
+    setPrepareError("");
     // Mounted afresh for each plan; a background catalogue refresh must not discard its preview.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [kind, initialModelId]);
@@ -154,6 +163,47 @@ export function ApplyToWorkers({
     const m = catalogue.models.find((x) => x.id === id);
     return m?.label || m?.repo || id;
   };
+  // The confirmation shows, per Worker, the engine the model needs before anything is ordered. A family that
+  // Snitch does not support stops here, with its own message and no order.
+  async function prepare() {
+    const picked = eligible.filter((w) => ticked.includes(w.worker_id));
+    setPrepareError("");
+    const found: Record<string, Preview> = {};
+    if (onDemand) {
+      setPreparing(true);
+      try {
+        for (const w of picked) {
+          const result = await api.GET(
+            "/api/admin/workers/{id}/voice-model-orders/preview",
+            {
+              params: {
+                path: { id: w.worker_id },
+                query: { model_id: modelId },
+              },
+            },
+          );
+          if (result.data) found[w.worker_id] = result.data;
+          else {
+            setPrepareError(error(errorCode(result.error) ?? "unavailable"));
+            return;
+          }
+        }
+      } catch {
+        setPrepareError(error("unavailable"));
+        return;
+      } finally {
+        setPreparing(false);
+      }
+    }
+    setPreviews(found);
+    setOrders(
+      picked.map((worker) => ({
+        worker,
+        key: crypto.randomUUID(),
+        replaces: replacement(worker),
+      })),
+    );
+  }
   async function send() {
     if (!orders || !confirmed) return;
     setBusy(true);
@@ -235,13 +285,14 @@ export function ApplyToWorkers({
               ))}
             </select>
           </label>
-          {registry.status === "loading" && (
+          {!onDemand && registry.status === "loading" && (
             <p role="status">{t("voiceEngines.loading")}</p>
           )}
-          {registry.status === "failed" && (
+          {!onDemand && registry.status === "failed" && (
             <ErrorAlert>{error(registry.code)}</ErrorAlert>
           )}
-          {registry.status === "ready" &&
+          {!onDemand &&
+            registry.status === "ready" &&
             (available.length > 0 ? (
               <label className="flex flex-col gap-1 text-sm">
                 {t("voiceEngines.select")}
@@ -312,25 +363,17 @@ export function ApplyToWorkers({
               </label>
             ))}
           </fieldset>
+          {prepareError && <ErrorAlert>{prepareError}</ErrorAlert>}
           <div className="flex justify-end">
             <button
               type="button"
               disabled={
+                preparing ||
                 runtimeBlocked ||
                 !eligible.some((w) => ticked.includes(w.worker_id)) ||
                 !models.some((m) => m.id === modelId)
               }
-              onClick={() =>
-                setOrders(
-                  eligible
-                    .filter((w) => ticked.includes(w.worker_id))
-                    .map((worker) => ({
-                      worker,
-                      key: crypto.randomUUID(),
-                      replaces: replacement(worker),
-                    })),
-                )
-              }
+              onClick={() => void prepare()}
               className={buttonClass("primary")}
             >
               {t("voiceModels.byWorker.applyPrepare")}
@@ -375,6 +418,12 @@ export function ApplyToWorkers({
                         model: label(modelId),
                         worker: o.worker.name,
                       })}
+                  {previews[o.worker.worker_id]?.engine_required && (
+                    <EnginePlan
+                      preview={previews[o.worker.worker_id]}
+                      worker={o.worker.name}
+                    />
+                  )}
                   {result === "sent" && (
                     <span className="block text-ok-fg">
                       {t("voiceModels.byWorker.applySent")}
@@ -437,5 +486,41 @@ export function ApplyToWorkers({
         </>
       )}
     </Modal>
+  );
+}
+
+/** What the engine of the model costs on one Worker: installed first when missing, reused when it is there. */
+function EnginePlan({ preview, worker }: { preview: Preview; worker: string }) {
+  const { t, error } = useI18n();
+  const params = {
+    worker,
+    engine: preview.engine ?? "",
+    version: preview.version ?? "",
+    disk: Math.ceil(preview.disk_bytes / 1024 ** 3),
+    minutes: Math.max(1, Math.round(preview.estimated_seconds / 60)),
+  };
+  if (preview.state === "ready")
+    return (
+      <small className="block text-mute">
+        {t("voiceModels.byWorker.applyEngineReady", params)}
+      </small>
+    );
+  if (preview.state === "in_progress")
+    return (
+      <small className="block text-mute">
+        {t("voiceModels.byWorker.applyEngineProgress", params)}
+      </small>
+    );
+  return (
+    <>
+      <small className="block text-mute">
+        {t("voiceModels.byWorker.applyEngineMissing", params)}
+      </small>
+      {preview.blocker && (
+        <small role="alert" className="block text-bad-fg">
+          {error(preview.blocker)}
+        </small>
+      )}
+    </>
   );
 }

@@ -904,6 +904,12 @@ export const fr: Messages = {
       applySend: "Envoyer {count} ordres",
       applySent: "Ordre envoyé",
       applyFailed: "Refusé : {reason}",
+      applyEngineMissing:
+        "{engine} {version} est installé d’abord sur {worker} : environ {disk} Gio de disque et {minutes} min, puis le modèle. Une seule confirmation commande les deux.",
+      applyEngineProgress:
+        "{engine} {version} est déjà en cours d’installation sur {worker} ; il est réutilisé et rien de plus n’est installé.",
+      applyEngineReady:
+        "{engine} {version} est déjà installé sur {worker} ; il est réutilisé et rien de plus n’est installé.",
       applyEnginePlan:
         "Deux ordres liés par Worker : engine {version} (budget disque {disk} Mio), puis modèle (poids {weights} Mio). Un engine déjà prêt ou en cours d’installation est réutilisé. Si l’engine échoue, le modèle reste en attente ; réessayez l’engine depuis l’onglet Engines.",
       applyHint:
