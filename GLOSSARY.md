@@ -57,7 +57,17 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Attribution automatique** : Une attribution déduite par Snitch, distincte d'une validation humaine. Elle n'est jamais un échantillon vocal validé et ne sert pas de référence. Seul l'administrateur active ou désactive ce mode.
 
-**Référence** : L'ensemble des échantillons vocaux validés d'une Personne, avec lesquels les autres voix sont comparées.
+**Référence** : L'ensemble des échantillons vocaux validés d'une Personne, avec lesquels les autres voix sont comparées. Ses échantillons se cumulent : plusieurs extraits brefs valent ensemble ce qu'aucun ne vaut seul (ADR 0064).
+_Avoid_ : Profil cumulatif, centroïde.
+
+**Chevauchement** : Un moment d'une piste où plusieurs Locuteurs locaux parlent en même temps.
+_Avoid_ : Overlap, voix simultanées (qui désigne aussi deux pistes différentes).
+
+**Parole nette** : La parole d'un Locuteur local hors Chevauchement. C'est elle qui sert à calculer son empreinte et à mesurer ce qu'un échantillon apporte à une Référence.
+_Avoid_ : Parole propre, temps de parole (qui compte aussi les Chevauchements).
+
+**Source séparée** : Une voix isolée par un modèle à partir d'un Chevauchement. Elle sert à retrouver des paroles, jamais à calculer une empreinte ni à enrichir une Référence. Un extrait d'écoute découpé dans une piste n'en est pas une : il contient toutes les voix du moment.
+_Avoid_ : Piste séparée (qui désigne une vraie piste audio du clip), extrait.
 
 **Voix ambiguë** : Une voix proche de plusieurs Personnes sans qu'aucune ne se détache ; elle est présentée avec ses candidates et jamais attribuée d'elle-même.
 
