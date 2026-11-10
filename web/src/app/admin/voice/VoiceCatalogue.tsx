@@ -302,6 +302,7 @@ export function VoiceReferenceDetails({
           <label className="grid gap-1">
             {t("voiceWorkspace.family")}
             <select
+              className="snitch-select"
               value={draft.family}
               onChange={(e) => setDraft({ ...draft, family: e.target.value })}
             >

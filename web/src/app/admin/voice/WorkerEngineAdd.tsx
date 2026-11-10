@@ -155,6 +155,7 @@ export function WorkerEngineAdd({
           <label>
             {t("workerEngines.family.choose")}
             <select
+              className="snitch-select"
               value={family.family}
               disabled={!!replacing}
               onChange={(e) => setFamilyKey(e.target.value)}
@@ -177,6 +178,7 @@ export function WorkerEngineAdd({
             {t("workerEngines.family.version")}
             <input
               type="text"
+              className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
               value={version}
               maxLength={64}
               spellCheck={false}
