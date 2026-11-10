@@ -8501,6 +8501,8 @@ export interface components {
       estimated_seconds: number;
       /** @description Dernières versions stables de la bibliothèque publiées sur l'index de paquets, la plus récente d'abord (10 au plus). Vide quand l'index est injoignable : la version par défaut reste alors la seule proposition. */
       recent_versions: string[];
+      /** @description Dépôt Git dont un engine de cette famille peut être installé à un commit épinglé (version « git-<commit complet de 40 caractères> »). Vide : la famille n'installe que des versions publiées. Le dépôt est fixé par la table du serveur, jamais par une requête. */
+      git_repository: string;
     };
     EngineFamilies: {
       families: components["schemas"]["EngineFamily"][];

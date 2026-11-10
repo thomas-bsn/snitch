@@ -12,10 +12,12 @@ ENV NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility \
     HF_HUB_OFFLINE=1 \
     TRANSFORMERS_OFFLINE=1
+# git : uniquement pour installer un engine à la demande depuis un commit épinglé (ADR 0056, addendum) ; pip l'appelle.
 RUN apt-get update \
- && apt-get install --no-install-recommends -y ffmpeg=7:7.1.5-0+deb13u1 \
- && mkdir -p /usr/share/licenses/snitch/third-party/ffmpeg-debian \
+ && apt-get install --no-install-recommends -y ffmpeg=7:7.1.5-0+deb13u1 git=1:2.47.3-0+deb13u1 \
+ && mkdir -p /usr/share/licenses/snitch/third-party/ffmpeg-debian /usr/share/licenses/snitch/third-party/git-debian \
  && cp /usr/share/doc/ffmpeg/copyright /usr/share/licenses/snitch/third-party/ffmpeg-debian/copyright \
+ && cp /usr/share/doc/git/copyright /usr/share/licenses/snitch/third-party/git-debian/copyright \
  && rm -rf /var/lib/apt/lists/*
 RUN ffmpeg -hide_banner -loglevel error -f lavfi -i color=c=black:s=64x64:d=1 -f lavfi -i sine=frequency=440:duration=1 -f lavfi -i sine=frequency=880:duration=1 -map 0:v -map 1:a -map 2:a -c:v mpeg4 -c:a aac -shortest -y /tmp/snitch-multitrack.mp4 \
  && ffmpeg -hide_banner -loglevel error -i /tmp/snitch-multitrack.mp4 -map 0:2 -vn -ac 1 -ar 16000 -c:a pcm_s16le -y /tmp/snitch-selected.wav \

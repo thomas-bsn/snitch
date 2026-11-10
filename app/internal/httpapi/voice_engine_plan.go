@@ -27,6 +27,9 @@ type engineFamilyView struct {
 	EstimatedSeconds int64    `json:"estimated_seconds"`
 	// RecentVersions are the latest stable releases of the library, newest first; empty when the index is unreachable.
 	RecentVersions []string `json:"recent_versions"`
+	// GitRepository is the repository an engine of this family may be installed from at a pinned commit; empty when
+	// the family only installs published releases.
+	GitRepository string `json:"git_repository"`
 }
 
 func (s *Server) listEngineFamilies(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +45,7 @@ func (s *Server) listEngineFamilies(w http.ResponseWriter, r *http.Request) {
 		families[i] = engineFamilyView{
 			Family: f.Key, Engine: f.Engine, DefaultVersion: f.DefaultVer, Kinds: f.Kinds, Python: f.Python, Platform: f.Platform,
 			CUDA: f.CUDA, VRAMBytes: f.VRAMBytes, RAMBytes: f.RAMBytes, DiskBytes: f.DiskBytes, EstimatedSeconds: f.EstimatedSeconds,
-			RecentVersions: []string{},
+			RecentVersions: []string{}, GitRepository: f.GitURL,
 		}
 		wg.Add(1)
 		go func(i int, distribution string) {
@@ -146,7 +149,7 @@ func (s *Server) planOnDemandEngine(w http.ResponseWriter, r *http.Request) {
 	if kind == "" {
 		kind = family.Kinds[0]
 	}
-	if !family.covers(kind) || !engineVersion.MatchString(version) || len(input.WorkerIDs) == 0 || len(input.WorkerIDs) > 100 {
+	if !family.covers(kind) || !validEngineVersion(family, version) || len(input.WorkerIDs) == 0 || len(input.WorkerIDs) > 100 {
 		fail(w, http.StatusBadRequest, "invalid_engine_order")
 		return
 	}

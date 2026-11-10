@@ -108,7 +108,7 @@ func (s *Server) runtimeOrder(ctx context.Context, author session, in runtimeOrd
 		if in.Version != "" {
 			// A version is only meaningful for a model of an on-demand family; its identity follows from it.
 			f, needed, supported := entry.engineNeed()
-			if !ok || !needed || !supported {
+			if !ok || !needed || !supported || !validEngineVersion(f, in.Version) {
 				return orderFailure{http.StatusBadRequest, "invalid_runtime_order"}
 			}
 			in.Digest = onDemandDigest(f.Key, in.Version, entry.Kind)

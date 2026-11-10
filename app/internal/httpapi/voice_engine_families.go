@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -28,6 +30,9 @@ type engineFamily struct {
 	Engine       string
 	Distribution string
 	DefaultVer   string
+	// GitURL is the one repository an owner may install this family from at a pinned commit (version "git-<sha>").
+	// Empty: the family only installs published releases. It is fixed here, never taken from a request.
+	GitURL string
 	// Kinds are the tasks the family covers. An engine is one family, one version and ONE kind: each kind is its
 	// own identity, registry row and order, so that a family covering several tasks (NeMo: diarization and
 	// fingerprint) can be installed for either. The first kind is the default of an order that names none.
@@ -48,7 +53,7 @@ type engineFamily struct {
 
 var engineFamilies = map[string]engineFamily{
 	"nemo": {
-		Key: "nemo", Engine: "nemo-toolkit", Distribution: "nemo-toolkit", DefaultVer: "3.0.0",
+		Key: "nemo", Engine: "nemo-toolkit", Distribution: "nemo-toolkit", DefaultVer: "3.0.0", GitURL: "https://github.com/NVIDIA/NeMo.git",
 		Kinds:  []string{"diarization", "fingerprint"},
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
@@ -70,6 +75,21 @@ var engineFamilies = map[string]engineFamily{
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 4 << 30, DiskBytes: 8 << 30, EstimatedSeconds: 300,
 	},
+}
+
+// gitVersion is the version of an engine installed from a pinned commit: "git-" and the full 40-character commit.
+var gitVersion = regexp.MustCompile(`^git-[0-9a-f]{40}$`)
+
+// validEngineVersion accepts a published version, or a pinned commit for a family that names a Git repository.
+// The "git-" prefix is reserved: a published version never starts with it.
+func validEngineVersion(f engineFamily, version string) bool {
+	if !engineVersion.MatchString(version) {
+		return false
+	}
+	if strings.HasPrefix(version, "git-") {
+		return f.GitURL != "" && gitVersion.MatchString(version)
+	}
+	return true
 }
 
 func (f engineFamily) covers(kind string) bool {
@@ -218,7 +238,7 @@ func (s *Server) createOnDemandEngineOrders(w http.ResponseWriter, r *http.Reque
 	if kind == "" {
 		kind = family.Kinds[0]
 	}
-	if !family.covers(kind) || !engineVersion.MatchString(version) || len(input.Orders) == 0 || len(input.Orders) > 100 {
+	if !family.covers(kind) || !validEngineVersion(family, version) || len(input.Orders) == 0 || len(input.Orders) > 100 {
 		fail(w, http.StatusBadRequest, "invalid_engine_order")
 		return
 	}

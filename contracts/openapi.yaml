@@ -31487,7 +31487,8 @@
           "ram_bytes",
           "disk_bytes",
           "estimated_seconds",
-          "recent_versions"
+          "recent_versions",
+          "git_repository"
         ],
         "properties": {
           "family": {
@@ -31538,6 +31539,10 @@
             "items": {
               "type": "string"
             }
+          },
+          "git_repository": {
+            "type": "string",
+            "description": "Dépôt Git dont un engine de cette famille peut être installé à un commit épinglé (version « git-<commit complet de 40 caractères> »). Vide : la famille n'installe que des versions publiées. Le dépôt est fixé par la table du serveur, jamais par une requête."
           }
         }
       },

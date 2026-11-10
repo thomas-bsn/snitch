@@ -946,6 +946,20 @@
   color: var(--mute);
   font-size: 12px;
 }
+.engine-source {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  border: 0;
+  padding: 0;
+}
+.engine-source label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  cursor: pointer;
+}
 .engine-versions {
   display: flex;
   flex-wrap: wrap;

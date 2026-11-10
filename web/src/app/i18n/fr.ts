@@ -168,6 +168,13 @@ export const fr: Messages = {
       choose: "Famille d’engine",
       version: "Version",
       recent: "Dernières versions :",
+      source: "Installer depuis",
+      sourceOfficial: "Version officielle",
+      sourceGit: "Commit Git",
+      commit: "Commit (40 caractères)",
+      commitHint:
+        "Commit épinglé de {repository}. Le Worker l’installe avec pip et le git de son image ; un commit n’est pas une version publiée et rien ne garantit qu’il fonctionne.",
+      commitInvalid: "Saisissez le commit complet : 40 caractères, 0-9 et a-f.",
       versionHint:
         "Version par défaut : {version}. Le Worker l’installe avec pip dans un environnement isolé.",
       meta: "{kinds} · environ {disk} Gio de disque · environ {minutes} min",

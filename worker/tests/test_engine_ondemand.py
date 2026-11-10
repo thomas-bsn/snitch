@@ -79,6 +79,44 @@ class InstallTests(OnDemandCase):
         self.assertEqual(runtime_module.on_demand_requirements(runtime_module.FAMILIES["nemo"], "3.0.0"), ["nemo-toolkit[asr]==3.0.0"])
         self.assertEqual(runtime_module.on_demand_requirements(runtime_module.FAMILIES["wespeaker"], "1.0.1"), ["wespeakerruntime==1.0.1"])
 
+    COMMIT = "cf724ac337d1ebc7d0dda1e23fb80916f52927a5"
+
+    def test_a_pinned_commit_installs_from_the_repository_of_the_family_table(self):
+        family = runtime_module.FAMILIES["nemo"]
+        self.assertEqual(runtime_module.on_demand_requirements(family, "git-" + self.COMMIT),
+                         ["nemo-toolkit[asr] @ git+https://github.com/NVIDIA/NeMo.git@" + self.COMMIT])
+        runtime_module.validate_on_demand(runtime("git-" + self.COMMIT))
+
+    def test_a_pinned_commit_is_refused_unless_the_family_names_a_repository_and_the_commit_is_complete(self):
+        for bad in (runtime("git-" + self.COMMIT, family="speechbrain", engine="speechbrain", distribution="speechbrain", kinds=["fingerprint", "separation"], kind="fingerprint"),
+                    runtime("git-cf724ac"), runtime("git-main"), runtime("git-" + self.COMMIT.upper()), runtime("git-" + self.COMMIT + "0")):
+            with self.assertRaises(runtime_module.RuntimeFailed, msg=bad["version"]):
+                runtime_module.validate_on_demand(bad)
+
+    def test_the_freeze_of_a_git_install_must_show_the_ordered_commit(self):
+        family = runtime_module.FAMILIES["nemo"]
+        version = "git-" + self.COMMIT
+        url = "git+https://github.com/NVIDIA/NeMo.git@"
+        self.assertTrue(runtime_module._installed_version(f"tinydep==1.0\nnemo-toolkit @ {url}{self.COMMIT}\n", family, version))
+        self.assertFalse(runtime_module._installed_version(f"nemo-toolkit @ {url}{'0' * 40}\n", family, version))
+        self.assertFalse(runtime_module._installed_version("nemo-toolkit==3.0.0\n", family, version))
+        self.assertFalse(runtime_module._installed_version(f"nemo-toolkit @ {url}{self.COMMIT}\n", family, "3.0.0"))
+        self.assertTrue(runtime_module._installed_version("nemo_toolkit==3.0.0\n", family, "3.0.0"))
+
+    def test_a_git_install_never_waits_on_a_login_prompt(self):
+        seen = {}
+
+        def fake_pip(python, arguments, env, timeout):
+            if arguments[0] == "install":
+                seen["env"], seen["requirements"] = dict(env), arguments[-1]
+            raise runtime_module.RuntimeFailed("hf_network")
+
+        with patch.object(runtime_module, "_step"), patch.object(runtime_module, "_pip", fake_pip), patch.object(runtime_module, "check_resources"):
+            with self.assertRaises(runtime_module.RuntimeFailed):
+                runtime_module.install(runtime("git-" + self.COMMIT), self.env, lambda state: None)
+        self.assertEqual(seen["env"]["GIT_TERMINAL_PROMPT"], "0")
+        self.assertTrue(seen["requirements"].endswith("@" + self.COMMIT))
+
     def test_install_records_the_exact_packages_and_a_ready_marker_last(self):
         steps = []
         rt = runtime()

@@ -32,6 +32,9 @@ from snitch_worker.voice_download import without_token
 ADAPTERS = {"pyannote": ("pyannote", {"diarization", "fingerprint"}), "nemo": ("sortformer", {"diarization"}),
             "nemo-titanet": ("titanet", {"fingerprint"}), "speechbrain-ecapa": ("ecapa-tdnn", {"fingerprint"})}
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+# An engine installed from a pinned commit: the version is "git-" and the full commit. Only a family whose table entry
+# names a repository accepts it, and the repository is that entry's, never the order's.
+_GIT_VERSION = re.compile(r"^git-([0-9a-f]{40})$")
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _LOCK = threading.RLock()
 _REQUIRED = {"schema", "engine", "version", "adapter_version", "python", "platform", "cuda", "license", "kind", "architecture", "disk_bytes", "vram_bytes", "wheels"}
@@ -366,7 +369,7 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
 # not in this table, or that differs from it, is refused. Pip arguments are built only from these values and a
 # version that matches _VERSION (it cannot start with "-"), so an order cannot inject a pip option.
 FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "extras": "asr", "kinds": ("diarization", "fingerprint"),
-                     "probe": "nemo.collections.asr.models"},
+                     "probe": "nemo.collections.asr.models", "git": "https://github.com/NVIDIA/NeMo.git"},
             # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter. Separation (SepFormer) is installed
             # for but has no adapter: the engine goes with the model, separation stays disabled in Snitch.
             # SpeechBrain declares `torchaudio` with no upper bound, so pip takes the newest one; from torchaudio 2.9 the
@@ -415,6 +418,8 @@ def validate_on_demand(runtime: Any) -> None:
         family = FAMILIES[runtime["family"]]
         require(runtime["engine"] == family["engine"] and runtime["distribution"] == family["distribution"])
         require(isinstance(runtime["version"], str) and _VERSION.fullmatch(runtime["version"]))
+        if runtime["version"].startswith("git-"):
+            require(family.get("git") and _GIT_VERSION.fullmatch(runtime["version"]))
         require(runtime["kind"] in family["kinds"] and runtime["kinds"] == list(family["kinds"]))
         require(runtime["python"] == "3.12" and runtime["platform"] == "linux-x86_64" and runtime["cuda"] == "")
         for field in ("disk_bytes", "vram_bytes", "ram_bytes", "estimated_seconds"):
@@ -512,7 +517,27 @@ def _normal(name: str) -> str:
 def on_demand_requirements(family: Mapping[str, Any], version: str) -> list[str]:
     """The pip requirements of a family at a version: the library itself, then the fixed pins of its table entry."""
     extras = f"[{family['extras']}]" if family["extras"] else ""
+    git = _GIT_VERSION.fullmatch(version)
+    if git:
+        # A pinned commit of the repository of the table entry; pip fetches it with the git of the Worker image.
+        return [f"{family['distribution']}{extras} @ git+{family['git']}@{git.group(1)}", *family.get("pins", ())]
     return [f"{family['distribution']}{extras}=={version}", *family.get("pins", ())]
+
+
+def _installed_version(freeze: str, family: Mapping[str, Any], version: str) -> bool:
+    """Whether the freeze of the new environment shows the library at the version the order named."""
+    wanted = _normal(family["distribution"])
+    git = _GIT_VERSION.fullmatch(version)
+    for line in freeze.splitlines():
+        if git and " @ " in line:
+            name, source = line.split(" @ ", 1)
+            if _normal(name) == wanted and source.strip().endswith("@" + git.group(1)):
+                return True
+        elif not git and "==" in line:
+            name, installed = line.split("==", 1)
+            if _normal(name) == wanted and installed.strip() == version:
+                return True
+    return False
 
 
 def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], report: Any) -> Path:
@@ -534,6 +559,8 @@ def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], repo
             shutil.rmtree(target)
         target.mkdir()
         env = environment(environ)
+        if _GIT_VERSION.fullmatch(runtime["version"]):
+            env["GIT_TERMINAL_PROMPT"] = "0"  # a repository that asks for a login fails instead of waiting on a prompt
         requirements = on_demand_requirements(family, runtime["version"])
         try:
             checkpoint()
@@ -550,8 +577,7 @@ def _install_on_demand(runtime: dict[str, Any], environ: Mapping[str, str], repo
                 raise RuntimeFailed("resolution_failed") from None
             checkpoint()
             freeze = _pip(python, ["freeze"], env, 120)
-            names = {_normal(line.split("==", 1)[0]): line.split("==", 1)[1].strip() for line in freeze.splitlines() if "==" in line}
-            if names.get(_normal(family["distribution"])) != runtime["version"]:
+            if not _installed_version(freeze, family, runtime["version"]):
                 raise RuntimeFailed()
             (target / "pip-freeze.txt").write_text(freeze if freeze.endswith("\n") else freeze + "\n")
             (target / "ondemand.json").write_text(json.dumps({"family": runtime["family"], "version": runtime["version"]}, sort_keys=True))

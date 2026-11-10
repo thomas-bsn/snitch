@@ -64,6 +64,8 @@ export function WorkerEngineAdd({
   const families = useLoaded(useCallback(fetchFamilies, []));
   const [familyKey, setFamilyKey] = useState("");
   const [typed, setTyped] = useState<{ family: string; value: string }>();
+  const [source, setSource] = useState<"official" | "git">("official");
+  const [commit, setCommit] = useState("");
   const [scope, setScope] = useState<"this" | "checked">("this");
   const [plan, setPlan] = useState<{
     key: string;
@@ -76,10 +78,17 @@ export function WorkerEngineAdd({
     : (list.find((f) => f.family === familyKey) ?? list[0]);
   const kind = replacing?.kind;
   // The version follows the family until the administrator edits it.
-  const version =
+  const official =
     typed && typed.family === family?.family
       ? typed.value
       : (family?.default_version ?? "");
+  // A family that names a Git repository can also be installed from one pinned commit: the version is then
+  // "git-" and the 40-character commit, and nothing else (the repository is the server's, never typed here).
+  const gitRepository = family?.git_repository ?? "";
+  const useGit = source === "git" && gitRepository !== "";
+  const commitValue = commit.trim().toLowerCase();
+  const gitValid = /^[0-9a-f]{40}$/.test(commitValue);
+  const version = useGit ? (gitValid ? `git-${commitValue}` : "") : official;
   const targets = engineTargets(workers, worker, checked, scope);
   const ids = targets.map((w) => w.worker_id);
   const key = `${family?.family}|${kind ?? ""}|${version.trim()}|${ids.join(",")}`;
@@ -174,47 +183,100 @@ export function WorkerEngineAdd({
               minutes: minutes(family.estimated_seconds),
             })}
           </span>
-          <label>
-            {t("workerEngines.family.version")}
-            <input
-              type="text"
-              className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
-              value={version}
-              maxLength={64}
-              spellCheck={false}
-              autoComplete="off"
-              aria-describedby="engine-version-hint"
-              onChange={(e) =>
-                setTyped({ family: family.family, value: e.target.value })
-              }
-            />
-          </label>
-          <span id="engine-version-hint" className="engine-sub">
-            {t("workerEngines.family.versionHint", {
-              version: family.default_version,
-            })}
-          </span>
-          {family.recent_versions.length > 0 && (
-            <div
-              className="engine-versions"
-              role="group"
-              aria-label={t("workerEngines.family.recent")}
-            >
-              <span className="engine-sub">
-                {t("workerEngines.family.recent")}
+          {gitRepository !== "" && (
+            <fieldset className="engine-source">
+              <legend className="engine-sub">
+                {t("workerEngines.family.source")}
+              </legend>
+              <label>
+                <input
+                  type="radio"
+                  name="engine-source"
+                  checked={!useGit}
+                  onChange={() => setSource("official")}
+                />
+                {t("workerEngines.family.sourceOfficial")}
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="engine-source"
+                  checked={useGit}
+                  onChange={() => setSource("git")}
+                />
+                {t("workerEngines.family.sourceGit")}
+              </label>
+            </fieldset>
+          )}
+          {useGit ? (
+            <>
+              <label>
+                {t("workerEngines.family.commit")}
+                <input
+                  type="text"
+                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 font-mono text-ink md:h-10"
+                  value={commit}
+                  maxLength={40}
+                  spellCheck={false}
+                  autoComplete="off"
+                  aria-invalid={commitValue !== "" && !gitValid}
+                  aria-describedby="engine-commit-hint"
+                  onChange={(e) => setCommit(e.target.value)}
+                />
+              </label>
+              <span id="engine-commit-hint" className="engine-sub">
+                {t("workerEngines.family.commitHint", {
+                  repository: gitRepository.replace(/^https:\/\//, ""),
+                })}
               </span>
-              {family.recent_versions.map((v) => (
-                <button
-                  key={v}
-                  type="button"
-                  className="engine-version-chip"
-                  aria-pressed={version.trim() === v}
-                  onClick={() => setTyped({ family: family.family, value: v })}
+            </>
+          ) : (
+            <>
+              <label>
+                {t("workerEngines.family.version")}
+                <input
+                  type="text"
+                  className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-ink md:h-10"
+                  value={version}
+                  maxLength={64}
+                  spellCheck={false}
+                  autoComplete="off"
+                  aria-describedby="engine-version-hint"
+                  onChange={(e) =>
+                    setTyped({ family: family.family, value: e.target.value })
+                  }
+                />
+              </label>
+              <span id="engine-version-hint" className="engine-sub">
+                {t("workerEngines.family.versionHint", {
+                  version: family.default_version,
+                })}
+              </span>
+              {family.recent_versions.length > 0 && (
+                <div
+                  className="engine-versions"
+                  role="group"
+                  aria-label={t("workerEngines.family.recent")}
                 >
-                  {v}
-                </button>
-              ))}
-            </div>
+                  <span className="engine-sub">
+                    {t("workerEngines.family.recent")}
+                  </span>
+                  {family.recent_versions.map((v) => (
+                    <button
+                      key={v}
+                      type="button"
+                      className="engine-version-chip"
+                      aria-pressed={version.trim() === v}
+                      onClick={() =>
+                        setTyped({ family: family.family, value: v })
+                      }
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
@@ -235,7 +297,10 @@ export function WorkerEngineAdd({
           {ids.length === 0 && (
             <span>{t("workerEngines.family.noWorker")}</span>
           )}
-          {ids.length > 0 && !fresh && family && (
+          {ids.length > 0 && useGit && !gitValid && (
+            <span>{t("workerEngines.family.commitInvalid")}</span>
+          )}
+          {ids.length > 0 && !fresh && family && (useGit ? gitValid : true) && (
             <span>{t("workerEngines.family.planLoading")}</span>
           )}
           {fresh?.code && (
