@@ -32,7 +32,7 @@ var hfAdapters = []hfAdapter{
 		return (m.LibraryName == "nemo" || slices.Contains(m.Tags, "nemo")) && slices.Contains(m.Tags, "titanet")
 	}},
 	{"speechbrain-ecapa", []string{"fingerprint"}, func(m hfMetadata) bool {
-		return (m.LibraryName == "speechbrain" || slices.Contains(m.Tags, "speechbrain")) && slices.Contains(m.Tags, "ecapa-tdnn")
+		return (m.LibraryName == "speechbrain" || slices.Contains(m.Tags, "speechbrain")) && declaresECAPA(m.Tags)
 	}},
 	{"nemo", []string{"diarization"}, func(m hfMetadata) bool {
 		if m.LibraryName == "nemo" || slices.Contains(m.Tags, "nemo") {
@@ -53,6 +53,24 @@ var hfAdapters = []hfAdapter{
 	{"wespeaker", []string{"fingerprint"}, func(m hfMetadata) bool {
 		return m.LibraryName == "wespeaker" || slices.Contains(m.Tags, "wespeaker")
 	}},
+}
+
+// declaresECAPA reads the ECAPA-TDNN family tag whichever way a repository spells it: "ecapa-tdnn" as one tag, or
+// "ECAPA" and "TDNN" as two (speechbrain/spkrec-ecapa-voxceleb). Case does not matter; a repository with only one
+// of the two words is not enough evidence.
+func declaresECAPA(tags []string) bool {
+	var ecapa, tdnn bool
+	for _, tag := range tags {
+		switch strings.ToLower(strings.TrimSpace(tag)) {
+		case "ecapa-tdnn":
+			return true
+		case "ecapa":
+			ecapa = true
+		case "tdnn":
+			tdnn = true
+		}
+	}
+	return ecapa && tdnn
 }
 
 // Tags that declare a type. A type is proposed only when exactly one family is declared: the repository name

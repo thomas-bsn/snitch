@@ -70,6 +70,7 @@ type Server struct {
 	avatarRetryBase, avatarPause, avatarTick, avatarCooldown time.Duration
 	dummyPassword                                            string
 	hf                                                       *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
+	pypi                                                     *pypiIndex   // nil in production (the Python package index); a test injects a fake server
 }
 type session struct {
 	User             database.GetUserRow

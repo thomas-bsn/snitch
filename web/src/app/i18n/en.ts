@@ -166,6 +166,14 @@ export const en = {
       lead: "Engines Snitch can install on a Worker from their library. Pick a family; the version is pre-filled and can be edited. Nothing starts before you confirm.",
       choose: "Engine family",
       version: "Version",
+      recent: "Latest releases:",
+      source: "Install from",
+      sourceOfficial: "Official version",
+      sourceGit: "Git commit",
+      commit: "Commit (40 characters)",
+      commitHint:
+        "Pinned commit of {repository}. A Worker installs it with pip and the Worker image's git; a commit is not a release and nothing guarantees it works.",
+      commitInvalid: "Enter the full commit: 40 characters, 0-9 and a-f.",
       versionHint:
         "Default version: {version}. A Worker installs it with pip in an isolated environment.",
       meta: "{kinds} · about {disk} GiB of disk · about {minutes} min",

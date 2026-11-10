@@ -82,7 +82,8 @@ test("l'onglet Engines liste les Workers et n'ordonne rien sans confirmation", a
       "wespeaker",
     ]);
     // The default version is pre-filled and editable.
-    const version = dialog.getByLabel("Version");
+    // Exact: the NeMo family also offers an "Official version" choice next to the field.
+    const version = dialog.getByLabel("Version", { exact: true });
     await expect(version).toHaveValue("3.0.0");
     await expect(dialog).toContainText("1 Worker(s) accepted");
     await expect(dialog).toContainText("12 GiB of disk in total");

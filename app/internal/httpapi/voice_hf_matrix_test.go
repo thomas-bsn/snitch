@@ -30,6 +30,13 @@ func TestAdapterMatrix(t *testing.T) {
 			"fingerprint", "nemo-titanet", []string{"fingerprint"}, ""},
 		{"ECAPA fingerprint", `{"library_name":"speechbrain","tags":["ecapa-tdnn","speaker-verification"]}`,
 			"fingerprint", "speechbrain-ecapa", []string{"fingerprint"}, ""},
+		// speechbrain/spkrec-ecapa-voxceleb: the words are two capitalised tags, and no type tag is declared.
+		{"ECAPA spelled as two capitalised tags", `{"library_name":"speechbrain","tags":["speechbrain","embeddings","Speaker","Verification","Identification","pytorch","ECAPA","TDNN","en"]}`,
+			"", "speechbrain-ecapa", []string{"fingerprint"}, ""},
+		{"ECAPA tag in capitals", `{"library_name":"speechbrain","tags":["ECAPA-TDNN","speaker-verification"]}`,
+			"fingerprint", "speechbrain-ecapa", []string{"fingerprint"}, ""},
+		{"ECAPA alone is not enough", `{"library_name":"speechbrain","tags":["speechbrain","ECAPA"]}`,
+			"", "", nil, "no approved adapter"},
 		{"WeSpeaker fingerprint", `{"library_name":"wespeaker","tags":["wespeaker","speaker-embedding"]}`,
 			"fingerprint", "wespeaker", []string{"fingerprint"}, ""},
 		{"pyannote wrapper of WeSpeaker stays pyannote", `{"library_name":"pyannote-audio","tags":["pyannote-audio","wespeaker","speaker-embedding"]}`,

@@ -31486,7 +31486,9 @@
           "vram_bytes",
           "ram_bytes",
           "disk_bytes",
-          "estimated_seconds"
+          "estimated_seconds",
+          "recent_versions",
+          "git_repository"
         ],
         "properties": {
           "family": {
@@ -31530,6 +31532,17 @@
           "estimated_seconds": {
             "type": "integer",
             "format": "int64"
+          },
+          "recent_versions": {
+            "type": "array",
+            "description": "Dernières versions stables de la bibliothèque publiées sur l'index de paquets, la plus récente d'abord (10 au plus). Vide quand l'index est injoignable : la version par défaut reste alors la seule proposition.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "git_repository": {
+            "type": "string",
+            "description": "Dépôt Git dont un engine de cette famille peut être installé à un commit épinglé (version « git-<commit complet de 40 caractères> »). Vide : la famille n'installe que des versions publiées. Le dépôt est fixé par la table du serveur, jamais par une requête."
           }
         }
       },
