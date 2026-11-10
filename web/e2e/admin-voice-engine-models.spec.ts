@@ -200,6 +200,9 @@ test("un modèle d'une famille à la demande se met à jour par version, revient
       version: "3.1.0",
       kind: "fingerprint",
     });
+    // The Workers list is re-read in the background: let a request still in flight end quietly instead of failing
+    // the run with "route.fetch: Test ended" once the page is closed.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   } finally {
     await api.delete(`/api/admin/workers/${worker.id}`, {
       headers: { "X-CSRF-Token": csrf },
