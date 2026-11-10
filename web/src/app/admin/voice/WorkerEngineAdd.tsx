@@ -194,6 +194,28 @@ export function WorkerEngineAdd({
               version: family.default_version,
             })}
           </span>
+          {family.recent_versions.length > 0 && (
+            <div
+              className="engine-versions"
+              role="group"
+              aria-label={t("workerEngines.family.recent")}
+            >
+              <span className="engine-sub">
+                {t("workerEngines.family.recent")}
+              </span>
+              {family.recent_versions.map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  className="engine-version-chip"
+                  aria-pressed={version.trim() === v}
+                  onClick={() => setTyped({ family: family.family, value: v })}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       <div className="engine-bar">

@@ -166,6 +166,7 @@ export const en = {
       lead: "Engines Snitch can install on a Worker from their library. Pick a family; the version is pre-filled and can be edited. Nothing starts before you confirm.",
       choose: "Engine family",
       version: "Version",
+      recent: "Latest releases:",
       versionHint:
         "Default version: {version}. A Worker installs it with pip in an isolated environment.",
       meta: "{kinds} · about {disk} GiB of disk · about {minutes} min",

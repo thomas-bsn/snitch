@@ -8499,6 +8499,8 @@ export interface components {
       disk_bytes: number;
       /** Format: int64 */
       estimated_seconds: number;
+      /** @description Dernières versions stables de la bibliothèque publiées sur l'index de paquets, la plus récente d'abord (10 au plus). Vide quand l'index est injoignable : la version par défaut reste alors la seule proposition. */
+      recent_versions: string[];
     };
     EngineFamilies: {
       families: components["schemas"]["EngineFamily"][];

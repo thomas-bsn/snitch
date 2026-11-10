@@ -167,6 +167,7 @@ export const fr: Messages = {
       lead: "Engines que Snitch sait installer sur un Worker depuis leur bibliothèque. Choisissez une famille ; la version est préremplie et modifiable. Rien ne démarre avant votre confirmation.",
       choose: "Famille d’engine",
       version: "Version",
+      recent: "Dernières versions :",
       versionHint:
         "Version par défaut : {version}. Le Worker l’installe avec pip dans un environnement isolé.",
       meta: "{kinds} · environ {disk} Gio de disque · environ {minutes} min",

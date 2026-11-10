@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"sort"
+	"sync"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -24,17 +25,34 @@ type engineFamilyView struct {
 	RAMBytes         int64    `json:"ram_bytes"`
 	DiskBytes        int64    `json:"disk_bytes"`
 	EstimatedSeconds int64    `json:"estimated_seconds"`
+	// RecentVersions are the latest stable releases of the library, newest first; empty when the index is unreachable.
+	RecentVersions []string `json:"recent_versions"`
 }
 
 func (s *Server) listEngineFamilies(w http.ResponseWriter, r *http.Request) {
-	families := make([]engineFamilyView, 0, len(engineFamilies))
-	for _, f := range engineFamilies {
-		families = append(families, engineFamilyView{
+	families := make([]engineFamilyView, len(engineFamilies))
+	keys := make([]string, 0, len(engineFamilies))
+	for key := range engineFamilies {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	var wg sync.WaitGroup
+	for i, key := range keys {
+		f := engineFamilies[key]
+		families[i] = engineFamilyView{
 			Family: f.Key, Engine: f.Engine, DefaultVersion: f.DefaultVer, Kinds: f.Kinds, Python: f.Python, Platform: f.Platform,
 			CUDA: f.CUDA, VRAMBytes: f.VRAMBytes, RAMBytes: f.RAMBytes, DiskBytes: f.DiskBytes, EstimatedSeconds: f.EstimatedSeconds,
-		})
+			RecentVersions: []string{},
+		}
+		wg.Add(1)
+		go func(i int, distribution string) {
+			defer wg.Done()
+			if versions := s.pypiIndex().recent(r.Context(), distribution); versions != nil {
+				families[i].RecentVersions = versions
+			}
+		}(i, f.Distribution)
 	}
-	sort.Slice(families, func(i, j int) bool { return families[i].Family < families[j].Family })
+	wg.Wait()
 	reply(w, http.StatusOK, map[string]any{"families": families})
 }
 

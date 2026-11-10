@@ -34,6 +34,9 @@ class EngineFamily:
             ram_bytes (int):
             disk_bytes (int):
             estimated_seconds (int):
+            recent_versions (list[str]): Dernières versions stables de la bibliothèque publiées sur l'index de paquets, la
+                plus récente d'abord (10 au plus). Vide quand l'index est injoignable : la version par défaut reste alors la
+                seule proposition.
      """
 
     family: str
@@ -47,6 +50,7 @@ class EngineFamily:
     ram_bytes: int
     disk_bytes: int
     estimated_seconds: int
+    recent_versions: list[str]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -78,6 +82,10 @@ class EngineFamily:
 
         estimated_seconds = self.estimated_seconds
 
+        recent_versions = self.recent_versions
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -93,6 +101,7 @@ class EngineFamily:
             "ram_bytes": ram_bytes,
             "disk_bytes": disk_bytes,
             "estimated_seconds": estimated_seconds,
+            "recent_versions": recent_versions,
         })
 
         return field_dict
@@ -125,6 +134,9 @@ class EngineFamily:
 
         estimated_seconds = d.pop("estimated_seconds")
 
+        recent_versions = cast(list[str], d.pop("recent_versions"))
+
+
         engine_family = cls(
             family=family,
             engine=engine,
@@ -137,6 +149,7 @@ class EngineFamily:
             ram_bytes=ram_bytes,
             disk_bytes=disk_bytes,
             estimated_seconds=estimated_seconds,
+            recent_versions=recent_versions,
         )
 
 

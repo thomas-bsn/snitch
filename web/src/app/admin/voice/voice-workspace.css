@@ -946,6 +946,29 @@
   color: var(--mute);
   font-size: 12px;
 }
+.engine-versions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.engine-version-chip {
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface);
+  padding: 0 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.engine-version-chip:hover {
+  background: var(--side);
+}
+.engine-version-chip[aria-pressed="true"] {
+  border-color: var(--accent-solid);
+  color: var(--accent-solid);
+  font-weight: 600;
+}
 .engine-chips {
   display: flex;
   gap: 4px;
