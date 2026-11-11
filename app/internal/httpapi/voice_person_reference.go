@@ -3,7 +3,9 @@ package httpapi
 import "context"
 
 // The Reference of a Person as matching uses it (#396), for the directory and the record: read in the active
-// fingerprint group, with its level judged against every Person of that group.
+// fingerprint group under the active score mode, with its level judged against every Person of that group. In the
+// cumulative mode the Reference uses the contributive samples; in the best-sample mode only the comparable ones
+// (voice_score.go), so the level always reflects the samples matching really compares with.
 
 // referenceSamplesFrom selects the samples a cumulative Reference uses in the group ($1 model, $2 version,
 // $3 dimensions): active validated samples of a Person whose voice profile still exists, through the
@@ -39,10 +41,10 @@ type personReference struct {
 	Discarded           []personReferenceDiscard `json:"discarded"`
 }
 
-// groupReferenceFigures reads the figures of the Reference of every Person of the group: the median of the
-// level is taken on all of them, whoever reads and whatever page is read.
-func groupReferenceFigures(ctx context.Context, q pgQuerier, g matchGroup) (map[int64]referenceFigure, error) {
-	rows, err := q.Query(ctx, `SELECT vs.person_id,vs.clip_id,COALESCE(f.net_speech_seconds,f.duration_seconds) `+referenceSamplesFrom, g.model, g.version, g.dimensions)
+// groupReferenceFigures reads the figures of the Reference of every Person of the group under a score mode: the
+// median of the level is taken on all of them, whoever reads and whatever page is read.
+func groupReferenceFigures(ctx context.Context, q pgQuerier, g matchGroup, mode scoreMode) (map[int64]referenceFigure, error) {
+	rows, err := q.Query(ctx, `SELECT vs.person_id,vs.clip_id,COALESCE(f.net_speech_seconds,f.duration_seconds),f.usable `+referenceSamplesFrom, g.model, g.version, g.dimensions)
 	if err != nil {
 		return nil, err
 	}
@@ -50,8 +52,11 @@ func groupReferenceFigures(ctx context.Context, q pgQuerier, g matchGroup) (map[
 	var samples []referenceSample
 	for rows.Next() {
 		var sample referenceSample
-		if err = rows.Scan(&sample.Person, &sample.Clip, &sample.NetSpeech); err != nil {
+		if err = rows.Scan(&sample.Person, &sample.Clip, &sample.NetSpeech, &sample.Comparable); err != nil {
 			return nil, err
+		}
+		if mode == scoreBestSample && !sample.Comparable {
+			continue // only compared alone, which a sample that is not comparable never is
 		}
 		samples = append(samples, sample)
 	}
@@ -67,18 +72,21 @@ type sampleReferenceUse struct {
 }
 
 // sampleReferenceUses tells, for each active sample of the given Persons, what the Reference of the group makes
-// of it: contributive, or the reason it is set aside. The contributive ones are exactly the rows of
-// referenceSamplesFrom for these Persons.
-func sampleReferenceUses(ctx context.Context, q pgQuerier, g matchGroup, persons []int64) ([]sampleReferenceUse, error) {
+// of it under a score mode: used (referenceUseContributive), or the reason it is set aside. In the cumulative
+// mode the used ones are exactly the rows of referenceSamplesFrom for these Persons; in the best-sample mode only
+// the comparable ones among them, a contributive sample that is not comparable being too short to be compared
+// alone.
+func sampleReferenceUses(ctx context.Context, q pgQuerier, g matchGroup, mode scoreMode, persons []int64) ([]sampleReferenceUse, error) {
 	rows, err := q.Query(ctx, `SELECT vs.person_id,vs.local_speaker_id,
-  COALESCE((SELECT CASE WHEN f.contributive THEN 'contributive' ELSE f.unusable_reason END FROM voice_fingerprints f
+  COALESCE((SELECT CASE WHEN u.used THEN 'contributive' ELSE u.unusable_reason END FROM voice_fingerprints f
+    CROSS JOIN LATERAL (SELECT CASE WHEN $5='best_sample' THEN f.usable ELSE f.contributive END AS used, f.unusable_reason) u
     WHERE f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id AND NOT f.benchmark AND f.scope='speaker'
       AND f.model=$2 AND f.model_version=$3 AND f.dimensions=$4
-    ORDER BY f.contributive DESC,f.id DESC LIMIT 1),'no_fingerprint')
+    ORDER BY u.used DESC,f.id DESC LIMIT 1),'no_fingerprint')
   FROM voice_samples vs
   WHERE vs.person_id=ANY($1) AND vs.retired_at IS NULL
     AND NOT EXISTS (SELECT 1 FROM persons p WHERE p.id=vs.person_id AND p.voice_profile_deleted_at IS NOT NULL)
-  ORDER BY vs.person_id,vs.id`, persons, g.model, g.version, g.dimensions)
+  ORDER BY vs.person_id,vs.id`, persons, g.model, g.version, g.dimensions, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -104,9 +112,13 @@ func loadPersonReferences(ctx context.Context, q pgQuerier, persons []personView
 	if err != nil {
 		return err
 	}
+	mode, err := activeScoreMode(ctx, q)
+	if err != nil {
+		return err
+	}
 	figures := map[int64]referenceFigure{}
 	if ok {
-		if figures, err = groupReferenceFigures(ctx, q, g); err != nil {
+		if figures, err = groupReferenceFigures(ctx, q, g, mode); err != nil {
 			return err
 		}
 	}
@@ -115,7 +127,7 @@ func loadPersonReferences(ctx context.Context, q pgQuerier, persons []personView
 	for i := range persons {
 		ids[i] = persons[i].ID
 	}
-	uses, err := sampleReferenceUses(ctx, q, g, ids)
+	uses, err := sampleReferenceUses(ctx, q, g, mode, ids)
 	if err != nil {
 		return err
 	}

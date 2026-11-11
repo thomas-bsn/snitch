@@ -33,8 +33,10 @@ class PersonVoice:
             recorded_at (datetime.datetime): Date d'enregistrement du clip.
             sample_count (int): Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une
                 séparation en retirerait.
-            reference_use (PersonVoiceReferenceUse): Ce que la Référence du groupe d'empreinte actif fait de l'échantillon
-                de cette voix : contributive, ou la raison de son écart ; null quand la voix ne fournit aucun échantillon actif.
+            reference_use (PersonVoiceReferenceUse): Ce que la Référence du groupe d'empreinte actif, dans le mode de score
+                actif, fait de l'échantillon de cette voix : contributive (utilisé), ou la raison de son écart (en mode
+                best_sample, un échantillon contributif mais non comparable est écarté comme too_short) ; null quand la voix ne
+                fournit aucun échantillon actif.
      """
 
     local_speaker_id: int

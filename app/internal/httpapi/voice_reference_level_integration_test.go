@@ -210,4 +210,25 @@ func testPersonReferenceLevel(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("STRAY must be attributed automatically to Ann: %+v", got)
 	}
 	expect(record(ann), "weak", "below_median", 2, 2, 4)
+
+	// In the best-sample mode a Reference is made of comparable samples only (3 s here): the level follows the
+	// samples matching really uses. References: Dee 10, Ben 12, Cid 20 s: median 12 s.
+	h.scoreMode(http.MethodPut, map[string]any{"mode": "best_sample"}, http.StatusOK)
+	all = list(nil, "")
+	expect(all["Ann"], "none", "no_sample", 0, 0, 0)
+	expect(all["Ben"], "good", "median_or_more", 3, 3, 12)
+	expect(all["Cid"], "good", "median_or_more", 2, 2, 20)
+	expect(all["Dee"], "weak", "single_clip", 1, 1, 10)
+	expect(all["Eve"], "none", "no_sample", 0, 0, 0)
+	if got := discarded(record(eve)); len(got) != 1 || got["too_short"] != 3 {
+		t.Fatalf("best sample: Eve's voices are all too short to be compared alone: %+v", got)
+	}
+	if err := json.Unmarshal(h.adminCall(http.MethodGet, fmt.Sprintf("/api/persons/%d/voices", eve), nil, http.StatusOK), &voices); err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range voices.Items {
+		if v.ReferenceUse == nil || *v.ReferenceUse != "too_short" {
+			t.Fatalf("best sample: a voice too short to be compared alone is set aside: %+v", v)
+		}
+	}
 }

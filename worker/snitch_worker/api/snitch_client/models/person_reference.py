@@ -26,16 +26,17 @@ T = TypeVar("T", bound="PersonReference")
 @_attrs_define
 class PersonReference:
     """ La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version,
-    dimensions) actif, et son niveau. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que
-    soient le lecteur et la page lue.
+    dimensions) actif et selon le mode de score actif, et son niveau : en mode cumulative, les échantillons à empreinte
+    contributive ; en mode best_sample, les seuls échantillons à empreinte comparable. Le niveau est calculé par le
+    serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue.
 
         Attributes:
             level (PersonReferenceLevel): none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3
                 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ;
                 avec moins de 3 Références, good.
             basis (PersonReferenceBasis): Pourquoi la Référence a ce niveau.
-            contributive_samples (int): Échantillons validés actifs qui entrent dans la Référence (empreinte contributive du
-                groupe actif).
+            contributive_samples (int): Échantillons validés actifs qui entrent dans la Référence du mode de score actif
+                (empreinte contributive du groupe actif ; comparable en mode best_sample).
             clips (int): Clips distincts de ces échantillons.
             net_speech_seconds (float): Parole nette cumulée de ces échantillons, après plafond par échantillon.
             discarded (list[PersonReferenceDiscard]): Échantillons validés actifs écartés de la Référence, groupés par

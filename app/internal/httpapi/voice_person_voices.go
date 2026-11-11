@@ -64,7 +64,12 @@ func (s *Server) listPersonVoices(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	uses, err := sampleReferenceUses(r.Context(), s.Pool, g, []int64{id})
+	mode, err := activeScoreMode(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	uses, err := sampleReferenceUses(r.Context(), s.Pool, g, mode, []int64{id})
 	if err != nil {
 		s.internal(w, err)
 		return
