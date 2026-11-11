@@ -574,6 +574,12 @@ from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
 from .voice_profile_deletion import VoiceProfileDeletion
+from .voice_recompute_input import VoiceRecomputeInput
+from .voice_recompute_preview import VoiceRecomputePreview
+from .voice_recompute_report import VoiceRecomputeReport
+from .voice_recompute_run import VoiceRecomputeRun
+from .voice_recompute_run_status import VoiceRecomputeRunStatus
+from .voice_recompute_state import VoiceRecomputeState
 from .voice_rediarization_confirmation import VoiceRediarizationConfirmation
 from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_refusal import VoiceRefusal
@@ -1288,6 +1294,12 @@ __all__ = (
     "VoicePipelineProvider",
     "VoicePipelineState",
     "VoiceProfileDeletion",
+    "VoiceRecomputeInput",
+    "VoiceRecomputePreview",
+    "VoiceRecomputeReport",
+    "VoiceRecomputeRun",
+    "VoiceRecomputeRunStatus",
+    "VoiceRecomputeState",
     "VoiceRediarizationConfirmation",
     "VoiceRediarizationStake",
     "VoiceRefusal",

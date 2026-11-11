@@ -16,7 +16,8 @@ import (
 var ErrStaleResult = errors.New("stale voice result")
 
 // VoiceInputVersion returns the pipeline version embedded in a voice step's
-// input version ("d5-a2-pvoice-xxxx" or "f5-a2-pvoice-xxxx-d12").
+// input version ("d5-a2-pvoice-xxxx", "f5-a2-pvoice-xxxx-d12", or "f5-a2-net-pvoice-xxxx-d12" for a recalculation on
+// the net speech, #395: its marker comes before the pipeline, never after the diarization).
 func VoiceInputVersion(inputVersion string) (pipeline string, diarizationJobID int64, ok bool) {
 	marker := strings.Index(inputVersion, "-p")
 	if marker < 0 {
@@ -74,7 +75,7 @@ FROM voice_model_catalog c WHERE c.id=COALESCE((SELECT requested_model_id FROM j
 		if err != nil {
 			return fmt.Errorf("read diarization for fingerprints: %w", err)
 		}
-		if offset, offsetErr := PlanTrackOffset(ctx, s.pool, input.Job.ID); offsetErr != nil {
+		if offset, offsetErr := FingerprintTrackOffset(ctx, s.pool, input.Job.ID, diarizationID); offsetErr != nil {
 			return fmt.Errorf("read plan track offset: %w", offsetErr)
 		} else if offset != 0 {
 			// Stored turns are in clip time; the worker reads the stream from its own origin.
@@ -120,6 +121,21 @@ func PlanTrackOffset(ctx context.Context, q interface {
 	var offset float64
 	err := q.QueryRow(ctx, `SELECT COALESCE((SELECT (t->>'start_seconds')::float8 FROM jsonb_array_elements(p.input->'inventory') t WHERE (t->>'index')::int=c.track_index),0)
 FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE c.job_id=$1`, jobID).Scan(&offset)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, nil
+	}
+	return offset, err
+}
+
+// FingerprintTrackOffset is the stream offset of a fingerprint job: its own as a bound plan child, otherwise the one of
+// the diarization it embeds. A fingerprint job outside the plan (a recalculation on the net speech, #395) reads the
+// same stream as that diarization, whose stored turns are in clip time.
+func FingerprintTrackOffset(ctx context.Context, q interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}, jobID, diarizationJobID int64) (float64, error) {
+	var offset float64
+	err := q.QueryRow(ctx, `SELECT COALESCE((SELECT (t->>'start_seconds')::float8 FROM jsonb_array_elements(p.input->'inventory') t WHERE (t->>'index')::int=c.track_index),0)
+FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE c.job_id IN ($1,$2) ORDER BY c.job_id=$1 DESC LIMIT 1`, jobID, diarizationJobID).Scan(&offset)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, nil
 	}

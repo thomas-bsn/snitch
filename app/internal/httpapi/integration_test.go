@@ -98,7 +98,7 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
+		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; DELETE FROM voice_recompute_runs; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
 			t.Fatal(e)
 		}
 		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events; DELETE FROM voice_eligibility_requalifications; DELETE FROM voice_eligibility_rules WHERE version>1; UPDATE voice_eligibility_rules SET comparable_min_seconds=2.0,contributive_min_seconds=1.0,max_clipped_ratio=0.01 WHERE version=1`); e != nil {
@@ -629,6 +629,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice eligibility preview", func(t *testing.T) {
 		reset(t)
 		testVoiceEligibilityPreview(t, pool)
+	})
+	t.Run("voice fingerprint recompute", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintRecompute(t, pool)
 	})
 	t.Run("voice groups", func(t *testing.T) {
 		reset(t)
@@ -1173,6 +1177,14 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/admin/voice-eligibility", map[string]any{"comparable_min_seconds": 1, "contributive_min_seconds": 2, "max_clipped_ratio": 0.01}, me.CSRF, 400)
 		call(client, "GET", "/api/admin/voice-eligibility/preview?durations=1&durations=2", nil, "", 200)
 		call(client, "GET", "/api/admin/voice-eligibility/preview?comparable_min_seconds=1&contributive_min_seconds=2", nil, "", 400)
+		call(client, "GET", "/api/admin/voice-fingerprint-recompute/preview", nil, "", 200)
+		call(client, "GET", "/api/admin/voice-fingerprint-recompute", nil, "", 200)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute/resume", nil, me.CSRF, 404)
+		call(client, "DELETE", "/api/admin/voice-fingerprint-recompute", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{}, me.CSRF, 400)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 99}, me.CSRF, 409)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 0}, me.CSRF, 201)
+		call(client, "DELETE", "/api/admin/voice-fingerprint-recompute", nil, me.CSRF, 409)
 		// Account link and voice profile deletion (behavior in the voice profile suite).
 		personPath := "/api/admin/persons/" + strconv64(contractPerson.ID) + "/account"
 		call(client, "GET", "/api/me/person", nil, "", 404)
