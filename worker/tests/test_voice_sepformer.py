@@ -7,6 +7,7 @@ model. The two YAML fixtures are the published inference files of speechbrain/se
 speechbrain/sepformer-libri3mix (Apache-2.0). Synthetic values only."""
 import collections
 import importlib.util
+import json
 import os
 import pickle
 import sys
@@ -18,7 +19,7 @@ import zipfile
 from pathlib import Path
 from unittest.mock import patch
 
-from snitch_worker import voice_selftest, voice_sepformer
+from snitch_worker import engine_bridge, voice_selftest, voice_sepformer
 from snitch_worker.voice import VoiceProviderUnavailable
 from snitch_worker.voice_ecapa import UnsupportedVariant
 
@@ -198,6 +199,58 @@ class DeviceTests(unittest.TestCase):
             with self.assertRaises(VoiceProviderUnavailable) as caught:
                 voice_sepformer.resolve_device(environ, probe=lambda: "cpu")
             self.assertEqual(caught.exception.reason, reason)
+
+
+class BridgeTests(unittest.TestCase):
+    """The fixed protocol a SpeechBrain environment runs: a test inference, or the separation of one window."""
+
+    def setUp(self):
+        patcher = patch.dict(os.environ, {"SNITCH_VOICE_DEVICE": "cpu"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.separator = voice_sepformer.Separator(16000, 2, None)
+
+    def request(self, operation, **extra):
+        runtime = {"source": "on_demand", "family": "speechbrain", "engine": "speechbrain", "distribution": "speechbrain",
+                   "version": "1.0.3", "kind": "separation", "kinds": ["fingerprint", "separation"], "python": "3.12", "platform": "linux-x86_64",
+                   "cuda": "", "disk_bytes": 1, "vram_bytes": 0, "ram_bytes": 0, "estimated_seconds": 1}
+        return {"manifest": runtime, "path": "/model", "manifest_path": "/models/voice.json", "operation": operation, **extra}
+
+    def test_the_test_inference_loads_the_model_and_separates_a_synthetic_mixture(self):
+        proofs = []
+        with patch.object(voice_sepformer, "load", return_value=self.separator) as load, \
+                patch.object(voice_sepformer, "separate_file", return_value={"sample_rate": 16000, "sources": []}) as separate, \
+                patch.object(voice_selftest, "separate_synthetic", side_effect=lambda run, sources, rate: proofs.append((run("/mix.wav", "/out"), sources, rate))):
+            self.assertEqual(engine_bridge.execute(self.request("verify")), {})
+        load.assert_called_once_with("/model", "cpu")
+        separate.assert_called_once_with(self.separator, "/mix.wav", "/out")
+        self.assertEqual(proofs, [({"sample_rate": 16000, "sources": []}, 2, 16000)])
+
+    def test_a_failed_test_inference_is_reported_with_its_stable_reason(self):
+        with tempfile.TemporaryDirectory() as directory:
+            incoming, outgoing = Path(directory) / "in.json", Path(directory) / "out.json"
+            incoming.write_text(json.dumps(self.request("verify")))
+            # A model that answers a single source for two voices does not pass the proof.
+            one = lambda separator, audio, output: {"sample_rate": 16000, "sources": [{"index": 0, "path": audio, "samples": 32000}]}  # noqa: E731
+            with patch.object(voice_sepformer, "load", return_value=self.separator), patch.object(voice_sepformer, "separate_file", side_effect=one), \
+                    patch.object(sys, "argv", ["engine_bridge", str(incoming), str(outgoing)]):
+                engine_bridge.main()
+            self.assertEqual(json.loads(outgoing.read_text()), {"error": "inference_failed"})
+
+    def test_a_separation_call_returns_the_sources_of_the_window_asked(self):
+        answer = {"sample_rate": 16000, "start": 1.0, "end": 4.0, "gain": 1.0, "sources": [{"index": 0, "path": "/out/source-0.wav", "samples": 48000}]}
+        with patch.object(voice_sepformer, "load", return_value=self.separator), patch.object(voice_sepformer, "separate_file", return_value=answer) as separate:
+            result = engine_bridge.execute(self.request("infer", audio="/clip.wav", output_dir="/out", start=1.0, end=4.0))
+        self.assertEqual(result, answer)
+        separate.assert_called_once_with(self.separator, "/clip.wav", "/out", 1.0, 4.0)
+
+    def test_only_the_speechbrain_family_runs_separation(self):
+        request = self.request("verify")
+        request["manifest"] = {**request["manifest"], "family": "nemo", "engine": "nemo-toolkit"}
+        with patch.object(voice_sepformer, "load") as load, self.assertRaises(VoiceProviderUnavailable) as caught:
+            engine_bridge.execute(request)
+        self.assertEqual((caught.exception.reason, caught.exception.detail), ("model_load_failed", "kind_not_supported"))
+        load.assert_not_called()
 
 
 @unittest.skipUnless(HAVE_SPEECHBRAIN, "torch and SpeechBrain are required")

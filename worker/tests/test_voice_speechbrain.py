@@ -2,7 +2,8 @@
 
 The same fixed safeguards as the pinned ECAPA adapter, minus the variant pins: no repository code, the hyperparams
 YAML is data (never HyperPyYAML), weights are scanned and read with weights_only, nothing is fetched. No torch or
-SpeechBrain is needed: the library is replaced by fakes. Separation has no adapter. Synthetic values only."""
+SpeechBrain is needed: the library is replaced by fakes. Separation has its own adapter (test_voice_sepformer).
+Synthetic values only."""
 import collections
 import importlib.util
 import os
@@ -140,24 +141,34 @@ class BridgeTests(unittest.TestCase):
                    "cuda": "", "disk_bytes": 1, "vram_bytes": 0, "ram_bytes": 0, "estimated_seconds": 1}
         return {"manifest": runtime, "path": "/nonexistent", "manifest_path": "/nonexistent/voice.json", "operation": operation}
 
-    def test_separation_has_no_adapter_and_is_refused_before_anything_is_loaded(self):
-        with patch.object(voice_ecapa, "load_embedder") as load, self.assertRaises(VoiceProviderUnavailable) as caught:
+    def test_separation_goes_to_its_own_adapter_and_never_to_the_fingerprint_one(self):
+        from snitch_worker import voice_sepformer
+        refusal = UnsupportedVariant("model_directory_unreadable")
+        with patch.object(voice_ecapa, "load_embedder") as load, patch.object(voice_sepformer, "load", side_effect=refusal) as separation, \
+                patch.dict(os.environ, {"SNITCH_VOICE_DEVICE": "cpu"}), self.assertRaises(VoiceProviderUnavailable) as caught:
             engine_bridge.execute(self.request("separation"))
-        self.assertEqual(caught.exception.reason, "model_load_failed")
-        self.assertEqual(caught.exception.detail, "separation_not_available")
+        self.assertIs(caught.exception, refusal)
+        separation.assert_called_once_with("/nonexistent", "cpu")
         load.assert_not_called()
 
-    def test_the_bridge_reports_the_refusal_code_of_separation_to_the_worker(self):
+    def test_a_kind_the_family_does_not_cover_is_refused_before_anything_is_loaded(self):
+        with patch.object(voice_ecapa, "load_embedder") as load, self.assertRaises(VoiceProviderUnavailable) as caught:
+            engine_bridge.execute(self.request("diarization"))
+        self.assertEqual((caught.exception.reason, caught.exception.detail), ("model_load_failed", "kind_not_supported"))
+        load.assert_not_called()
+
+    def test_the_bridge_reports_the_refusal_code_of_the_adapter_to_the_worker(self):
         with tempfile.TemporaryDirectory() as directory:
             incoming, outgoing = Path(directory) / "in.json", Path(directory) / "out.json"
             import json
             incoming.write_text(json.dumps(self.request("separation")))
             saved, sys.argv = sys.argv, ["engine_bridge", str(incoming), str(outgoing)]
             try:
-                engine_bridge.main()
+                with patch.dict(os.environ, {"SNITCH_VOICE_DEVICE": "cpu"}):
+                    engine_bridge.main()
             finally:
                 sys.argv = saved
-            self.assertEqual(json.loads(outgoing.read_text()), {"error": "model_load_failed", "detail": "separation_not_available"})
+            self.assertEqual(json.loads(outgoing.read_text()), {"error": "model_load_failed", "detail": "model_directory_unreadable"})
 
     def test_a_fingerprint_model_of_the_family_loads_through_the_generic_adapter(self):
         loaded = []
