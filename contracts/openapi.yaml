@@ -34295,7 +34295,8 @@
           "automatic",
           "errors",
           "to_verify",
-          "unknown_automatic"
+          "unknown_automatic",
+          "unknown_automatic_rate"
         ],
         "properties": {
           "automatic_threshold": {
@@ -34323,6 +34324,13 @@
           "unknown_automatic": {
             "type": "integer",
             "description": "Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort automatiquement."
+          },
+          "unknown_automatic_rate": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Taux d'inconnus simulés reconnus à tort : unknown_automatic sur le nombre d'inconnus simulés rejoués (un par test) ; null sans test."
           }
         }
       },

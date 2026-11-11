@@ -1232,7 +1232,7 @@ export const fr: Messages = {
       toVerifyColumn: "À vérifier",
       unknownColumn: "Inconnus reconnus à tort",
       current:
-        "Aux seuils appliqués : {automatic} automatiques, {errors} erreurs, {toVerify} à vérifier ; {unknown} inconnus simulés sur {tests} reconnus à tort.",
+        "Aux seuils appliqués : {automatic} automatiques, {errors} erreurs, {toVerify} à vérifier ; {unknown} inconnus simulés sur {tests} reconnus à tort ({rate}).",
       noCurrent:
         "Aucun seuil appliqué pour ce mode : pas de chiffres aux seuils appliqués.",
       applied:
@@ -1240,7 +1240,7 @@ export const fr: Messages = {
       noneApplied:
         "Aucun seuil appliqué pour ce mode : dans ce mode, le modèle ne fait que des suggestions.",
       proposal:
-        "Proposition : suggestion {suggestion}, automatique {automatic}, marge {margin}. Sur la mesure : {automaticCount} automatiques, {errors} erreurs, {toVerify} à vérifier, {unknown} inconnus reconnus à tort.",
+        "Proposition : suggestion {suggestion}, automatique {automatic}, marge {margin}. Sur la mesure : {automaticCount} automatiques, {errors} erreurs, {toVerify} à vérifier, {unknown} inconnus simulés sur {tests} reconnus à tort ({rate}).",
       rule: "Seuil automatique : le plus bas qui garde la précision minimale des critères d’activation sans reconnaître aucun inconnu simulé. Suggestion : 95 % des scores même personne au-dessus. Marge : couvre 95 % des confusions mesurées.",
       tooFew:
         "Effectifs trop faibles pour proposer des seuils : {tests} tests et {persons} personnes, il en faut au moins {minTests} et {minPersons}.",

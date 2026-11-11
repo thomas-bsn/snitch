@@ -55,6 +55,9 @@ type sweepRow struct {
 	Errors              int     `json:"errors"`
 	ToVerify            int     `json:"to_verify"`
 	UnknownAutomatic    int     `json:"unknown_automatic"`
+	// UnknownAutomaticRate is UnknownAutomatic over the simulated unknowns replayed (one per test); nil without
+	// any test.
+	UnknownAutomaticRate *float64 `json:"unknown_automatic_rate"`
 }
 
 type thresholdProposal struct {
@@ -124,6 +127,7 @@ func sweepFigures(scores []calibrationScore, base matchingSettings, suggestion, 
 			row.UnknownAutomatic++
 		}
 	}
+	row.UnknownAutomaticRate = ratio(row.UnknownAutomatic, len(scores))
 	return row
 }
 

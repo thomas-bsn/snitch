@@ -9417,6 +9417,8 @@ export interface components {
       to_verify: number;
       /** @description Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort automatiquement. */
       unknown_automatic: number;
+      /** @description Taux d'inconnus simulés reconnus à tort : unknown_automatic sur le nombre d'inconnus simulés rejoués (un par test) ; null sans test. */
+      unknown_automatic_rate: number | null;
     };
     /** @description Proposition de seuils : jamais appliquée sans action de l'administrateur. */
     VoiceThresholdProposal: {

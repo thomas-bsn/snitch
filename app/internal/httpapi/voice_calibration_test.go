@@ -77,8 +77,11 @@ func TestCalibrationSeparatesSameAndOtherPersonScores(t *testing.T) {
 		t.Fatalf("sweep at 1.0: %+v", row)
 	}
 	// At 0.05, a simulated unknown (a test replayed without its own Reference) is recognised as its neighbour.
-	if row := sweepAt(t, c, 0.05); row.UnknownAutomatic == 0 {
-		t.Fatalf("a very low threshold recognises simulated unknowns: %+v", row)
+	if row := sweepAt(t, c, 0.05); row.UnknownAutomatic == 0 || row.UnknownAutomaticRate == nil || math.Abs(*row.UnknownAutomaticRate-float64(row.UnknownAutomatic)/24) > 1e-9 {
+		t.Fatalf("a very low threshold recognises simulated unknowns, given as a rate of the 24 replayed: %+v", row)
+	}
+	if row := sweepAt(t, c, 0.95); row.UnknownAutomaticRate == nil || *row.UnknownAutomaticRate != 0 {
+		t.Fatalf("no simulated unknown recognised: a rate of 0: %+v", row)
 	}
 	if c.Current == nil || c.Current.AutomaticThreshold != 0.90 || c.Current.Automatic != 24 || c.Current.UnknownAutomatic != 0 {
 		t.Fatalf("figures at the applied thresholds: %+v", c.Current)
@@ -117,6 +120,10 @@ func TestCalibrationWithholdsTheProposalOnTooFewTests(t *testing.T) {
 	}
 	if c = calibrate(scoreCumulative, 4, two, twoTests, calibrationSettings(), true); c.Proposal != nil || c.Withheld != "too_few" {
 		t.Fatalf("too few Persons: no proposal: %+v", c)
+	}
+	// Without any test, no simulated unknown: no rate.
+	if c = calibrate(scoreCumulative, 4, refs, nil, calibrationSettings(), true); c.Sweep[0].UnknownAutomaticRate != nil {
+		t.Fatalf("no simulated unknown, no rate: %+v", c.Sweep[0])
 	}
 }
 

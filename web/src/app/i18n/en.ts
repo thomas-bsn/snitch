@@ -1209,7 +1209,7 @@ export const en = {
       toVerifyColumn: "To verify",
       unknownColumn: "Unknowns wrongly recognised",
       current:
-        "At the applied thresholds: {automatic} automatic, {errors} errors, {toVerify} to verify; {unknown} of {tests} simulated unknowns wrongly recognised.",
+        "At the applied thresholds: {automatic} automatic, {errors} errors, {toVerify} to verify; {unknown} of {tests} simulated unknowns wrongly recognised ({rate}).",
       noCurrent:
         "No thresholds applied for this mode: no figures at applied thresholds.",
       applied:
@@ -1217,7 +1217,7 @@ export const en = {
       noneApplied:
         "No thresholds applied for this mode: in this mode the model only suggests.",
       proposal:
-        "Proposal: suggestion {suggestion}, automatic {automatic}, margin {margin}. On the measurement: {automaticCount} automatic, {errors} errors, {toVerify} to verify, {unknown} unknowns wrongly recognised.",
+        "Proposal: suggestion {suggestion}, automatic {automatic}, margin {margin}. On the measurement: {automaticCount} automatic, {errors} errors, {toVerify} to verify, {unknown} of {tests} simulated unknowns wrongly recognised ({rate}).",
       rule: "Automatic threshold: the lowest that keeps the minimum precision of the activation criteria without recognising any simulated unknown. Suggestion: 95% of same-person scores above it. Margin: covers 95% of the measured confusions.",
       tooFew:
         "Too few figures to propose thresholds: {tests} tests and {persons} people, at least {minTests} and {minPersons} are needed.",

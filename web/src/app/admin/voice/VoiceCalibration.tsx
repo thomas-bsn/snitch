@@ -28,6 +28,14 @@ export function VoiceCalibration({
       minimumFractionDigits: 2,
       maximumFractionDigits: 3,
     });
+  // A rate of simulated unknowns wrongly recognised is a share of tests, unlike a score.
+  const rate = (x: number | null) =>
+    x === null
+      ? "–"
+      : x.toLocaleString(language, {
+          style: "percent",
+          maximumFractionDigits: 1,
+        });
   const modeLabel = (m: ScoreMode) =>
     m === "cumulative"
       ? t("voiceAdmin.score.cumulative")
@@ -86,6 +94,7 @@ export function VoiceCalibration({
                         toVerify: m.current.to_verify,
                         unknown: m.current.unknown_automatic,
                         tests: m.tests,
+                        rate: rate(m.current.unknown_automatic_rate),
                       })
                     : t("voiceAdmin.calibration.noCurrent")}
                 </p>
@@ -100,6 +109,8 @@ export function VoiceCalibration({
                         errors: m.proposal.figures.errors,
                         toVerify: m.proposal.figures.to_verify,
                         unknown: m.proposal.figures.unknown_automatic,
+                        tests: m.tests,
+                        rate: rate(m.proposal.figures.unknown_automatic_rate),
                       })}
                     </p>
                     <p className="text-sm text-mute">
@@ -221,7 +232,10 @@ export function VoiceCalibration({
                             <td className="p-1">{row.automatic}</td>
                             <td className="p-1">{row.errors}</td>
                             <td className="p-1">{row.to_verify}</td>
-                            <td className="p-1">{row.unknown_automatic}</td>
+                            <td className="p-1">
+                              {row.unknown_automatic} (
+                              {rate(row.unknown_automatic_rate)})
+                            </td>
                           </tr>
                         ))}
                       </tbody>

@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from typing import cast
 
 
 
@@ -32,6 +33,8 @@ class VoiceThresholdSweep:
             to_verify (int): Tests laissés à vérifier (suggestion, ambiguïté ou inconnu).
             unknown_automatic (int): Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort
                 automatiquement.
+            unknown_automatic_rate (float | None): Taux d'inconnus simulés reconnus à tort : unknown_automatic sur le nombre
+                d'inconnus simulés rejoués (un par test) ; null sans test.
      """
 
     automatic_threshold: float
@@ -41,6 +44,7 @@ class VoiceThresholdSweep:
     errors: int
     to_verify: int
     unknown_automatic: int
+    unknown_automatic_rate: float | None
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -62,6 +66,9 @@ class VoiceThresholdSweep:
 
         unknown_automatic = self.unknown_automatic
 
+        unknown_automatic_rate: float | None
+        unknown_automatic_rate = self.unknown_automatic_rate
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -73,6 +80,7 @@ class VoiceThresholdSweep:
             "errors": errors,
             "to_verify": to_verify,
             "unknown_automatic": unknown_automatic,
+            "unknown_automatic_rate": unknown_automatic_rate,
         })
 
         return field_dict
@@ -96,6 +104,14 @@ class VoiceThresholdSweep:
 
         unknown_automatic = d.pop("unknown_automatic")
 
+        def _parse_unknown_automatic_rate(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        unknown_automatic_rate = _parse_unknown_automatic_rate(d.pop("unknown_automatic_rate"))
+
+
         voice_threshold_sweep = cls(
             automatic_threshold=automatic_threshold,
             suggestion_threshold=suggestion_threshold,
@@ -104,6 +120,7 @@ class VoiceThresholdSweep:
             errors=errors,
             to_verify=to_verify,
             unknown_automatic=unknown_automatic,
+            unknown_automatic_rate=unknown_automatic_rate,
         )
 
 
