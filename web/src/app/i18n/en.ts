@@ -2068,6 +2068,18 @@ export const en = {
       infoLabel: "Definition: {metric}",
       genuine: "genuine",
       impostor: "impostor",
+      scoring: {
+        title: "Score:",
+        modes: {
+          cumulative: "Cumulative reference",
+          best_sample: "Best sample",
+          centroid: "Centroid (legacy)",
+        },
+        current:
+          "{mode} (version {modeVersion}, one sample weighs at most {cap} s), eligibility rule version {ruleVersion}: comparable from {comparable} s, contributive from {contributive} s, at most {clipped} clipped. Scored like production: a threshold read here holds for production under this mode and rule.",
+        legacy:
+          "{mode}: the unweighted mean of the reference fingerprints, kept by the thresholds of the pinned pipeline. Its thresholds do not hold for the current production score.",
+      },
     },
     metrics: {
       cpwer: {

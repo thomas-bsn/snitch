@@ -8550,6 +8550,31 @@ export interface components {
       results: components["schemas"]["BenchmarkResult"][];
       /** @description Bout en bout : les paires de modèles que représentent les identifiants des résultats. */
       chains: components["schemas"]["BenchmarkChain"][];
+      /** @description Empreinte : mode de score et règle d'éligibilité sous lesquels le run est noté (#397). Null pour les autres étapes. */
+      scoring: components["schemas"]["BenchmarkScoring"] | null;
+    };
+    /** @description Comment un benchmark d'empreinte note : la fonction de score de production sous le mode et la règle d'éligibilité actifs au lancement du run. Un run antérieur à leur enregistrement vaut « centroid » (centroïde non pondéré, ancien), sans règle. */
+    BenchmarkScoring: {
+      /** @enum {string} */
+      score_mode: "cumulative" | "best_sample" | "centroid";
+      score_mode_version: number | null;
+      /**
+       * Format: double
+       * @description Plafond du poids d'un échantillon dans une Référence cumulative.
+       */
+      reference_sample_cap_seconds: number | null;
+      eligibility_rule:
+        | components["schemas"]["BenchmarkEligibilityRule"]
+        | null;
+    };
+    BenchmarkEligibilityRule: {
+      version: number;
+      /** Format: double */
+      comparable_min_seconds: number;
+      /** Format: double */
+      contributive_min_seconds: number;
+      /** Format: double */
+      max_clipped_ratio: number;
     };
     BenchmarkRunList: {
       runs: components["schemas"]["BenchmarkRun"][];
@@ -8615,6 +8640,8 @@ export interface components {
       /** Format: double */
       impostor_mean_score?: number | null;
       ignored_dimension?: number;
+      /** @description Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non contributive, ou non comparable en mode meilleur échantillon ; test non comparable). */
+      ineligible?: number;
       /** @description Transcription : clips (et pistes) mesurés. */
       clips?: number;
       reference_words?: number;

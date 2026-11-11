@@ -86,6 +86,7 @@ from .benchmark_dataset_created_stages_item import BenchmarkDatasetCreatedStages
 from .benchmark_dataset_input import BenchmarkDatasetInput
 from .benchmark_dataset_list import BenchmarkDatasetList
 from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
+from .benchmark_eligibility_rule import BenchmarkEligibilityRule
 from .benchmark_job_error import BenchmarkJobError
 from .benchmark_metrics import BenchmarkMetrics
 from .benchmark_model import BenchmarkModel
@@ -104,6 +105,8 @@ from .benchmark_run_input_stage import BenchmarkRunInputStage
 from .benchmark_run_list import BenchmarkRunList
 from .benchmark_run_stage import BenchmarkRunStage
 from .benchmark_run_status import BenchmarkRunStatus
+from .benchmark_scoring import BenchmarkScoring
+from .benchmark_scoring_score_mode import BenchmarkScoringScoreMode
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
@@ -812,6 +815,7 @@ __all__ = (
     "BenchmarkDatasetInput",
     "BenchmarkDatasetList",
     "BenchmarkDatasetStagesItem",
+    "BenchmarkEligibilityRule",
     "BenchmarkJobError",
     "BenchmarkMetrics",
     "BenchmarkModel",
@@ -830,6 +834,8 @@ __all__ = (
     "BenchmarkRunList",
     "BenchmarkRunStage",
     "BenchmarkRunStatus",
+    "BenchmarkScoring",
+    "BenchmarkScoringScoreMode",
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
