@@ -1105,6 +1105,39 @@ type VoiceProfileDeletion struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceRecomputeItem struct {
+	RunID              int64       `json:"run_id"`
+	FingerprintID      int64       `json:"fingerprint_id"`
+	LocalSpeakerID     int64       `json:"local_speaker_id"`
+	ClipID             int64       `json:"clip_id"`
+	Kind               string      `json:"kind"`
+	AudioStreamIndex   int32       `json:"audio_stream_index"`
+	DiarizationJobID   int64       `json:"diarization_job_id"`
+	Step               pgtype.Text `json:"step"`
+	InputVersion       pgtype.Text `json:"input_version"`
+	BeforeUsable       bool        `json:"before_usable"`
+	BeforeContributive bool        `json:"before_contributive"`
+	JobID              pgtype.Int8 `json:"job_id"`
+}
+
+type VoiceRecomputeJob struct {
+	JobID int64 `json:"job_id"`
+	RunID int64 `json:"run_id"`
+}
+
+type VoiceRecomputeRun struct {
+	ID             int64              `json:"id"`
+	Status         string             `json:"status"`
+	Announced      int32              `json:"announced"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername pgtype.Text        `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	Report         []byte             `json:"report"`
+	RematchedAt    pgtype.Timestamptz `json:"rematched_at"`
+}
+
 type VoiceRefusal struct {
 	LocalSpeakerID int64              `json:"local_speaker_id"`
 	PersonID       int64              `json:"person_id"`

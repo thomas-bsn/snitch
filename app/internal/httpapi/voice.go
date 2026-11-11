@@ -400,7 +400,7 @@ func voiceStatus(jobStatus string) string {
 
 func (s *Server) latestVoiceStep(ctx context.Context, clipID int64, pattern string) (*voiceStep, error) {
 	var step voiceStep
-	err := s.Pool.QueryRow(ctx, `SELECT id,step,status,input_version,attempts,max_attempts,last_error FROM jobs WHERE clip_id=$1 AND step LIKE $2 AND requested_model_id IS NULL ORDER BY id DESC LIMIT 1`, clipID, pattern).Scan(&step.JobID, &step.Step, &step.Status, &step.InputVersion, &step.Attempts, &step.MaxAttempts, &step.LastError)
+	err := s.Pool.QueryRow(ctx, `SELECT id,step,status,input_version,attempts,max_attempts,last_error FROM jobs WHERE clip_id=$1 AND step LIKE $2 AND requested_model_id IS NULL AND id NOT IN (SELECT job_id FROM voice_recompute_jobs) ORDER BY id DESC LIMIT 1`, clipID, pattern).Scan(&step.JobID, &step.Step, &step.Status, &step.InputVersion, &step.Attempts, &step.MaxAttempts, &step.LastError)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}

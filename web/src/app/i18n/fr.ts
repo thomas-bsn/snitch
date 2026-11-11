@@ -1149,6 +1149,38 @@ export const fr: Messages = {
       reportFacts:
         "{missing} requalifiées sans source audio connue, {estimated} à Parole nette estimée, {original} gardant leur vecteur d’origine.",
     },
+    recompute: {
+      title: "Recalculer les empreintes sur la Parole nette",
+      hint: "Des tâches d’empreinte recalculent les vecteurs enregistrés avant la Parole nette, à partir des diarisations déjà faites. Rien n’est rediarisé ; aucune Personne, validation ni Échantillon vocal validé ne change. Chaque ancienne empreinte reste en service jusqu’au succès de la nouvelle.",
+      preview: "Voir l’ampleur du recalcul",
+      fingerprints: "Empreintes au vecteur d’origine",
+      recomputable: "Recalculables",
+      jobs: "Tâches d’empreinte",
+      clips: "Clips",
+      missing: "Sources audio absentes",
+      archived: "Voix archivées, non recalculables",
+      references: "Échantillons validés concernés",
+      transitionOpen:
+        "Un changement du modèle d’empreinte est en cours : le recalcul attend sa fin.",
+      confirm: "Je recalcule ces {count} empreintes",
+      start: "Lancer le recalcul",
+      started: "Lancé par {author} le {date}, {count} empreintes confirmées.",
+      running:
+        "Recalcul en cours : {done} empreintes traitées sur {total}, {pending} en attente.",
+      completed: "Recalcul terminé le {date}.",
+      cancelled: "Recalcul annulé le {date}.",
+      rematched: "Toute la bibliothèque a été rapprochée de nouveau le {date}.",
+      rematching: "Toute la bibliothèque est en cours de rapprochement.",
+      report:
+        "{recomputed} recalculées : {recovered} récupérées (désormais comparables), {recoveredContributive} devenues contributives, {stillRejected} toujours rejetées, {lost} qui ne sont plus comparables.",
+      reportKept:
+        "Restées en service : {errors} en erreur, {cancelled} annulées, {missing} sans source audio, {archived} voix archivées, {obsolete} remplacées par ailleurs.",
+      resume: "Reprendre",
+      cancel: "Annuler le recalcul",
+      cancelText:
+        "Seules les tâches du recalcul sont annulées ; les empreintes déjà recalculées restent.",
+      keep: "Le laisser continuer",
+    },
     score: {
       title: "Score d’une voix",
       hint: "La façon de comparer une voix aux échantillons validés d’une personne. Le changer rapproche de nouveau toutes les voix enregistrées.",

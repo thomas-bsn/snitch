@@ -1126,6 +1126,38 @@ export const en = {
       reportFacts:
         "{missing} requalified without a known audio source, {estimated} with an estimated net speech, {original} keeping their original vector.",
     },
+    recompute: {
+      title: "Recompute the fingerprints on the net speech",
+      hint: "Fingerprint jobs recompute the vectors stored before the net speech, from the diarizations already made. Nothing is rediarized; no Person, validation or validated sample changes. Each old fingerprint stays in service until its new one succeeds.",
+      preview: "See the extent of the recalculation",
+      fingerprints: "Fingerprints with an original vector",
+      recomputable: "Recomputable",
+      jobs: "Fingerprint jobs",
+      clips: "Clips",
+      missing: "Missing audio sources",
+      archived: "Archived voices, not recomputable",
+      references: "Validated samples concerned",
+      transitionOpen:
+        "A fingerprint model change is under way: the recalculation waits for its end.",
+      confirm: "I recompute these {count} fingerprints",
+      start: "Start the recalculation",
+      started: "Started by {author} on {date}, {count} fingerprints confirmed.",
+      running:
+        "Recalculation under way: {done} of {total} fingerprints handled, {pending} waiting.",
+      completed: "Recalculation completed on {date}.",
+      cancelled: "Recalculation cancelled on {date}.",
+      rematched: "The whole library was matched again on {date}.",
+      rematching: "The whole library is being matched again.",
+      report:
+        "{recomputed} recomputed: {recovered} recovered (comparable now), {recoveredContributive} newly contributive, {stillRejected} still rejected, {lost} no longer comparable.",
+      reportKept:
+        "Kept in service: {errors} errors, {cancelled} cancelled, {missing} without audio source, {archived} archived voices, {obsolete} replaced elsewhere.",
+      resume: "Resume",
+      cancel: "Cancel the recalculation",
+      cancelText:
+        "Only the recalculation's own jobs are cancelled; the fingerprints already recomputed stay.",
+      keep: "Keep it running",
+    },
     score: {
       title: "Score of a voice",
       hint: "How a voice is compared with a person's validated samples. Changing it matches every stored voice again.",

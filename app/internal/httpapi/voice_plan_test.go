@@ -357,6 +357,34 @@ func testAudioPlanVoiceTwoTracks(t *testing.T, pool *pgxpool.Pool) {
 	if h.count(`SELECT count(*) FROM persons`) != 0 || h.count(`SELECT count(*) FROM voice_samples`) != 0 || h.count(`SELECT count(*) FROM speaker_attributions WHERE validation_state='validated'`) != 0 {
 		t.Fatal("no Person, Voice sample or validation may come from the voice analysis of a merged text")
 	}
+
+	// A recalculation on the net speech (#395) runs outside the plan, on the plan's diarization: the Worker still
+	// gets track 7's turns in its own stream time, and the times it reports are stored in clip time again.
+	if _, err := pool.Exec(context.Background(), `UPDATE voice_fingerprints SET measures_version=NULL,net_speech_seconds=NULL,overlap_ratio=NULL,overlapped=NULL,net_speech_source=NULL WHERE clip_id=$1`, h.clipID); err != nil {
+		t.Fatal(err)
+	}
+	h.adminCall(http.MethodPost, "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 3}, http.StatusCreated)
+	var recompute claimedJob
+	for i := 0; i < 2 && recompute.Step != "voice.fingerprint.7"; i++ {
+		job, ok := h.claim()
+		if !ok {
+			t.Fatal("the recalculation jobs were not scheduled")
+		}
+		if job.Step == "voice.fingerprint.2" {
+			h.complete(job, trackFingerprints(2, two.ID, map[string][2]float64{"SPEAKER_00": {0.9, 2.1}, "SPEAKER_01": {3.0, 3.5}}, "SPEAKER_00", "SPEAKER_01"), http.StatusOK)
+		}
+		recompute = job
+	}
+	if err := json.Unmarshal(h.workerCall(http.MethodGet, fmt.Sprintf("/api/worker/jobs/%d/input", recompute.ID), nil, recompute.Lease, http.StatusOK), &input); err != nil {
+		t.Fatal(err)
+	}
+	if turn := input.Voice.Diarization.Speakers[0].Turns[0]; recompute.Step != "voice.fingerprint.7" || recompute.ID == fpSeven.ID || turn.Start != 0 || turn.End != 1 {
+		t.Fatalf("the recalculation gets turns in its stream time: %+v %+v", recompute, turn)
+	}
+	h.complete(recompute, seventh, http.StatusOK)
+	if h.count(`SELECT count(*) FROM voice_fingerprints vf JOIN local_speakers ls ON ls.id=vf.local_speaker_id WHERE ls.audio_stream_index=7 AND vf.start_seconds=1.25 AND vf.end_seconds=2.25 AND vf.fingerprint_job_id=$1`, recompute.ID) != 1 {
+		t.Fatal("the recalculated fingerprint is stored in clip time")
+	}
 }
 
 // A voice detected on a kept speech track whose recognizer found no words keeps a visible diagnostic, and a
