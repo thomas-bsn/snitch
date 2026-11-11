@@ -6228,6 +6228,8 @@ export interface components {
       voice_profile_deleted_at: string | null;
       /** Format: date-time */
       created_at: string;
+      /** @description Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou d'une correction. */
+      reference: components["schemas"]["PersonReference"] | null;
     };
     PersonMergeInput: {
       /**
@@ -6290,6 +6292,18 @@ export interface components {
       recorded_at: string;
       /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
       sample_count: number;
+      /**
+       * @description Ce que la Référence du groupe d'empreinte actif fait de l'échantillon de cette voix : contributive, ou la raison de son écart ; null quand la voix ne fournit aucun échantillon actif.
+       * @enum {string|null}
+       */
+      reference_use:
+        | "contributive"
+        | "too_short"
+        | "overlap_only"
+        | "clipped"
+        | "low_quality"
+        | "no_fingerprint"
+        | null;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];
@@ -9081,6 +9095,45 @@ export interface components {
       created_at: string;
       /** @description Vingt dernières versions, la plus récente d'abord. */
       history: components["schemas"]["VoiceScoreModeVersion"][];
+    };
+    PersonReferenceDiscard: {
+      /**
+       * @description Raison de l'écart : celle de l'empreinte du Locuteur local dans le groupe actif (too_short, overlap_only, clipped, low_quality), ou no_fingerprint quand la voix n'a aucune empreinte de production dans ce groupe.
+       * @enum {string}
+       */
+      reason:
+        | "too_short"
+        | "overlap_only"
+        | "clipped"
+        | "low_quality"
+        | "no_fingerprint";
+      count: number;
+    };
+    /** @description La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version, dimensions) actif, et son niveau. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue. */
+    PersonReference: {
+      /**
+       * @description none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ; avec moins de 3 Références, good.
+       * @enum {string}
+       */
+      level: "good" | "weak" | "none";
+      /**
+       * @description Pourquoi la Référence a ce niveau.
+       * @enum {string}
+       */
+      basis:
+        | "no_sample"
+        | "single_clip"
+        | "few_references"
+        | "below_median"
+        | "median_or_more";
+      /** @description Échantillons validés actifs qui entrent dans la Référence (empreinte contributive du groupe actif). */
+      contributive_samples: number;
+      /** @description Clips distincts de ces échantillons. */
+      clips: number;
+      /** @description Parole nette cumulée de ces échantillons, après plafond par échantillon. */
+      net_speech_seconds: number;
+      /** @description Échantillons validés actifs écartés de la Référence, groupés par raison. */
+      discarded: components["schemas"]["PersonReferenceDiscard"][];
     };
   };
   responses: never;

@@ -61,6 +61,19 @@ export function PersonVoices({
                     seconds: voice.speaking_seconds.toFixed(1),
                   })}
                 </span>
+                {voice.reference_use && (
+                  <span
+                    className={`block text-xs ${voice.reference_use === "contributive" ? "text-mute" : "text-warn-fg"}`}
+                  >
+                    {voice.reference_use === "contributive"
+                      ? t("people.reference.voiceUsed")
+                      : t("people.reference.voiceSetAside", {
+                          reason: t(
+                            `people.reference.reasons.${voice.reference_use}`,
+                          ),
+                        })}
+                  </span>
+                )}
               </div>
             </li>
           ))}
