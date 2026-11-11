@@ -13,46 +13,43 @@ import (
 // reference vectors, from fingerprints its pinned pipeline decided. Its results stay as they were stored and
 // read as the legacy "centroid" mode, without a rule.
 
-const scoreCentroidLegacy = "centroid"
+// benchmarkStageFingerprint is the benchmark stage of the fingerprint models, the only one scored this way.
+const benchmarkStageFingerprint = "fingerprint"
 
-type benchmarkEligibilityRule struct {
-	Version                int     `json:"version"`
-	ComparableMinSeconds   float64 `json:"comparable_min_seconds"`
-	ContributiveMinSeconds float64 `json:"contributive_min_seconds"`
-	MaxClippedRatio        float64 `json:"max_clipped_ratio"`
-}
+// scoreCentroidLegacy is the score of a fingerprint run recorded before #397; never a production mode.
+const scoreCentroidLegacy scoreMode = "centroid"
 
 type benchmarkScoring struct {
-	ScoreMode        string                    `json:"score_mode"`
-	ScoreModeVersion *int                      `json:"score_mode_version"`
-	EligibilityRule  *benchmarkEligibilityRule `json:"eligibility_rule"`
+	ScoreMode        scoreMode             `json:"score_mode"`
+	ScoreModeVersion *int                  `json:"score_mode_version"`
+	EligibilityRule  *versionedEligibility `json:"eligibility_rule"`
 	// SampleCapSeconds is the cap of one sample's weight in a cumulative Reference (referenceSampleCapSeconds).
 	SampleCapSeconds *float64 `json:"reference_sample_cap_seconds"`
 }
 
 // activeBenchmarkScoring reads the score mode and the eligibility rule production uses now.
 func activeBenchmarkScoring(ctx context.Context, q pgQuerier) (benchmarkScoring, error) {
-	var version int
-	rule := benchmarkEligibilityRule{}
 	sampleCap := referenceSampleCapSeconds
-	out := benchmarkScoring{ScoreModeVersion: &version, EligibilityRule: &rule, SampleCapSeconds: &sampleCap}
-	err := q.QueryRow(ctx, `SELECT m.version,m.mode,r.version,r.comparable_min_seconds,r.contributive_min_seconds,r.max_clipped_ratio
-  FROM (SELECT version,mode FROM voice_score_modes ORDER BY version DESC LIMIT 1) m,
-       (SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1) r`).
-		Scan(&version, &out.ScoreMode, &rule.Version, &rule.ComparableMinSeconds, &rule.ContributiveMinSeconds, &rule.MaxClippedRatio)
+	out := benchmarkScoring{SampleCapSeconds: &sampleCap}
+	version, mode, err := activeScoreModeVersion(ctx, q)
+	if err != nil {
+		return out, err
+	}
+	rule, err := activeEligibilityRule(ctx, q)
+	out.ScoreMode, out.ScoreModeVersion, out.EligibilityRule = mode, &version, &rule
 	return out, err
 }
 
 // recordedScoring reads the scoring of a run from its parameters: nil for a stage other than the fingerprint,
 // the legacy centroid for a fingerprint run recorded before #397.
 func recordedScoring(stage string, params []byte) *benchmarkScoring {
-	if stage != "fingerprint" {
+	if stage != benchmarkStageFingerprint {
 		return nil
 	}
 	var p struct {
 		Scoring *benchmarkScoring `json:"scoring"`
 	}
-	if json.Unmarshal(params, &p) == nil && p.Scoring != nil && scoreMode(p.Scoring.ScoreMode).valid() && p.Scoring.EligibilityRule != nil {
+	if json.Unmarshal(params, &p) == nil && p.Scoring != nil && p.Scoring.ScoreMode.valid() && p.Scoring.EligibilityRule != nil {
 		return p.Scoring
 	}
 	return &benchmarkScoring{ScoreMode: scoreCentroidLegacy}

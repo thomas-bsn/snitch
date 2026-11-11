@@ -413,7 +413,7 @@ func (s *Server) nameVoiceGroup(w http.ResponseWriter, r *http.Request) {
 	}
 	// New references: the stored fingerprints are matched again and the proximity links
 	// rebuilt, without any worker.
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	person, err := scanPerson(s.Pool.QueryRow(ctx, `SELECT `+personColumns+` FROM persons p WHERE p.id=$1`, personID))
 	if err != nil {
 		s.internal(w, err)

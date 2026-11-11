@@ -30,6 +30,10 @@ const (
 	indexFailureLimit = 20
 )
 
+// indexationRun keeps the runs of an indexation (modes cards and full) among library_index_runs, leaving out
+// the scans of the whole Racine (mode scan, #404), which are neither shown nor paused here.
+const indexationRun = `mode IN ('` + indexModeCards + `','` + indexModeFull + `')`
+
 var errIndexTooLarge = errors.New("too many videos for one run")
 
 type rootVideo struct {
@@ -95,7 +99,7 @@ func walkRootVideos(ctx context.Context, root string, private map[string]bool, s
 			}
 			return nil
 		}
-		if entry.IsDir() || !entry.Type().IsRegular() || !videoExtension(entry.Name()) {
+		if entry.IsDir() || !entry.Type().IsRegular() || !library.IsVideoName(entry.Name()) {
 			return nil
 		}
 		info, e := entry.Info()
@@ -326,7 +330,7 @@ func (s *Server) indexRunView(ctx context.Context, id int64, hidden func(path st
 // currentIndexRun answers the latest run of the Racine, or null when none was ever asked.
 func (s *Server) currentIndexRun(w http.ResponseWriter, r *http.Request) {
 	var id int64
-	err := s.Pool.QueryRow(r.Context(), `SELECT r.id FROM library_index_runs r JOIN clip_sources c ON c.id=r.source_id AND c.managed_root WHERE r.mode IN ('cards','full') ORDER BY r.id DESC LIMIT 1`).Scan(&id)
+	err := s.Pool.QueryRow(r.Context(), `SELECT r.id FROM library_index_runs r JOIN clip_sources c ON c.id=r.source_id AND c.managed_root WHERE r.`+indexationRun+` ORDER BY r.id DESC LIMIT 1`).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		reply(w, http.StatusOK, map[string]any{"run": nil})
 		return
@@ -381,7 +385,7 @@ func (s *Server) changeIndexRun(w http.ResponseWriter, r *http.Request, action s
 	var status string
 	var sourceID int64
 	// A scan of the Racine (#404) has its own cancellation and no pause.
-	err = tx.QueryRow(ctx, `SELECT status,source_id FROM library_index_runs WHERE id=$1 AND mode IN ('cards','full') FOR UPDATE`, id).Scan(&status, &sourceID)
+	err = tx.QueryRow(ctx, `SELECT status,source_id FROM library_index_runs WHERE id=$1 AND `+indexationRun+` FOR UPDATE`, id).Scan(&status, &sourceID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "index_run_not_found")
 		return

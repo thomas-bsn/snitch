@@ -2,20 +2,17 @@ package httpapi
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/url"
 	"strconv"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
-// Preview and traced requalification of the stored fingerprints (#394, spec voix-breves section 6, steps 1 and
-// 2). The preview decides the production speaker fingerprints under a candidate rule and under a few minimum
-// durations, with the statement of the requalification itself (eligibilityDecidedSQL), inside a read-only
-// transaction: it writes nothing and reads no media. The requalification is the rule's save
-// (putVoiceEligibility); each one is traced with its author, its rule and a before/after report.
+// Preview of a requalification of the stored fingerprints (#394, spec voix-breves section 6, step 1). The preview
+// decides the production speaker fingerprints under a candidate rule and under a few minimum durations, with the
+// statement of the requalification itself (eligibilityDecidedSQL), inside a read-only transaction: it writes
+// nothing and reads no media. The requalification itself and its trace are in voice_eligibility_requalification.go.
 //
 // A Person has a Reference, in a fingerprint group, when at least one of their active validated samples has a
 // contributive speaker fingerprint in that group (the definition of the cumulative Reference, ADR 0064).
@@ -92,19 +89,6 @@ type eligibilityPreview struct {
 	ActiveVersion      int                       `json:"active_version"`
 	PersonsWithSamples int                       `json:"persons_with_samples"`
 	Groups             []eligibilityGroupPreview `json:"groups"`
-}
-
-type eligibilityRequalification struct {
-	ID              int64              `json:"id"`
-	RuleVersion     int                `json:"rule_version"`
-	Author          *string            `json:"author"`
-	CreatedAt       time.Time          `json:"created_at"`
-	Changed         int                `json:"changed"`
-	MissingSources  int                `json:"missing_sources"`
-	Estimated       int                `json:"estimated"`
-	OriginalVectors int                `json:"original_vectors"`
-	Before          eligibilityOutcome `json:"before"`
-	After           eligibilityOutcome `json:"after"`
 }
 
 // previewRuleCTE turns the candidate rule and the scenarios ($1, $2, $3: comparable, contributive and clipped
@@ -193,13 +177,13 @@ func (s *Server) getVoiceEligibilityPreview(w http.ResponseWriter, r *http.Reque
 	}
 	defer tx.Rollback(ctx)
 	var out eligibilityPreview
-	var active eligibilityValues
-	if err = tx.QueryRow(ctx, `SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1`).
-		Scan(&out.ActiveVersion, &active.ComparableMinSeconds, &active.ContributiveMinSeconds, &active.MaxClippedRatio); err != nil {
+	active, err := activeEligibilityRule(ctx, tx)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	rule, durations, ok := previewInput(r.URL.Query(), active)
+	out.ActiveVersion = active.Version
+	rule, durations, ok := previewInput(r.URL.Query(), active.eligibilityValues)
 	if !ok {
 		fail(w, http.StatusBadRequest, "invalid_voice_eligibility")
 		return
@@ -280,70 +264,4 @@ func previewGroups(ctx context.Context, tx pgx.Tx, candidate eligibilityValues, 
 		}
 	}
 	return groups, persons.Err()
-}
-
-// storedEligibilitySQL counts the production speaker fingerprints by their stored eligibility: the before and
-// after of a requalification report.
-var storedEligibilitySQL = `SELECT count(*),count(*) FILTER (WHERE f.usable),count(*) FILTER (WHERE f.contributive),
-  count(*) FILTER (WHERE NOT f.contributive AND f.unusable_reason='too_short'),
-  count(*) FILTER (WHERE NOT f.contributive AND f.unusable_reason='overlap_only'),
-  count(*) FILTER (WHERE NOT f.contributive AND f.unusable_reason='clipped'),
-  count(*) FILTER (WHERE NOT f.contributive AND f.unusable_reason='low_quality'),
-  count(DISTINCT s.person_id) FILTER (WHERE f.contributive),
-  count(*) FILTER (WHERE ` + clipSourceAbsentSQL("f.clip_id") + `),
-  count(*) FILTER (WHERE f.net_speech_source='estimated'),count(*) FILTER (WHERE f.measures_version IS NULL)
-FROM voice_fingerprints f LEFT JOIN (` + activeSamplesSQL + `) s ON s.local_speaker_id=f.local_speaker_id
-WHERE NOT f.benchmark AND f.scope='speaker'`
-
-// storedEligibility reads the stored eligibility of the production speaker fingerprints; the report keeps the
-// figures of the fingerprints left without source, estimated or with their original vector.
-func storedEligibility(ctx context.Context, q querier, report *eligibilityRequalification) (eligibilityOutcome, error) {
-	var o eligibilityOutcome
-	var missing, estimated, original int
-	err := q.QueryRow(ctx, storedEligibilitySQL).Scan(&o.Present, &o.Comparable, &o.Contributive, &o.TooShort, &o.OverlapOnly, &o.Clipped, &o.LowQuality,
-		&o.PersonsWithReference, &missing, &estimated, &original)
-	if report != nil {
-		report.MissingSources, report.Estimated, report.OriginalVectors = missing, estimated, original
-	}
-	return o, err
-}
-
-// traceRequalification records a requalification run in the caller's transaction.
-func traceRequalification(ctx context.Context, tx pgx.Tx, report eligibilityRequalification, author authorRef) error {
-	before, err := json.Marshal(report.Before)
-	if err != nil {
-		return err
-	}
-	after, err := json.Marshal(report.After)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(ctx, `INSERT INTO voice_eligibility_requalifications(rule_version,author_id,author_username,changed,missing_sources,estimated,original_vectors,before,after) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-		report.RuleVersion, author.ID, author.Username, report.Changed, report.MissingSources, report.Estimated, report.OriginalVectors, before, after)
-	return err
-}
-
-// loadRequalifications lists the last requalifications, the most recent first.
-func loadRequalifications(ctx context.Context, q querier) ([]eligibilityRequalification, error) {
-	rows, err := q.Query(ctx, `SELECT id,rule_version,author_username,created_at,changed,missing_sources,estimated,original_vectors,before,after FROM voice_eligibility_requalifications ORDER BY id DESC LIMIT 10`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []eligibilityRequalification{}
-	for rows.Next() {
-		var r eligibilityRequalification
-		var before, after []byte
-		if err = rows.Scan(&r.ID, &r.RuleVersion, &r.Author, &r.CreatedAt, &r.Changed, &r.MissingSources, &r.Estimated, &r.OriginalVectors, &before, &after); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(before, &r.Before); err != nil {
-			return nil, err
-		}
-		if err = json.Unmarshal(after, &r.After); err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
 }

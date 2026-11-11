@@ -511,7 +511,7 @@ func (s *Server) switchFingerprintModel(ctx context.Context, t fingerprintTransi
 			return err
 		}
 		// The library is matched again in the new space; the request commits with the switch (#392).
-		if err = requestMatching(ctx, tx, 0); err != nil {
+		if err = requestMatching(ctx, tx, wholeLibrary); err != nil {
 			return err
 		}
 		switched = true

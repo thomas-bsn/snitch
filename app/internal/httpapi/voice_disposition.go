@@ -260,7 +260,7 @@ func (s *Server) changeDispositions(w http.ResponseWriter, r *http.Request, ids 
 		s.internal(w, err)
 		return false
 	}
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	return true
 }
 
@@ -389,7 +389,7 @@ ON CONFLICT (local_speaker_id,person_id) DO UPDATE SET author_id=EXCLUDED.author
 		return
 	}
 	// A removed reference or attribution changes what the other voices may match.
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	reply(w, http.StatusOK, map[string]any{"local_speaker_id": sp.ID, "person_id": personID, "refused": true})
 }
 
@@ -434,6 +434,6 @@ SELECT COALESCE(p.display_name,'') FROM cancelled c LEFT JOIN persons p ON p.id=
 		s.internal(w, err)
 		return
 	}
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	reply(w, http.StatusOK, map[string]any{"local_speaker_id": sp.ID, "person_id": personID, "refused": false})
 }

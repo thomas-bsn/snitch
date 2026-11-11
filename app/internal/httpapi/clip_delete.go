@@ -329,7 +329,7 @@ func (s *Server) deleteClip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if heldSamples {
-		s.matchingChanged(ctx, 0)
+		s.libraryMatchingChanged(ctx)
 	}
 	reply(w, 200, map[string]string{"status": "deleted"})
 }

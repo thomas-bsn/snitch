@@ -420,7 +420,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	params = s.withProfiles(r.Context(), params, input.Stage)
-	if input.Stage == "fingerprint" {
+	if input.Stage == benchmarkStageFingerprint {
 		if params, err = withScoring(r.Context(), s.Pool, params); err != nil {
 			s.internal(w, err)
 			return
@@ -706,7 +706,7 @@ func computeFingerprintResult(ctx context.Context, q pgQuerier, runID, datasetID
 	if err = q.QueryRow(ctx, `SELECT extract(epoch FROM max(j.updated_at)-min(j.created_at)) FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 AND rj.model_id=$2 AND j.status='done'`, runID, modelID).Scan(&res.elapsed); err != nil {
 		return res, err
 	}
-	metrics := evaluateFingerprints(scoreMode(scoring.ScoreMode), refs, tests, res.dimensions)
+	metrics := evaluateFingerprints(scoring.ScoreMode, refs, tests, res.dimensions)
 	// An item is measured when its fingerprint exists and the rule lets it play its part, as in production.
 	res.scored = withVector - metrics.Ineligible
 	switch {

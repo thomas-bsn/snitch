@@ -50,7 +50,6 @@ func firstSegment(relative string) string {
 	return clean
 }
 
-func videoExtension(path string) bool { return library.IsVideoName(path) }
 func (s *Server) videoRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPut {
 		var input struct {
@@ -126,7 +125,7 @@ func (s *Server) videoBrowse(w http.ResponseWriter, r *http.Request) {
 		if entry.IsDir() && library.IsSystemDirectory(entry.Name()) || strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
 			continue
 		}
-		if !entry.IsDir() && !videoExtension(entry.Name()) {
+		if !entry.IsDir() && !library.IsVideoName(entry.Name()) {
 			continue
 		}
 		info, err := entry.Info()
@@ -253,7 +252,7 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 				}
 				return nil
 			}
-			if entry.IsDir() || !entry.Type().IsRegular() || !videoExtension(path) {
+			if entry.IsDir() || !entry.Type().IsRegular() || !library.IsVideoName(path) {
 				return nil
 			}
 			if _, e = library.ManagedPath(root.Path, rel); e != nil {

@@ -33,7 +33,10 @@ import (
 // A server that runs no background loop (not started, or matchingInline for tests) runs the pass inline, in the
 // caller, right after recording the request: the same code path, without the wait.
 
-// requestMatching records a matching request; clipID 0 asks for the whole library. Called inside the transaction
+// wholeLibrary is the clip id that stands for the whole library in a matching request (clip_id NULL).
+const wholeLibrary int64 = 0
+
+// requestMatching records a matching request; clipID wholeLibrary asks for the whole library. Called inside the transaction
 // of a change, the request commits with it; wakeMatching must follow the commit.
 func requestMatching(ctx context.Context, q pgQuerier, clipID int64) error {
 	var clip *int64
@@ -44,8 +47,12 @@ func requestMatching(ctx context.Context, q pgQuerier, clipID int64) error {
 	return err
 }
 
+// libraryMatchingChanged asks for a matching pass over the whole library after a committed change of
+// references or settings (matchingChanged).
+func (s *Server) libraryMatchingChanged(ctx context.Context) { s.matchingChanged(ctx, wholeLibrary) }
+
 // matchingChanged asks for a matching pass after a change of references or fingerprints, already committed.
-// clipID 0 covers the whole library; otherwise only the speakers of that clip (new fingerprints). It never waits
+// clipID wholeLibrary covers the whole library; otherwise only the speakers of that clip (new fingerprints). It never waits
 // for the pass: a failure is logged and never undoes the change, and the request stays until a pass succeeds.
 func (s *Server) matchingChanged(ctx context.Context, clipID int64) {
 	if err := requestMatching(context.WithoutCancel(ctx), s.Pool, clipID); err != nil {
@@ -116,11 +123,11 @@ func (s *Server) serveVoiceMatching(ctx context.Context) {
 func (s *Server) matchingPass(ctx context.Context, full bool) (ran bool, stats matchStats, err error) {
 	voiceMatchingLock.Lock()
 	defer voiceMatchingLock.Unlock()
-	ids, clips, wholeLibrary, err := waitingMatching(ctx, s)
+	ids, clips, libraryAsked, err := waitingMatching(ctx, s)
 	if err != nil {
 		return false, stats, err
 	}
-	full = full || wholeLibrary
+	full = full || libraryAsked
 	if !full && len(clips) == 0 {
 		return false, stats, nil
 	}
@@ -129,7 +136,7 @@ func (s *Server) matchingPass(ctx context.Context, full bool) (ran bool, stats m
 		return true, stats, err
 	}
 	if full {
-		stats, err = s.rematchLocked(ctx, 0)
+		stats, err = s.rematchLocked(ctx, wholeLibrary)
 	} else {
 		for _, clip := range clips {
 			var one matchStats

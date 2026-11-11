@@ -79,9 +79,7 @@ func eligibilityDecidedOverSQL(population, filter string) string {
 // applyEligibilitySQL applies the active rule to production fingerprints ($1 restricts it to one job) and
 // counts those whose eligibility changed. Rows already decided that way are not rewritten: applying the same
 // rule twice writes nothing.
-var applyEligibilitySQL = `WITH rule AS (
-  SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1
-), ` + eligibilityDecidedSQL(`$1::bigint IS NULL OR f.fingerprint_job_id=$1`) + `, changed AS (
+var applyEligibilitySQL = `WITH rule AS (` + activeEligibilitySQL + `), ` + eligibilityDecidedSQL(`$1::bigint IS NULL OR f.fingerprint_job_id=$1`) + `, changed AS (
   UPDATE voice_fingerprints f
   SET usable=d.reason='',unusable_reason=d.reason,contributive=d.now_contributive,eligibility_rule_version=d.version
   FROM decided d
@@ -108,20 +106,36 @@ func lockEligibilityShared(ctx context.Context, tx pgx.Tx) error {
 	return err
 }
 
-type eligibilityRule struct {
-	Version                int       `json:"version"`
-	ComparableMinSeconds   float64   `json:"comparable_min_seconds"`
-	ContributiveMinSeconds float64   `json:"contributive_min_seconds"`
-	MaxClippedRatio        float64   `json:"max_clipped_ratio"`
-	Author                 *string   `json:"author"`
-	Provisional            bool      `json:"provisional"`
-	CreatedAt              time.Time `json:"created_at"`
-}
-
+// eligibilityValues are the three values of an eligibility rule.
 type eligibilityValues struct {
 	ComparableMinSeconds   float64 `json:"comparable_min_seconds"`
 	ContributiveMinSeconds float64 `json:"contributive_min_seconds"`
 	MaxClippedRatio        float64 `json:"max_clipped_ratio"`
+}
+
+// versionedEligibility is one version of the eligibility rule: its number and its values.
+type versionedEligibility struct {
+	Version int `json:"version"`
+	eligibilityValues
+}
+
+// eligibilityRule is a version of the rule as the administrator reads it, with its author.
+type eligibilityRule struct {
+	Version int `json:"version"`
+	eligibilityValues
+	Author      *string   `json:"author"`
+	Provisional bool      `json:"provisional"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
+// activeEligibilitySQL selects the active eligibility rule: the highest version.
+const activeEligibilitySQL = `SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1`
+
+// activeEligibilityRule reads the active eligibility rule.
+func activeEligibilityRule(ctx context.Context, q pgQuerier) (versionedEligibility, error) {
+	var r versionedEligibility
+	err := q.QueryRow(ctx, activeEligibilitySQL).Scan(&r.Version, &r.ComparableMinSeconds, &r.ContributiveMinSeconds, &r.MaxClippedRatio)
+	return r, err
 }
 
 // eligibilitySummary counts the production speaker fingerprints by eligibility. A fingerprint that is not
@@ -235,13 +249,12 @@ func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	var version int
-	var current eligibilityValues
-	if err = tx.QueryRow(ctx, `SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1`).
-		Scan(&version, &current.ComparableMinSeconds, &current.ContributiveMinSeconds, &current.MaxClippedRatio); err != nil {
+	active, err := activeEligibilityRule(ctx, tx)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
+	version, current := active.Version, active.eligibilityValues
 	wanted := eligibilityValues{*input.ComparableMinSeconds, *input.ContributiveMinSeconds, *input.MaxClippedRatio}
 	report := eligibilityRequalification{RuleVersion: version}
 	if report.Before, err = storedEligibility(ctx, tx, nil); err != nil {
@@ -275,7 +288,7 @@ func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if changed > 0 {
-		s.matchingChanged(ctx, 0) // in the background (#392)
+		s.libraryMatchingChanged(ctx) // in the background (#392)
 	}
 	out, err := s.loadEligibility(ctx)
 	if err != nil {

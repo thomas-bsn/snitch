@@ -637,7 +637,7 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 	}
 	// Adding, correcting or retiring a reference re-examines the stored fingerprints: the request commits with
 	// the decision, the pass follows in the background and the answer never waits for it (#392).
-	if err = requestMatching(ctx, tx, 0); err != nil {
+	if err = requestMatching(ctx, tx, wholeLibrary); err != nil {
 		s.internal(w, err)
 		return
 	}

@@ -35,9 +35,16 @@ const activeScoreModeSQL = `SELECT mode FROM voice_score_modes ORDER BY version 
 
 // activeScoreMode reads the active score mode.
 func activeScoreMode(ctx context.Context, q pgQuerier) (scoreMode, error) {
-	var mode scoreMode
-	err := q.QueryRow(ctx, activeScoreModeSQL).Scan(&mode)
+	_, mode, err := activeScoreModeVersion(ctx, q)
 	return mode, err
+}
+
+// activeScoreModeVersion reads the active score mode with its version.
+func activeScoreModeVersion(ctx context.Context, q pgQuerier) (int, scoreMode, error) {
+	var version int
+	var mode scoreMode
+	err := q.QueryRow(ctx, `SELECT version,mode FROM voice_score_modes ORDER BY version DESC LIMIT 1`).Scan(&version, &mode)
+	return version, mode, err
 }
 
 // loadScoreMode reads the active mode (highest version) and the twenty latest versions.
@@ -94,9 +101,8 @@ func (s *Server) putVoiceScoreMode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer tx.Rollback(ctx)
-	var version int
-	var current scoreMode
-	if err = tx.QueryRow(ctx, `SELECT version,mode FROM voice_score_modes ORDER BY version DESC LIMIT 1`).Scan(&version, &current); err != nil {
+	version, current, err := activeScoreModeVersion(ctx, tx)
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
@@ -113,7 +119,7 @@ func (s *Server) putVoiceScoreMode(w http.ResponseWriter, r *http.Request) {
 	}
 	// Another score re-examines every stored fingerprint, never the videos.
 	if changed {
-		s.matchingChanged(ctx, 0) // in the background (#392)
+		s.libraryMatchingChanged(ctx) // in the background (#392)
 	}
 	out, err := loadScoreMode(ctx, s.Pool)
 	if err != nil {

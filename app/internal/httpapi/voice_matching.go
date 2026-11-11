@@ -85,7 +85,7 @@ const (
 func loadMatchingSettings(ctx context.Context, db voiceDB) (matchingSettings, error) {
 	var v matchingSettings
 	err := db.QueryRow(ctx, `SELECT auto_enabled,automatic_threshold,suggestion_threshold,ambiguity_margin,max_candidates,precision_threshold,min_confirmations,auto_changed_at,updated_at,
-  (SELECT mode FROM voice_score_modes ORDER BY version DESC LIMIT 1) FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.PrecisionThreshold, &v.MinConfirmations, &v.AutoChangedAt, &v.UpdatedAt, &v.ScoreMode)
+  (`+activeScoreModeSQL+`) FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.PrecisionThreshold, &v.MinConfirmations, &v.AutoChangedAt, &v.UpdatedAt, &v.ScoreMode)
 	return v, err
 }
 
@@ -202,7 +202,7 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// New thresholds re-examine every stored fingerprint, never the videos, in the background.
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	v, err := effectiveMatchingSettings(ctx, s.Pool)
 	if err != nil {
 		s.internal(w, err)

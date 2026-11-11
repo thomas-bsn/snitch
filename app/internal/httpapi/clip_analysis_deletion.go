@@ -219,7 +219,7 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 		return stake, err
 	}
 	if referencesChange {
-		s.matchingChanged(ctx, 0)
+		s.libraryMatchingChanged(ctx)
 	}
 	return stake, nil
 }

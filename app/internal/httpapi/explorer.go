@@ -555,7 +555,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 				}
 				return nil
 			}
-			if entry.IsDir() || !entry.Type().IsRegular() || !videoExtension(entry.Name()) {
+			if entry.IsDir() || !entry.Type().IsRegular() || !library.IsVideoName(entry.Name()) {
 				return nil
 			}
 			info, e := entry.Info()
@@ -593,7 +593,7 @@ func (s *Server) explorerList(w http.ResponseWriter, r *http.Request) {
 			if entry.IsDir() && library.IsSystemDirectory(entry.Name()) || strings.HasPrefix(entry.Name(), ".") || entry.Type()&os.ModeSymlink != 0 {
 				continue
 			}
-			if !entry.IsDir() && !videoExtension(entry.Name()) {
+			if !entry.IsDir() && !library.IsVideoName(entry.Name()) {
 				continue
 			}
 			info, err := entry.Info()
@@ -767,7 +767,7 @@ func (s *Server) explorerIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	absolute, err := library.ManagedPath(root.Path, input.Path)
-	if err != nil || !videoExtension(input.Path) {
+	if err != nil || !library.IsVideoName(input.Path) {
 		fail(w, 422, "video_path_unavailable")
 		return
 	}
