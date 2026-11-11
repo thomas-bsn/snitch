@@ -81,7 +81,9 @@ def sync_detailed(
 
 ) -> Response[Error | VoiceEligibility]:
     """  Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les
-    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées.
+    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque
+    requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport
+    avant/après) ; la relancer sous la même règle ne change aucune empreinte.
 
     Args:
         origin (str):
@@ -119,7 +121,9 @@ def sync(
 
 ) -> Error | VoiceEligibility | None:
     """  Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les
-    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées.
+    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque
+    requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport
+    avant/après) ; la relancer sous la même règle ne change aucune empreinte.
 
     Args:
         origin (str):
@@ -152,7 +156,9 @@ async def asyncio_detailed(
 
 ) -> Response[Error | VoiceEligibility]:
     """  Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les
-    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées.
+    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque
+    requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport
+    avant/après) ; la relancer sous la même règle ne change aucune empreinte.
 
     Args:
         origin (str):
@@ -190,7 +196,9 @@ async def asyncio(
 
 ) -> Error | VoiceEligibility | None:
     """  Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les
-    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées.
+    empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque
+    requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport
+    avant/après) ; la relancer sous la même règle ne change aucune empreinte.
 
     Args:
         origin (str):

@@ -1103,6 +1103,51 @@ export const fr: Messages = {
       historyItem:
         "Règle {version} : comparable {comparable} s, contributive {contributive} s, écrêtage au plus {clipped} · {author} · {date}",
       snitch: "Snitch",
+      preview: "Voir l’aperçu chiffré",
+      previewTitle:
+        "Aperçu des empreintes enregistrées sous cette règle (comparable {comparable}, contributive {contributive}). Rien n’est encore modifié.",
+      previewEmpty: "Aucune empreinte de production n’est encore enregistrée.",
+      groupLabel: "Groupe d’empreintes {name}",
+      previewFacts:
+        "{present} empreintes de Locuteur local : {missing} sans source audio connue, {estimated} à Parole nette estimée, {original} gardant leur vecteur d’origine.",
+      overlapShare: "Les Chevauchements retirent {value} de la parole.",
+      overlapUnknown:
+        "La part de parole retirée par les Chevauchements est inconnue.",
+      personsReference:
+        "{count} des {total} personnes ayant des échantillons validés auraient une Référence.",
+      scenarios: "Effet par durée minimale",
+      scenariosHint:
+        "Chaque durée s’applique aux deux usages. +n : empreintes gagnées, −n : empreintes perdues, par rapport à aujourd’hui.",
+      ruleColumn: "Règle",
+      comparableColumn: "Comparables",
+      contributiveColumn: "Contributives",
+      rejectedColumn: "Rejetées",
+      referenceColumn: "Personnes avec une Référence",
+      current: "Aujourd’hui",
+      examined: "Règle examinée ({comparable} / {contributive})",
+      duration: "Minimum {value}",
+      rejected:
+        "{tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées",
+      rejectedBefore: ", {count} rejetées avant la règle",
+      perPerson: "Par personne, sous la règle examinée",
+      personColumn: "Personne",
+      presentColumn: "Empreintes",
+      missingColumn: "Sans source",
+      referenceKept: "Oui",
+      referenceGained: "Oui (nouvelle)",
+      referenceLost: "Non (perdue)",
+      referenceNone: "Non",
+      requalifyHint:
+        "Requalifier applique cette règle en base : aucun Worker, aucune lecture audio, vecteurs inchangés. Aucune personne, validation ni échantillon validé n’est modifié.",
+      requalify: "Requalifier avec cette règle",
+      reportTitle:
+        "Dernière requalification : règle {version}, par {author} le {date}. {count} empreintes ont changé d’éligibilité.",
+      reportBefore: "Avant :",
+      reportAfter: "Après :",
+      reportOutcome:
+        "{comparable} comparables, {contributive} contributives, {tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées, {lowQuality} rejetées avant la règle ; {persons} personnes avec une Référence.",
+      reportFacts:
+        "{missing} requalifiées sans source audio connue, {estimated} à Parole nette estimée, {original} gardant leur vecteur d’origine.",
     },
     score: {
       title: "Score d’une voix",

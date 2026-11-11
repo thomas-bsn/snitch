@@ -13,6 +13,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.voice_eligibility_input import VoiceEligibilityInput
+  from ..models.voice_eligibility_requalification import VoiceEligibilityRequalification
   from ..models.voice_eligibility_rule import VoiceEligibilityRule
   from ..models.voice_eligibility_summary import VoiceEligibilitySummary
 
@@ -34,6 +35,8 @@ class VoiceEligibility:
             history (list[VoiceEligibilityRule]): Vingt dernières versions, la plus récente d'abord.
             defaults (VoiceEligibilityInput):
             summary (VoiceEligibilitySummary): Empreintes de Locuteur local de production, par éligibilité.
+            requalifications (list[VoiceEligibilityRequalification]): Dix dernières requalifications, la plus récente
+                d'abord.
             requalified (int | Unset): Après une modification : empreintes dont l'éligibilité a changé.
      """
 
@@ -41,6 +44,7 @@ class VoiceEligibility:
     history: list[VoiceEligibilityRule]
     defaults: VoiceEligibilityInput
     summary: VoiceEligibilitySummary
+    requalifications: list[VoiceEligibilityRequalification]
     requalified: int | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -50,6 +54,7 @@ class VoiceEligibility:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.voice_eligibility_input import VoiceEligibilityInput # noqa: PLC0415
+        from ..models.voice_eligibility_requalification import VoiceEligibilityRequalification # noqa: PLC0415
         from ..models.voice_eligibility_rule import VoiceEligibilityRule # noqa: PLC0415
         from ..models.voice_eligibility_summary import VoiceEligibilitySummary # noqa: PLC0415
         rule = self.rule.to_dict()
@@ -65,6 +70,13 @@ class VoiceEligibility:
 
         summary = self.summary.to_dict()
 
+        requalifications = []
+        for requalifications_item_data in self.requalifications:
+            requalifications_item = requalifications_item_data.to_dict()
+            requalifications.append(requalifications_item)
+
+
+
         requalified = self.requalified
 
 
@@ -75,6 +87,7 @@ class VoiceEligibility:
             "history": history,
             "defaults": defaults,
             "summary": summary,
+            "requalifications": requalifications,
         })
         if requalified is not UNSET:
             field_dict["requalified"] = requalified
@@ -86,6 +99,7 @@ class VoiceEligibility:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.voice_eligibility_input import VoiceEligibilityInput # noqa: PLC0415
+        from ..models.voice_eligibility_requalification import VoiceEligibilityRequalification # noqa: PLC0415
         from ..models.voice_eligibility_rule import VoiceEligibilityRule # noqa: PLC0415
         from ..models.voice_eligibility_summary import VoiceEligibilitySummary # noqa: PLC0415
         d = dict(src_dict)
@@ -114,6 +128,16 @@ class VoiceEligibility:
 
 
 
+        requalifications = []
+        _requalifications = d.pop("requalifications")
+        for requalifications_item_data in (_requalifications):
+            requalifications_item = VoiceEligibilityRequalification.from_dict(requalifications_item_data)
+
+
+
+            requalifications.append(requalifications_item)
+
+
         requalified = d.pop("requalified", UNSET)
 
         voice_eligibility = cls(
@@ -121,6 +145,7 @@ class VoiceEligibility:
             history=history,
             defaults=defaults,
             summary=summary,
+            requalifications=requalifications,
             requalified=requalified,
         )
 

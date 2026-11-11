@@ -3090,7 +3090,7 @@ export interface paths {
     };
     /** @description Administrateurs uniquement. */
     get: operations["getVoiceEligibility"];
-    /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. */
+    /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport avant/après) ; la relancer sous la même règle ne change aucune empreinte. */
     put: operations["updateVoiceEligibility"];
     post?: never;
     delete?: never;
@@ -3110,6 +3110,23 @@ export interface paths {
     get: operations["getVoiceScoreMode"];
     /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre le mode actif n'enregistre rien. */
     put: operations["updateVoiceScoreMode"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-eligibility/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Décide les empreintes de Locuteur local de production sous la règle examinée et sous chaque durée, avec le calcul même de la requalification, dans une transaction en lecture seule. */
+    get: operations["previewVoiceEligibility"];
+    put?: never;
     post?: never;
     delete?: never;
     options?: never;
@@ -8908,8 +8925,127 @@ export interface components {
       history: components["schemas"]["VoiceEligibilityRule"][];
       defaults: components["schemas"]["VoiceEligibilityInput"];
       summary: components["schemas"]["VoiceEligibilitySummary"];
+      /** @description Dix dernières requalifications, la plus récente d'abord. */
+      requalifications: components["schemas"]["VoiceEligibilityRequalification"][];
       /** @description Après une modification : empreintes dont l'éligibilité a changé. */
       requalified?: number;
+    };
+    /** @description Empreintes de Locuteur local de production par éligibilité, et Personnes qui ont une Référence. */
+    VoiceEligibilityOutcome: {
+      /** @description Empreintes de Locuteur local de production présentes. */
+      present: number;
+      /** @description Comparables. */
+      comparable: number;
+      /** @description Contributives (comparables comprises). */
+      contributive: number;
+      /** @description Ni comparables ni contributives : Parole nette trop courte. */
+      too_short: number;
+      /** @description Rejetées : chevauchées. */
+      overlap_only: number;
+      /** @description Rejetées : écrêtées. */
+      clipped: number;
+      /** @description Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle. */
+      low_quality: number;
+      /** @description Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence. */
+      persons_with_reference: number;
+    };
+    /** @description Éligibilité qu'une requalification sous cette règle écrirait, comparée à l'état enregistré. */
+    VoiceEligibilityScenario: {
+      rule: components["schemas"]["VoiceEligibilityInput"];
+      /** @description Empreintes de Locuteur local de production présentes. */
+      present: number;
+      /** @description Comparables. */
+      comparable: number;
+      /** @description Contributives (comparables comprises). */
+      contributive: number;
+      /** @description Ni comparables ni contributives : Parole nette trop courte. */
+      too_short: number;
+      /** @description Rejetées : chevauchées. */
+      overlap_only: number;
+      /** @description Rejetées : écrêtées. */
+      clipped: number;
+      /** @description Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle. */
+      low_quality: number;
+      /** @description Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence. */
+      persons_with_reference: number;
+      /** @description Empreintes qui deviendraient comparables. */
+      recovered_comparable: number;
+      /** @description Empreintes qui deviendraient contributives. */
+      recovered_contributive: number;
+      /** @description Empreintes comparables aujourd'hui qui cesseraient de l'être. */
+      lost_comparable: number;
+      /** @description Empreintes contributives aujourd'hui qui cesseraient de l'être. */
+      lost_contributive: number;
+    };
+    /** @description Échantillons validés actifs d'une Personne dans un groupe d'empreintes, sous la règle examinée. */
+    VoiceEligibilityPersonPreview: {
+      person: components["schemas"]["PersonRef"];
+      /** @description Empreintes de ses échantillons validés actifs. */
+      present: number;
+      /** @description Comparables sous la règle examinée. */
+      comparable: number;
+      /** @description Contributives sous la règle examinée. */
+      contributive: number;
+      /** @description Trop courtes, non contributives. */
+      too_short: number;
+      /** @description Chevauchées. */
+      overlap_only: number;
+      /** @description Écrêtées. */
+      clipped: number;
+      /** @description Dont le clip n'a plus de source audio connue en base. */
+      missing_sources: number;
+      /** @description Dont la Parole nette est estimée (ni mesures ni tours). */
+      estimated: number;
+      /** @description A une Référence sous la règle examinée. */
+      reference: boolean;
+      /** @description A une Référence selon l'éligibilité enregistrée. */
+      reference_now: boolean;
+    };
+    /** @description Un groupe d'empreintes de production (modèle, version, dimensions). */
+    VoiceEligibilityGroupPreview: {
+      model: string;
+      model_version: string;
+      dimensions: number;
+      /** @description Empreintes dont le clip n'a plus de source audio connue en base (aucun média lu). */
+      missing_sources: number;
+      /** @description Empreintes de Locuteur local archivé sans tours : Parole nette estimée par la durée de l'empreinte. */
+      estimated: number;
+      /** @description Empreintes dont le vecteur précède la Parole nette (sans mesures du Worker) : vecteur d'origine, requalifié sans recalcul. */
+      original_vectors: number;
+      /** @description Part de la parole retirée par les Chevauchements, pondérée par le temps de parole, sur les empreintes dont le Chevauchement est connu ; null sans aucune. */
+      overlap_share: number | null;
+      current: components["schemas"]["VoiceEligibilityOutcome"];
+      candidate: components["schemas"]["VoiceEligibilityScenario"];
+      /** @description Une par durée minimale, appliquée aux deux usages, avec la part d'écrêtage examinée. */
+      scenarios: components["schemas"]["VoiceEligibilityScenario"][];
+      persons: components["schemas"]["VoiceEligibilityPersonPreview"][];
+    };
+    /** @description Aperçu sans effet de l'éligibilité des empreintes enregistrées (#394) : mêmes calculs que la requalification. */
+    VoiceEligibilityPreview: {
+      /** @description Version de la règle active. */
+      active_version: number;
+      /** @description Personnes ayant au moins un Échantillon vocal validé actif. */
+      persons_with_samples: number;
+      groups: components["schemas"]["VoiceEligibilityGroupPreview"][];
+    };
+    /** @description Une requalification tracée : auteur, règle appliquée, date et rapport avant/après. */
+    VoiceEligibilityRequalification: {
+      /** Format: int64 */
+      id: number;
+      rule_version: number;
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Empreintes de production dont l'éligibilité a changé. */
+      changed: number;
+      /** @description Empreintes requalifiées dont le clip n'a plus de source audio connue. */
+      missing_sources: number;
+      /** @description Empreintes à Parole nette estimée. */
+      estimated: number;
+      /** @description Empreintes gardant leur vecteur d'origine. */
+      original_vectors: number;
+      before: components["schemas"]["VoiceEligibilityOutcome"];
+      after: components["schemas"]["VoiceEligibilityOutcome"];
     };
     VoiceScoreModeInput: {
       /**
@@ -17639,6 +17775,44 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceScoreMode"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceEligibility: {
+    parameters: {
+      query?: {
+        /** @description Règle examinée ; par défaut la valeur active. */
+        comparable_min_seconds?: number;
+        /** @description Règle examinée ; par défaut la valeur active. */
+        contributive_min_seconds?: number;
+        /** @description Règle examinée ; par défaut la valeur active. */
+        max_clipped_ratio?: number;
+        /** @description Durées minimales des scénarios (0,5 à 60 s, six au plus) ; par défaut 1, 1,5 et 2 s. */
+        durations?: number[];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu chiffré, sans aucune écriture ni lecture de média */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEligibilityPreview"];
         };
       };
       /** @description Erreur */

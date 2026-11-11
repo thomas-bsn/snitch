@@ -1082,6 +1082,49 @@ export const en = {
       historyItem:
         "Rule {version}: comparable {comparable} s, contributive {contributive} s, clipped at most {clipped} · {author} · {date}",
       snitch: "Snitch",
+      preview: "Preview the figures",
+      previewTitle:
+        "Preview of the stored fingerprints under this rule (comparable {comparable}, contributive {contributive}). Nothing has changed yet.",
+      previewEmpty: "No production fingerprint is stored yet.",
+      groupLabel: "Fingerprint group {name}",
+      previewFacts:
+        "{present} local speaker fingerprints: {missing} without a known audio source, {estimated} with an estimated net speech, {original} keeping their original vector.",
+      overlapShare: "Overlaps remove {value} of the speech.",
+      overlapUnknown: "The share of speech removed by overlaps is unknown.",
+      personsReference:
+        "{count} of {total} people with validated samples would have a Reference.",
+      scenarios: "Effect by minimum duration",
+      scenariosHint:
+        "Each duration is applied to both uses. +n: fingerprints gained, −n: fingerprints lost, compared with today.",
+      ruleColumn: "Rule",
+      comparableColumn: "Comparable",
+      contributiveColumn: "Contributive",
+      rejectedColumn: "Rejected",
+      referenceColumn: "People with a Reference",
+      current: "Today",
+      examined: "Examined rule ({comparable} / {contributive})",
+      duration: "Minimum {value}",
+      rejected: "{tooShort} too short, {overlap} overlapped, {clipped} clipped",
+      rejectedBefore: ", {count} rejected before the rule",
+      perPerson: "By person, under the examined rule",
+      personColumn: "Person",
+      presentColumn: "Fingerprints",
+      missingColumn: "Without source",
+      referenceKept: "Yes",
+      referenceGained: "Yes (new)",
+      referenceLost: "No (lost)",
+      referenceNone: "No",
+      requalifyHint:
+        "Requalifying applies this rule in the database: no Worker, no audio read, vectors unchanged. No person, validation or validated sample is modified.",
+      requalify: "Requalify with this rule",
+      reportTitle:
+        "Last requalification: rule {version}, by {author} on {date}. {count} fingerprints changed eligibility.",
+      reportBefore: "Before:",
+      reportAfter: "After:",
+      reportOutcome:
+        "{comparable} comparable, {contributive} contributive, {tooShort} too short, {overlap} overlapped, {clipped} clipped, {lowQuality} rejected before the rule; {persons} people with a Reference.",
+      reportFacts:
+        "{missing} requalified without a known audio source, {estimated} with an estimated net speech, {original} keeping their original vector.",
     },
     score: {
       title: "Score of a voice",

@@ -939,6 +939,20 @@ type VoiceDispositionEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceEligibilityRequalification struct {
+	ID              int64              `json:"id"`
+	RuleVersion     int32              `json:"rule_version"`
+	AuthorID        pgtype.Int8        `json:"author_id"`
+	AuthorUsername  pgtype.Text        `json:"author_username"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Changed         int32              `json:"changed"`
+	MissingSources  int32              `json:"missing_sources"`
+	Estimated       int32              `json:"estimated"`
+	OriginalVectors int32              `json:"original_vectors"`
+	Before          []byte             `json:"before"`
+	After           []byte             `json:"after"`
+}
+
 type VoiceEligibilityRule struct {
 	Version                int32              `json:"version"`
 	ComparableMinSeconds   float64            `json:"comparable_min_seconds"`

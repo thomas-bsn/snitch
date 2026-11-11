@@ -7,9 +7,14 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
+import {
+  EligibilityPreview,
+  RequalificationReport,
+} from "./EligibilityPreview";
 
 type Eligibility = components["schemas"]["VoiceEligibility"];
 type EligibilityInput = components["schemas"]["VoiceEligibilityInput"];
+type Preview = components["schemas"]["VoiceEligibilityPreview"];
 type Matching = components["schemas"]["VoiceMatchingSettings"];
 type ScoreMode = components["schemas"]["VoiceScoreMode"];
 type ScoreModeName = ScoreMode["mode"];
@@ -48,6 +53,10 @@ export function VoiceAdvanced({
   const headers = mutation(session?.csrf_token);
   const [rule, setRule] = useState<Partial<EligibilityInput>>();
   const [requalified, setRequalified] = useState<number>();
+  const [preview, setPreview] = useState<{
+    figures: Preview;
+    rule: EligibilityInput;
+  }>();
   const [match, setMatch] = useState<Partial<Matching>>();
   const [mode, setMode] = useState<ScoreModeName>();
   const [precision, setPrecision] = useState<string>();
@@ -93,9 +102,30 @@ export function VoiceAdvanced({
       params: { header: headers },
       body,
     });
-    if (result.data) setRequalified(result.data.requalified);
+    if (result.data) {
+      setRequalified(result.data.requalified);
+      setPreview(undefined);
+    }
     return result;
   };
+  // The preview writes nothing: it is not a saved setting.
+  async function loadPreview() {
+    const examined = r;
+    setBusy(true);
+    setFailure(undefined);
+    setNotice(false);
+    try {
+      const result = await api.GET("/api/admin/voice-eligibility/preview", {
+        params: { query: examined },
+      });
+      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else setPreview({ figures: result.data, rule: examined });
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+    }
+  }
   const saveRule = (e: FormEvent) => {
     e.preventDefault();
     void run(
@@ -465,16 +495,40 @@ export function VoiceAdvanced({
                 setRule({ ...rule, max_clipped_ratio: num(e.target.value) })
               }
             />
-            <div>
+            <div className="flex flex-wrap gap-2">
               <button disabled={busy} className={buttonClass("primary")}>
                 {t("voiceAdmin.eligibility.save")}
               </button>
+              <button
+                type="button"
+                disabled={busy}
+                className={buttonClass()}
+                onClick={() => void loadPreview()}
+              >
+                {t("voiceAdmin.eligibility.preview")}
+              </button>
             </div>
           </form>
+          {preview && (
+            <EligibilityPreview
+              preview={preview.figures}
+              rule={preview.rule}
+              busy={busy}
+              onRequalify={() =>
+                void run(
+                  () => putRule(preview.rule),
+                  () => setRule(undefined),
+                )
+              }
+            />
+          )}
           {requalified !== undefined && (
             <p role="status">
               {t("voiceAdmin.eligibility.requalified", { count: requalified })}
             </p>
+          )}
+          {eligibility.requalifications.length > 0 && (
+            <RequalificationReport report={eligibility.requalifications[0]} />
           )}
           {eligibility.history.length > 1 && (
             <div>

@@ -501,8 +501,14 @@ from .voice_disposition_input_disposition import VoiceDispositionInputDispositio
 from .voice_disposition_view import VoiceDispositionView
 from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
 from .voice_eligibility import VoiceEligibility
+from .voice_eligibility_group_preview import VoiceEligibilityGroupPreview
 from .voice_eligibility_input import VoiceEligibilityInput
+from .voice_eligibility_outcome import VoiceEligibilityOutcome
+from .voice_eligibility_person_preview import VoiceEligibilityPersonPreview
+from .voice_eligibility_preview import VoiceEligibilityPreview
+from .voice_eligibility_requalification import VoiceEligibilityRequalification
 from .voice_eligibility_rule import VoiceEligibilityRule
+from .voice_eligibility_scenario import VoiceEligibilityScenario
 from .voice_eligibility_summary import VoiceEligibilitySummary
 from .voice_engine_import import VoiceEngineImport
 from .voice_engine_manifest import VoiceEngineManifest
@@ -1215,8 +1221,14 @@ __all__ = (
     "VoiceDispositionView",
     "VoiceDispositionViewDisposition",
     "VoiceEligibility",
+    "VoiceEligibilityGroupPreview",
     "VoiceEligibilityInput",
+    "VoiceEligibilityOutcome",
+    "VoiceEligibilityPersonPreview",
+    "VoiceEligibilityPreview",
+    "VoiceEligibilityRequalification",
     "VoiceEligibilityRule",
+    "VoiceEligibilityScenario",
     "VoiceEligibilitySummary",
     "VoiceEngineImport",
     "VoiceEngineManifest",
