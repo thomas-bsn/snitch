@@ -1,3 +1,4 @@
+import { useState, type ReactNode } from "react";
 import type { components } from "../../../api.gen";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
@@ -122,10 +123,10 @@ export function VoiceCalibration({
                         })}
                   </p>
                 )}
-                <details>
-                  <summary className="min-h-11 cursor-pointer py-2">
-                    {t("voiceAdmin.calibration.distribution")}
-                  </summary>
+                <Disclosure
+                  id={`${id}-distribution`}
+                  label={t("voiceAdmin.calibration.distribution")}
+                >
                   <div
                     role="region"
                     tabIndex={0}
@@ -161,11 +162,11 @@ export function VoiceCalibration({
                       </tbody>
                     </table>
                   </div>
-                </details>
-                <details>
-                  <summary className="min-h-11 cursor-pointer py-2">
-                    {t("voiceAdmin.calibration.sweep")}
-                  </summary>
+                </Disclosure>
+                <Disclosure
+                  id={`${id}-sweep`}
+                  label={t("voiceAdmin.calibration.sweep")}
+                >
                   <div
                     role="region"
                     tabIndex={0}
@@ -208,12 +209,41 @@ export function VoiceCalibration({
                       </tbody>
                     </table>
                   </div>
-                </details>
+                </Disclosure>
               </article>
             );
           })}
         </div>
       )}
     </section>
+  );
+}
+
+/** A folded block opened by a button (not a details element: the advanced settings already use one). */
+function Disclosure({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={id}
+        onClick={() => setOpen(!open)}
+        className="min-h-11 py-2 text-left underline-offset-2 hover:underline"
+      >
+        <span aria-hidden="true">{open ? "▾" : "▸"}</span> {label}
+      </button>
+      <div id={id} hidden={!open}>
+        {children}
+      </div>
+    </div>
   );
 }

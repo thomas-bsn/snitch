@@ -1207,7 +1207,6 @@ export const fr: Messages = {
       migration: "repris de l’installation",
       administrator: "saisis",
       proposal: "issus de la proposition de la mesure",
-      apply: "Appliquer à ce modèle d’empreinte",
       history: "Seuils précédents de ce modèle",
       historyItem:
         "Version {version} : automatique {automatic}, suggestion {suggestion}, marge {margin} · {source} · {author} · {date}",

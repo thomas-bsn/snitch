@@ -1184,7 +1184,6 @@ export const en = {
       migration: "taken over from the installation",
       administrator: "typed in",
       proposal: "from the measurement's proposal",
-      apply: "Apply to this fingerprint model",
       history: "Earlier thresholds of this model",
       historyItem:
         "Version {version}: automatic {automatic}, suggestion {suggestion}, margin {margin} · {source} · {author} · {date}",

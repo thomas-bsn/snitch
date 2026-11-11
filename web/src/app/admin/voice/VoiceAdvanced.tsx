@@ -148,7 +148,9 @@ export function VoiceAdvanced({
     api.PUT("/api/admin/voice-matching", {
       params: { header: headers },
       body: {
-        ...values,
+        automatic_threshold: values.automatic_threshold,
+        suggestion_threshold: values.suggestion_threshold,
+        ambiguity_margin: values.ambiguity_margin,
         max_candidates: m.max_candidates,
         ...(group ? { group, source } : {}),
       },
@@ -339,9 +341,7 @@ export function VoiceAdvanced({
             />
             <div className="flex flex-wrap gap-2">
               <button disabled={busy} className={buttonClass("primary")}>
-                {group
-                  ? t("voiceAdmin.thresholds.apply")
-                  : t("voiceAdmin.saveThresholds")}
+                {t("voiceAdmin.saveThresholds")}
               </button>
               <button
                 type="button"

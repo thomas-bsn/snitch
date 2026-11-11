@@ -203,6 +203,7 @@ func testPersonReferenceLevel(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=true`); err != nil {
 		t.Fatal(err)
 	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75) // a group decides automatically only with applied thresholds (#393)
 	stray := h.shortVoice(c[5], "STRAY", shortVoice{vector: axis(0), net: 8})
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 	if got := h.matched(stray); got.DecisionLevel != "automatic" || got.Person == nil || got.Person.ID != ann {
