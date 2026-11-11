@@ -1039,6 +1039,12 @@ type VoiceGroupLink struct {
 	ComputedAt   pgtype.Timestamptz `json:"computed_at"`
 }
 
+type VoiceMatchingRequest struct {
+	ID          int64              `json:"id"`
+	ClipID      pgtype.Int8        `json:"clip_id"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+}
+
 type VoiceMatchingSetting struct {
 	ID                  bool               `json:"id"`
 	AutoEnabled         bool               `json:"auto_enabled"`
@@ -1052,6 +1058,15 @@ type VoiceMatchingSetting struct {
 	MinConfirmations    int32              `json:"min_confirmations"`
 	AutoChangedAt       pgtype.Timestamptz `json:"auto_changed_at"`
 	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
+}
+
+type VoiceMatchingStatus struct {
+	ID             bool               `json:"id"`
+	RunningSince   pgtype.Timestamptz `json:"running_since"`
+	LastFinishedAt pgtype.Timestamptz `json:"last_finished_at"`
+	LastDurationMs pgtype.Int8        `json:"last_duration_ms"`
+	LastRequests   pgtype.Int4        `json:"last_requests"`
+	LastFailedAt   pgtype.Timestamptz `json:"last_failed_at"`
 }
 
 type VoiceModelCandidate struct {

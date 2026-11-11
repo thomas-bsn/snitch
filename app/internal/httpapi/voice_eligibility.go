@@ -269,10 +269,7 @@ func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if changed > 0 {
-		if _, err = s.rematchVoices(ctx, 0); err != nil {
-			s.internal(w, err)
-			return
-		}
+		s.matchingChanged(ctx, 0) // in the background (#392)
 	}
 	out, err := s.loadEligibility(ctx)
 	if err != nil {

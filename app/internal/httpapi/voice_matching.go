@@ -43,9 +43,9 @@ import (
 //     suggestion;
 //   - otherwise: a suggestion.
 //
-// The automation switch, Person corrections and voice profile deletion reuse rematchVoices (after
-// merging or deleting a Person) and extend the writers of machine attributions through
-// the origin column.
+// A change of references asks for a background pass (matchingChanged, voice_matching_queue.go, #392); the
+// analysis step matches its clip at once (rematchVoices). Writers of machine attributions are told apart
+// through the origin column.
 
 const matchingOrigin = "matching"
 
@@ -88,6 +88,8 @@ func loadMatchingSettings(ctx context.Context, db voiceDB) (matchingSettings, er
 // the thresholds and forcing a rematch are administrator actions.
 func (s *Server) registerVoiceMatchingRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/voice-matching", s.protected(false, http.HandlerFunc(s.getVoiceMatching)))
+	mux.Handle("GET /api/voice-matching/status", s.protected(false, http.HandlerFunc(s.getVoiceMatchingStatus)))
+	mux.Handle("GET /api/voice-matching/status/events", s.protected(false, http.HandlerFunc(s.voiceMatchingStatusEvents)))
 	mux.Handle("PUT /api/admin/voice-matching", s.protected(true, http.HandlerFunc(s.putVoiceMatching)))
 	mux.Handle("POST /api/admin/voice-matching/rematch", s.protected(true, http.HandlerFunc(s.postVoiceRematch)))
 }
@@ -124,11 +126,8 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	// New thresholds re-examine every stored fingerprint, never the videos.
-	if _, err := s.rematchVoices(context.WithoutCancel(r.Context()), 0); err != nil {
-		s.internal(w, err)
-		return
-	}
+	// New thresholds re-examine every stored fingerprint, never the videos, in the background.
+	s.matchingChanged(r.Context(), 0)
 	v, err := loadMatchingSettings(r.Context(), s.Pool)
 	if err != nil {
 		s.internal(w, err)
@@ -137,22 +136,14 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, v)
 }
 
+// postVoiceRematch is the explicit rematch of an administrator: one full pass at once, whose figures it answers.
 func (s *Server) postVoiceRematch(w http.ResponseWriter, r *http.Request) {
-	stats, err := s.rematchVoices(context.WithoutCancel(r.Context()), 0)
+	stats, err := s.rematchNow(context.WithoutCancel(r.Context()))
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	reply(w, http.StatusOK, stats)
-}
-
-// matchingChanged re-runs matching after a change of references or fingerprints. The
-// triggering change is already committed: a failure is logged and never undoes it, and
-// the next rematch (or the administrator's explicit one) repairs the attributions.
-func (s *Server) matchingChanged(ctx context.Context, clipID int64) {
-	if _, err := s.rematchVoices(context.WithoutCancel(ctx), clipID); err != nil {
-		s.Log.Error("voice matching failed", append([]any{"clip_id", clipID}, logging.Failure(err)...)...)
-	}
 }
 
 type matchStats struct {
@@ -191,13 +182,19 @@ type matchGroup struct {
 
 var voiceMatchingLock = sync.Mutex{}
 
-// rematchVoices recomputes the machine attributions of local speakers. clipID 0 covers
-// the whole library; otherwise only the speakers of that clip (new fingerprints).
-// Runs are serialized (process mutex and database advisory lock) so concurrent changes
-// of references cannot interleave their writes; each run reads the committed state.
+// rematchVoices recomputes the machine attributions of local speakers at once, in the caller. clipID 0 covers
+// the whole library; otherwise only the speakers of that clip (new fingerprints). The analysis step "matching"
+// uses it; a change of references asks for a background pass instead (matchingChanged, voice_matching_queue.go).
 func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, error) {
 	voiceMatchingLock.Lock()
 	defer voiceMatchingLock.Unlock()
+	return s.rematchLocked(ctx, clipID)
+}
+
+// rematchLocked is rematchVoices for a caller holding voiceMatchingLock. Runs are serialized (process mutex and
+// database advisory lock) so concurrent changes of references cannot interleave their writes; each run reads the
+// committed state. Scores are computed before any write, so the rows a run locks are held only while it writes.
+func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	var stats matchStats

@@ -502,6 +502,10 @@ func (s *Server) switchFingerprintModel(ctx context.Context, t fingerprintTransi
 		if _, err = tx.Exec(ctx, `UPDATE voice_active_model SET model_id=$1 WHERE kind='fingerprint'`, to.ID); err != nil {
 			return err
 		}
+		// The library is matched again in the new space; the request commits with the switch (#392).
+		if err = requestMatching(ctx, tx, 0); err != nil {
+			return err
+		}
 		switched = true
 		return nil
 	})
@@ -514,9 +518,7 @@ func (s *Server) switchFingerprintModel(ctx context.Context, t fingerprintTransi
 	if err = s.scheduleCatchUp(ctx, t); err != nil {
 		s.Log.Error("fingerprint catch-up failed", "error", err.Error())
 	}
-	if _, err = s.rematchVoices(ctx, 0); err != nil {
-		s.Log.Error("rematch after the fingerprint switch failed", "error", err.Error())
-	}
+	s.wakeMatching(ctx)
 	return nil
 }
 

@@ -539,6 +539,7 @@ from .voice_group_naming_input import VoiceGroupNamingInput
 from .voice_history_entry import VoiceHistoryEntry
 from .voice_matching_input import VoiceMatchingInput
 from .voice_matching_settings import VoiceMatchingSettings
+from .voice_matching_status import VoiceMatchingStatus
 from .voice_matching_summary import VoiceMatchingSummary
 from .voice_model import VoiceModel
 from .voice_model_add import VoiceModelAdd
@@ -1259,6 +1260,7 @@ __all__ = (
     "VoiceHistoryEntry",
     "VoiceMatchingInput",
     "VoiceMatchingSettings",
+    "VoiceMatchingStatus",
     "VoiceMatchingSummary",
     "VoiceModel",
     "VoiceModelAdd",

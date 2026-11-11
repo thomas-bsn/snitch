@@ -13016,6 +13016,72 @@
         ]
       }
     },
+    "/api/voice-matching/status": {
+      "get": {
+        "operationId": "getVoiceMatchingStatus",
+        "responses": {
+          "200": {
+            "description": "Où en est le rapprochement vocal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceMatchingStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 unauthorized)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Utilisateurs connectés. Après une validation, une correction ou un changement de réglage, le rapprochement suit en arrière-plan (#392) : cet état dit s'il est en cours et quand le dernier s'est terminé, donc si les suggestions affichées sont à jour.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/voice-matching/status/events": {
+      "get": {
+        "operationId": "streamVoiceMatchingStatus",
+        "responses": {
+          "200": {
+            "description": "Flux text/event-stream : un évènement `snapshot` {seq, snapshot: VoiceMatchingStatus} à l'ouverture, puis à chaque demande ou passage de rapprochement. La session est revérifiée avant chaque snapshot ; un évènement `forbidden` clôt le flux quand elle est perdue.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 unauthorized)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Utilisateurs connectés. Repli : GET /api/voice-matching/status.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice-matching": {
       "put": {
         "operationId": "updateVoiceMatching",
@@ -13069,7 +13135,7 @@
             }
           }
         },
-        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
+        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status).",
         "security": [
           {
             "session": []
@@ -13120,7 +13186,7 @@
             }
           }
         },
-        "description": "Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé.",
+        "description": "Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres.",
         "security": [
           {
             "session": []
@@ -25666,6 +25732,59 @@
           "removed": {
             "type": "integer",
             "description": "Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle."
+          }
+        }
+      },
+      "VoiceMatchingStatus": {
+        "type": "object",
+        "required": [
+          "pending",
+          "running",
+          "running_since",
+          "last_finished_at",
+          "last_duration_ms",
+          "last_requests",
+          "last_failed_at"
+        ],
+        "properties": {
+          "pending": {
+            "type": "boolean",
+            "description": "Des demandes de rapprochement attendent (validation, correction, nouvelles empreintes, réglage)."
+          },
+          "running": {
+            "type": "boolean",
+            "description": "Un passage de rapprochement est en cours."
+          },
+          "running_since": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Début du passage en cours ; null sans passage en cours."
+          },
+          "last_finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fin du dernier passage réussi ; null s'il n'y en a jamais eu."
+          },
+          "last_duration_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Durée du dernier passage réussi, en millisecondes."
+          },
+          "last_requests": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Nombre de demandes prises en compte par le dernier passage réussi : plusieurs décisions rapprochées font un seul passage."
+          },
+          "last_failed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Échec du dernier passage tenté, repris automatiquement ; null quand le dernier passage a réussi."
           }
         }
       },

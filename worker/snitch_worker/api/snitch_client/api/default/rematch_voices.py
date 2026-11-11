@@ -75,7 +75,8 @@ def sync_detailed(
 
 ) -> Response[Error | VoiceMatchingSummary]:
     """  Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des
-    références actuelles ; ne crée jamais d'Échantillon vocal validé.
+    références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage
+    complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres.
 
     Args:
         origin (str):
@@ -110,7 +111,8 @@ def sync(
 
 ) -> Error | VoiceMatchingSummary | None:
     """  Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des
-    références actuelles ; ne crée jamais d'Échantillon vocal validé.
+    références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage
+    complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres.
 
     Args:
         origin (str):
@@ -140,7 +142,8 @@ async def asyncio_detailed(
 
 ) -> Response[Error | VoiceMatchingSummary]:
     """  Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des
-    références actuelles ; ne crée jamais d'Échantillon vocal validé.
+    références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage
+    complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres.
 
     Args:
         origin (str):
@@ -175,7 +178,8 @@ async def asyncio(
 
 ) -> Error | VoiceMatchingSummary | None:
     """  Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des
-    références actuelles ; ne crée jamais d'Échantillon vocal validé.
+    références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage
+    complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres.
 
     Args:
         origin (str):

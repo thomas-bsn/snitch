@@ -3047,6 +3047,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/voice-matching/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Après une validation, une correction ou un changement de réglage, le rapprochement suit en arrière-plan (#392) : cet état dit s'il est en cours et quand le dernier s'est terminé, donc si les suggestions affichées sont à jour. */
+    get: operations["getVoiceMatchingStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-matching/status/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Repli : GET /api/voice-matching/status. */
+    get: operations["streamVoiceMatchingStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-matching": {
     parameters: {
       query?: never;
@@ -3055,7 +3089,7 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
+    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status). */
     put: operations["updateVoiceMatching"];
     post?: never;
     delete?: never;
@@ -3073,7 +3107,7 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. */
+    /** @description Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres. */
     post: operations["rematchVoices"];
     delete?: never;
     options?: never;
@@ -6638,6 +6672,34 @@ export interface components {
       unknown: number;
       /** @description Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle. */
       removed: number;
+    };
+    VoiceMatchingStatus: {
+      /** @description Des demandes de rapprochement attendent (validation, correction, nouvelles empreintes, réglage). */
+      pending: boolean;
+      /** @description Un passage de rapprochement est en cours. */
+      running: boolean;
+      /**
+       * Format: date-time
+       * @description Début du passage en cours ; null sans passage en cours.
+       */
+      running_since: string | null;
+      /**
+       * Format: date-time
+       * @description Fin du dernier passage réussi ; null s'il n'y en a jamais eu.
+       */
+      last_finished_at: string | null;
+      /**
+       * Format: int64
+       * @description Durée du dernier passage réussi, en millisecondes.
+       */
+      last_duration_ms: number | null;
+      /** @description Nombre de demandes prises en compte par le dernier passage réussi : plusieurs décisions rapprochées font un seul passage. */
+      last_requests: number | null;
+      /**
+       * Format: date-time
+       * @description Échec du dernier passage tenté, repris automatiquement ; null quand le dernier passage a réussi.
+       */
+      last_failed_at: string | null;
     };
     VoiceAutomationCriteriaInput: {
       precision_threshold: number;
@@ -17580,6 +17642,64 @@ export interface operations {
         };
       };
       /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceMatchingStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Où en est le rapprochement vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingStatus"];
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamVoiceMatchingStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream : un évènement `snapshot` {seq, snapshot: VoiceMatchingStatus} à l'ouverture, puis à chaque demande ou passage de rapprochement. La session est revérifiée avant chaque snapshot ; un évènement `forbidden` clôt le flux quand elle est perdue. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
       default: {
         headers: {
           [name: string]: unknown;

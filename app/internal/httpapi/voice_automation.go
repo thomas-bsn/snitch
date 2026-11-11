@@ -463,7 +463,8 @@ func (s *Server) putVoiceAutomation(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	stats, err := s.rematchVoices(ctx, 0)
+	// The switch answers what it changed: one full pass at once (it also takes the requests waiting).
+	stats, err := s.rematchNow(ctx)
 	if err != nil {
 		s.internal(w, err)
 		return

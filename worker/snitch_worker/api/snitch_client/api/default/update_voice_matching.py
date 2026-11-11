@@ -82,7 +82,7 @@ def sync_detailed(
 ) -> Response[Error | VoiceMatchingSettings]:
     """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
     d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status).
 
     Args:
         origin (str):
@@ -121,7 +121,7 @@ def sync(
 ) -> Error | VoiceMatchingSettings | None:
     """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
     d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status).
 
     Args:
         origin (str):
@@ -155,7 +155,7 @@ async def asyncio_detailed(
 ) -> Response[Error | VoiceMatchingSettings]:
     """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
     d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status).
 
     Args:
         origin (str):
@@ -194,7 +194,7 @@ async def asyncio(
 ) -> Error | VoiceMatchingSettings | None:
     """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
     d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status).
 
     Args:
         origin (str):

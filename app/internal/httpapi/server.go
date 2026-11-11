@@ -65,6 +65,12 @@ type Server struct {
 	backgroundWG          sync.WaitGroup
 	incidents             incidentSync
 	passwordSlots         chan struct{}
+	// Background voice matching (voice_matching_queue.go). matchingWake is nil when no loop runs: the server was
+	// not started, or matchingInline asks to run matching in the caller (tests that read it right after a
+	// change). matchingRetry is the pause before a failed pass is retried (0: 30 s).
+	matchingWake   chan struct{}
+	matchingInline bool
+	matchingRetry  time.Duration
 	// Discord avatar synchronization; the durations are zero in production (defaults) and shortened by tests.
 	avatarWG                                                 sync.WaitGroup
 	avatarRetryBase, avatarPause, avatarTick, avatarCooldown time.Duration
@@ -131,6 +137,11 @@ func (s *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("start library: %w", err)
 	}
 	s.backgroundContext, s.backgroundCancel = context.WithCancel(ctx)
+	if !s.matchingInline {
+		s.matchingWake = make(chan struct{}, 1)
+		s.backgroundWG.Add(1)
+		go func() { defer s.backgroundWG.Done(); s.serveVoiceMatching(s.backgroundContext) }()
+	}
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.Events.Serve(s.backgroundContext) }()
 	s.backgroundWG.Add(1)

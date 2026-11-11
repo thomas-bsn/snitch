@@ -624,12 +624,17 @@ func (s *Server) changeAttribution(w http.ResponseWriter, r *http.Request, corre
 		s.internal(w, err)
 		return
 	}
+	// Adding, correcting or retiring a reference re-examines the stored fingerprints: the request commits with
+	// the decision, the pass follows in the background and the answer never waits for it (#392).
+	if err = requestMatching(ctx, tx, 0); err != nil {
+		s.internal(w, err)
+		return
+	}
 	if err = tx.Commit(ctx); err != nil {
 		s.internal(w, err)
 		return
 	}
-	// Adding, correcting or retiring a reference re-examines the stored fingerprints.
-	s.matchingChanged(ctx, 0)
+	s.wakeMatching(ctx)
 	view, err := s.validatedAttribution(ctx, sp.ID)
 	if err != nil {
 		s.internal(w, err)

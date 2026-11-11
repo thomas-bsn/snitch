@@ -103,10 +103,7 @@ func (s *Server) putVoiceScoreMode(w http.ResponseWriter, r *http.Request) {
 	}
 	// Another score re-examines every stored fingerprint, never the videos.
 	if changed {
-		if _, err = s.rematchVoices(ctx, 0); err != nil {
-			s.internal(w, err)
-			return
-		}
+		s.matchingChanged(ctx, 0) // in the background (#392)
 	}
 	out, err := loadScoreMode(ctx, s.Pool)
 	if err != nil {

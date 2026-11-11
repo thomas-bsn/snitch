@@ -217,6 +217,19 @@ func newVoiceHarnessClips(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHar
 // newVoiceHarnessLogged is newVoiceHarnessClips with a logger the test can capture.
 func newVoiceHarnessLogged(t *testing.T, pool *pgxpool.Pool, clips int, logger *slog.Logger) *voiceHarness {
 	t.Helper()
+	return newVoiceHarnessWith(t, pool, clips, logger, false)
+}
+
+// newVoiceHarnessBackground runs voice matching in the background loop of the server, as in production (#392).
+// The other harnesses run it inline, in the request that asked for it: their suites read the matching right after
+// a validation and keep their assertions unchanged.
+func newVoiceHarnessBackground(t *testing.T, pool *pgxpool.Pool, clips int) *voiceHarness {
+	t.Helper()
+	return newVoiceHarnessWith(t, pool, clips, slog.New(slog.NewJSONHandler(io.Discard, nil)), true)
+}
+
+func newVoiceHarnessWith(t *testing.T, pool *pgxpool.Pool, clips int, logger *slog.Logger, background bool) *voiceHarness {
+	t.Helper()
 	sourceRoot := t.TempDir()
 	for i := 0; i < clips; i++ {
 		name := "voice-clip.mp4"
@@ -233,6 +246,8 @@ func newVoiceHarnessLogged(t *testing.T, pool *pgxpool.Pool, clips int, logger *
 	}
 	ffmpegPath, ffmpegLog := syntheticFFmpegFixture(t)
 	api := New(pool, config.Config{MasterKey: bytes.Repeat([]byte{1}, 32), ProbePath: syntheticProbeFixture(t), FFmpegPath: ffmpegPath, ClipRoots: []string{sourceRoot}, StabilityWindow: 10 * time.Millisecond, UploadRoot: t.TempDir(), UploadMaxBytes: 1024, UploadChunkBytes: 1024, UploadSessionTTL: time.Hour}, logger)
+	api.matchingInline = !background
+	api.matchingRetry = 50 * time.Millisecond
 	if err = api.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
