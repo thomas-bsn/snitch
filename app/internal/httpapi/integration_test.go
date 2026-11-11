@@ -101,7 +101,7 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events; DELETE FROM voice_eligibility_rules WHERE version>1; UPDATE voice_eligibility_rules SET comparable_min_seconds=2.0,contributive_min_seconds=1.0,max_clipped_ratio=0.01 WHERE version=1`); e != nil {
+		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events; DELETE FROM voice_eligibility_requalifications; DELETE FROM voice_eligibility_rules WHERE version>1; UPDATE voice_eligibility_rules SET comparable_min_seconds=2.0,contributive_min_seconds=1.0,max_clipped_ratio=0.01 WHERE version=1`); e != nil {
 			t.Fatal(e)
 		}
 	}
@@ -625,6 +625,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice eligibility", func(t *testing.T) {
 		reset(t)
 		testVoiceEligibility(t, pool)
+	})
+	t.Run("voice eligibility preview", func(t *testing.T) {
+		reset(t)
+		testVoiceEligibilityPreview(t, pool)
 	})
 	t.Run("voice groups", func(t *testing.T) {
 		reset(t)

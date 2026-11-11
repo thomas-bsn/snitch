@@ -13212,7 +13212,84 @@
             }
           }
         },
-        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées.",
+        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport avant/après) ; la relancer sous la même règle ne change aucune empreinte.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice-eligibility/preview": {
+      "get": {
+        "operationId": "previewVoiceEligibility",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "comparable_min_seconds",
+            "required": false,
+            "description": "Règle examinée ; par défaut la valeur active.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contributive_min_seconds",
+            "required": false,
+            "description": "Règle examinée ; par défaut la valeur active.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_clipped_ratio",
+            "required": false,
+            "description": "Règle examinée ; par défaut la valeur active.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "durations",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "Durées minimales des scénarios (0,5 à 60 s, six au plus) ; par défaut 1, 1,5 et 2 s.",
+            "schema": {
+              "type": "array",
+              "maxItems": 6,
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu chiffré, sans aucune écriture ni lecture de média",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEligibilityPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Décide les empreintes de Locuteur local de production sous la règle examinée et sous chaque durée, avec le calcul même de la requalification, dans une transaction en lecture seule.",
         "security": [
           {
             "session": []
@@ -32724,7 +32801,8 @@
           "rule",
           "history",
           "defaults",
-          "summary"
+          "summary",
+          "requalifications"
         ],
         "properties": {
           "rule": {
@@ -32743,10 +32821,384 @@
           "summary": {
             "$ref": "#/components/schemas/VoiceEligibilitySummary"
           },
+          "requalifications": {
+            "type": "array",
+            "description": "Dix dernières requalifications, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityRequalification"
+            }
+          },
           "requalified": {
             "type": "integer",
             "minimum": 0,
             "description": "Après une modification : empreintes dont l'éligibilité a changé."
+          }
+        }
+      },
+      "VoiceEligibilityOutcome": {
+        "type": "object",
+        "description": "Empreintes de Locuteur local de production par éligibilité, et Personnes qui ont une Référence.",
+        "required": [
+          "present",
+          "comparable",
+          "contributive",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "low_quality",
+          "persons_with_reference"
+        ],
+        "properties": {
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local de production présentes."
+          },
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables."
+          },
+          "contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives (comparables comprises)."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ni comparables ni contributives : Parole nette trop courte."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : écrêtées."
+          },
+          "low_quality": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle."
+          },
+          "persons_with_reference": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence."
+          }
+        }
+      },
+      "VoiceEligibilityScenario": {
+        "type": "object",
+        "description": "Éligibilité qu'une requalification sous cette règle écrirait, comparée à l'état enregistré.",
+        "required": [
+          "rule",
+          "present",
+          "comparable",
+          "contributive",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "low_quality",
+          "persons_with_reference",
+          "recovered_comparable",
+          "recovered_contributive",
+          "lost_comparable",
+          "lost_contributive"
+        ],
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/VoiceEligibilityInput"
+          },
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local de production présentes."
+          },
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables."
+          },
+          "contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives (comparables comprises)."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ni comparables ni contributives : Parole nette trop courte."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : écrêtées."
+          },
+          "low_quality": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle."
+          },
+          "persons_with_reference": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence."
+          },
+          "recovered_comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes qui deviendraient comparables."
+          },
+          "recovered_contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes qui deviendraient contributives."
+          },
+          "lost_comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes comparables aujourd'hui qui cesseraient de l'être."
+          },
+          "lost_contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes contributives aujourd'hui qui cesseraient de l'être."
+          }
+        }
+      },
+      "VoiceEligibilityPersonPreview": {
+        "type": "object",
+        "description": "Échantillons validés actifs d'une Personne dans un groupe d'empreintes, sous la règle examinée.",
+        "required": [
+          "person",
+          "present",
+          "comparable",
+          "contributive",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "missing_sources",
+          "estimated",
+          "reference",
+          "reference_now"
+        ],
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de ses échantillons validés actifs."
+          },
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables sous la règle examinée."
+          },
+          "contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives sous la règle examinée."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Trop courtes, non contributives."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Écrêtées."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dont le clip n'a plus de source audio connue en base."
+          },
+          "estimated": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dont la Parole nette est estimée (ni mesures ni tours)."
+          },
+          "reference": {
+            "type": "boolean",
+            "description": "A une Référence sous la règle examinée."
+          },
+          "reference_now": {
+            "type": "boolean",
+            "description": "A une Référence selon l'éligibilité enregistrée."
+          }
+        }
+      },
+      "VoiceEligibilityGroupPreview": {
+        "type": "object",
+        "description": "Un groupe d'empreintes de production (modèle, version, dimensions).",
+        "required": [
+          "model",
+          "model_version",
+          "dimensions",
+          "missing_sources",
+          "estimated",
+          "original_vectors",
+          "overlap_share",
+          "current",
+          "candidate",
+          "scenarios",
+          "persons"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes dont le clip n'a plus de source audio connue en base (aucun média lu)."
+          },
+          "estimated": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local archivé sans tours : Parole nette estimée par la durée de l'empreinte."
+          },
+          "original_vectors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes dont le vecteur précède la Parole nette (sans mesures du Worker) : vecteur d'origine, requalifié sans recalcul."
+          },
+          "overlap_share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "nullable": true,
+            "description": "Part de la parole retirée par les Chevauchements, pondérée par le temps de parole, sur les empreintes dont le Chevauchement est connu ; null sans aucune."
+          },
+          "current": {
+            "$ref": "#/components/schemas/VoiceEligibilityOutcome"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/VoiceEligibilityScenario"
+          },
+          "scenarios": {
+            "type": "array",
+            "description": "Une par durée minimale, appliquée aux deux usages, avec la part d'écrêtage examinée.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityScenario"
+            }
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityPersonPreview"
+            }
+          }
+        }
+      },
+      "VoiceEligibilityPreview": {
+        "type": "object",
+        "description": "Aperçu sans effet de l'éligibilité des empreintes enregistrées (#394) : mêmes calculs que la requalification.",
+        "required": [
+          "active_version",
+          "persons_with_samples",
+          "groups"
+        ],
+        "properties": {
+          "active_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version de la règle active."
+          },
+          "persons_with_samples": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Personnes ayant au moins un Échantillon vocal validé actif."
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityGroupPreview"
+            }
+          }
+        }
+      },
+      "VoiceEligibilityRequalification": {
+        "type": "object",
+        "description": "Une requalification tracée : auteur, règle appliquée, date et rapport avant/après.",
+        "required": [
+          "id",
+          "rule_version",
+          "author",
+          "created_at",
+          "changed",
+          "missing_sources",
+          "estimated",
+          "original_vectors",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rule_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de production dont l'éligibilité a changé."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes requalifiées dont le clip n'a plus de source audio connue."
+          },
+          "estimated": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes à Parole nette estimée."
+          },
+          "original_vectors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes gardant leur vecteur d'origine."
+          },
+          "before": {
+            "$ref": "#/components/schemas/VoiceEligibilityOutcome"
+          },
+          "after": {
+            "$ref": "#/components/schemas/VoiceEligibilityOutcome"
           }
         }
       }

@@ -38,14 +38,26 @@ FROM voice_fingerprints x
 LEFT JOIN LATERAL voice_turns_net_speech(x.local_speaker_id,x.turn_id) g ON x.scope='speaker' OR x.turn_id IS NOT NULL
 WHERE x.id=f.id AND f.net_speech_source IS NULL AND f.measures_version IS NULL AND NOT f.benchmark AND ($1::bigint IS NULL OR f.fingerprint_job_id=$1)`
 
-// applyEligibilitySQL applies the active rule to production fingerprints ($1 restricts it to one job) and
-// counts those whose eligibility changed. Rows already decided that way are not rewritten: applying the same
-// rule twice writes nothing.
-const applyEligibilitySQL = `WITH rule AS (
-  SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1
-), measured AS (
-  SELECT f.id,f.usable,f.contributive,f.unusable_reason,f.eligibility_rule_version,f.overlapped,f.clipped_ratio,COALESCE(f.net_speech_seconds,f.duration_seconds) AS net
-  FROM voice_fingerprints f WHERE NOT f.benchmark AND ($1::bigint IS NULL OR f.fingerprint_job_id=$1)
+// eligibilityDecidedSQL is the single statement of the rule: the CTEs measured, reasoned and decided, which
+// decide the production fingerprints matching filter (a condition on f) under each row of a preceding CTE named
+// rule (version, comparable_min_seconds, contributive_min_seconds, max_clipped_ratio). The requalification
+// (applyEligibilitySQL) and the preview (#394) both read them, so a preview at given durations gives the figures
+// a requalification at those durations writes.
+//
+// measured reads the stored net speech; for a fingerprint whose net speech was never derived, it computes what
+// fillNetSpeechSQL would write, so the preview needs no write. A requalification fills first: that branch is
+// then empty and calls no function.
+func eligibilityDecidedSQL(filter string) string {
+	return `measured AS (
+  SELECT f.id,f.local_speaker_id,f.clip_id,f.model,f.model_version,f.dimensions,f.usable,f.contributive,f.unusable_reason,f.eligibility_rule_version,
+    f.measures_version IS NULL AS original_vector,f.overlapped,f.overlap_ratio,f.clipped_ratio,COALESCE(f.net_speech_seconds,f.duration_seconds) AS net,f.net_speech_source AS net_source
+  FROM voice_fingerprints f WHERE NOT f.benchmark AND NOT (f.net_speech_source IS NULL AND f.measures_version IS NULL) AND (` + filter + `)
+  UNION ALL
+  SELECT f.id,f.local_speaker_id,f.clip_id,f.model,f.model_version,f.dimensions,f.usable,f.contributive,f.unusable_reason,f.eligibility_rule_version,
+    true,g.overlapped,g.overlap_ratio,f.clipped_ratio,LEAST(g.net_speech_seconds,f.duration_seconds),CASE WHEN g.net_speech_seconds IS NULL THEN 'estimated' ELSE 'turns' END
+  FROM voice_fingerprints f
+  LEFT JOIN LATERAL voice_turns_net_speech(f.local_speaker_id,f.turn_id) g ON f.scope='speaker' OR f.turn_id IS NOT NULL
+  WHERE NOT f.benchmark AND f.net_speech_source IS NULL AND f.measures_version IS NULL AND (` + filter + `)
 ), reasoned AS (
   SELECT m.*,r.version,r.contributive_min_seconds,
     CASE WHEN m.overlapped THEN 'overlap_only'
@@ -55,7 +67,15 @@ const applyEligibilitySQL = `WITH rule AS (
   FROM measured m, rule r
 ), decided AS (
   SELECT *,reason IN ('','too_short') AND net>=contributive_min_seconds AS now_contributive FROM reasoned
-), changed AS (
+)`
+}
+
+// applyEligibilitySQL applies the active rule to production fingerprints ($1 restricts it to one job) and
+// counts those whose eligibility changed. Rows already decided that way are not rewritten: applying the same
+// rule twice writes nothing.
+var applyEligibilitySQL = `WITH rule AS (
+  SELECT version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio FROM voice_eligibility_rules ORDER BY version DESC LIMIT 1
+), ` + eligibilityDecidedSQL(`$1::bigint IS NULL OR f.fingerprint_job_id=$1`) + `, changed AS (
   UPDATE voice_fingerprints f
   SET usable=d.reason='',unusable_reason=d.reason,contributive=d.now_contributive,eligibility_rule_version=d.version
   FROM decided d
@@ -111,16 +131,25 @@ type eligibilitySummary struct {
 }
 
 type eligibilitySettings struct {
-	Rule        eligibilityRule    `json:"rule"`
-	History     []eligibilityRule  `json:"history"`
-	Defaults    eligibilityValues  `json:"defaults"`
-	Summary     eligibilitySummary `json:"summary"`
-	Requalified *int               `json:"requalified,omitempty"`
+	Rule             eligibilityRule              `json:"rule"`
+	History          []eligibilityRule            `json:"history"`
+	Defaults         eligibilityValues            `json:"defaults"`
+	Summary          eligibilitySummary           `json:"summary"`
+	Requalifications []eligibilityRequalification `json:"requalifications"`
+	Requalified      *int                         `json:"requalified,omitempty"`
+}
+
+// validEligibility bounds a rule: durations between 0.5 and 60 s, the contributive one at most the comparable
+// one, a clipped share between 0 and 1.
+func validEligibility(v eligibilityValues) bool {
+	return v.ContributiveMinSeconds >= 0.5 && v.ContributiveMinSeconds <= v.ComparableMinSeconds && v.ComparableMinSeconds <= 60 &&
+		v.MaxClippedRatio >= 0 && v.MaxClippedRatio <= 1
 }
 
 func (s *Server) registerVoiceEligibilityRoutes(mux *http.ServeMux) {
 	mux.Handle("GET /api/admin/voice-eligibility", s.protected(true, http.HandlerFunc(s.getVoiceEligibility)))
 	mux.Handle("PUT /api/admin/voice-eligibility", s.protected(true, http.HandlerFunc(s.putVoiceEligibility)))
+	mux.Handle("GET /api/admin/voice-eligibility/preview", s.protected(true, http.HandlerFunc(s.getVoiceEligibilityPreview)))
 }
 
 func (s *Server) loadEligibility(ctx context.Context) (eligibilitySettings, error) {
@@ -159,6 +188,10 @@ func (s *Server) loadEligibility(ctx context.Context) (eligibilitySettings, erro
   count(*) FILTER (WHERE eligibility_rule_version IS DISTINCT FROM $1)
 FROM voice_fingerprints WHERE NOT benchmark AND scope='speaker'`, out.Rule.Version).
 		Scan(&sum.Comparable, &sum.ContributiveOnly, &sum.TooShort, &sum.OverlapOnly, &sum.Clipped, &sum.LowQuality, &sum.Stale)
+	if err != nil {
+		return out, err
+	}
+	out.Requalifications, err = loadRequalifications(ctx, s.Pool)
 	return out, err
 }
 
@@ -172,7 +205,8 @@ func (s *Server) getVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 }
 
 // putVoiceEligibility records a new version of the rule (nothing when unchanged), requalifies every production
-// fingerprint under the active rule, then re-runs matching when an eligibility changed.
+// fingerprint under the active rule, traces the requalification (author, rule, before and after, #394), then
+// re-runs matching when an eligibility changed. Requalifying under an unchanged rule writes no fingerprint again.
 func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 	var input struct {
 		ComparableMinSeconds   *float64 `json:"comparable_min_seconds"`
@@ -183,8 +217,7 @@ func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if input.ComparableMinSeconds == nil || input.ContributiveMinSeconds == nil || input.MaxClippedRatio == nil ||
-		*input.ContributiveMinSeconds < 0.5 || *input.ContributiveMinSeconds > *input.ComparableMinSeconds || *input.ComparableMinSeconds > 60 ||
-		*input.MaxClippedRatio < 0 || *input.MaxClippedRatio > 1 {
+		!validEligibility(eligibilityValues{*input.ComparableMinSeconds, *input.ContributiveMinSeconds, *input.MaxClippedRatio}) {
 		fail(w, http.StatusBadRequest, "invalid_voice_eligibility")
 		return
 	}
@@ -204,7 +237,13 @@ func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	wanted := eligibilityValues{*input.ComparableMinSeconds, *input.ContributiveMinSeconds, *input.MaxClippedRatio}
+	report := eligibilityRequalification{RuleVersion: version}
+	if report.Before, err = storedEligibility(ctx, tx, nil); err != nil {
+		s.internal(w, err)
+		return
+	}
 	if wanted != current {
+		report.RuleVersion = version + 1
 		if _, err = tx.Exec(ctx, `INSERT INTO voice_eligibility_rules(version,comparable_min_seconds,contributive_min_seconds,max_clipped_ratio,author_id,author_username) VALUES($1,$2,$3,$4,$5,$6)`,
 			version+1, wanted.ComparableMinSeconds, wanted.ContributiveMinSeconds, wanted.MaxClippedRatio, author.ID, author.Username); err != nil {
 			s.internal(w, err)
@@ -213,6 +252,15 @@ func (s *Server) putVoiceEligibility(w http.ResponseWriter, r *http.Request) {
 	}
 	changed, err := qualifyFingerprints(ctx, tx, nil)
 	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	report.Changed = changed
+	if report.After, err = storedEligibility(ctx, tx, &report); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = traceRequalification(ctx, tx, report, author); err != nil {
 		s.internal(w, err)
 		return
 	}
