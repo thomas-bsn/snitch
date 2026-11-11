@@ -1039,6 +1039,22 @@ type VoiceGroupLink struct {
 	ComputedAt   pgtype.Timestamptz `json:"computed_at"`
 }
 
+type VoiceGroupThreshold struct {
+	ID                  int64              `json:"id"`
+	Model               string             `json:"model"`
+	ModelVersion        string             `json:"model_version"`
+	Dimensions          int32              `json:"dimensions"`
+	Version             int32              `json:"version"`
+	SuggestionThreshold float64            `json:"suggestion_threshold"`
+	AutomaticThreshold  float64            `json:"automatic_threshold"`
+	AmbiguityMargin     float64            `json:"ambiguity_margin"`
+	Source              string             `json:"source"`
+	ScoreMode           string             `json:"score_mode"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorUsername      pgtype.Text        `json:"author_username"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceMatchingSetting struct {
 	ID                  bool               `json:"id"`
 	AutoEnabled         bool               `json:"auto_enabled"`

@@ -62,6 +62,12 @@ type matchingSettings struct {
 	// ScoreMode is the active score mode (voice_score_modes), read with the thresholds so one run uses one
 	// consistent setting. Exposed by its own administrator route, not with the thresholds.
 	ScoreMode scoreMode `json:"-"`
+	// Group is the active fingerprint group whose thresholds these are (effectiveMatchingSettings); nil when
+	// there is none, the thresholds then being the provisional ones.
+	Group *fingerprintGroupView `json:"group"`
+	// ThresholdsApplied tells whether the group has thresholds applied by an administrator. Without them it only
+	// produces suggestions (voice_group_thresholds.go).
+	ThresholdsApplied bool `json:"thresholds_applied"`
 }
 
 type voiceDB interface {
@@ -93,7 +99,7 @@ func (s *Server) registerVoiceMatchingRoutes(mux *http.ServeMux) {
 }
 
 func (s *Server) getVoiceMatching(w http.ResponseWriter, r *http.Request) {
-	v, err := loadMatchingSettings(r.Context(), s.Pool)
+	v, err := effectiveMatchingSettings(r.Context(), s.Pool)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -101,35 +107,79 @@ func (s *Server) getVoiceMatching(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, v)
 }
 
-// putVoiceMatching changes the thresholds. The automation switch is deliberately not
-// part of this input: its activation is a separate administrator decision (automation switch).
+// putVoiceMatching applies thresholds: to the given fingerprint group, or to the active one, as a new traced
+// version of its thresholds (voice_group_thresholds.go). Without any group (blank installation) they are the
+// provisional values a group uses for its suggestions until thresholds are applied to it. The number of
+// candidates is global. The automation switch is deliberately not part of this input: its activation is a
+// separate administrator decision (automation switch).
 func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 	var input struct {
-		AutomaticThreshold  *float64 `json:"automatic_threshold"`
-		SuggestionThreshold *float64 `json:"suggestion_threshold"`
-		AmbiguityMargin     *float64 `json:"ambiguity_margin"`
-		MaxCandidates       *int     `json:"max_candidates"`
+		AutomaticThreshold  *float64              `json:"automatic_threshold"`
+		SuggestionThreshold *float64              `json:"suggestion_threshold"`
+		AmbiguityMargin     *float64              `json:"ambiguity_margin"`
+		MaxCandidates       *int                  `json:"max_candidates"`
+		Group               *fingerprintGroupView `json:"group"`
+		Source              *string               `json:"source"`
 	}
 	if !decode(w, r, &input) {
 		return
 	}
 	if input.AutomaticThreshold == nil || input.SuggestionThreshold == nil || input.AmbiguityMargin == nil || input.MaxCandidates == nil ||
 		*input.SuggestionThreshold < 0 || *input.SuggestionThreshold > *input.AutomaticThreshold || *input.AutomaticThreshold > 1 ||
-		*input.AmbiguityMargin < 0 || *input.AmbiguityMargin > 1 || *input.MaxCandidates < 2 || *input.MaxCandidates > 20 {
+		*input.AmbiguityMargin < 0 || *input.AmbiguityMargin > 1 || *input.MaxCandidates < 2 || *input.MaxCandidates > 20 ||
+		(input.Source != nil && *input.Source != thresholdsFromAdministrator && *input.Source != thresholdsFromProposal) ||
+		(input.Group != nil && (input.Group.Model == "" || input.Group.ModelVersion == "" || input.Group.Dimensions < 1)) {
 		fail(w, http.StatusBadRequest, "invalid_voice_matching")
 		return
 	}
-	ss := r.Context().Value(sessionKey{}).(session)
-	if _, err := s.Pool.Exec(r.Context(), `UPDATE voice_matching_settings SET automatic_threshold=$1,suggestion_threshold=$2,ambiguity_margin=$3,max_candidates=$4,updated_by=$5,updated_at=now() WHERE id=true`, *input.AutomaticThreshold, *input.SuggestionThreshold, *input.AmbiguityMargin, *input.MaxCandidates, ss.User.ID); err != nil {
+	ctx := context.WithoutCancel(r.Context())
+	author := s.authorOf(r)
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	defer tx.Rollback(ctx)
+	var group matchGroup
+	found := false
+	if input.Group != nil {
+		group = input.Group.group()
+		if found, err = productionGroupExists(ctx, tx, group); err == nil && !found {
+			fail(w, http.StatusConflict, "voice_group_unknown")
+			return
+		}
+	} else {
+		group, found, err = activeFingerprintGroup(ctx, tx)
+	}
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	if found {
+		source := thresholdsFromAdministrator
+		if input.Source != nil {
+			source = *input.Source
+		}
+		_, err = applyGroupThresholds(ctx, tx, group, groupThresholds{SuggestionThreshold: *input.SuggestionThreshold, AutomaticThreshold: *input.AutomaticThreshold, AmbiguityMargin: *input.AmbiguityMargin, Source: source}, author)
+		if err == nil {
+			_, err = tx.Exec(ctx, `UPDATE voice_matching_settings SET max_candidates=$1,updated_by=$2,updated_at=now() WHERE id=true`, *input.MaxCandidates, author.ID)
+		}
+	} else {
+		_, err = tx.Exec(ctx, `UPDATE voice_matching_settings SET automatic_threshold=$1,suggestion_threshold=$2,ambiguity_margin=$3,max_candidates=$4,updated_by=$5,updated_at=now() WHERE id=true`, *input.AutomaticThreshold, *input.SuggestionThreshold, *input.AmbiguityMargin, *input.MaxCandidates, author.ID)
+	}
+	if err == nil {
+		err = tx.Commit(ctx)
+	}
+	if err != nil {
 		s.internal(w, err)
 		return
 	}
 	// New thresholds re-examine every stored fingerprint, never the videos.
-	if _, err := s.rematchVoices(context.WithoutCancel(r.Context()), 0); err != nil {
+	if _, err = s.rematchVoices(ctx, 0); err != nil {
 		s.internal(w, err)
 		return
 	}
-	v, err := loadMatchingSettings(r.Context(), s.Pool)
+	v, err := effectiveMatchingSettings(ctx, s.Pool)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -173,7 +223,8 @@ type matchTarget struct {
 	speakerID, clipID int64
 	scores            []matchScore // best first, already at or above the suggestion threshold
 	model, version    string
-	noReference       bool // fingerprint group without any reference: nothing to compare with
+	noReference       bool             // fingerprint group without any reference: nothing to compare with
+	settings          matchingSettings // the setting of its fingerprint group
 }
 
 type existingMatch struct {
@@ -235,9 +286,14 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	if err != nil {
 		return stats, err
 	}
+	thresholds, err := loadGroupThresholds(ctx, tx)
+	if err != nil {
+		return stats, err
+	}
 	var targets []matchTarget
 	for _, g := range groups {
-		found, groupErr := s.matchGroupScores(ctx, tx, g, settings, scope, refused)
+		// Each group is decided with its own thresholds; without applied ones it only suggests.
+		found, groupErr := s.matchGroupScores(ctx, tx, g, settings.forGroup(thresholdsOf(thresholds, g)), scope, refused)
 		if groupErr != nil {
 			return stats, groupErr
 		}
@@ -266,7 +322,7 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 			continue
 		}
 		evaluated[t.speakerID] = true
-		level, person, confidence, candidates := decideMatch(t.scores, settings)
+		level, person, confidence, candidates := decideMatch(t.scores, t.settings)
 		stats.Evaluated++
 		switch level {
 		case LevelAutomatic:
@@ -352,7 +408,7 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 		if len(out) > 0 && out[len(out)-1].speakerID == sid {
 			continue // one speaker fingerprint per speaker and group
 		}
-		t := matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version, noReference: refs.empty()}
+		t := matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version, noReference: refs.empty(), settings: settings}
 		if !t.noReference {
 			t.scores = refs.rank(vector, func(person int64) bool { return !refused[sid][person] }, settings.SuggestionThreshold)
 		}

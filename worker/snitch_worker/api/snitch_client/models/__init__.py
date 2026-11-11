@@ -496,6 +496,11 @@ from .voice_automation_event import VoiceAutomationEvent
 from .voice_automation_event_action import VoiceAutomationEventAction
 from .voice_automation_input import VoiceAutomationInput
 from .voice_automation_result import VoiceAutomationResult
+from .voice_calibration import VoiceCalibration
+from .voice_calibration_active_mode import VoiceCalibrationActiveMode
+from .voice_calibration_mode import VoiceCalibrationMode
+from .voice_calibration_mode_mode import VoiceCalibrationModeMode
+from .voice_calibration_mode_withheld import VoiceCalibrationModeWithheld
 from .voice_disposition_input import VoiceDispositionInput
 from .voice_disposition_input_disposition import VoiceDispositionInputDisposition
 from .voice_disposition_view import VoiceDispositionView
@@ -523,6 +528,7 @@ from .voice_engine_registry import VoiceEngineRegistry
 from .voice_engine_release import VoiceEngineRelease
 from .voice_engine_wheel import VoiceEngineWheel
 from .voice_fingerprint import VoiceFingerprint
+from .voice_fingerprint_group import VoiceFingerprintGroup
 from .voice_fingerprint_net_speech_source import VoiceFingerprintNetSpeechSource
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
@@ -536,8 +542,12 @@ from .voice_group_list import VoiceGroupList
 from .voice_group_member import VoiceGroupMember
 from .voice_group_naming import VoiceGroupNaming
 from .voice_group_naming_input import VoiceGroupNamingInput
+from .voice_group_thresholds import VoiceGroupThresholds
+from .voice_group_thresholds_score_mode import VoiceGroupThresholdsScoreMode
+from .voice_group_thresholds_source import VoiceGroupThresholdsSource
 from .voice_history_entry import VoiceHistoryEntry
 from .voice_matching_input import VoiceMatchingInput
+from .voice_matching_input_source import VoiceMatchingInputSource
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_summary import VoiceMatchingSummary
 from .voice_model import VoiceModel
@@ -579,6 +589,7 @@ from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_refusal import VoiceRefusal
 from .voice_refusal_input import VoiceRefusalInput
 from .voice_schedule_input import VoiceScheduleInput
+from .voice_score_bin import VoiceScoreBin
 from .voice_score_mode import VoiceScoreMode
 from .voice_score_mode_input import VoiceScoreModeInput
 from .voice_score_mode_input_mode import VoiceScoreModeInputMode
@@ -587,6 +598,8 @@ from .voice_score_mode_version import VoiceScoreModeVersion
 from .voice_score_mode_version_mode import VoiceScoreModeVersionMode
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_threshold_proposal import VoiceThresholdProposal
+from .voice_threshold_sweep import VoiceThresholdSweep
 from .voice_trace import VoiceTrace
 from .voice_trace_diarization_type_0 import VoiceTraceDiarizationType0
 from .voice_trace_fingerprint import VoiceTraceFingerprint
@@ -1216,6 +1229,11 @@ __all__ = (
     "VoiceAutomationEventAction",
     "VoiceAutomationInput",
     "VoiceAutomationResult",
+    "VoiceCalibration",
+    "VoiceCalibrationActiveMode",
+    "VoiceCalibrationMode",
+    "VoiceCalibrationModeMode",
+    "VoiceCalibrationModeWithheld",
     "VoiceDispositionInput",
     "VoiceDispositionInputDisposition",
     "VoiceDispositionView",
@@ -1243,6 +1261,7 @@ __all__ = (
     "VoiceEngineRelease",
     "VoiceEngineWheel",
     "VoiceFingerprint",
+    "VoiceFingerprintGroup",
     "VoiceFingerprintNetSpeechSource",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
@@ -1256,8 +1275,12 @@ __all__ = (
     "VoiceGroupMember",
     "VoiceGroupNaming",
     "VoiceGroupNamingInput",
+    "VoiceGroupThresholds",
+    "VoiceGroupThresholdsScoreMode",
+    "VoiceGroupThresholdsSource",
     "VoiceHistoryEntry",
     "VoiceMatchingInput",
+    "VoiceMatchingInputSource",
     "VoiceMatchingSettings",
     "VoiceMatchingSummary",
     "VoiceModel",
@@ -1299,6 +1322,7 @@ __all__ = (
     "VoiceRefusal",
     "VoiceRefusalInput",
     "VoiceScheduleInput",
+    "VoiceScoreBin",
     "VoiceScoreMode",
     "VoiceScoreModeInput",
     "VoiceScoreModeInputMode",
@@ -1307,6 +1331,8 @@ __all__ = (
     "VoiceScoreModeVersionMode",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceThresholdProposal",
+    "VoiceThresholdSweep",
     "VoiceTrace",
     "VoiceTraceDiarizationType0",
     "VoiceTraceFingerprint",

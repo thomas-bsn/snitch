@@ -100,6 +100,7 @@ type voiceAccuracy struct {
 	Criteria           accuracyCriteria   `json:"criteria"`
 	ActivationProposed bool               `json:"activation_proposed"`
 	Events             []automationEvent  `json:"events"`
+	Calibration        voiceCalibration   `json:"calibration"`
 }
 
 type accuracySample struct {
@@ -159,26 +160,27 @@ func splitSamples(samples []accuracySample) (references, tests []accuracySample,
 }
 
 // measureAccuracy computes the evaluation and the per-Person figures from the database.
-func (s *Server) measureAccuracy(ctx context.Context, settings matchingSettings) (accuracyEvaluation, []accuracyPerson, error) {
+func (s *Server) measureAccuracy(ctx context.Context, settings matchingSettings) (accuracyEvaluation, []accuracyPerson, accuracySplit, error) {
 	var eval accuracyEvaluation
+	var split accuracySplit
 	rows, err := s.Pool.Query(ctx, `SELECT vs.id,vs.person_id,vs.clip_id FROM voice_samples vs
 WHERE vs.retired_at IS NULL AND EXISTS (SELECT 1 FROM voice_fingerprints f WHERE f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id AND f.contributive AND NOT f.benchmark AND f.scope='speaker')
 ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	if err != nil {
-		return eval, nil, err
+		return eval, nil, split, err
 	}
 	var samples []accuracySample
 	for rows.Next() {
 		var sample accuracySample
 		if err = rows.Scan(&sample.id, &sample.personID, &sample.clipID); err != nil {
 			rows.Close()
-			return eval, nil, err
+			return eval, nil, split, err
 		}
 		samples = append(samples, sample)
 	}
 	rows.Close()
 	if err = rows.Err(); err != nil {
-		return eval, nil, err
+		return eval, nil, split, err
 	}
 	references, tests, excluded := splitSamples(samples)
 	eval.ReferenceSamples, eval.TestSamples, eval.ExcludedSamples = len(references), len(tests), excluded
@@ -198,14 +200,17 @@ ORDER BY vs.person_id,vs.clip_id,vs.id`)
 		truth[sample.id] = sample.personID
 	}
 
-	scores, err := s.testScores(ctx, references, tests, settings)
+	split.references, split.tests = references, tests
+	thresholds, err := loadGroupThresholds(ctx, s.Pool)
 	if err != nil {
-		return eval, nil, err
+		return eval, nil, split, err
 	}
-	forced := settings
-	forced.AutoEnabled = true
+	scores, err := s.testScores(ctx, references, tests, settings, thresholds)
+	if err != nil {
+		return eval, nil, split, err
+	}
 	for _, sample := range tests {
-		level, predicted, _, _ := decideMatch(scores[sample.id], forced)
+		level, predicted, _, _ := decideMatch(scores[sample.id].scores, scores[sample.id].settings)
 		if level != LevelAutomatic || predicted == nil {
 			continue
 		}
@@ -229,20 +234,20 @@ ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	names := map[int64]string{}
 	nameRows, err := s.Pool.Query(ctx, `SELECT id,display_name FROM persons WHERE id=ANY($1)`, ids)
 	if err != nil {
-		return eval, nil, err
+		return eval, nil, split, err
 	}
 	for nameRows.Next() {
 		var id int64
 		var name string
 		if err = nameRows.Scan(&id, &name); err != nil {
 			nameRows.Close()
-			return eval, nil, err
+			return eval, nil, split, err
 		}
 		names[id] = name
 	}
 	nameRows.Close()
 	if err = nameRows.Err(); err != nil {
-		return eval, nil, err
+		return eval, nil, split, err
 	}
 	out := make([]accuracyPerson, 0, len(people))
 	for id, p := range people {
@@ -256,15 +261,35 @@ ORDER BY vs.person_id,vs.clip_id,vs.id`)
 		}
 		return out[i].Person.ID < out[j].Person.ID
 	})
-	return eval, out, nil
+	return eval, out, split, nil
+}
+
+// testScore is the score of a test sample against each Person, and the setting its group decides with.
+type testScore struct {
+	scores   []matchScore
+	settings matchingSettings
+}
+
+// accuracySplit keeps the reference and test samples of the measure for the calibration.
+type accuracySplit struct {
+	references, tests []accuracySample
+}
+
+// measureSettings is the setting a group is measured with: its applied thresholds with the automation forced on,
+// so that the measure does not depend on the switch; a group without applied thresholds is never automatic, as
+// in production.
+func measureSettings(settings matchingSettings, t *groupThresholds) matchingSettings {
+	out := settings.forGroup(t)
+	out.AutoEnabled = t != nil
+	return out
 }
 
 // testScores gives, for each test sample, its score against each Person with the production score function and
 // mode, the References being built from the reference samples only, one fingerprint group at a time (vectors of
-// different models, versions or dimensions are never compared), filtered with the suggestion threshold like the
-// production matching.
-func (s *Server) testScores(ctx context.Context, references, tests []accuracySample, settings matchingSettings) (map[int64][]matchScore, error) {
-	out := map[int64][]matchScore{}
+// different models, versions or dimensions are never compared), filtered with the suggestion threshold of the
+// group like the production matching.
+func (s *Server) testScores(ctx context.Context, references, tests []accuracySample, settings matchingSettings, thresholds map[matchGroup]groupThresholds) (map[int64]testScore, error) {
+	out := map[int64]testScore{}
 	if len(references) == 0 || len(tests) == 0 {
 		return out, nil
 	}
@@ -311,28 +336,34 @@ func (s *Server) testScores(ctx context.Context, references, tests []accuracySam
 			return nil, loadErr
 		}
 		refs := newVoiceReferences(settings.ScoreMode, g.dimensions, samples)
+		gs := measureSettings(settings, thresholdsOf(thresholds, g))
 		for _, t := range byGroup[g] {
-			if scores := refs.rank(t.vector, nil, settings.SuggestionThreshold); len(scores) > 0 {
-				out[t.id] = scores
-			}
+			out[t.id] = testScore{scores: refs.rank(t.vector, nil, gs.SuggestionThreshold), settings: gs}
 		}
 	}
 	return out, nil
 }
 
-func (s *Server) libraryFigures(ctx context.Context, settings matchingSettings) (accuracyLibrary, error) {
+// libraryFigures counts the stored attributions. A suggestion "would be automatic once enabled" when its score
+// reaches the automatic threshold applied to its fingerprint group; a group without applied thresholds never
+// attributes automatically, so its suggestions stay suggestions.
+func (s *Server) libraryFigures(ctx context.Context) (accuracyLibrary, error) {
 	var l accuracyLibrary
 	err := s.Pool.QueryRow(ctx, `SELECT
   count(*) FILTER (WHERE ls.kind='diarized'),
   count(*) FILTER (WHERE ls.kind='diarized' AND v.id IS NOT NULL),
-  count(*) FILTER (WHERE ls.kind='diarized' AND v.id IS NULL AND m.person_id IS NOT NULL AND (m.decision_level='automatic' OR (m.decision_level='suggestion' AND m.confidence >= $1))),
-  count(*) FILTER (WHERE ls.kind='diarized' AND v.id IS NULL AND m.person_id IS NOT NULL AND m.decision_level='suggestion' AND m.confidence < $1),
+  count(*) FILTER (WHERE ls.kind='diarized' AND v.id IS NULL AND m.person_id IS NOT NULL AND (m.decision_level='automatic' OR (m.decision_level='suggestion' AND m.confidence >= gt.automatic_threshold))),
+  count(*) FILTER (WHERE ls.kind='diarized' AND v.id IS NULL AND m.person_id IS NOT NULL AND m.decision_level='suggestion' AND m.confidence < COALESCE(gt.automatic_threshold,2)),
   count(*) FILTER (WHERE ls.kind='diarized' AND v.id IS NULL AND m.decision_level='ambiguous'),
   count(*) FILTER (WHERE ls.kind='microphone' AND EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=ls.id AND a.person_id IS NOT NULL))
 FROM local_speakers ls
 LEFT JOIN speaker_attributions v ON v.local_speaker_id=ls.id AND v.validation_state='validated'
-LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated' AND m.origin=$2
-WHERE ls.kind='microphone' OR (ls.kind='diarized' AND `+notIgnoredVoice+`)`, settings.AutomaticThreshold, matchingOrigin).Scan(&l.SpeakersTotal, &l.Validated, &l.Automatic, &l.Suggestion, &l.Ambiguous, &l.MicrophoneAssigned)
+LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated' AND m.origin=$1
+LEFT JOIN LATERAL (SELECT t.automatic_threshold FROM voice_group_thresholds t
+  WHERE t.model=m.match_model AND t.model_version=m.match_model_version
+    AND t.dimensions IN (SELECT f.dimensions FROM voice_fingerprints f WHERE f.local_speaker_id=ls.id AND f.model=m.match_model AND f.model_version=m.match_model_version AND NOT f.benchmark AND f.scope='speaker')
+  ORDER BY t.version DESC LIMIT 1) gt ON true
+WHERE ls.kind='microphone' OR (ls.kind='diarized' AND `+notIgnoredVoice+`)`, matchingOrigin).Scan(&l.SpeakersTotal, &l.Validated, &l.Automatic, &l.Suggestion, &l.Ambiguous, &l.MicrophoneAssigned)
 	if err != nil {
 		return l, err
 	}
@@ -374,13 +405,21 @@ func (s *Server) buildAccuracy(ctx context.Context) (voiceAccuracy, error) {
 	if err != nil {
 		return report, err
 	}
-	report.MeasuredAt = time.Now().UTC()
-	report.AutoEnabled, report.AutomaticThreshold = settings.AutoEnabled, settings.AutomaticThreshold
-	report.PrecisionThreshold, report.MinConfirmations = settings.PrecisionThreshold, settings.MinConfirmations
-	if report.Evaluation, report.Persons, err = s.measureAccuracy(ctx, settings); err != nil {
+	effective, err := effectiveMatchingSettings(ctx, s.Pool)
+	if err != nil {
 		return report, err
 	}
-	if report.Library, err = s.libraryFigures(ctx, settings); err != nil {
+	report.MeasuredAt = time.Now().UTC()
+	report.AutoEnabled, report.AutomaticThreshold = settings.AutoEnabled, effective.AutomaticThreshold
+	report.PrecisionThreshold, report.MinConfirmations = settings.PrecisionThreshold, settings.MinConfirmations
+	var split accuracySplit
+	if report.Evaluation, report.Persons, split, err = s.measureAccuracy(ctx, settings); err != nil {
+		return report, err
+	}
+	if report.Calibration, err = s.calibration(ctx, settings, split); err != nil {
+		return report, err
+	}
+	if report.Library, err = s.libraryFigures(ctx); err != nil {
 		return report, err
 	}
 	report.Criteria = criteriaOf(report.Evaluation, settings)
@@ -417,7 +456,7 @@ func (s *Server) putVoiceCriteria(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	settings, err := loadMatchingSettings(r.Context(), s.Pool)
+	settings, err := effectiveMatchingSettings(r.Context(), s.Pool)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -449,7 +488,7 @@ func (s *Server) putVoiceAutomation(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	eval, _, err := s.measureAccuracy(ctx, settings)
+	eval, _, _, err := s.measureAccuracy(ctx, settings)
 	if err != nil {
 		s.internal(w, err)
 		return
@@ -468,7 +507,7 @@ func (s *Server) putVoiceAutomation(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	updated, err := loadMatchingSettings(ctx, s.Pool)
+	updated, err := effectiveMatchingSettings(ctx, s.Pool)
 	if err != nil {
 		s.internal(w, err)
 		return

@@ -13049,7 +13049,7 @@
         },
         "responses": {
           "200": {
-            "description": "Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau",
+            "description": "Seuils appliqués ; les empreintes déjà stockées sont rapprochées de nouveau",
             "content": {
               "application/json": {
                 "schema": {
@@ -13069,7 +13069,7 @@
             }
           }
         },
-        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
+        "description": "Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut, au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409 voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
         "security": [
           {
             "session": []
@@ -25551,7 +25551,9 @@
           "precision_threshold",
           "min_confirmations",
           "auto_changed_at",
-          "updated_at"
+          "updated_at",
+          "group",
+          "thresholds_applied"
         ],
         "properties": {
           "auto_enabled": {
@@ -25601,6 +25603,19 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "group": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceFingerprintGroup"
+              }
+            ],
+            "nullable": true,
+            "description": "Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une installation sans empreinte (valeurs provisoires)."
+          },
+          "thresholds_applied": {
+            "type": "boolean",
+            "description": "Le groupe actif a des seuils appliqués par un administrateur. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique."
           }
         }
       },
@@ -25634,6 +25649,17 @@
             "type": "integer",
             "minimum": 2,
             "maximum": 20
+          },
+          "group": {
+            "$ref": "#/components/schemas/VoiceFingerprintGroup"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "administrator",
+              "proposal"
+            ],
+            "description": "Origine tracée des seuils appliqués ; administrator par défaut."
           }
         }
       },
@@ -25910,7 +25936,8 @@
           "library",
           "criteria",
           "activation_proposed",
-          "events"
+          "events",
+          "calibration"
         ],
         "properties": {
           "measured_at": {
@@ -25921,7 +25948,8 @@
             "type": "boolean"
           },
           "automatic_threshold": {
-            "type": "number"
+            "type": "number",
+            "description": "Seuil automatique du groupe d'empreintes actif (ou provisoire)."
           },
           "precision_threshold": {
             "type": "number"
@@ -25970,6 +25998,9 @@
               "$ref": "#/components/schemas/VoiceAutomationEvent"
             },
             "description": "Historique des activations et désactivations, du plus récent au plus ancien."
+          },
+          "calibration": {
+            "$ref": "#/components/schemas/VoiceCalibration"
           }
         }
       },
@@ -33381,6 +33412,323 @@
             "description": "Vingt dernières versions, la plus récente d'abord.",
             "items": {
               "$ref": "#/components/schemas/VoiceScoreModeVersion"
+            }
+          }
+        }
+      },
+      "VoiceFingerprintGroup": {
+        "type": "object",
+        "description": "Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes d'un même groupe sont comparées.",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "model_version",
+          "dimensions"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "model_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "dimensions": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          }
+        }
+      },
+      "VoiceGroupThresholds": {
+        "type": "object",
+        "description": "Une version des seuils appliqués à un groupe d'empreintes (ADR 0064). La plus haute version est en vigueur.",
+        "required": [
+          "version",
+          "suggestion_threshold",
+          "automatic_threshold",
+          "ambiguity_margin",
+          "source",
+          "score_mode",
+          "author",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "suggestion_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "automatic_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "ambiguity_margin": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "migration",
+              "administrator",
+              "proposal"
+            ],
+            "description": "migration : seuils de l'installation repris pour le groupe actif ; administrator : saisis ; proposal : proposition de la Précision mesurée appliquée par l'administrateur."
+          },
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "Mode de score actif au moment de l'application."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur ; null pour Snitch (migration)."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceScoreBin": {
+        "type": "object",
+        "description": "Classe de score de largeur 0,05 ; un score négatif est compté dans la première classe, un score de 1 dans la dernière. Un score est une similarité cosinus, jamais une probabilité.",
+        "required": [
+          "from",
+          "to",
+          "same_person",
+          "other_person"
+        ],
+        "properties": {
+          "from": {
+            "type": "number"
+          },
+          "to": {
+            "type": "number"
+          },
+          "same_person": {
+            "type": "integer",
+            "description": "Scores d'un test contre la Référence de sa propre Personne."
+          },
+          "other_person": {
+            "type": "integer",
+            "description": "Scores d'un test contre la Référence d'une autre Personne."
+          }
+        }
+      },
+      "VoiceThresholdSweep": {
+        "type": "object",
+        "description": "Décision rejouée sur les tests à un jeu de seuils.",
+        "required": [
+          "automatic_threshold",
+          "suggestion_threshold",
+          "ambiguity_margin",
+          "automatic",
+          "errors",
+          "to_verify",
+          "unknown_automatic"
+        ],
+        "properties": {
+          "automatic_threshold": {
+            "type": "number"
+          },
+          "suggestion_threshold": {
+            "type": "number",
+            "description": "Seuil de suggestion utilisé : celui du groupe, abaissé au seuil automatique s'il le dépasse."
+          },
+          "ambiguity_margin": {
+            "type": "number"
+          },
+          "automatic": {
+            "type": "integer",
+            "description": "Tests attribués automatiquement."
+          },
+          "errors": {
+            "type": "integer",
+            "description": "Attributions automatiques désignant une autre Personne que celle validée."
+          },
+          "to_verify": {
+            "type": "integer",
+            "description": "Tests laissés à vérifier (suggestion, ambiguïté ou inconnu)."
+          },
+          "unknown_automatic": {
+            "type": "integer",
+            "description": "Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort automatiquement."
+          }
+        }
+      },
+      "VoiceThresholdProposal": {
+        "type": "object",
+        "description": "Proposition de seuils : jamais appliquée sans action de l'administrateur.",
+        "required": [
+          "suggestion_threshold",
+          "automatic_threshold",
+          "ambiguity_margin",
+          "figures"
+        ],
+        "properties": {
+          "suggestion_threshold": {
+            "type": "number"
+          },
+          "automatic_threshold": {
+            "type": "number",
+            "description": "Plus bas seuil, au centième, à partir duquel la mesure garde la précision minimale des critères d'activation et ne reconnaît aucun inconnu simulé."
+          },
+          "ambiguity_margin": {
+            "type": "number"
+          },
+          "figures": {
+            "$ref": "#/components/schemas/VoiceThresholdSweep"
+          }
+        }
+      },
+      "VoiceCalibrationMode": {
+        "type": "object",
+        "description": "Mesure d'un mode de score sur le groupe actif.",
+        "required": [
+          "mode",
+          "tests",
+          "persons",
+          "same_person_scores",
+          "other_person_scores",
+          "distribution",
+          "sweep",
+          "current",
+          "proposal",
+          "withheld"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ]
+          },
+          "tests": {
+            "type": "integer",
+            "description": "Tests ayant une empreinte comparable dans le groupe ; chacun est aussi rejoué comme inconnu simulé."
+          },
+          "persons": {
+            "type": "integer",
+            "description": "Personnes ayant une Référence dans ce mode et au moins un test."
+          },
+          "same_person_scores": {
+            "type": "integer"
+          },
+          "other_person_scores": {
+            "type": "integer"
+          },
+          "distribution": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceScoreBin"
+            }
+          },
+          "sweep": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceThresholdSweep"
+            },
+            "description": "Seuil automatique de 0,05 à 1 par pas de 0,05."
+          },
+          "current": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceThresholdSweep"
+              }
+            ],
+            "nullable": true,
+            "description": "Chiffres aux seuils appliqués au groupe ; null sans seuils appliqués."
+          },
+          "proposal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceThresholdProposal"
+              }
+            ],
+            "nullable": true
+          },
+          "withheld": {
+            "type": "string",
+            "enum": [
+              "",
+              "too_few",
+              "no_safe_threshold"
+            ],
+            "description": "Raison de l'absence de proposition : too_few (effectifs trop faibles), no_safe_threshold (aucun seuil ne garde la précision sans reconnaître d'inconnu)."
+          }
+        }
+      },
+      "VoiceCalibration": {
+        "type": "object",
+        "description": "Calibration des seuils du groupe d'empreintes actif (ADR 0064), les deux modes de score côte à côte.",
+        "required": [
+          "group",
+          "thresholds",
+          "history",
+          "active_mode",
+          "min_tests",
+          "min_persons",
+          "modes"
+        ],
+        "properties": {
+          "group": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceFingerprintGroup"
+              }
+            ],
+            "nullable": true,
+            "description": "Groupe actif ; null tant qu'aucune empreinte n'a été produite."
+          },
+          "thresholds": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceGroupThresholds"
+              }
+            ],
+            "nullable": true,
+            "description": "Seuils appliqués au groupe ; null : suggestions seulement, aucune Attribution automatique."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceGroupThresholds"
+            },
+            "description": "Vingt dernières versions, la plus récente d'abord."
+          },
+          "active_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ]
+          },
+          "min_tests": {
+            "type": "integer"
+          },
+          "min_persons": {
+            "type": "integer"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceCalibrationMode"
             }
           }
         }

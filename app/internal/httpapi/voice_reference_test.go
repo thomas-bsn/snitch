@@ -163,6 +163,7 @@ func testVoiceReference(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=true`); err != nil {
 		t.Fatal(err)
 	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75) // a group decides automatically only with applied thresholds (#393)
 	stray := h.shortVoice(clips[4], "STRAY", shortVoice{vector: []float64{1, 0.45, 0, 0}, net: 4})
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 	confidence(stray, dora, "automatic", cosineOf([]float64{1, 0.45, 0, 0}, []float64{1, 0, 0, 0}))

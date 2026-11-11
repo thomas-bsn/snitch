@@ -80,9 +80,12 @@ def sync_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoiceMatchingSettings]:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
-    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    """  Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut,
+    au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà
+    celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409
+    voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est
+    global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un
+    changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
 
     Args:
         origin (str):
@@ -119,9 +122,12 @@ def sync(
     x_csrf_token: str,
 
 ) -> Error | VoiceMatchingSettings | None:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
-    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    """  Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut,
+    au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà
+    celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409
+    voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est
+    global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un
+    changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
 
     Args:
         origin (str):
@@ -153,9 +159,12 @@ async def asyncio_detailed(
     x_csrf_token: str,
 
 ) -> Response[Error | VoiceMatchingSettings]:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
-    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    """  Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut,
+    au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà
+    celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409
+    voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est
+    global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un
+    changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
 
     Args:
         origin (str):
@@ -192,9 +201,12 @@ async def asyncio(
     x_csrf_token: str,
 
 ) -> Error | VoiceMatchingSettings | None:
-    """  Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision
-    d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni
-    vidéo.
+    """  Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut,
+    au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà
+    celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409
+    voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est
+    global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un
+    changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.
 
     Args:
         origin (str):
