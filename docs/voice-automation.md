@@ -38,7 +38,7 @@ Le rapport porte aussi `calibration` (ADR 0064, #393) : la mesure ci-dessus, rej
 
 **Effectifs trop faibles.** En dessous de 20 tests ou de 3 Personnes ayant une Référence et au moins un test (`min_tests`, `min_persons`), le rapport le dit (`withheld = too_few`) au lieu de proposer ; `no_safe_threshold` si aucun seuil ne tient le critère sans fausse reconnaissance.
 
-**Rien n'est appliqué automatiquement.** La proposition s'applique par `PUT /api/admin/voice-matching` avec `source = proposal` et le `score_mode` mesuré, action explicite et tracée de l'administrateur ; l'écran propose ce bouton pour chaque mode, les seuils d'un mode non actif ne prenant effet que lorsqu'il devient actif. Le rapport montre aussi les seuils appliqués du groupe pour le mode actif (`thresholds`) et les vingt dernières versions du groupe, tous modes confondus.
+**Rien n'est appliqué automatiquement.** La proposition s'applique par `PUT /api/admin/voice-matching` avec `source = proposal` et le `score_mode` mesuré, action explicite et tracée de l'administrateur ; le serveur recalcule la proposition du groupe et du mode et refuse (`409 voice_threshold_proposal_stale`) des valeurs qui n'en sont pas exactement, pour qu'une saisie ne soit jamais tracée comme issue de la mesure ; l'écran propose ce bouton pour chaque mode, les seuils d'un mode non actif ne prenant effet que lorsqu'il devient actif. Le rapport montre aussi les seuils appliqués du groupe pour le mode actif (`thresholds`) et les vingt dernières versions du groupe, tous modes confondus.
 
 **Un score n'est pas une probabilité** : c'est une similarité cosinus entre −1 et 1 dont l'échelle dépend du modèle d'empreinte. L'écran l'affiche comme un nombre, jamais en pourcentage.
 

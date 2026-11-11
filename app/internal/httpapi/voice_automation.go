@@ -159,27 +159,33 @@ func splitSamples(samples []accuracySample) (references, tests []accuracySample,
 	return references, tests, excluded
 }
 
-// measureAccuracy computes the evaluation and the per-Person figures from the database.
-func (s *Server) measureAccuracy(ctx context.Context, settings matchingSettings) (accuracyEvaluation, []accuracyPerson, accuracySplit, error) {
-	var eval accuracyEvaluation
-	var split accuracySplit
+// accuracySamples reads the active validated samples the measure splits: those with a contributive
+// production fingerprint, ordered by Person, clip and id.
+func (s *Server) accuracySamples(ctx context.Context) ([]accuracySample, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT vs.id,vs.person_id,vs.clip_id FROM voice_samples vs
 WHERE vs.retired_at IS NULL AND EXISTS (SELECT 1 FROM voice_fingerprints f WHERE f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id AND f.contributive AND NOT f.benchmark AND f.scope='speaker')
 ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	if err != nil {
-		return eval, nil, split, err
+		return nil, err
 	}
+	defer rows.Close()
 	var samples []accuracySample
 	for rows.Next() {
 		var sample accuracySample
 		if err = rows.Scan(&sample.id, &sample.personID, &sample.clipID); err != nil {
-			rows.Close()
-			return eval, nil, split, err
+			return nil, err
 		}
 		samples = append(samples, sample)
 	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
+	return samples, rows.Err()
+}
+
+// measureAccuracy computes the evaluation and the per-Person figures from the database.
+func (s *Server) measureAccuracy(ctx context.Context, settings matchingSettings) (accuracyEvaluation, []accuracyPerson, accuracySplit, error) {
+	var eval accuracyEvaluation
+	var split accuracySplit
+	samples, err := s.accuracySamples(ctx)
+	if err != nil {
 		return eval, nil, split, err
 	}
 	references, tests, excluded := splitSamples(samples)

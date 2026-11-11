@@ -266,6 +266,8 @@ export const errorsEn = {
   invalid_voice_matching: "These matching settings are not valid.",
   voice_group_unknown:
     "No fingerprint of this model is in service: the fingerprint model may have changed. Reload the page.",
+  voice_threshold_proposal_stale:
+    "These values are not the current proposal of the measurement for this model and score mode: the measurement may have changed. Reload the page.",
   invalid_voice_eligibility:
     "This eligibility rule is not valid: durations between 0.5 and 60 seconds, the contributive one at most the comparable one, and a clipped share between 0 and 1.",
   invalid_voice_score_mode:

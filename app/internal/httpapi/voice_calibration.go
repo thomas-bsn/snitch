@@ -297,6 +297,34 @@ func (s *Server) calibrateMode(ctx context.Context, settings matchingSettings, g
 	return m, applied, nil
 }
 
+// currentProposal measures one group in one score mode as the calibration of the measured accuracy does, and
+// returns its proposal; nil when it is withheld. Applying thresholds as a proposal is checked against it, so a
+// typed value is never recorded as coming from a measure.
+func (s *Server) currentProposal(ctx context.Context, g matchGroup, mode scoreMode) (*thresholdProposal, error) {
+	settings, err := loadMatchingSettings(ctx, s.Pool)
+	if err != nil {
+		return nil, err
+	}
+	samples, err := s.accuracySamples(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var split accuracySplit
+	split.references, split.tests, _ = splitSamples(samples)
+	references, tests, err := s.calibrationSamples(ctx, g, split)
+	if err != nil {
+		return nil, err
+	}
+	m, _, err := s.calibrateMode(ctx, settings, g, mode, references, tests)
+	return m.Proposal, err
+}
+
+// sameThresholds tells whether applied values are those of a proposal (both come from the same JSON numbers).
+func (p *thresholdProposal) sameThresholds(suggestion, automatic, margin float64) bool {
+	near := func(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
+	return p != nil && near(p.SuggestionThreshold, suggestion) && near(p.AutomaticThreshold, automatic) && near(p.AmbiguityMargin, margin)
+}
+
 // calibrationSamples reads, in one group, the reference samples of the split and the comparable vector of each
 // of its tests.
 func (s *Server) calibrationSamples(ctx context.Context, g matchGroup, split accuracySplit) ([]referenceSample, []calibrationTest, error) {

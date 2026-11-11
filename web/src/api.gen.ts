@@ -6736,7 +6736,7 @@ export interface components {
       max_candidates: number;
       group?: components["schemas"]["VoiceFingerprintGroup"];
       /**
-       * @description Origine tracée des seuils appliqués ; administrator par défaut.
+       * @description Origine tracée des seuils appliqués ; administrator par défaut. proposal n'est accepté que pour les valeurs exactes de la proposition actuelle de la mesure pour ce groupe et ce mode de score, sinon 409 voice_threshold_proposal_stale.
        * @enum {string}
        */
       source?: "administrator" | "proposal";

@@ -220,6 +220,8 @@ func testVoiceGroupThresholds(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("too few tests: no proposal: %+v", m)
 		}
 	}
+	// Without a proposal, nothing is applied as one.
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5, "source": "proposal"}, http.StatusConflict)
 }
 
 // Thresholds belong to a group and a score mode: the scores of the two modes have different scales, so
@@ -336,8 +338,14 @@ func testVoiceCalibration(t *testing.T, pool *pgxpool.Pool) {
 		}
 	}
 
-	// Applying the proposal is an explicit administrator action, recorded as such.
+	// Applying the proposal is an explicit administrator action, recorded as such. Only the values of the current
+	// proposal of the group and mode may be recorded as a proposal: typed values never pass for a measure.
 	p := cal.Modes[0].Proposal
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": p.AutomaticThreshold + 0.01, "suggestion_threshold": p.SuggestionThreshold, "ambiguity_margin": p.AmbiguityMargin, "max_candidates": 5, "group": fixtureGroup, "source": "proposal"}, http.StatusConflict)
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": p.AutomaticThreshold, "suggestion_threshold": p.SuggestionThreshold, "ambiguity_margin": p.AmbiguityMargin, "max_candidates": 5, "group": map[string]any{"model": "fixture-embedding", "model_version": "emb-v1", "dimensions": 4}, "source": "proposal", "score_mode": "best_sample"}, http.StatusOK)
+	if n := h.count(`SELECT count(*) FROM voice_group_thresholds`); n != 1 {
+		t.Fatalf("the refused proposal recorded nothing, the proposal of the other mode was applied for it: %d", n)
+	}
 	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": p.AutomaticThreshold, "suggestion_threshold": p.SuggestionThreshold, "ambiguity_margin": p.AmbiguityMargin, "max_candidates": 5, "group": fixtureGroup, "source": "proposal"}, http.StatusOK)
 	report = h.calibration()
 	if cal = report.Calibration; cal.Thresholds == nil || cal.Thresholds.Source != "proposal" || cal.Thresholds.AutomaticThreshold != 0.11 || cal.Modes[0].Current == nil || cal.Modes[0].Current.Automatic != 24 {

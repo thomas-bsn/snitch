@@ -35,6 +35,8 @@ class VoiceMatchingInput:
             group (VoiceFingerprintGroup | Unset): Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes
                 d'un même groupe sont comparées.
             source (VoiceMatchingInputSource | Unset): Origine tracée des seuils appliqués ; administrator par défaut.
+                proposal n'est accepté que pour les valeurs exactes de la proposition actuelle de la mesure pour ce groupe et ce
+                mode de score, sinon 409 voice_threshold_proposal_stale.
             score_mode (VoiceMatchingInputScoreMode | Unset): Mode de score pour lequel les seuils sont appliqués ; mode
                 actif par défaut. Les seuils d'un mode ne valent jamais pour l'autre.
      """

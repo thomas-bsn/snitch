@@ -160,6 +160,10 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if !found && input.Source != nil && *input.Source == thresholdsFromProposal {
+		fail(w, http.StatusConflict, "voice_threshold_proposal_stale") // no group, no measure, no proposal
+		return
+	}
 	if found {
 		t := groupThresholds{SuggestionThreshold: *input.SuggestionThreshold, AutomaticThreshold: *input.AutomaticThreshold, AmbiguityMargin: *input.AmbiguityMargin, Source: thresholdsFromAdministrator}
 		if input.Source != nil {
@@ -170,6 +174,18 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		} else if t.ScoreMode, err = activeScoreMode(ctx, tx); err != nil {
 			s.internal(w, err)
 			return
+		}
+		if t.Source == thresholdsFromProposal {
+			// Only the current proposal of the measure for this group and mode is recorded as a proposal.
+			proposal, proposalErr := s.currentProposal(ctx, group, t.ScoreMode)
+			if proposalErr != nil {
+				s.internal(w, proposalErr)
+				return
+			}
+			if !proposal.sameThresholds(t.SuggestionThreshold, t.AutomaticThreshold, t.AmbiguityMargin) {
+				fail(w, http.StatusConflict, "voice_threshold_proposal_stale")
+				return
+			}
 		}
 		_, err = applyGroupThresholds(ctx, tx, group, t, author)
 		if err == nil {
