@@ -3,11 +3,16 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"os"
 	"runtime"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -45,7 +50,7 @@ func seedVoiceLibrary(t *testing.T, pool *pgxpool.Pool, adminID int64) {
 	exec(`CREATE TEMP TABLE perf_centers AS SELECT p.id AS person,row_number() OVER (ORDER BY p.id)-1 AS k,(SELECT array_agg(random()-0.5) FROM generate_series(1,$1) i WHERE p.id>0) AS c FROM persons p WHERE p.display_name LIKE 'Perf person %'`, perfVoiceDimensions)
 	exec(`CREATE TEMP TABLE perf_speakers AS SELECT x.id,x.clip_id,pc.person
  FROM (SELECT ls.id,ls.clip_id,row_number() OVER (ORDER BY ls.id) AS n FROM local_speakers ls JOIN clips c ON c.id=ls.clip_id WHERE c.original_name LIKE 'perf-voice-%') x
- LEFT JOIN perf_centers pc ON x.n % 5 <> 0 AND pc.k = x.n % $1`, perfVoicePersons)
+ LEFT JOIN perf_centers pc ON x.n % 5 <> 0 AND pc.k = (x.n - x.n/5) % $1`, perfVoicePersons)
 	exec(`INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,contributive,model,model_version,dimensions,embedding,net_speech_seconds)
  SELECT s.id,s.clip_id,fj.id,'speaker',0,5,5,0.9,true,'',true,'perf-embedding','perf-v1',$1,
   (SELECT array_agg(COALESCE(pc.c[i],0)+0.6*(random()-0.5) ORDER BY i) FROM generate_series(1,$1) i WHERE s.id>0)::vector,5
@@ -66,7 +71,8 @@ func testVoiceMatchingPerformance(t *testing.T, pool *pgxpool.Pool) {
 		t.Skip("measurement only: set SNITCH_PERF=1")
 	}
 	ctx := context.Background()
-	h := newVoiceHarnessBackground(t, pool, 1)
+	phases := &phaseLog{}
+	h := newVoiceHarnessWith(t, pool, 1, slog.New(slog.NewJSONHandler(phases, &slog.HandlerOptions{Level: slog.LevelDebug})), true)
 	h.waitMatching()
 	var adminID int64
 	if err := pool.QueryRow(ctx, `SELECT id FROM users WHERE username='administrator'`).Scan(&adminID); err != nil {
@@ -90,7 +96,7 @@ func testVoiceMatchingPerformance(t *testing.T, pool *pgxpool.Pool) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		t.Logf("%s: full pass %s; %+v", label, time.Since(started).Round(time.Millisecond), stats)
+		t.Logf("%s: full pass %s; %+v; phases %s", label, time.Since(started).Round(time.Millisecond), stats, phases.last())
 	}
 	waitPass := func(label string) {
 		t.Helper()
@@ -98,7 +104,7 @@ func testVoiceMatchingPerformance(t *testing.T, pool *pgxpool.Pool) {
 		for {
 			v := h.matchingStatus()
 			if !v.Pending && !v.Running {
-				t.Logf("%s: background pass %d ms for %d request(s)", label, *v.LastDurationMS, *v.LastRequests)
+				t.Logf("%s: background pass %d ms for %d request(s); phases %s", label, *v.LastDurationMS, *v.LastRequests, phases.last())
 				return
 			}
 			if time.Now().After(deadline) {
@@ -127,4 +133,34 @@ func testVoiceMatchingPerformance(t *testing.T, pool *pgxpool.Pool) {
 	h.scoreMode(http.MethodPut, map[string]any{"mode": "best_sample"}, http.StatusOK)
 	waitPass("best_sample, first pass")
 	pass("best_sample, second pass (nothing changes)")
+}
+
+// phaseLog keeps the phase timings the matching logs at debug level (voice_matching_phases).
+type phaseLog struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (p *phaseLog) Write(b []byte) (int, error) {
+	if bytes.Contains(b, []byte(`"voice_matching_phases"`)) {
+		var line struct {
+			Targets int              `json:"targets"`
+			Phases  map[string]int64 `json:"phases"`
+		}
+		if json.Unmarshal(b, &line) == nil {
+			p.mu.Lock()
+			p.lines = append(p.lines, fmt.Sprintf("targets %d, elapsed at end of: scoring %d ms, writing %d ms, commit %d ms, index %d ms, group links %d ms, reviews %d ms", line.Targets, line.Phases["scored_ms"], line.Phases["written_ms"], line.Phases["committed_ms"], line.Phases["indexed_ms"], line.Phases["linked_ms"], line.Phases["reviewed_ms"]))
+			p.mu.Unlock()
+		}
+	}
+	return len(b), nil
+}
+
+func (p *phaseLog) last() string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if len(p.lines) == 0 {
+		return "(none)"
+	}
+	return strings.TrimSpace(p.lines[len(p.lines)-1])
 }

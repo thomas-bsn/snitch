@@ -246,9 +246,13 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 // database advisory lock) so concurrent changes of references cannot interleave their writes; each run reads the
 // committed state. Scores are computed before any write, so the rows a run locks are held only while it writes.
 func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, error) {
+	outer := ctx
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	var stats matchStats
+	began := time.Now()
+	phases := map[string]int64{}
+	phase := func(name string) { phases[name] = time.Since(began).Milliseconds() }
 	tx, err := s.beginLocked(ctx, lockVoiceMatching)
 	if err != nil {
 		return stats, err
@@ -296,6 +300,7 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 		}
 		targets = append(targets, found...)
 	}
+	phase("scored_ms")
 	existing, err := loadExistingMatches(ctx, tx, scope)
 	if err != nil {
 		return stats, err
@@ -305,6 +310,7 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 		return stats, err
 	}
 	evaluated := make(map[int64]bool, len(targets))
+	churn := 0 // machine rows inserted or deleted by this run
 	// Per clip, why voices stay unknown or ambiguous: closed reasons and counts only.
 	reasons := map[int64]map[string]int{}
 	note := func(clip int64, reason string) {
@@ -319,6 +325,9 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 			continue
 		}
 		evaluated[t.speakerID] = true
+		if existing[t.speakerID].attributionID == 0 {
+			churn++ // a new machine row
+		}
 		level, person, confidence, candidates := decideMatch(t.scores, t.settings)
 		stats.Evaluated++
 		switch level {
@@ -351,7 +360,9 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 			return stats, err
 		}
 		stats.Removed++
+		churn++
 	}
+	phase("written_ms")
 	summaries, err := clipMatchSummaries(ctx, tx, reasons, scope)
 	if err != nil {
 		return stats, err
@@ -359,20 +370,45 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 	if err = tx.Commit(ctx); err != nil {
 		return stats, err
 	}
+	phase("committed_ms")
 	s.logClipSummaries(summaries, scope != nil)
+	// The steps below follow the committed matching, each with its own time budget: a slow one (the proximity of
+	// unknown voices on a large library) never leaves the reviews unannounced. Measured in
+	// docs/performance-rapprochement.md.
+	after := func() (context.Context, context.CancelFunc) {
+		return context.WithTimeout(outer, 5*time.Minute)
+	}
+	ctx, cancel = after()
+	defer cancel()
+	// Many machine rows inserted or deleted at once (a first pass, a new reference group) leave the planner
+	// statistics stale; the queries below on attributions would pick a poor plan until autovacuum catches up.
+	if churn >= analyzeChurn {
+		if _, err = s.Pool.Exec(ctx, `ANALYZE speaker_attributions, speaker_attribution_candidates`); err != nil {
+			s.Log.Error("voice matching statistics failed", logging.Failure(err)...)
+		}
+	}
 	for _, g := range groups {
 		s.ensureVoiceIndex(ctx, g)
 	}
+	phase("indexed_ms")
 	// Proposed proximity between unknown voices follows the references and thresholds.
+	ctx, cancel = after()
+	defer cancel()
 	if err = s.refreshVoiceGroupLinks(ctx); err != nil {
 		s.Log.Error("voice group links failed", logging.Failure(err)...)
 	}
+	phase("linked_ms")
 	// The voices that still need a human decision are announced (or the action resolved).
+	ctx, cancel = after()
+	defer cancel()
 	if clipID > 0 {
 		s.syncSpeakerReview(ctx, clipID)
 	} else {
 		s.syncAllSpeakerReviews(ctx)
 	}
+	phase("reviewed_ms")
+	// Elapsed time at the end of each phase, for a measurement or a slow library (#392).
+	s.Log.Debug("voice_matching_phases", "clip_id", clipID, "targets", len(targets), "phases", phases)
 	return stats, nil
 }
 
@@ -625,6 +661,11 @@ func removeMatch(ctx context.Context, tx pgx.Tx, speakerID int64, old existingMa
 	}
 	return eventRow(ctx, tx, speakerID, clipID, old.personID, old.level, nil, LevelUnknown, names)
 }
+
+// analyzeChurn is the number of machine rows a run inserts or deletes from which it refreshes the planner
+// statistics of the attributions (#392 measurement: 22 000 new suggestions made the proximity of unknown voices
+// take minutes instead of seconds).
+const analyzeChurn = 1000
 
 const (
 	lockVoiceMatching = "snitch.voice_matching"
