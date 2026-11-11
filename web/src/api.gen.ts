@@ -3099,6 +3099,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-score-mode": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getVoiceScoreMode"];
+    /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre le mode actif n'enregistre rien. */
+    put: operations["updateVoiceScoreMode"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-eligibility/preview": {
     parameters: {
       query?: never;
@@ -9154,6 +9172,41 @@ export interface components {
       original_vectors: number;
       before: components["schemas"]["VoiceEligibilityOutcome"];
       after: components["schemas"]["VoiceEligibilityOutcome"];
+    };
+    VoiceScoreModeInput: {
+      /**
+       * @description cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables.
+       * @enum {string}
+       */
+      mode: "cumulative" | "best_sample";
+    };
+    /** @description Une version du mode de score. La version 1 est le mode par défaut de Snitch. */
+    VoiceScoreModeVersion: {
+      version: number;
+      /**
+       * @description cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables.
+       * @enum {string}
+       */
+      mode: "cumulative" | "best_sample";
+      /** @description Administrateur qui a choisi ce mode ; null pour le mode par défaut. */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description Mode de score du rapprochement (ADR 0064) : version active et historique. */
+    VoiceScoreMode: {
+      version: number;
+      /**
+       * @description cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables.
+       * @enum {string}
+       */
+      mode: "cumulative" | "best_sample";
+      /** @description Administrateur qui a choisi ce mode ; null pour le mode par défaut. */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Vingt dernières versions, la plus récente d'abord. */
+      history: components["schemas"]["VoiceScoreModeVersion"][];
     };
   };
   responses: never;
@@ -17783,6 +17836,71 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceEligibility"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceScoreMode: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Mode de score actif et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceScoreMode"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceScoreMode: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceScoreModeInput"];
+      };
+    };
+    responses: {
+      /** @description Mode enregistré (nouvelle version s'il change) ; les empreintes stockées sont alors rapprochées de nouveau */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceScoreMode"];
         };
       };
       /** @description Erreur */

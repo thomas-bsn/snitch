@@ -18,19 +18,24 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Voice matching (phase 5). Matching compares the usable fingerprints of
-// local speakers with the references of every Person, entirely in PostgreSQL: no worker
+// Voice matching (phase 5, ADR 0064). Matching compares the comparable fingerprints of
+// local speakers with the Reference of every Person, from the stored vectors: no worker
 // and no media. References are the active validated voice samples and nothing else;
 // matching only writes machine attributions (origin "matching") and their candidates,
 // never a voice sample, so an automatic attribution can never feed its own references.
 //
 // Fingerprints are only compared inside one (model, model_version, dimensions) group,
-// and only when they are usable (long and clean enough, decided when they were stored).
+// and only when they are comparable (column usable, decided by the eligibility rule).
 // A group without any reference is not evaluated: the machine attributions of its
 // speakers are removed instead of kept stale.
 //
-// Decision for one speaker, from the cosine similarity to each Person (best reference
-// of the Person):
+// Scores come from the one score function of Snitch (voice_score.go): the cosine with the cumulative
+// Reference of each Person (contributive validated samples weighted by net speech), or with her best comparable
+// sample when the administrator chose that score mode. References are derived from the samples at every run,
+// never stored: any change of samples (validation, correction, merge, separation, voice profile or clip
+// deletion) is seen by the next run.
+//
+// Decision for one speaker, from its score against each Person:
 //   - below suggestion_threshold for every Person: unknown;
 //   - two or more Persons within ambiguity_margin of the best: ambiguous, with those
 //     candidates (two close voices are never merged into one identity);
@@ -54,6 +59,9 @@ type matchingSettings struct {
 	MinConfirmations    int        `json:"min_confirmations"`
 	AutoChangedAt       *time.Time `json:"auto_changed_at"`
 	UpdatedAt           time.Time  `json:"updated_at"`
+	// ScoreMode is the active score mode (voice_score_modes), read with the thresholds so one run uses one
+	// consistent setting. Exposed by its own administrator route, not with the thresholds.
+	ScoreMode scoreMode `json:"-"`
 }
 
 type voiceDB interface {
@@ -70,7 +78,8 @@ const (
 
 func loadMatchingSettings(ctx context.Context, db voiceDB) (matchingSettings, error) {
 	var v matchingSettings
-	err := db.QueryRow(ctx, `SELECT auto_enabled,automatic_threshold,suggestion_threshold,ambiguity_margin,max_candidates,precision_threshold,min_confirmations,auto_changed_at,updated_at FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.PrecisionThreshold, &v.MinConfirmations, &v.AutoChangedAt, &v.UpdatedAt)
+	err := db.QueryRow(ctx, `SELECT auto_enabled,automatic_threshold,suggestion_threshold,ambiguity_margin,max_candidates,precision_threshold,min_confirmations,auto_changed_at,updated_at,
+  (SELECT mode FROM voice_score_modes ORDER BY version DESC LIMIT 1) FROM voice_matching_settings WHERE id=true`).Scan(&v.AutoEnabled, &v.AutomaticThreshold, &v.SuggestionThreshold, &v.AmbiguityMargin, &v.MaxCandidates, &v.PrecisionThreshold, &v.MinConfirmations, &v.AutoChangedAt, &v.UpdatedAt, &v.ScoreMode)
 	return v, err
 }
 
@@ -222,9 +231,13 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	if err = groupRows.Err(); err != nil {
 		return stats, err
 	}
+	refused, err := loadRefusals(ctx, tx, scope)
+	if err != nil {
+		return stats, err
+	}
 	var targets []matchTarget
 	for _, g := range groups {
-		found, groupErr := s.matchGroupScores(ctx, tx, g, settings, scope)
+		found, groupErr := s.matchGroupScores(ctx, tx, g, settings, scope, refused)
 		if groupErr != nil {
 			return stats, groupErr
 		}
@@ -310,29 +323,21 @@ func (s *Server) rematchVoices(ctx context.Context, clipID int64) (matchStats, e
 	return stats, nil
 }
 
-// matchGroupScores returns every evaluable speaker of one fingerprint group with its
-// per-Person best similarity at or above the suggestion threshold. The cast to a typed
-// vector is written into the statement (the dimension is a validated integer), and is
-// only evaluated on rows already restricted to that dimension.
-func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, settings matchingSettings, scope *int64) ([]matchTarget, error) {
-	query := fmt.Sprintf(`WITH refs AS (
-  SELECT vs.person_id,f.embedding::vector(%[1]d) AS e
-  FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
-), targets AS (
-  SELECT f.local_speaker_id AS sid,f.clip_id,f.embedding::vector(%[1]d) AS e
+// matchGroupScores returns every evaluable speaker of one fingerprint group with its score against each Person
+// at or above the suggestion threshold, best first. Refused Persons (refused: speaker -> Persons) are never
+// scored for that speaker.
+func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, settings matchingSettings, scope *int64, refused map[int64]map[int64]bool) ([]matchTarget, error) {
+	samples, err := loadReferenceSamples(ctx, tx, g, nil)
+	if err != nil {
+		return nil, err
+	}
+	refs := newVoiceReferences(settings.ScoreMode, g.dimensions, samples)
+	rows, err := tx.Query(ctx, `SELECT f.local_speaker_id,f.clip_id,f.embedding::real[]
   FROM voice_fingerprints f
-  WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d AND ($3::bigint IS NULL OR f.clip_id=$3)
+  WHERE f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=$3 AND ($4::bigint IS NULL OR f.clip_id=$4)
     AND EXISTS (SELECT 1 FROM local_speakers ls WHERE ls.id=f.local_speaker_id AND ls.kind<>'microphone' AND `+analysis.NoDispositionVoice+`)
-    AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=f.local_speaker_id AND (a.validation_state='validated' OR a.origin<>'%[2]s'))
-), scored AS (
-  SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM targets t CROSS JOIN refs r
-  WHERE NOT EXISTS (SELECT 1 FROM voice_refusals x WHERE x.local_speaker_id=t.sid AND x.person_id=r.person_id)
-  GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $4
-)
-SELECT t.sid,t.clip_id,s.person_id,s.score,NOT EXISTS (SELECT 1 FROM refs) FROM targets t LEFT JOIN scored s ON s.sid=t.sid
-ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigin)
-	rows, err := tx.Query(ctx, query, g.model, g.version, scope, settings.SuggestionThreshold)
+    AND NOT EXISTS (SELECT 1 FROM speaker_attributions a WHERE a.local_speaker_id=f.local_speaker_id AND (a.validation_state='validated' OR a.origin<>$5))
+  ORDER BY f.local_speaker_id`, g.model, g.version, g.dimensions, scope, matchingOrigin)
 	if err != nil {
 		return nil, err
 	}
@@ -340,19 +345,68 @@ ORDER BY t.sid,s.score DESC NULLS LAST,s.person_id`, g.dimensions, matchingOrigi
 	var out []matchTarget
 	for rows.Next() {
 		var sid, clip int64
-		var person *int64
-		var score *float64
-		var noReference bool
-		if err = rows.Scan(&sid, &clip, &person, &score, &noReference); err != nil {
+		var vector []float32
+		if err = rows.Scan(&sid, &clip, &vector); err != nil {
 			return nil, err
 		}
-		if len(out) == 0 || out[len(out)-1].speakerID != sid {
-			out = append(out, matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version, noReference: noReference})
+		if len(out) > 0 && out[len(out)-1].speakerID == sid {
+			continue // one speaker fingerprint per speaker and group
 		}
-		if person != nil && score != nil {
-			last := &out[len(out)-1]
-			last.scores = append(last.scores, matchScore{personID: *person, score: *score})
+		t := matchTarget{speakerID: sid, clipID: clip, model: g.model, version: g.version, noReference: refs.empty()}
+		if !t.noReference {
+			t.scores = refs.rank(vector, func(person int64) bool { return !refused[sid][person] }, settings.SuggestionThreshold)
 		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// loadReferenceSamples reads the samples the References of one fingerprint group are built from: the active
+// validated samples of Persons who kept their voice profile, with the contributive production fingerprint of
+// their local speaker in that group. Only a human validation makes a sample: an automatic attribution never
+// enters a Reference. The weight is the net speech the vector was computed on (its duration for a row stored
+// before net speech was measured). sampleIDs, when not nil, keeps those samples only (the reference half of the
+// measured accuracy).
+func loadReferenceSamples(ctx context.Context, q pgQuerier, g matchGroup, sampleIDs []int64) ([]referenceSample, error) {
+	rows, err := q.Query(ctx, `SELECT vs.person_id,vs.clip_id,f.embedding::real[],COALESCE(f.net_speech_seconds,f.duration_seconds),f.usable
+  FROM voice_samples vs
+  JOIN voice_fingerprints f ON f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id
+  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons p WHERE p.id=vs.person_id AND p.voice_profile_deleted_at IS NOT NULL)
+    AND f.contributive AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=$3
+    AND ($4::bigint[] IS NULL OR vs.id=ANY($4))
+  ORDER BY vs.person_id,vs.id`, g.model, g.version, g.dimensions, sampleIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []referenceSample
+	for rows.Next() {
+		var sample referenceSample
+		if err = rows.Scan(&sample.Person, &sample.Clip, &sample.Vector, &sample.NetSpeech, &sample.Comparable); err != nil {
+			return nil, err
+		}
+		out = append(out, sample)
+	}
+	return out, rows.Err()
+}
+
+// loadRefusals lists, per local speaker, the Persons refused for it (ADR 0031), within the clip when scoped.
+func loadRefusals(ctx context.Context, tx pgx.Tx, scope *int64) (map[int64]map[int64]bool, error) {
+	rows, err := tx.Query(ctx, `SELECT x.local_speaker_id,x.person_id FROM voice_refusals x WHERE $1::bigint IS NULL OR x.local_speaker_id IN (SELECT id FROM local_speakers WHERE clip_id=$1)`, scope)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[int64]map[int64]bool{}
+	for rows.Next() {
+		var speaker, person int64
+		if err = rows.Scan(&speaker, &person); err != nil {
+			return nil, err
+		}
+		if out[speaker] == nil {
+			out[speaker] = map[int64]bool{}
+		}
+		out[speaker][person] = true
 	}
 	return out, rows.Err()
 }

@@ -6,9 +6,9 @@ Un administrateur voit la précision mesurée des références, reçoit une prop
 
 La mesure rejoue le rapprochement de production (mêmes seuils, même décision, même règle d'ambiguïté) sur les Échantillons vocaux validés actifs, avec une règle de partage :
 
-- Pour chaque Personne, ses clips (ceux qui portent un échantillon utilisable) sont triés ; la première moitié (arrondie au supérieur) fournit les **références**, les autres clips sont des **candidats de test**. Une Personne qui n'a qu'un clip ne fournit que des références.
+- Pour chaque Personne, ses clips (ceux qui portent un échantillon dont l'empreinte est contributive) sont triés ; la première moitié (arrondie au supérieur) fournit les **références**, les autres clips sont des **candidats de test**. Une Personne qui n'a qu'un clip ne fournit que des références.
 - Un candidat dont le clip contient aussi une référence, de n'importe quelle Personne, est **écarté** (compté, jamais testé). Un échantillon est donc référence ou test, jamais les deux, et aucun test ne partage un clip avec une référence.
-- Chaque test est comparé aux seules références, comme le ferait le rapprochement avec l'automatisation forcée : la mesure ne dépend donc pas de l'interrupteur. Seuls les tests qui seraient **attribués automatiquement** comptent pour la précision.
+- Chaque test est comparé, par son empreinte comparable, aux Références construites à partir des seules références, avec la fonction et le mode de score du rapprochement (Référence cumulative par défaut, voir [rapprochement](voice-matching.md#score-et-référence-cumulative)), comme le ferait le rapprochement avec l'automatisation forcée : la mesure ne dépend donc pas de l'interrupteur. Un test sans empreinte comparable n'obtient aucun score. Seuls les tests qui seraient **attribués automatiquement** comptent pour la précision.
 
 Chiffres exposés par `GET /api/admin/voice-accuracy` (administrateurs), calculés à la demande depuis la base :
 

@@ -13220,6 +13220,98 @@
         ]
       }
     },
+    "/api/admin/voice-score-mode": {
+      "get": {
+        "operationId": "getVoiceScoreMode",
+        "responses": {
+          "200": {
+            "description": "Mode de score actif et historique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceScoreMode"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateVoiceScoreMode",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceScoreModeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mode enregistré (nouvelle version s'il change) ; les empreintes stockées sont alors rapprochées de nouveau",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceScoreMode"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre le mode actif n'enregistre rien.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice-eligibility/preview": {
       "get": {
         "operationId": "previewVoiceEligibility",
@@ -33648,6 +33740,97 @@
           },
           "after": {
             "$ref": "#/components/schemas/VoiceEligibilityOutcome"
+          }
+        }
+      },
+      "VoiceScoreModeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables."
+          }
+        }
+      },
+      "VoiceScoreModeVersion": {
+        "type": "object",
+        "description": "Une version du mode de score. La version 1 est le mode par défaut de Snitch.",
+        "required": [
+          "version",
+          "mode",
+          "author",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a choisi ce mode ; null pour le mode par défaut."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceScoreMode": {
+        "type": "object",
+        "description": "Mode de score du rapprochement (ADR 0064) : version active et historique.",
+        "required": [
+          "version",
+          "mode",
+          "author",
+          "created_at",
+          "history"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a choisi ce mode ; null pour le mode par défaut."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "history": {
+            "type": "array",
+            "description": "Vingt dernières versions, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceScoreModeVersion"
+            }
           }
         }
       }

@@ -1158,6 +1158,22 @@ export const en = {
         "Only the recalculation's own jobs are cancelled; the fingerprints already recomputed stay.",
       keep: "Keep it running",
     },
+    score: {
+      title: "Score of a voice",
+      hint: "How a voice is compared with a person's validated samples. Changing it matches every stored voice again.",
+      legend: "Score mode",
+      cumulative: "Cumulative reference (default)",
+      cumulativeHint:
+        "The validated samples of a person add up, weighted by their net speech: several short extracts recognise a voice none of them recognises alone.",
+      bestSample: "Best sample",
+      bestSampleHint:
+        "Each comparable sample is compared on its own and the closest one counts. Short samples are left out.",
+      defaultMode: "Mode {version}: Snitch's default.",
+      current: "Mode {version}, chosen by {author} on {date}.",
+      save: "Save the score mode",
+      history: "Earlier score modes",
+      historyItem: "Mode {version}: {mode} · {author} · {date}",
+    },
     matching: "Voice matching",
     matchingHint:
       "Only human-validated samples are references. Thresholds must be evaluated.",

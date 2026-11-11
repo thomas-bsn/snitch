@@ -17,6 +17,8 @@ type Eligibility = components["schemas"]["VoiceEligibility"];
 type EligibilityInput = components["schemas"]["VoiceEligibilityInput"];
 type Preview = components["schemas"]["VoiceEligibilityPreview"];
 type Matching = components["schemas"]["VoiceMatchingSettings"];
+type ScoreMode = components["schemas"]["VoiceScoreMode"];
+type ScoreModeName = ScoreMode["mode"];
 type Accuracy = components["schemas"]["VoiceAccuracy"];
 
 // The values the installation starts with: a reset goes back to them. The eligibility rule's come from the
@@ -36,11 +38,13 @@ const pct = (x: number | null, none: string) =>
 /** The thresholds, folded away: nothing here is needed to use the screen. */
 export function VoiceAdvanced({
   eligibility,
+  scoreMode,
   matching,
   accuracy,
   onChanged,
 }: {
   eligibility: Eligibility;
+  scoreMode: ScoreMode;
   matching: Matching;
   accuracy: Accuracy;
   onChanged: () => void;
@@ -55,6 +59,7 @@ export function VoiceAdvanced({
     rule: EligibilityInput;
   }>();
   const [match, setMatch] = useState<Partial<Matching>>();
+  const [mode, setMode] = useState<ScoreModeName>();
   const [precision, setPrecision] = useState<string>();
   const [confirmations, setConfirmations] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -145,6 +150,21 @@ export function VoiceAdvanced({
       () => setMatch(undefined),
     );
   };
+  const saveScoreMode = (e: FormEvent) => {
+    e.preventDefault();
+    void run(
+      () =>
+        api.PUT("/api/admin/voice-score-mode", {
+          params: { header: headers },
+          body: { mode: mode ?? scoreMode.mode },
+        }),
+      () => setMode(undefined),
+    );
+  };
+  const modeLabel = (m: ScoreModeName) =>
+    m === "cumulative"
+      ? t("voiceAdmin.score.cumulative")
+      : t("voiceAdmin.score.bestSample");
   const criteriaBody = (p: number, c: number) =>
     api.PUT("/api/admin/voice-automation/criteria", {
       params: { header: headers },
@@ -182,6 +202,13 @@ export function VoiceAdvanced({
           DEFAULTS.min_confirmations,
         );
         if (b.error) return b;
+        if (scoreMode.mode !== "cumulative") {
+          const c = await api.PUT("/api/admin/voice-score-mode", {
+            params: { header: headers },
+            body: { mode: "cumulative" },
+          });
+          if (c.error) return c;
+        }
         const d = eligibility.defaults;
         if (
           d.comparable_min_seconds === current.comparable_min_seconds &&
@@ -194,6 +221,7 @@ export function VoiceAdvanced({
       () => {
         setRule(undefined);
         setMatch(undefined);
+        setMode(undefined);
         setPrecision(undefined);
         setConfirmations(undefined);
       },
@@ -304,6 +332,88 @@ export function VoiceAdvanced({
                 unknown: summary.unknown,
               })}
             </p>
+          )}
+        </section>
+
+        <section aria-labelledby="adv-score" className="flex flex-col gap-3">
+          <h4 id="adv-score" className="font-semibold">
+            {t("voiceAdmin.score.title")}
+          </h4>
+          <p className="text-mute">{t("voiceAdmin.score.hint")}</p>
+          <p>
+            {scoreMode.author === null
+              ? t("voiceAdmin.score.defaultMode", {
+                  version: scoreMode.version,
+                })
+              : t("voiceAdmin.score.current", {
+                  version: scoreMode.version,
+                  author: scoreMode.author,
+                  date: new Date(scoreMode.created_at).toLocaleString(),
+                })}
+          </p>
+          <form
+            onSubmit={saveScoreMode}
+            className="flex max-w-xl flex-col gap-3"
+          >
+            <fieldset className="flex flex-col gap-2">
+              <legend className="font-medium">
+                {t("voiceAdmin.score.legend")}
+              </legend>
+              {(["cumulative", "best_sample"] as const).map((value) => (
+                <label key={value} className="flex min-h-11 gap-2">
+                  <input
+                    type="radio"
+                    name="score-mode"
+                    value={value}
+                    checked={(mode ?? scoreMode.mode) === value}
+                    onChange={() => setMode(value)}
+                    aria-describedby={`score-mode-${value}-hint`}
+                    className="mt-1"
+                  />
+                  <span className="flex flex-col">
+                    <span>{modeLabel(value)}</span>
+                    <span
+                      id={`score-mode-${value}-hint`}
+                      className="text-sm text-mute"
+                    >
+                      {value === "cumulative"
+                        ? t("voiceAdmin.score.cumulativeHint")
+                        : t("voiceAdmin.score.bestSampleHint")}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <div>
+              <button
+                disabled={busy || (mode ?? scoreMode.mode) === scoreMode.mode}
+                className={buttonClass("primary")}
+              >
+                {t("voiceAdmin.score.save")}
+              </button>
+            </div>
+          </form>
+          {scoreMode.history.length > 1 && (
+            <div>
+              <p id="adv-score-history" className="font-medium">
+                {t("voiceAdmin.score.history")}
+              </p>
+              <ul
+                aria-labelledby="adv-score-history"
+                className="list-disc pl-5"
+              >
+                {scoreMode.history.slice(1).map((v) => (
+                  <li key={v.version}>
+                    {t("voiceAdmin.score.historyItem", {
+                      version: v.version,
+                      mode: modeLabel(v.mode),
+                      author: v.author ?? t("voiceAdmin.eligibility.snitch"),
+                      date: new Date(v.created_at).toLocaleString(),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </section>
 

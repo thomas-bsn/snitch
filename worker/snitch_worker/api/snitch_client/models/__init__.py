@@ -585,6 +585,12 @@ from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_refusal import VoiceRefusal
 from .voice_refusal_input import VoiceRefusalInput
 from .voice_schedule_input import VoiceScheduleInput
+from .voice_score_mode import VoiceScoreMode
+from .voice_score_mode_input import VoiceScoreModeInput
+from .voice_score_mode_input_mode import VoiceScoreModeInputMode
+from .voice_score_mode_mode import VoiceScoreModeMode
+from .voice_score_mode_version import VoiceScoreModeVersion
+from .voice_score_mode_version_mode import VoiceScoreModeVersionMode
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
 from .voice_trace import VoiceTrace
@@ -1305,6 +1311,12 @@ __all__ = (
     "VoiceRefusal",
     "VoiceRefusalInput",
     "VoiceScheduleInput",
+    "VoiceScoreMode",
+    "VoiceScoreModeInput",
+    "VoiceScoreModeInputMode",
+    "VoiceScoreModeMode",
+    "VoiceScoreModeVersion",
+    "VoiceScoreModeVersionMode",
     "VoiceStep",
     "VoiceStepStatus",
     "VoiceTrace",

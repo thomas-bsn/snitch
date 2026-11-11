@@ -2,7 +2,6 @@ package httpapi
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"sort"
 	"time"
@@ -18,7 +17,8 @@ import (
 // or a test, never both, and no test shares a clip with a reference. A Person with a
 // single clip only provides references.
 //
-// Each test is then matched against the references alone with the production decision
+// Each test is then scored against References built from the reference samples alone, with the production
+// score function and mode (voice_score.go), and decided with the production decision
 // (decideMatch with the automation forced on, so the measure does not depend on the
 // switch). Only tests that would be automatic count: precision is the share of those
 // whose Person is the one a human validated; confirmations is their number of correct
@@ -162,7 +162,7 @@ func splitSamples(samples []accuracySample) (references, tests []accuracySample,
 func (s *Server) measureAccuracy(ctx context.Context, settings matchingSettings) (accuracyEvaluation, []accuracyPerson, error) {
 	var eval accuracyEvaluation
 	rows, err := s.Pool.Query(ctx, `SELECT vs.id,vs.person_id,vs.clip_id FROM voice_samples vs
-WHERE vs.retired_at IS NULL AND EXISTS (SELECT 1 FROM voice_fingerprints f WHERE f.local_speaker_id=vs.local_speaker_id AND f.usable AND NOT f.benchmark AND f.scope='speaker')
+WHERE vs.retired_at IS NULL AND EXISTS (SELECT 1 FROM voice_fingerprints f WHERE f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id AND f.contributive AND NOT f.benchmark AND f.scope='speaker')
 ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	if err != nil {
 		return eval, nil, err
@@ -259,13 +259,12 @@ ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	return eval, out, nil
 }
 
-// testScores gives, for each test sample, the best similarity to each Person using the
-// reference samples only, restricted to one fingerprint group at a time (vectors of
-// different models, versions or dimensions are never compared) and filtered with the
-// suggestion threshold like the production matching.
+// testScores gives, for each test sample, its score against each Person with the production score function and
+// mode, the References being built from the reference samples only, one fingerprint group at a time (vectors of
+// different models, versions or dimensions are never compared), filtered with the suggestion threshold like the
+// production matching.
 func (s *Server) testScores(ctx context.Context, references, tests []accuracySample, settings matchingSettings) (map[int64][]matchScore, error) {
 	out := map[int64][]matchScore{}
-	groupOf := map[int64]string{}
 	if len(references) == 0 || len(tests) == 0 {
 		return out, nil
 	}
@@ -276,54 +275,46 @@ func (s *Server) testScores(ctx context.Context, references, tests []accuracySam
 	for i, sample := range tests {
 		testIDs[i] = sample.id
 	}
-	groupRows, err := s.Pool.Query(ctx, `SELECT DISTINCT f.model,f.model_version,f.dimensions FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id WHERE vs.id=ANY($1) AND f.usable AND NOT f.benchmark AND f.scope='speaker'`, testIDs)
+	// A test is compared like a production voice: through its comparable fingerprint, in the first group found.
+	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ON (vs.id) vs.id,f.model,f.model_version,f.dimensions,f.embedding::real[]
+  FROM voice_samples vs JOIN voice_fingerprints f ON f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id
+  WHERE vs.id=ANY($1) AND f.usable AND NOT f.benchmark AND f.scope='speaker'
+  ORDER BY vs.id,f.model,f.model_version,f.dimensions`, testIDs)
 	if err != nil {
 		return nil, err
 	}
+	type testVector struct {
+		id     int64
+		vector []float32
+	}
+	byGroup := map[matchGroup][]testVector{}
 	var groups []matchGroup
-	for groupRows.Next() {
+	for rows.Next() {
 		var g matchGroup
-		if err = groupRows.Scan(&g.model, &g.version, &g.dimensions); err != nil {
-			groupRows.Close()
+		var t testVector
+		if err = rows.Scan(&t.id, &g.model, &g.version, &g.dimensions, &t.vector); err != nil {
+			rows.Close()
 			return nil, err
 		}
-		groups = append(groups, g)
+		if _, seen := byGroup[g]; !seen {
+			groups = append(groups, g)
+		}
+		byGroup[g] = append(byGroup[g], t)
 	}
-	groupRows.Close()
-	if err = groupRows.Err(); err != nil {
+	rows.Close()
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
 	for _, g := range groups {
-		query := fmt.Sprintf(`WITH refs AS (
-  SELECT vs.person_id,f.embedding::vector(%[1]d) AS e FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.id=ANY($3) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
-), tests AS (
-  SELECT vs.id AS sid,f.embedding::vector(%[1]d) AS e FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.id=ANY($4) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=%[1]d
-)
-SELECT t.sid,r.person_id,max(1-(t.e <=> r.e)) AS score FROM tests t CROSS JOIN refs r GROUP BY t.sid,r.person_id HAVING max(1-(t.e <=> r.e)) >= $5
-ORDER BY t.sid,score DESC,r.person_id`, g.dimensions)
-		rows, queryErr := s.Pool.Query(ctx, query, g.model, g.version, refIDs, testIDs, settings.SuggestionThreshold)
-		if queryErr != nil {
-			return nil, queryErr
+		samples, loadErr := loadReferenceSamples(ctx, s.Pool, g, refIDs)
+		if loadErr != nil {
+			return nil, loadErr
 		}
-		for rows.Next() {
-			var sid, person int64
-			var score float64
-			if err = rows.Scan(&sid, &person, &score); err != nil {
-				rows.Close()
-				return nil, err
+		refs := newVoiceReferences(settings.ScoreMode, g.dimensions, samples)
+		for _, t := range byGroup[g] {
+			if scores := refs.rank(t.vector, nil, settings.SuggestionThreshold); len(scores) > 0 {
+				out[t.id] = scores
 			}
-			key := g.model + "\x00" + g.version
-			if owner, seen := groupOf[sid]; seen && owner != key {
-				continue // a sample is measured with its first fingerprint group only
-			}
-			groupOf[sid] = key
-			out[sid] = append(out[sid], matchScore{personID: person, score: score})
-		}
-		rows.Close()
-		if err = rows.Err(); err != nil {
-			return nil, err
 		}
 	}
 	return out, nil

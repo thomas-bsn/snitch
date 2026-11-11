@@ -90,13 +90,14 @@ type reference struct {
 }
 
 // loadReferences lists the references of the production space of the model fromRepo, with their state in the
-// staging space of toRepo. A Person whose voice profile is deleted has no reference.
+// staging space of toRepo: every contributive sample, since all of them enter a cumulative Reference (ADR 0064).
+// A Person whose voice profile is deleted has no reference.
 func loadReferences(ctx context.Context, db pgQuerier, fromRepo, toRepo string) ([]reference, error) {
 	rows, err := db.Query(ctx, `SELECT DISTINCT ON (f.local_speaker_id) f.local_speaker_id,f.clip_id,vs.person_id,j.step,j.input_version,
 		EXISTS (SELECT 1 FROM voice_fingerprints g WHERE g.local_speaker_id=f.local_speaker_id AND g.benchmark AND g.scope='speaker' AND g.model=$2 AND g.fingerprint_job_id NOT IN (SELECT job_id FROM benchmark_run_jobs))
 		FROM voice_samples vs JOIN voice_fingerprints f ON f.local_speaker_id=vs.local_speaker_id JOIN jobs j ON j.id=f.fingerprint_job_id
 		WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons op WHERE op.id=vs.person_id AND op.voice_profile_deleted_at IS NOT NULL)
-		  AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1
+		  AND f.contributive AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1
 		ORDER BY f.local_speaker_id`, fromRepo, toRepo)
 	if err != nil {
 		return nil, err
@@ -177,11 +178,13 @@ func previewOfTransition(ctx context.Context, db pgQuerier, toID string) (transi
 		clips[r.ClipID], persons[r.PersonID] = true, true
 	}
 	out.Clips, out.Persons = len(clips), len(persons)
-	var usable int
-	if err = db.QueryRow(ctx, `SELECT count(*) FROM voice_fingerprints WHERE usable AND NOT benchmark AND scope='speaker' AND model=$1`, from.Repo).Scan(&usable); err != nil {
+	speakers := make([]int64, len(refs))
+	for i, r := range refs {
+		speakers[i] = r.SpeakerID
+	}
+	if err = db.QueryRow(ctx, `SELECT count(*) FROM voice_fingerprints WHERE usable AND NOT benchmark AND scope='speaker' AND model=$1 AND local_speaker_id<>ALL($2)`, from.Repo, speakers).Scan(&out.OtherFingerprints); err != nil {
 		return out, err
 	}
-	out.OtherFingerprints = usable - len(refs)
 	if err = db.QueryRow(ctx, `SELECT count(*) FROM speaker_attributions a WHERE a.validation_state='validated' AND a.local_speaker_id IN (SELECT local_speaker_id FROM voice_fingerprints WHERE NOT benchmark AND model=$1)`, from.Repo).Scan(&out.Validated); err != nil {
 		return out, err
 	}
