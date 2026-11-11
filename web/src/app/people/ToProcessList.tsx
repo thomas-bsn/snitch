@@ -12,6 +12,10 @@ import {
 } from "../shell/useToProcessCount";
 import { clock, shortDate } from "./PersonParts";
 import { fetchToProcess, type ToProcessFilter } from "./peopleApi";
+import {
+  MatchingStatusLine,
+  useVoiceMatchingStatus,
+} from "../voices/MatchingStatus";
 
 const PAGE_SIZE = 100;
 
@@ -52,7 +56,9 @@ export function ToProcessList() {
     () => fetchToProcess(filter, 1, PAGE_SIZE),
     [filter],
   );
-  const { state } = useLoaded(load);
+  const { state, reload } = useLoaded(load);
+  // Matching follows a decision in the background: the list is read again when a pass ends.
+  const matching = useVoiceMatchingStatus(reload);
   const data = state.status === "ready" ? state.value : undefined;
   const totals = data?.totals;
   const toSettle = totals ? toProcessCount(totals) : undefined;
@@ -109,6 +115,7 @@ export function ToProcessList() {
           </span>
         )}
       </div>
+      <MatchingStatusLine status={matching} />
       {state.status === "failed" && (
         <ErrorAlert>{failureText(state.code)}</ErrorAlert>
       )}

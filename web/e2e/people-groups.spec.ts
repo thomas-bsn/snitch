@@ -214,18 +214,21 @@ test.describe.serial("groupes de voix", () => {
       "Saved: 1 voice(s) are now Groupe Synthétique. 1 left out.",
     );
 
-    // Only the kept voice was validated; the left-out one is at most a suggestion.
-    const counts = await page.evaluate(async () => {
-      const verification = await fetch("/api/voice-verification").then((r) =>
-        r.json(),
-      );
-      return {
-        human: verification.counts.human,
-        suggestion: verification.counts.suggestion,
-      };
-    });
-    expect(counts.human).toBe(1);
-    expect(counts.suggestion).toBe(1);
+    // Only the kept voice was validated; the left-out one is at most a suggestion, once the
+    // matching that follows the decision in the background has run.
+    await expect
+      .poll(() =>
+        page.evaluate(async () => {
+          const verification = await fetch("/api/voice-verification").then(
+            (r) => r.json(),
+          );
+          return {
+            human: verification.counts.human,
+            suggestion: verification.counts.suggestion,
+          };
+        }),
+      )
+      .toEqual({ human: 1, suggestion: 1 });
     await expect(page.getByText("No group left to name.")).toBeVisible();
 
     // The address of the voice that was named says it was handled; nothing else opens.

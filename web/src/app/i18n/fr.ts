@@ -3637,6 +3637,15 @@ export const fr: Messages = {
     label: "Volume",
     mute: "Couper le son",
   },
+  matchingStatus: {
+    label: "Rapprochement des voix",
+    inProgress:
+      "Rapprochement des voix en cours : les suggestions se mettent à jour.",
+    upToDate: "Suggestions à jour · dernier rapprochement à {time}",
+    never: "Aucun rapprochement des voix pour l'instant.",
+    failed:
+      "Le dernier rapprochement des voix a échoué ; il est relancé automatiquement ({time}).",
+  },
   voiceDecision: {
     listenLabel: "Écouter un extrait de {label}",
     candidates: "Personnes les plus proches",

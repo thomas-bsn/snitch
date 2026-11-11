@@ -128,8 +128,12 @@ test.describe.serial("personnes : écran de traitement d'un clip", () => {
     await expect(card.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
-    // The second voice now looks like the first: a suggestion with its proximity.
+    // The second voice now looks like the first: a suggestion with its proximity, read again
+    // once the matching that follows the decision in the background has ended.
     await expect(card).toContainText("% proximity");
+    await expect(screen.getByTestId("matching-status")).toContainText(
+      "Suggestions up to date · last matching at",
+    );
     await expect(
       card.getByRole("button", { name: "It is Claire Synthétique" }),
     ).toBeVisible();

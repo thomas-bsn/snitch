@@ -7,6 +7,7 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
+import { MatchingStatus } from "../../voices/MatchingStatus";
 import {
   EligibilityPreview,
   RequalificationReport,
@@ -244,6 +245,7 @@ export function VoiceAdvanced({
             {t("voiceAdmin.matching")}
           </h4>
           <p className="text-mute">{t("voiceAdmin.matchingHint")}</p>
+          <MatchingStatus />
           <form
             onSubmit={saveMatching}
             className="flex max-w-xl flex-col gap-3"

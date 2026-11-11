@@ -52,6 +52,10 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
 
   await matching.getByRole("button", { name: "Match voices again" }).click();
   await expect(matching.getByRole("status")).toContainText("voices evaluated:");
+  // Matching follows the decisions in the background; the screen says when it last ended.
+  await expect(matching.getByTestId("matching-status")).toContainText(
+    "Suggestions up to date · last matching at",
+  );
 
   const automation = page.getByRole("region", { name: "Automation criteria" });
   await automation.getByLabel("Minimum confirmations").fill("1");

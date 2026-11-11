@@ -3570,6 +3570,14 @@ export const en = {
     label: "Volume",
     mute: "Mute",
   },
+  matchingStatus: {
+    label: "Voice matching",
+    inProgress: "Voice matching in progress: suggestions are being updated.",
+    upToDate: "Suggestions up to date · last matching at {time}",
+    never: "No voice matching yet.",
+    failed:
+      "The last voice matching failed; it is retried automatically ({time}).",
+  },
   voiceDecision: {
     listenLabel: "Listen to an excerpt of {label}",
     candidates: "Closest people",
