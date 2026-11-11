@@ -14,7 +14,7 @@ import math
 import re
 from typing import Any, Callable, Mapping, Sequence
 
-from snitch_worker import cancellation
+from snitch_worker import cancellation, voice_quality
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +85,22 @@ def fake_embedding(label: str, dimensions: int) -> list[float]:
 
 
 def fake_fingerprints(config: dict[str, Any], diarization: dict[str, Any], stream_index: int) -> dict[str, Any]:
+    """Deterministic vectors of the labels; the measures follow the same net speech geometry as a real provider."""
     _, dimensions = _fake_settings(config)
+    speakers = diarization.get("speakers", [])
     items: list[dict[str, Any]] = []
-    for speaker in diarization.get("speakers", []):
+    for speaker in speakers:
         turns = speaker.get("turns", [])
         if not turns:
             continue
         label = speaker["label"]
+        others = voice_quality.others_speech(speakers, label)
+        net = {turn["index"]: sum(e - s for s, e in voice_quality.subtract((float(turn["start"]), float(turn["end"])), others) if e - s >= MIN_EMBEDDABLE_SECONDS)
+               for turn in turns}
+        overlapped = not any(net.values())
         speaking = sum(t["end"] - t["start"] for t in turns)
         first = min(t["start"] for t in turns)
+        own = [(float(t["start"]), float(t["end"])) for t in turns]
         items.append({
             "speaker_label": label,
             "scope": "speaker",
@@ -101,6 +108,8 @@ def fake_fingerprints(config: dict[str, Any], diarization: dict[str, Any], strea
             "end": round(first + speaking, 6),
             "quality": 0.9,
             "embedding": fake_embedding(label, dimensions),
+            "measures": _measures(sum(net.values()), voice_quality.overlap_ratio(own, others), overlapped, None,
+                                  voice_quality.coherence([fake_embedding(f"{label}:{t['index']}", dimensions) for t in turns])),
         })
         for turn in turns:
             length = turn["end"] - turn["start"]
@@ -112,6 +121,7 @@ def fake_fingerprints(config: dict[str, Any], diarization: dict[str, Any], strea
                 "end": turn["end"],
                 "quality": 0.9 if length >= SHORT_TURN_SECONDS else 0.3,
                 "embedding": fake_embedding(f"{label}:{turn['index']}", dimensions),
+                "measures": _measures(net[turn["index"]], voice_quality.overlap_ratio([(float(turn["start"]), float(turn["end"]))], others), overlapped, None, None),
             })
     return {
         "provider": config["provider"],
@@ -166,6 +176,24 @@ def _unit(vector: Sequence[float]) -> list[float]:
     return [round(v / norm, 6) for v in values]
 
 
+def _weighted_unit(parts: Sequence[tuple[Sequence[float], float]], dimensions: int) -> list[float]:
+    total = sum(weight for _, weight in parts)
+    return _unit([sum(vector[i] * weight for vector, weight in parts) / total for i in range(dimensions)])
+
+
+def _measures(net_seconds: float, overlap: float, overlapped: bool, levels: tuple[float, float] | None, agreement: float | None) -> dict[str, Any]:
+    """The quality measures of one fingerprint (contract version ``voice_quality.MEASURES_VERSION``)."""
+    return {
+        "version": voice_quality.MEASURES_VERSION,
+        "net_speech_seconds": round(net_seconds, 6),
+        "overlap_ratio": overlap,
+        "overlapped": overlapped,
+        "clipped_ratio": levels[0] if levels else None,
+        "mean_level_dbfs": levels[1] if levels else None,
+        "coherence": agreement,
+    }
+
+
 def fingerprints_from_embedder(
     config: dict[str, Any],
     diarization: dict[str, Any],
@@ -173,58 +201,92 @@ def fingerprints_from_embedder(
     stream_index: int,
     model: str,
     model_version: str,
+    levels: voice_quality.Levels | None = None,
 ) -> dict[str, Any]:
-    """One unit vector per speaker (duration-weighted mean) and per embeddable turn."""
-    per_speaker: list[tuple[str, list[dict[str, Any]], list[float], float]] = []
+    """One unit vector per speaker and per turn, computed on net speech, with their measures.
+
+    A turn is embedded on its net speech: the intervals of at least ``MIN_EMBEDDABLE_SECONDS`` where no other
+    local speaker of the track speaks; its vector is their duration-weighted mean. A speaker without any such
+    interval keeps a vector of its whole turns, marked as overlapped. The speaker vector is the
+    duration-weighted mean of every embedded interval. ``levels`` measures the audio the vectors were made of.
+    """
+    measure = levels or (lambda _intervals: None)
+    speakers = diarization.get("speakers", [])
+    per_speaker: list[dict[str, Any]] = []
     dimensions = 0
-    for speaker in diarization.get("speakers", []):
+    for speaker in speakers:
+        others = voice_quality.others_speech(speakers, speaker["label"])
+        own = [(float(t["start"]), float(t["end"])) for t in speaker.get("turns", [])]
+        plans = [(turn, [p for p in voice_quality.subtract((float(turn["start"]), float(turn["end"])), others) if p[1] - p[0] >= MIN_EMBEDDABLE_SECONDS])
+                 for turn in speaker.get("turns", [])]
+        overlapped = not any(pieces for _, pieces in plans)
+        if overlapped:  # nothing net is long enough: the whole turns, as before net speech, marked as such
+            plans = [(turn, [(float(turn["start"]), float(turn["end"]))]) for turn in speaker.get("turns", [])
+                     if turn["end"] - turn["start"] >= MIN_EMBEDDABLE_SECONDS]
         turns: list[dict[str, Any]] = []
-        for turn in speaker.get("turns", []):
-            length = turn["end"] - turn["start"]
-            if length < MIN_EMBEDDABLE_SECONDS:
+        for turn, pieces in plans:
+            parts: list[tuple[list[float], float]] = []
+            used: list[tuple[float, float]] = []
+            for start, end in pieces:
+                cancellation.check()  # between two embeddings, whatever the provider
+                raw = embed(start, end)
+                if raw is None:  # no audio left under this interval: kept in the diarization, not fingerprinted
+                    continue
+                vector = _unit(raw)
+                if dimensions and len(vector) != dimensions:
+                    raise VoiceProviderUnavailable("invalid_embedding")
+                dimensions = len(vector)
+                parts.append((vector, end - start))
+                used.append((start, end))
+            if not parts:
                 continue
-            cancellation.check()  # between two embeddings, whatever the provider
-            raw = embed(float(turn["start"]), float(turn["end"]))
-            if raw is None:  # no audio left under this turn: kept in the diarization, not fingerprinted
-                continue
-            vector = _unit(raw)
-            if dimensions and len(vector) != dimensions:
-                raise VoiceProviderUnavailable("invalid_embedding")
-            dimensions = len(vector)
-            turns.append({"index": turn["index"], "start": turn["start"], "end": turn["end"], "length": length, "embedding": vector})
+            turns.append({
+                "index": turn["index"], "start": turn["start"], "end": turn["end"],
+                "length": sum(weight for _, weight in parts), "pieces": used, "parts": parts,
+                "embedding": parts[0][0] if len(parts) == 1 else _weighted_unit(parts, dimensions),
+                "overlap": voice_quality.overlap_ratio([(float(turn["start"]), float(turn["end"]))], others),
+            })
         if not turns:
             continue
-        total = sum(t["length"] for t in turns)
-        mean = [sum(t["embedding"][i] * t["length"] for t in turns) / total for i in range(dimensions)]
-        per_speaker.append((speaker["label"], turns, _unit(mean), total))
+        per_speaker.append({
+            "label": speaker["label"], "turns": turns, "overlapped": overlapped,
+            "total": sum(t["length"] for t in turns),
+            "embedding": _weighted_unit([part for t in turns for part in t["parts"]], dimensions),
+            "overlap": voice_quality.overlap_ratio(own, others),
+            "coherence": voice_quality.coherence([t["embedding"] for t in turns]),
+        })
     # Keep the longest turns when the API limit would be exceeded.
     budget = max(0, MAX_FINGERPRINTS - len(per_speaker))
-    all_turns = [t for _, turns, _, _ in per_speaker for t in turns]
+    all_turns = [t for s in per_speaker for t in s["turns"]]
     if len(all_turns) > budget:
         keep = {id(t) for t in sorted(all_turns, key=lambda t: -t["length"])[:budget]}
     else:
         keep = {id(t) for t in all_turns}
     items: list[dict[str, Any]] = []
-    for label, turns, mean_vector, total in per_speaker:
+    for s in per_speaker:
+        turns, total, overlapped = s["turns"], s["total"], s["overlapped"]
         first = min(t["start"] for t in turns)
         items.append({
-            "speaker_label": label,
+            "speaker_label": s["label"],
             "scope": "speaker",
             "start": first,
             "end": round(first + total, 6),
             "quality": round(min(1.0, total / FULL_QUALITY_SPEAKER_SECONDS), 4),
-            "embedding": mean_vector,
+            "embedding": s["embedding"],
+            "measures": _measures(0.0 if overlapped else total, s["overlap"], overlapped,
+                                  measure([p for t in turns for p in t["pieces"]]), s["coherence"]),
         })
         for t in turns:
             if id(t) in keep:
                 items.append({
-                    "speaker_label": label,
+                    "speaker_label": s["label"],
                     "scope": "turn",
                     "turn_index": t["index"],
                     "start": t["start"],
                     "end": t["end"],
                     "quality": round(min(1.0, t["length"] / FULL_QUALITY_TURN_SECONDS), 4),
                     "embedding": t["embedding"],
+                    "measures": _measures(0.0 if overlapped else t["length"], t["overlap"], overlapped, measure(t["pieces"]), None),
                 })
     return {
         "provider": config["provider"],

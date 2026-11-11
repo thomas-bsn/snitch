@@ -347,6 +347,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceCoverage(t, pool)
 	})
+	t.Run("voice fingerprint measures", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintMeasures(t, pool)
+	})
 	t.Run("voice rediarization", func(t *testing.T) {
 		reset(t)
 		testVoiceRediarization(t, pool)

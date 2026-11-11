@@ -302,9 +302,12 @@ func testAudioPlanVoiceTwoTracks(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the Worker gets turns in its own stream time again: %+v", turn)
 	}
 	h.complete(fpTwo, trackFingerprints(2, two.ID, map[string][2]float64{"SPEAKER_00": {0.9, 2.1}, "SPEAKER_01": {3.0, 3.5}}, "SPEAKER_00", "SPEAKER_01"), http.StatusOK)
-	h.complete(fpSeven, trackFingerprints(7, seven.ID, map[string][2]float64{"SPEAKER_00": {0, 1}}, "SPEAKER_00"), http.StatusOK)
-	if h.count(`SELECT count(*) FROM voice_fingerprints vf JOIN local_speakers ls ON ls.id=vf.local_speaker_id WHERE ls.audio_stream_index=7 AND vf.start_seconds=1.25 AND vf.end_seconds=2.25`) != 1 {
-		t.Fatal("fingerprint times follow the same single conversion")
+	// Track 7's Worker reports measures (#389): they carry no time, so the offset never touches them.
+	seventh := trackFingerprints(7, seven.ID, map[string][2]float64{"SPEAKER_00": {0, 1}}, "SPEAKER_00")
+	seventh["fingerprints"].([]map[string]any)[0]["measures"] = map[string]any{"version": 1, "net_speech_seconds": 1.0, "overlap_ratio": 0, "overlapped": false, "clipped_ratio": nil, "mean_level_dbfs": nil, "coherence": nil}
+	h.complete(fpSeven, seventh, http.StatusOK)
+	if h.count(`SELECT count(*) FROM voice_fingerprints vf JOIN local_speakers ls ON ls.id=vf.local_speaker_id WHERE ls.audio_stream_index=7 AND vf.start_seconds=1.25 AND vf.end_seconds=2.25 AND vf.duration_seconds=1 AND vf.net_speech_seconds=1`) != 1 {
+		t.Fatal("fingerprint times follow the same single conversion, measures are kept as sent")
 	}
 
 	done := h.planVoice(plan)

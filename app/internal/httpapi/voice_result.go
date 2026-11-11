@@ -38,6 +38,33 @@ type diarizationResult struct {
 	} `json:"speakers"`
 }
 
+// fingerprintMeasures are the quality measures a Worker reports with a fingerprint (ADR 0064, #389). They are
+// optional: an older Worker sends none, and the fingerprint is stored with unknown measures. Snitch keeps them
+// to decide eligibility itself; they never change a vector.
+type fingerprintMeasures struct {
+	Version          *int     `json:"version"`
+	NetSpeechSeconds *float64 `json:"net_speech_seconds"`
+	OverlapRatio     *float64 `json:"overlap_ratio"`
+	Overlapped       *bool    `json:"overlapped"`
+	ClippedRatio     *float64 `json:"clipped_ratio"`
+	MeanLevelDBFS    *float64 `json:"mean_level_dbfs"`
+	Coherence        *float64 `json:"coherence"`
+}
+
+func finiteIn(v *float64, low, high float64) bool {
+	return v != nil && !math.IsNaN(*v) && !math.IsInf(*v, 0) && *v >= low && *v <= high
+}
+
+// valid checks the measures of one fingerprint: version, net speech, overlap and the overlapped mark are required;
+// the audio measures and the coherence may be absent (audio not measured, fewer than two turns).
+func (m *fingerprintMeasures) valid() bool {
+	if m == nil {
+		return true
+	}
+	return m.Version != nil && *m.Version >= 1 && finiteIn(m.NetSpeechSeconds, 0, math.MaxFloat64) && finiteIn(m.OverlapRatio, 0, 1) && m.Overlapped != nil &&
+		(m.ClippedRatio == nil || finiteIn(m.ClippedRatio, 0, 1)) && (m.MeanLevelDBFS == nil || finiteIn(m.MeanLevelDBFS, -120, 0)) && (m.Coherence == nil || finiteIn(m.Coherence, -1, 1))
+}
+
 type fingerprintResult struct {
 	EmbeddingModel        string `json:"embedding_model"`
 	EmbeddingModelVersion string `json:"embedding_model_version"`
@@ -45,13 +72,14 @@ type fingerprintResult struct {
 	DiarizationJobID      *int64 `json:"diarization_job_id"`
 	Dimensions            int    `json:"dimensions"`
 	Fingerprints          *[]struct {
-		SpeakerLabel string    `json:"speaker_label"`
-		Scope        string    `json:"scope"`
-		TurnIndex    *int      `json:"turn_index"`
-		Start        *float64  `json:"start"`
-		End          *float64  `json:"end"`
-		Quality      *float64  `json:"quality"`
-		Embedding    []float64 `json:"embedding"`
+		SpeakerLabel string               `json:"speaker_label"`
+		Scope        string               `json:"scope"`
+		TurnIndex    *int                 `json:"turn_index"`
+		Start        *float64             `json:"start"`
+		End          *float64             `json:"end"`
+		Quality      *float64             `json:"quality"`
+		Embedding    []float64            `json:"embedding"`
+		Measures     *fingerprintMeasures `json:"measures"`
 	} `json:"fingerprints"`
 }
 
@@ -89,7 +117,7 @@ func parseFingerprints(raw json.RawMessage, index int, diarizationJobID int64, r
 		return result, false
 	}
 	for _, fp := range *result.Fingerprints {
-		if fp.SpeakerLabel == "" || (fp.Scope != "speaker" && fp.Scope != "turn") || fp.Start == nil || fp.End == nil || !validTime(*fp.Start) || !validTime(*fp.End) || *fp.End < *fp.Start || fp.Quality == nil || *fp.Quality < 0 || *fp.Quality > 1 || len(fp.Embedding) != result.Dimensions || (fp.TurnIndex != nil && *fp.TurnIndex < 0) {
+		if fp.SpeakerLabel == "" || (fp.Scope != "speaker" && fp.Scope != "turn") || fp.Start == nil || fp.End == nil || !validTime(*fp.Start) || !validTime(*fp.End) || *fp.End < *fp.Start || fp.Quality == nil || *fp.Quality < 0 || *fp.Quality > 1 || len(fp.Embedding) != result.Dimensions || (fp.TurnIndex != nil && *fp.TurnIndex < 0) || !fp.Measures.valid() {
 			return result, false
 		}
 		for _, v := range fp.Embedding {
@@ -447,7 +475,15 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 			values[i] = strconv.FormatFloat(float64(float32(v)), 'g', -1, 32)
 		}
 		vector := "[" + strings.Join(values, ",") + "]"
-		if _, err = tx.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,turn_id,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding,benchmark) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector,$16)`, speakerID, job.ClipID, job.ID, fp.Scope, turnID, *fp.Start, *fp.End, duration, *fp.Quality, reason == "", reason, result.EmbeddingModel, result.EmbeddingModelVersion, result.Dimensions, vector, benchmark); err != nil {
+		// Measures carry no time: the plan's track offset above never applies to them (ADR 0052).
+		m := fp.Measures
+		if m == nil {
+			m = &fingerprintMeasures{}
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,turn_id,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding,benchmark,
+ measures_version,net_speech_seconds,overlap_ratio,overlapped,clipped_ratio,mean_level_dbfs,coherence)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector,$16,$17,$18,$19,$20,$21,$22,$23)`, speakerID, job.ClipID, job.ID, fp.Scope, turnID, *fp.Start, *fp.End, duration, *fp.Quality, reason == "", reason, result.EmbeddingModel, result.EmbeddingModelVersion, result.Dimensions, vector, benchmark,
+			m.Version, m.NetSpeechSeconds, m.OverlapRatio, m.Overlapped, m.ClippedRatio, m.MeanLevelDBFS, m.Coherence); err != nil {
 			return fmt.Errorf("insert fingerprint: %w", err)
 		}
 	}

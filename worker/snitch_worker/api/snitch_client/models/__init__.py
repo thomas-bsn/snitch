@@ -194,6 +194,7 @@ from .explorer_properties import ExplorerProperties
 from .explorer_properties_state import ExplorerPropertiesState
 from .export_segment_corrections_format import ExportSegmentCorrectionsFormat
 from .failure_code import FailureCode
+from .fingerprint_measures import FingerprintMeasures
 from .fingerprint_transition import FingerprintTransition
 from .fingerprint_transition_input import FingerprintTransitionInput
 from .fingerprint_transition_phase import FingerprintTransitionPhase
@@ -571,6 +572,8 @@ from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
 from .voice_trace import VoiceTrace
 from .voice_trace_diarization_type_0 import VoiceTraceDiarizationType0
+from .voice_trace_fingerprint import VoiceTraceFingerprint
+from .voice_trace_fingerprint_scope import VoiceTraceFingerprintScope
 from .voice_trace_segments_item import VoiceTraceSegmentsItem
 from .voice_trace_segments_item_candidates_item import VoiceTraceSegmentsItemCandidatesItem
 from .voice_trace_transcription import VoiceTraceTranscription
@@ -892,6 +895,7 @@ __all__ = (
     "ExplorerPropertiesState",
     "ExportSegmentCorrectionsFormat",
     "FailureCode",
+    "FingerprintMeasures",
     "FingerprintTransition",
     "FingerprintTransitionInput",
     "FingerprintTransitionPhase",
@@ -1269,6 +1273,8 @@ __all__ = (
     "VoiceStepStatus",
     "VoiceTrace",
     "VoiceTraceDiarizationType0",
+    "VoiceTraceFingerprint",
+    "VoiceTraceFingerprintScope",
     "VoiceTraceSegmentsItem",
     "VoiceTraceSegmentsItemCandidatesItem",
     "VoiceTraceTranscription",
