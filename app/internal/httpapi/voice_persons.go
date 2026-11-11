@@ -172,6 +172,9 @@ type personView struct {
 	// VoiceProfileDeletedAt is set once the Person deleted their voice profile; it
 	// holds no voice data and keeps matching from rebuilding the profile.
 	VoiceProfileDeletedAt *time.Time `json:"voice_profile_deleted_at"`
+	// Reference is what the Reference of the Person holds in the active fingerprint group and its level,
+	// filled on reads (list and record) by loadPersonReferences; null in the result of a change.
+	Reference *personReference `json:"reference"`
 }
 
 const personColumns = `p.id,p.display_name,p.user_id,p.created_at,
@@ -356,6 +359,10 @@ func (s *Server) listPersons(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	if err = loadPersonReferences(r.Context(), tx, items); err != nil {
+		s.internal(w, err)
+		return
+	}
 	if !paged {
 		reply(w, http.StatusOK, map[string]any{"items": items})
 		return
@@ -425,6 +432,10 @@ func (s *Server) getPerson(w http.ResponseWriter, r *http.Request) {
 	}
 	persons := []personView{v}
 	if err = s.loadPersonFigures(r.Context(), r.Context().Value(sessionKey{}).(session), persons); err != nil {
+		s.internal(w, err)
+		return
+	}
+	if err = loadPersonReferences(r.Context(), s.Pool, persons); err != nil {
 		s.internal(w, err)
 		return
 	}

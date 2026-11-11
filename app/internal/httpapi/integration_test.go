@@ -622,6 +622,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceReference(t, pool)
 	})
+	t.Run("person reference level", func(t *testing.T) {
+		reset(t)
+		testPersonReferenceLevel(t, pool)
+	})
 	t.Run("voice matching diagnostics", func(t *testing.T) {
 		reset(t)
 		testVoiceMatchingDiagnostics(t, pool)

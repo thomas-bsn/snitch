@@ -3710,7 +3710,10 @@ export const en = {
       delete: "Delete {name}",
       separate: "Separate voices of {name}",
       created: "{name} was created.",
-      videoCount: "{count} video(s)",
+      videos: {
+        one: "{count} video",
+        other: "{count} videos",
+      },
       videosTitle: "Videos where {name} is heard",
       videosEmpty: "No video you can see.",
       figuresLabel: "Figures of {name}",
@@ -3731,19 +3734,44 @@ export const en = {
       heardState: "validated",
       referenceWarningTitle: "Reference to strengthen",
       referenceWarningNone:
-        "{name} has no validated sample: Snitch cannot recognize this voice yet. Confirm more voices to build a Reference.",
+        "No validated voice of {name} can be used by recognition yet: Snitch cannot recognize this voice. Confirm more voices, long enough and not covered by another voice, to build a Reference.",
       referenceWarningWeak:
-        "{name} has few validated samples: recognition may be unreliable. Confirm more voices to strengthen the Reference.",
-    },
-    figures: {
-      minutes: "{minutes} min of speech",
-      hours: "{hours} h {minutes} min of speech",
+        "{basis}. Recognition of {name} may be unreliable: confirm more voices, on other videos, to strengthen the Reference.",
     },
     reference: {
       levelLabel: "Reference: {level}",
       good: "good",
       weak: "weak",
       none: "none",
+      basis: {
+        no_sample: "No sample usable by recognition yet",
+        single_clip: "Built on a single video",
+        few_references:
+          "Built on several videos; too few References to compare it with",
+        below_median: "Less clean speech than half of the Persons",
+        median_or_more: "More clean speech than half of the Persons",
+      },
+      title: "Reference used by recognition",
+      label: "Reference of {name}",
+      used: "Samples used",
+      usedValue: "{used} of {validated} validated",
+      clips: "Distinct videos",
+      speech: "Clean speech",
+      setAside: "Set aside",
+      setAsideCount: {
+        one: "{count} sample",
+        other: "{count} samples",
+      },
+      setAsideLine: "{count}: {reason}",
+      reasons: {
+        too_short: "too short",
+        overlap_only: "always covered by another voice",
+        clipped: "saturated sound",
+        low_quality: "quality too low",
+        no_fingerprint: "no voice fingerprint yet",
+      },
+      voiceUsed: "Used by the Reference",
+      voiceSetAside: "Set aside: {reason}",
     },
     actions: {
       label: "Actions on {name}",

@@ -24589,7 +24589,8 @@
           "speaking_seconds",
           "voice_profile_deleted_at",
           "created_at",
-          "account_username"
+          "account_username",
+          "reference"
         ],
         "properties": {
           "id": {
@@ -24635,6 +24636,15 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "reference": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonReference"
+              }
+            ],
+            "nullable": true,
+            "description": "Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou d'une correction."
           }
         }
       },
@@ -24805,7 +24815,8 @@
           "label",
           "speaking_seconds",
           "recorded_at",
-          "sample_count"
+          "sample_count",
+          "reference_use"
         ],
         "properties": {
           "local_speaker_id": {
@@ -24833,6 +24844,19 @@
           "sample_count": {
             "type": "integer",
             "description": "Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait."
+          },
+          "reference_use": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "contributive",
+              "too_short",
+              "overlap_only",
+              "clipped",
+              "low_quality",
+              "no_fingerprint"
+            ],
+            "description": "Ce que la Référence du groupe d'empreinte actif fait de l'échantillon de cette voix : contributive, ou la raison de son écart ; null quand la voix ne fournit aucun échantillon actif."
           }
         }
       },
@@ -33908,6 +33932,83 @@
             "description": "Vingt dernières versions, la plus récente d'abord.",
             "items": {
               "$ref": "#/components/schemas/VoiceScoreModeVersion"
+            }
+          }
+        }
+      },
+      "PersonReferenceDiscard": {
+        "type": "object",
+        "required": [
+          "reason",
+          "count"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "too_short",
+              "overlap_only",
+              "clipped",
+              "low_quality",
+              "no_fingerprint"
+            ],
+            "description": "Raison de l'écart : celle de l'empreinte du Locuteur local dans le groupe actif (too_short, overlap_only, clipped, low_quality), ou no_fingerprint quand la voix n'a aucune empreinte de production dans ce groupe."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PersonReference": {
+        "type": "object",
+        "description": "La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version, dimensions) actif, et son niveau. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue.",
+        "required": [
+          "level",
+          "basis",
+          "contributive_samples",
+          "clips",
+          "net_speech_seconds",
+          "discarded"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "good",
+              "weak",
+              "none"
+            ],
+            "description": "none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ; avec moins de 3 Références, good."
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "no_sample",
+              "single_clip",
+              "few_references",
+              "below_median",
+              "median_or_more"
+            ],
+            "description": "Pourquoi la Référence a ce niveau."
+          },
+          "contributive_samples": {
+            "type": "integer",
+            "description": "Échantillons validés actifs qui entrent dans la Référence (empreinte contributive du groupe actif)."
+          },
+          "clips": {
+            "type": "integer",
+            "description": "Clips distincts de ces échantillons."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "description": "Parole nette cumulée de ces échantillons, après plafond par échantillon."
+          },
+          "discarded": {
+            "type": "array",
+            "description": "Échantillons validés actifs écartés de la Référence, groupés par raison.",
+            "items": {
+              "$ref": "#/components/schemas/PersonReferenceDiscard"
             }
           }
         }
