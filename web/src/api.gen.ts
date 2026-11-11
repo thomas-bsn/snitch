@@ -3116,6 +3116,59 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-fingerprint-recompute/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Ampleur du recalcul des empreintes sur la Parole nette (#395), sans rien modifier ni lire de média : empreintes de Locuteur local de production au vecteur d'origine (sans mesures du Worker) dans le groupe du modèle d'empreinte actif, dont recalculables, tâches (une par diarisation) et clips, sources audio absentes, Locuteurs archivés sans diarisation courante, échantillons validés concernés. */
+    get: operations["previewVoiceRecompute"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Recalcul en cours ou, à défaut, le dernier terminé, avec sa progression ou son rapport final. Lire l'état fait aussi avancer un recalcul interrompu. */
+    get: operations["getVoiceRecompute"];
+    put?: never;
+    /** @description Administrateurs uniquement. Lance le recalcul : confirm_fingerprints doit être le nombre d'empreintes vu dans l'aperçu (voice_recompute_preview_stale sinon). Refusé pendant une transition de modèle d'empreinte ouverte (voice_transition_in_progress) et pendant un autre recalcul (voice_recompute_in_progress). Rien n'est rediarisé ; aucun job de production n'est remplacé. */
+    post: operations["startVoiceRecompute"];
+    /** @description Administrateurs uniquement. Annule le recalcul en cours : seules ses propres tâches sont annulées, les empreintes déjà recalculées restent, le rapport est figé et la bibliothèque rapprochée de nouveau (voice_recompute_not_running sans recalcul en cours). */
+    delete: operations["cancelVoiceRecompute"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Reprend le dernier recalcul : replanifie les empreintes dont la tâche a échoué ou a été annulée ; une tâche réussie n'est jamais recréée. Refusé pendant une transition de modèle d'empreinte ouverte. */
+    post: operations["resumeVoiceRecompute"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-accuracy": {
     parameters: {
       query?: never;
@@ -9009,6 +9062,79 @@ export interface components {
       /** @description Personnes ayant au moins un Échantillon vocal validé actif. */
       persons_with_samples: number;
       groups: components["schemas"]["VoiceEligibilityGroupPreview"][];
+    };
+    VoiceRecomputePreview: {
+      /** @description Empreintes de Locuteur local de production au vecteur d'origine, dans le groupe du modèle actif. */
+      fingerprints: number;
+      /** @description Dont recalculables. */
+      recomputable: number;
+      /** @description Tâches d'empreinte à créer, une par diarisation. */
+      jobs: number;
+      /** @description Clips concernés. */
+      clips: number;
+      /** @description Empreintes dont la source audio est absente : signalées, laissées en service. */
+      missing_sources: number;
+      /** @description Empreintes de Locuteurs archivés sans diarisation courante : non recalculables. */
+      archived: number;
+      /** @description Empreintes d'un échantillon validé actif. */
+      references: number;
+      /** @description Une transition de modèle d'empreinte est ouverte : le recalcul est refusé. */
+      transition_open: boolean;
+      /** @description Un recalcul est déjà en cours. */
+      running: boolean;
+    };
+    VoiceRecomputeInput: {
+      /** @description Nombre d'empreintes vu dans l'aperçu. */
+      confirm_fingerprints: number;
+    };
+    VoiceRecomputeReport: {
+      /** @description Empreintes du recalcul. */
+      fingerprints: number;
+      /** @description Empreintes en attente de leur tâche. */
+      pending: number;
+      /** @description Empreintes remplacées par leur recalcul sur la Parole nette. */
+      recomputed: number;
+      /** @description Recalculées rejetées avant, comparables désormais. */
+      recovered: number;
+      /** @description Recalculées non contributives avant, contributives désormais. */
+      recovered_contributive: number;
+      /** @description Recalculées rejetées avant et après. */
+      still_rejected: number;
+      /** @description Recalculées comparables avant, plus maintenant. */
+      lost: number;
+      /** @description Tâche terminée sans nouvelle empreinte : l'ancienne reste en service. */
+      errors: number;
+      /** @description Tâche annulée : l'ancienne empreinte reste en service. */
+      cancelled: number;
+      /** @description Empreinte d'origine remplacée ou supprimée hors du recalcul (nouvelle diarisation, suppression). */
+      obsolete: number;
+      /** @description Source audio absente : l'empreinte requalifiée reste en service. */
+      missing_sources: number;
+      /** @description Locuteur archivé ou sans diarisation courante : non recalculable, l'empreinte reste en service. */
+      archived: number;
+    };
+    VoiceRecomputeRun: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      status: "running" | "completed" | "cancelled";
+      /** @description Nombre d'empreintes confirmé au lancement. */
+      announced: number;
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /**
+       * Format: date-time
+       * @description Fin du rapprochement de toute la bibliothèque relancé à la fin du recalcul.
+       */
+      rematched_at: string | null;
+      report: components["schemas"]["VoiceRecomputeReport"];
+    };
+    VoiceRecomputeState: {
+      transition_open: boolean;
+      run?: components["schemas"]["VoiceRecomputeRun"];
     };
     /** @description Une requalification tracée : auteur, règle appliquée, date et rapport avant/après. */
     VoiceEligibilityRequalification: {
@@ -17695,6 +17821,164 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceEligibilityPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputePreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du recalcul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceRecomputeInput"];
+      };
+    };
+    responses: {
+      /** @description Recalcul lancé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Recalcul annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du recalcul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
         };
       };
       /** @description Erreur */

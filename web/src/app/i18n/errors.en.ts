@@ -267,6 +267,8 @@ export const errorsEn = {
   invalid_voice_eligibility:
     "This eligibility rule is not valid: durations between 0.5 and 60 seconds, the contributive one at most the comparable one, and a clipped share between 0 and 1.",
   invalid_voice_pipeline: "These voice processing settings are not valid.",
+  invalid_voice_recompute:
+    "Confirm the number of fingerprints shown by the preview to start the recalculation.",
   invalid_voice_result: "This voice result is not valid.",
   invalid_worker: "This worker is not valid.",
   invalid_worker_capabilities: "These worker capabilities are not valid.",
@@ -398,6 +400,12 @@ export const errorsEn = {
     "A replacement is already under way for this type on this Worker, or a download or test is still running.",
   voice_replacement_switched:
     "The switch is already decided: the replacement can no longer be cancelled.",
+  voice_recompute_preview_stale:
+    "The number of fingerprints to recompute changed since the preview: check it again before confirming.",
+  voice_recompute_in_progress:
+    "A fingerprint recalculation is under way: wait for its end or cancel it first.",
+  voice_recompute_not_found: "No fingerprint recalculation exists.",
+  voice_recompute_not_running: "No fingerprint recalculation is under way.",
   voice_transition_preview_stale:
     "The number of references changed since the preview: check the impact again before confirming.",
   voice_transition_in_progress:

@@ -283,6 +283,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette règle d’éligibilité n’est pas valide : durées entre 0,5 et 60 secondes, durée contributive au plus égale à la durée comparable, part écrêtée entre 0 et 1.",
   invalid_voice_pipeline:
     "Ces réglages du traitement vocal ne sont pas valides.",
+  invalid_voice_recompute:
+    "Confirmez le nombre d’empreintes indiqué par l’aperçu pour lancer le recalcul.",
   invalid_voice_result: "Ce résultat vocal n’est pas valide.",
   invalid_worker: "Ce Worker n’est pas valide.",
   invalid_worker_capabilities: "Ces capacités de Worker ne sont pas valides.",
@@ -415,6 +417,12 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Un remplacement est déjà en cours pour ce type sur ce Worker, ou un téléchargement ou un test tourne encore.",
   voice_replacement_switched:
     "La bascule est déjà décidée : le remplacement ne peut plus être annulé.",
+  voice_recompute_preview_stale:
+    "Le nombre d’empreintes à recalculer a changé depuis l’aperçu : vérifiez-le de nouveau avant de confirmer.",
+  voice_recompute_in_progress:
+    "Un recalcul des empreintes est en cours : attendez sa fin ou annulez-le d’abord.",
+  voice_recompute_not_found: "Aucun recalcul des empreintes n’existe.",
+  voice_recompute_not_running: "Aucun recalcul des empreintes n’est en cours.",
   voice_transition_preview_stale:
     "Le nombre de références a changé depuis l’aperçu : vérifiez de nouveau l’impact avant de confirmer.",
   voice_transition_in_progress:
