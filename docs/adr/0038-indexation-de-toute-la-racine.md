@@ -27,3 +27,16 @@ L'ADR 0032 écartait l'indexation de masse parce qu'elle lit en entier de gros f
 - Le débit est celui du scan géré (sondage séquentiel, 50 fichiers par passage) : le parallélisme n'est pas réglable.
 - Une Racine de plus de 50 000 vidéos est refusée (`video_selection_too_large`) : elle se découpe en plusieurs dossiers.
 - L'état « terminée » est constaté à la lecture, quand plus aucune vidéo n'est demandée ; sans lecteur, l'indexation reste « en cours » dans la base.
+
+## Amendement — « Scanner toute la racine » (#404)
+
+Le scan de toute la Racine, lancé depuis Administration › Dossiers, ne parcourait plus rien au-delà de 10 000 fichiers, échouait entièrement sur un seul dossier illisible et dépendait du délai de la requête. Il devient une exécution de `library_index_runs` en mode `scan` : on réutilise l'exécution durable, l'étiquetage des fichiers et le scan géré plutôt qu'un nouveau moteur.
+
+- **La requête enregistre, le serveur parcourt.** La confirmation répond aussitôt (`202`). Le parcours du disque tourne en arrière-plan par lots de 500 ; tant qu'il n'est pas fini, l'exécution reste `walking` et le serveur le recommence au démarrage. Recommencer est sans effet de bord : la mise en file est idempotente et les compteurs du parcours sont réécrits.
+- **Pas de limite de nombre, pas d'arrêt sur un dossier illisible.** Un dossier illisible est sauté, compté et nommé (les 20 premiers) dans le bilan.
+- **Ce qui est mis en file** : les vidéos non indexées ou modifiées, et les vidéos indexées dont le clip n'a jamais été analysé (ni exécution d'analyse ni tâche hors benchmark). Leur analyse suit ensuite les réglages de traitement, comme un nouveau clip (ADR 0035) : contrairement au mode `full`, le scan ne force pas l'analyse.
+- **Ce qui est laissé de côté, pour tous les rôles** : les Dossiers privés (le Super-administrateur compris : il en scanne un en le sélectionnant explicitement), les fichiers et dossiers masqués, les dossiers système et les clips privés. Un clip déjà analysé est « déjà à jour » : la réanalyse reste une action distincte. Cette exclusion des Dossiers privés ne concerne que le scan ; l'Indexation de la Racine garde la règle ci-dessus.
+- **Une seule exécution active par Racine**, scan ou indexation (`index_run_active`). Le scan s'annule mais ne se met pas en pause ; les routes de l'indexation ne le pilotent pas.
+- **Aperçu et bilan** : l'aperçu parcourt les dossiers dans la requête, comme l'estimation de l'indexation, et ne renvoie que des comptes (à mettre en file, déjà à jour, exclus par motif, dossiers illisibles), jamais la liste des chemins.
+
+Alternative écartée : garder le parcours dans la requête en relevant la limite. Le délai de la requête et du navigateur resterait la borne, et un redémarrage perdrait le travail.
