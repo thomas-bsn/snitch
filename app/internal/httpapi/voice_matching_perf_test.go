@@ -149,7 +149,7 @@ func (p *phaseLog) Write(b []byte) (int, error) {
 		}
 		if json.Unmarshal(b, &line) == nil {
 			p.mu.Lock()
-			p.lines = append(p.lines, fmt.Sprintf("targets %d, elapsed at end of: comparison %d ms, writing %d ms, commit %d ms, index %d ms, group links %d ms, reviews %d ms", line.Targets, line.Phases["compared_ms"], line.Phases["written_ms"], line.Phases["committed_ms"], line.Phases["indexed_ms"], line.Phases["linked_ms"], line.Phases["reviewed_ms"]))
+			p.lines = append(p.lines, fmt.Sprintf("targets %d, elapsed at end of: ranking %d ms, writing %d ms, commit %d ms, index %d ms, group links %d ms, reviews %d ms", line.Targets, line.Phases["ranked_ms"], line.Phases["written_ms"], line.Phases["committed_ms"], line.Phases["indexed_ms"], line.Phases["linked_ms"], line.Phases["reviewed_ms"]))
 			p.mu.Unlock()
 		}
 	}
