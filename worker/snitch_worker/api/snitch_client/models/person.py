@@ -11,6 +11,8 @@ from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.person_reference import PersonReference
 
 
 
@@ -39,6 +41,8 @@ class Person:
                 renseignée, le rapprochement ignore les références de la Personne et aucune validation vers elle n'est acceptée.
                 Aucune donnée vocale n'est conservée.
             created_at (datetime.datetime):
+            reference (None | PersonReference): Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou
+                d'une correction.
      """
 
     id: int
@@ -51,6 +55,7 @@ class Person:
     speaking_seconds: float
     voice_profile_deleted_at: datetime.datetime | None
     created_at: datetime.datetime
+    reference: None | PersonReference
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -58,6 +63,7 @@ class Person:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.person_reference import PersonReference # noqa: PLC0415
         id = self.id
 
         display_name = self.display_name
@@ -84,6 +90,12 @@ class Person:
 
         created_at = self.created_at.isoformat()
 
+        reference: dict[str, Any] | None
+        if isinstance(self.reference, PersonReference):
+            reference = self.reference.to_dict()
+        else:
+            reference = self.reference
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -98,6 +110,7 @@ class Person:
             "speaking_seconds": speaking_seconds,
             "voice_profile_deleted_at": voice_profile_deleted_at,
             "created_at": created_at,
+            "reference": reference,
         })
 
         return field_dict
@@ -106,6 +119,7 @@ class Person:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.person_reference import PersonReference # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -158,6 +172,24 @@ class Person:
 
 
 
+        def _parse_reference(data: object) -> None | PersonReference:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                reference_type_1 = PersonReference.from_dict(data)
+
+
+
+                return reference_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | PersonReference, data)
+
+        reference = _parse_reference(d.pop("reference"))
+
+
         person = cls(
             id=id,
             display_name=display_name,
@@ -169,6 +201,7 @@ class Person:
             speaking_seconds=speaking_seconds,
             voice_profile_deleted_at=voice_profile_deleted_at,
             created_at=created_at,
+            reference=reference,
         )
 
 

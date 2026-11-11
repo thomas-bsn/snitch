@@ -331,9 +331,15 @@ from .person_link_request_status import PersonLinkRequestStatus
 from .person_list import PersonList
 from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
+from .person_reference import PersonReference
+from .person_reference_basis import PersonReferenceBasis
+from .person_reference_discard import PersonReferenceDiscard
+from .person_reference_discard_reason import PersonReferenceDiscardReason
+from .person_reference_level import PersonReferenceLevel
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .person_voice_reference_use import PersonVoiceReferenceUse
 from .poll_worker_restart_response_200 import PollWorkerRestartResponse200
 from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
@@ -1051,9 +1057,15 @@ __all__ = (
     "PersonList",
     "PersonMergeInput",
     "PersonRef",
+    "PersonReference",
+    "PersonReferenceBasis",
+    "PersonReferenceDiscard",
+    "PersonReferenceDiscardReason",
+    "PersonReferenceLevel",
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PersonVoiceReferenceUse",
     "PollWorkerRestartResponse200",
     "PostWorkerInstallEventsBody",
     "PostWorkerTranscriptionConfigStatusBody",

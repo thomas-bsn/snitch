@@ -40,6 +40,16 @@ Une seule fonction de score (`app/internal/httpapi/voice_score.go`) sert le rapp
 
 La Référence n'est pas stockée : elle est dérivée des échantillons à chaque rapprochement. Tout ce qui change les échantillons (validation, correction, fusion, séparation, suppression d'un Profil vocal, d'un clip ou de ses empreintes, requalification) est donc pris en compte par le rapprochement suivant, que ces actions déclenchent. Deux groupes ne sont jamais mélangés ; après un Changement du modèle d'empreinte (ADR 0044), les Références du nouveau groupe sont celles de ses empreintes, et la transition recalcule toutes les empreintes contributives des échantillons validés (pas seulement les comparables).
 
+**Niveau de Référence de l'annuaire** (#396, `voice_reference_level.go`, `voice_person_reference.go`). `GET /api/persons` et `GET /api/persons/{id}` renvoient `reference` : ce que la Référence cumulative du groupe d'empreinte actif utilise (échantillons contributifs, clips distincts, Parole nette cumulée après plafond), les échantillons validés écartés par raison (`too_short`, `overlap_only`, `clipped`, `low_quality`, ou `no_fingerprint` sans empreinte de production dans ce groupe) et un niveau calculé par le serveur :
+
+| Niveau | Règle |
+| --- | --- |
+| `none` | aucun échantillon contributif |
+| `weak` | échantillons contributifs sur un seul clip, quel que soit le classement |
+| `good` / `weak` | à partir de 3 Personnes avec Référence dans le groupe : `good` à partir de la médiane de leur Parole nette, `weak` en dessous ; avec moins de 3 Références, `good` (au moins 2 clips) |
+
+La médiane porte sur toutes les Personnes du groupe, quels que soient le lecteur, la recherche et la page : le niveau est le même pour tous. Les Attributions automatiques n'entrent dans aucune Référence, donc pas dans le niveau. La carte de l'annuaire, la fiche et son alerte de Référence faible affichent ce niveau ; `GET /api/persons/{id}/voices` donne pour chaque voix `reference_use` (contributive ou raison de l'écart). Le *groupe actif* (`activeFingerprintGroup`, `voice_active_group.go`) est celui du modèle d'empreinte actif, avec la version et les dimensions de ses dernières empreintes de production ; si ce modèle n'en a encore aucune, le groupe qui a le plus d'empreintes de production de Locuteur local en tient lieu (modèles hors catalogue, jeux synthétiques). Le niveau suit la Référence cumulative quel que soit le mode de score actif.
+
 **Mode de score versionné** (`voice_score_modes`, historique en ajout seul, la version la plus haute est active). La version 1, posée par Snitch, est `cumulative`. `PUT /api/admin/voice-score-mode` enregistre une nouvelle version avec son auteur si le mode change (rien sinon) puis rapproche de nouveau toute la bibliothèque. L'écran **Paramètres avancés → Score d'une voix** le règle et affiche l'historique ; la réinitialisation revient au mode cumulatif.
 
 ## Réglages (`voice_matching_settings`, une ligne)

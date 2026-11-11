@@ -15,6 +15,9 @@ type personVoiceView struct {
 	// SampleCount is the number of active voice samples this voice gives to the references:
 	// what a separation would take out.
 	SampleCount int `json:"sample_count"`
+	// ReferenceUse is what the Reference of the active fingerprint group makes of the sample of this voice:
+	// contributive, or the reason it is set aside; null when the voice gives no active sample.
+	ReferenceUse *string `json:"reference_use"`
 }
 
 // listPersonVoices lists the voices a human validated for a Person, on the clips the
@@ -55,6 +58,25 @@ func (s *Server) listPersonVoices(w http.ResponseWriter, r *http.Request) {
 	if err = rows.Err(); err != nil {
 		s.internal(w, err)
 		return
+	}
+	g, _, err := activeFingerprintGroup(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	uses, err := sampleReferenceUses(r.Context(), s.Pool, g, []int64{id})
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	bySpeaker := map[int64]string{}
+	for _, u := range uses {
+		bySpeaker[u.LocalSpeaker] = u.Use
+	}
+	for i := range items {
+		if use, ok := bySpeaker[items[i].LocalSpeakerID]; ok {
+			items[i].ReferenceUse = &use
+		}
 	}
 	reply(w, http.StatusOK, map[string]any{"items": items})
 }
