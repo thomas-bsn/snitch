@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/library"
@@ -287,13 +286,9 @@ func (s *Server) videoScan(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		defer tx.Rollback(r.Context())
-		for _, p := range paths {
-			info := found[p]
-			_, e = tx.Exec(r.Context(), `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status,scan_requested) VALUES($1,$2,$3,$4,now(),0,'waiting_stability',true) ON CONFLICT(source_id,relative_path) DO UPDATE SET scan_requested=true`, root.ID, p, info.Size(), info.ModTime().UTC().Truncate(time.Microsecond))
-			if e != nil {
-				s.internal(w, e)
-				return
-			}
+		if e = library.RequestSelectionScan(r.Context(), tx, root.ID, found); e != nil {
+			s.internal(w, e)
+			return
 		}
 		if e = tx.Commit(r.Context()); e != nil {
 			s.internal(w, e)

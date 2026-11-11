@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io/fs"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -172,6 +173,31 @@ type querier interface {
 // processedClip is true for a clip whose analysis was already asked for: an analysis run or a transcription
 // or voice job outside the benchmarks. Such a clip is up to date for a scan; re-analysis is a separate action.
 const processedClip = `(EXISTS(SELECT 1 FROM clip_analysis_runs a WHERE a.clip_id=c.id) OR EXISTS(SELECT 1 FROM jobs j WHERE j.clip_id=c.id AND j.requested_model_id IS NULL))`
+
+// RequestSelectionScan asks the managed scan for the selected videos of a Racine (path relative to the
+// Racine → what the disk says of it), with the rule of the scan of the whole Racine: a new or changed video
+// is requested; an indexed, unchanged video whose clip was already processed is left alone, so scanning a
+// selection again never analyses it twice. Re-analysis is a separate action. Privacy is the caller's: an
+// explicit selection may include a Dossier privé for the Super-administrator (ADR 0026).
+func RequestSelectionScan(ctx context.Context, tx pgx.Tx, sourceID int64, videos map[string]fs.FileInfo) error {
+	paths := make([]string, 0, len(videos))
+	for rel := range videos {
+		paths = append(paths, rel)
+	}
+	sort.Strings(paths) // the same row order for every request
+	for _, rel := range paths {
+		info := videos[rel]
+		if _, err := tx.Exec(ctx, `INSERT INTO source_files(source_id,relative_path,size_bytes,modified_at,stable_since,last_seen_generation,status,scan_requested)
+VALUES($1,$2,$3,$4,now(),0,'waiting_stability',true)
+ON CONFLICT(source_id,relative_path) DO UPDATE SET scan_requested=true
+WHERE NOT (source_files.status='ready' AND source_files.size_bytes=EXCLUDED.size_bytes AND source_files.modified_at=EXCLUDED.modified_at
+  AND EXISTS (SELECT 1 FROM clips c WHERE c.id=source_files.clip_id AND `+processedClip+`))`,
+			sourceID, rel, info.Size(), info.ModTime().UTC().Truncate(time.Microsecond)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // classifyRootVideos splits a batch into the videos to queue and those left as they are. A video
 // already tagged by this run (a walk started over) is neither queued again nor counted twice.

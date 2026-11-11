@@ -290,6 +290,75 @@ func testRootScan(t *testing.T, pool *pgxpool.Pool) {
 		}
 	})
 
+	t.Run("scanning a selection again leaves an analysed video alone, like the scan of the whole Racine", func(t *testing.T) {
+		if _, err := pool.Exec(ctx, `UPDATE source_files SET scan_requested=false WHERE relative_path LIKE 'known/%'`); err != nil {
+			t.Fatal(err)
+		}
+		requested := func() map[string]bool {
+			rows, err := pool.Query(ctx, `SELECT relative_path,scan_requested FROM source_files WHERE source_id=$1 AND relative_path LIKE 'known/%'`, sourceID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer rows.Close()
+			out := map[string]bool{}
+			for rows.Next() {
+				var p string
+				var r bool
+				if err = rows.Scan(&p, &r); err != nil {
+					t.Fatal(err)
+				}
+				out[p] = r
+			}
+			return out
+		}
+		var preview struct {
+			Paths []string `json:"paths"`
+		}
+		if err := json.Unmarshal(h.userCall(superAdmin, http.MethodPost, "/api/admin/video-root/scan", map[string]any{"paths": []string{"known"}, "confirm": true}, http.StatusOK), &preview); err != nil {
+			t.Fatal(err)
+		}
+		if len(preview.Paths) != 3 {
+			t.Fatalf("the selection lists its videos: %v", preview.Paths)
+		}
+		if got := requested(); got["known/analysed.mp4"] || !got["known/fresh.mp4"] {
+			t.Fatalf("only a video not analysed yet is queued: %v", got)
+		}
+		var jobs int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM jobs WHERE clip_id=$1`, clipIDs["analysed"]).Scan(&jobs); err != nil || jobs != 1 {
+			t.Fatalf("an analysed clip got new work: %d %v", jobs, err)
+		}
+		// A changed file is new content: it is queued again. The file is put back as it was afterwards.
+		analysedPath := filepath.Join(root, "known", "analysed.mp4")
+		original, err := os.ReadFile(analysedPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		before, err := os.Stat(analysedPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			_ = os.WriteFile(analysedPath, original, 0o600)
+			_ = os.Chtimes(analysedPath, before.ModTime(), before.ModTime())
+		})
+		if err = os.WriteFile(analysedPath, []byte("changed content"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		h.userCall(superAdmin, http.MethodPost, "/api/admin/video-root/scan", map[string]any{"paths": []string{"known/analysed.mp4"}, "confirm": true}, http.StatusOK)
+		if got := requested(); !got["known/analysed.mp4"] {
+			t.Fatalf("a changed video is queued: %v", got)
+		}
+		if err = os.WriteFile(analysedPath, original, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err = os.Chtimes(analysedPath, before.ModTime(), before.ModTime()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = pool.Exec(ctx, `UPDATE source_files SET scan_requested=false WHERE relative_path LIKE 'known/%'`); err != nil {
+			t.Fatal(err)
+		}
+	})
+
 	t.Run("a walk interrupted by a stop starts over and ends", func(t *testing.T) {
 		writeSynthetic(t, root, "later/after-restart.mp4")
 		// A run left walking by a stop: its row says so, no process walks it.
