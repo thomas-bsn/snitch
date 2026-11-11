@@ -15,6 +15,7 @@ import datetime
 
 if TYPE_CHECKING:
   from ..models.transcript_grouping import TranscriptGrouping
+  from ..models.transcript_part import TranscriptPart
   from ..models.transcript_source import TranscriptSource
   from ..models.transcript_word import TranscriptWord
 
@@ -34,8 +35,9 @@ class TranscriptSegment:
             end (float):
             text (str):
             words (list[TranscriptWord]):
-            local_speaker_id (int | Unset): Locuteur local dominant du segment ; absent sans diarisation ou sans
-                recouvrement.
+            local_speaker_id (int | Unset): Locuteur local dominant du segment (celui qui y parle le plus, ou celui désigné
+                par une Correction), quelle que soit la règle d'attribution ; absent sans diarisation ou sans recouvrement. Le
+                détail par mots est dans parts.
             local_speaker_label (str | Unset):
             local_speaker_decision_level (DecisionLevel | Unset): human : validation humaine ; automatic, suggestion,
                 ambiguous : issus du rapprochement en base (automatic seulement lorsque l'administrateur a activé
@@ -44,6 +46,11 @@ class TranscriptSegment:
             local_speaker_person_name (str | Unset):
             local_speaker_corrected (bool | Unset): Vrai si local_speaker_id est désigné par un utilisateur (phase 6) plutôt
                 que déduit des tours de parole.
+            parts (list[TranscriptPart] | Unset): Le segment lu comme une suite de parts, chacune avec son Locuteur local et
+                ses mots, selon la règle d'attribution active (speaker_attribution_rule). Les parts couvrent tous les mots dans
+                l'ordre ; le segment, ses bornes et son identité ne changent pas. Une seule part avec la règle par segment, pour
+                un segment dont le locuteur est corrigé (elle s'applique au segment entier) ou dont le texte est corrigé. Absent
+                sans diarisation.
             index (int | Unset): Rang du segment dans la transcription (identité avec transcription_job_id).
             original_text (str | Unset): Texte de la transcription automatique, jamais modifié.
             corrected (bool | Unset): Vrai si text est un texte corrigé par un utilisateur.
@@ -66,6 +73,7 @@ class TranscriptSegment:
     local_speaker_person_id: int | Unset = UNSET
     local_speaker_person_name: str | Unset = UNSET
     local_speaker_corrected: bool | Unset = UNSET
+    parts: list[TranscriptPart] | Unset = UNSET
     index: int | Unset = UNSET
     original_text: str | Unset = UNSET
     corrected: bool | Unset = UNSET
@@ -82,6 +90,7 @@ class TranscriptSegment:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.transcript_grouping import TranscriptGrouping # noqa: PLC0415
+        from ..models.transcript_part import TranscriptPart # noqa: PLC0415
         from ..models.transcript_source import TranscriptSource # noqa: PLC0415
         from ..models.transcript_word import TranscriptWord # noqa: PLC0415
         start = self.start
@@ -111,6 +120,15 @@ class TranscriptSegment:
         local_speaker_person_name = self.local_speaker_person_name
 
         local_speaker_corrected = self.local_speaker_corrected
+
+        parts: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.parts, Unset):
+            parts = []
+            for parts_item_data in self.parts:
+                parts_item = parts_item_data.to_dict()
+                parts.append(parts_item)
+
+
 
         index = self.index
 
@@ -165,6 +183,8 @@ class TranscriptSegment:
             field_dict["local_speaker_person_name"] = local_speaker_person_name
         if local_speaker_corrected is not UNSET:
             field_dict["local_speaker_corrected"] = local_speaker_corrected
+        if parts is not UNSET:
+            field_dict["parts"] = parts
         if index is not UNSET:
             field_dict["index"] = index
         if original_text is not UNSET:
@@ -189,6 +209,7 @@ class TranscriptSegment:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.transcript_grouping import TranscriptGrouping # noqa: PLC0415
+        from ..models.transcript_part import TranscriptPart # noqa: PLC0415
         from ..models.transcript_source import TranscriptSource # noqa: PLC0415
         from ..models.transcript_word import TranscriptWord # noqa: PLC0415
         d = dict(src_dict)
@@ -227,6 +248,18 @@ class TranscriptSegment:
         local_speaker_person_name = d.pop("local_speaker_person_name", UNSET)
 
         local_speaker_corrected = d.pop("local_speaker_corrected", UNSET)
+
+        _parts = d.pop("parts", UNSET)
+        parts: list[TranscriptPart] | Unset = UNSET
+        if _parts is not UNSET:
+            parts = []
+            for parts_item_data in _parts:
+                parts_item = TranscriptPart.from_dict(parts_item_data)
+
+
+
+                parts.append(parts_item)
+
 
         index = d.pop("index", UNSET)
 
@@ -283,6 +316,7 @@ class TranscriptSegment:
             local_speaker_person_id=local_speaker_person_id,
             local_speaker_person_name=local_speaker_person_name,
             local_speaker_corrected=local_speaker_corrected,
+            parts=parts,
             index=index,
             original_text=original_text,
             corrected=corrected,

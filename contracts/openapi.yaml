@@ -13389,6 +13389,98 @@
         ]
       }
     },
+    "/api/admin/speaker-attribution-rule": {
+      "get": {
+        "operationId": "getSpeakerAttributionRule",
+        "responses": {
+          "200": {
+            "description": "Règle d'attribution active et historique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeakerAttributionRule"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateSpeakerAttributionRule",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SpeakerAttributionRuleInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Règle enregistrée (nouvelle version si elle change) ; les transcriptions sont lues avec elle dès la réponse, sans réécriture",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SpeakerAttributionRule"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre la règle active n'enregistre rien. 400 invalid_speaker_attribution_rule pour une règle inconnue.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice-eligibility/preview": {
       "get": {
         "operationId": "previewVoiceEligibility",
@@ -28059,6 +28151,52 @@
           }
         }
       },
+      "TranscriptPart": {
+        "type": "object",
+        "description": "Part d'un segment : des mots consécutifs du segment dits par un même Locuteur local (ADR 0065). Sans local_speaker_id, aucun Locuteur local ne parle sur le segment.",
+        "required": [
+          "start",
+          "end",
+          "words"
+        ],
+        "properties": {
+          "start": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Début du premier mot de la part ; début du segment s'il n'a qu'une part."
+          },
+          "end": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Fin du dernier mot de la part ; fin du segment s'il n'a qu'une part."
+          },
+          "words": {
+            "type": "array",
+            "description": "Mots de la part, dans l'ordre ; vide pour un segment au texte corrigé, dont le texte est celui du segment.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptWord"
+            }
+          },
+          "local_speaker_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "local_speaker_label": {
+            "type": "string"
+          },
+          "local_speaker_decision_level": {
+            "$ref": "#/components/schemas/DecisionLevel"
+          },
+          "local_speaker_person_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Personne du Locuteur local, si attribuée."
+          },
+          "local_speaker_person_name": {
+            "type": "string"
+          }
+        }
+      },
       "TranscriptSegment": {
         "type": "object",
         "required": [
@@ -28088,7 +28226,7 @@
           "local_speaker_id": {
             "type": "integer",
             "format": "int64",
-            "description": "Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement."
+            "description": "Locuteur local dominant du segment (celui qui y parle le plus, ou celui désigné par une Correction), quelle que soit la règle d'attribution ; absent sans diarisation ou sans recouvrement. Le détail par mots est dans parts."
           },
           "local_speaker_label": {
             "type": "string"
@@ -28107,6 +28245,13 @@
           "local_speaker_corrected": {
             "type": "boolean",
             "description": "Vrai si local_speaker_id est désigné par un utilisateur (phase 6) plutôt que déduit des tours de parole."
+          },
+          "parts": {
+            "type": "array",
+            "description": "Le segment lu comme une suite de parts, chacune avec son Locuteur local et ses mots, selon la règle d'attribution active (speaker_attribution_rule). Les parts couvrent tous les mots dans l'ordre ; le segment, ses bornes et son identité ne changent pas. Une seule part avec la règle par segment, pour un segment dont le locuteur est corrigé (elle s'applique au segment entier) ou dont le texte est corrigé. Absent sans diarisation.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptPart"
+            }
           },
           "index": {
             "type": "integer",
@@ -28206,6 +28351,14 @@
               }
             }
           },
+          "speaker_attribution_rule": {
+            "type": "string",
+            "enum": [
+              "segment",
+              "word"
+            ],
+            "description": "Règle d'attribution avec laquelle parts et la couverture ont été lus (ADR 0065). Absent sans diarisation."
+          },
           "speaker_coverage_by_track": {
             "type": "array",
             "description": "Révision de Plan seulement : la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une piste sans aucun segment.",
@@ -28270,7 +28423,7 @@
               "no_transcript",
               "outside_transcript"
             ],
-            "description": "words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste)."
+            "description": "words : il tient une part d'au moins un segment ; speech_without_words : il parle sous des segments dont il ne tient aucune part ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste)."
           },
           "speaking_seconds": {
             "type": "number",
@@ -28278,7 +28431,7 @@
           },
           "overlapped_seconds": {
             "type": "number",
-            "description": "Parole sous des segments attribués à un autre locuteur."
+            "description": "Parole sous des segments dont il ne tient aucune part."
           },
           "uncovered_seconds": {
             "type": "number",
@@ -28286,7 +28439,8 @@
           },
           "attributed_segments": {
             "type": "integer",
-            "minimum": 0
+            "minimum": 0,
+            "description": "Segments dont il tient au moins une part."
           }
         }
       },
@@ -34109,6 +34263,95 @@
             "items": {
               "$ref": "#/components/schemas/VoiceScoreModeVersion"
             }
+          }
+        }
+      },
+      "SpeakerAttributionRuleVersion": {
+        "type": "object",
+        "required": [
+          "version",
+          "rule",
+          "author",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "segment",
+              "word"
+            ],
+            "description": "word : chaque mot revient au Locuteur local dont les tours le recouvrent le plus, un segment se lit en parts. segment : le segment entier revient au Locuteur local qui y parle le plus (règle d'avant l'ADR 0065)."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a choisi cette règle ; null pour la règle par défaut."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SpeakerAttributionRule": {
+        "type": "object",
+        "description": "Règle d'attribution des paroles aux Locuteurs locaux (ADR 0065) : version active et historique. Elle s'applique à la lecture ; en changer ne réécrit aucune donnée.",
+        "required": [
+          "version",
+          "rule",
+          "author",
+          "created_at",
+          "history"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "rule": {
+            "type": "string",
+            "enum": [
+              "segment",
+              "word"
+            ],
+            "description": "word : chaque mot revient au Locuteur local dont les tours le recouvrent le plus, un segment se lit en parts. segment : le segment entier revient au Locuteur local qui y parle le plus (règle d'avant l'ADR 0065)."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a choisi cette règle ; null pour la règle par défaut."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "history": {
+            "type": "array",
+            "description": "Vingt dernières versions, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/SpeakerAttributionRuleVersion"
+            }
+          }
+        }
+      },
+      "SpeakerAttributionRuleInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule"
+        ],
+        "properties": {
+          "rule": {
+            "type": "string",
+            "enum": [
+              "segment",
+              "word"
+            ]
           }
         }
       },
