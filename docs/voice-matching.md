@@ -5,7 +5,7 @@ Snitch rapproche les empreintes des Locuteurs locaux des références des Person
 ## Principes
 
 - **Références.** Les références d'une Personne sont uniquement ses Échantillons vocaux validés actifs (`voice_samples.retired_at IS NULL`). Le rapprochement n'écrit jamais dans `voice_samples` : une attribution automatique ne devient jamais référence (ADR 0008).
-- **Comparabilité.** Seules les empreintes `usable` (assez longues et nettes, décidé à l'enregistrement) de portée `speaker` sont comparées, et uniquement à l'intérieur d'un même triplet `(model, model_version, dimensions)`. Un groupe sans aucune référence n'est pas évalué : ses attributions automatiques sont retirées plutôt que laissées périmées.
+- **Comparabilité.** Seules les empreintes comparables (`usable`, décidé par la [règle d'éligibilité](#éligibilité-des-empreintes)) de portée `speaker` sont comparées, et uniquement à l'intérieur d'un même triplet `(model, model_version, dimensions)`. Un groupe sans aucune référence n'est pas évalué : ses attributions automatiques sont retirées plutôt que laissées périmées.
 - **Score.** Pour chaque Personne, la similarité cosinus maximale entre l'empreinte du Locuteur local et les empreintes de ses références.
 - **Décision**, à partir des seuils (voir plus bas) :
   - aucune Personne au-dessus du seuil de suggestion : `unknown` ;
@@ -21,6 +21,7 @@ Snitch rapproche les empreintes des Locuteurs locaux des références des Person
 | Validation ou correction d'un Locuteur local (ajout, retrait ou changement d'une référence) | Toute la bibliothèque |
 | Résultat d'empreintes d'un clip enregistré | Ce clip |
 | Changement des seuils (`PUT /api/admin/voice-matching`) | Toute la bibliothèque |
+| Changement de la règle d'éligibilité qui modifie l'éligibilité d'au moins une empreinte (`PUT /api/admin/voice-eligibility`) | Toute la bibliothèque |
 | `POST /api/admin/voice-matching/rematch` (administrateur) | Toute la bibliothèque |
 
 L'exécution est sérialisée (mutex de processus et verrou consultatif PostgreSQL) et lit l'état validé. Le déclencheur est déjà validé quand le rapprochement démarre : un échec est journalisé sans défaire la validation, et le rapprochement suivant (ou l'explicite) le répare. Seules les lignes dont la Personne, le niveau ou les candidates changent sont réécrites ; un changement de Personne ou de niveau ajoute un événement `match` à l'historique du locuteur (sans auteur, sans donnée vocale).
@@ -39,11 +40,43 @@ Limite assumée de cette phase : le calcul compare toutes les cibles à toutes l
 
 Les valeurs initiales ne sont pas des choix définitifs ; elles attendent le benchmark de la phase 7.
 
+## Éligibilité des empreintes
+
+Depuis #390 (ADR 0064), Snitch décide de l'éligibilité d'une empreinte à partir de ses mesures et d'une règle versionnée, et non plus une fois pour toutes à l'enregistrement. Deux usages :
+
+- **comparable** (colonne `usable`, conservée pour que les index partiels `WHERE usable` suivent la règle) : assez de Parole nette pour être rapprochée seule d'une Référence. Le rapprochement, la Précision mesurée et les groupes de voix inconnues ne lisent que celles-ci ;
+- **contributive** (colonne `contributive`) : assez de Parole nette pour entrer dans une Référence une fois validée par un humain (Référence cumulative, #391). Une empreinte comparable est toujours contributive.
+
+Règle appliquée, dans cet ordre, à chaque empreinte de production (portées `speaker` et `turn`) :
+
+| Condition | `unusable_reason` | Comparable | Contributive |
+| --- | --- | --- | --- |
+| `overlapped` : aucun intervalle net d'au moins 0,5 s | `overlap_only` | non | jamais |
+| part d'échantillons écrêtés au-dessus du maximum | `clipped` | non | non |
+| Parole nette sous la durée comparable | `too_short` | non | si Parole nette ≥ durée contributive |
+| sinon | (vide) | oui | oui |
+
+`low_quality` ne vient plus que d'une décision antérieure à la règle (empreintes existantes non requalifiées, benchmark). La cohérence est stockée mais n'est pas un critère.
+
+**Parole nette retenue** (`net_speech_seconds`, origine dans `net_speech_source`) : `worker` = mesure du Worker (#389) ; `turns` = empreinte sans mesures, Parole nette calculée en base depuis les tours stockés (tours du Locuteur local, ou du tour, moins ceux des autres Locuteurs locaux de la même diarisation, intervalles d'au moins 0,5 s ; fonction SQL `voice_turns_net_speech`), jamais plus que la durée de l'empreinte, c'est-à-dire la parole réellement embarquée ; `estimated` = ni mesures ni tours, par exemple un Locuteur local validé puis archivé par une nouvelle diarisation : la durée de l'empreinte, qui majore la Parole nette (avant #389 elle valait la somme des tours entiers), sans Chevauchement connu. Une Référence validée n'est donc jamais rejetée par la seule absence de ses tours, et l'estimation reste visible. Avant #389 une empreinte `too_short` se jugeait sur cette durée de tours entiers ; elle se juge désormais sur la Parole nette, plus courte en cas de Chevauchement.
+
+**Règle versionnée** (`voice_eligibility_rules`, historique en ajout seul, la version la plus haute est active) : `comparable_min_seconds`, `contributive_min_seconds` (au plus la première, 0,5 à 60 s), `max_clipped_ratio` (0 à 1), auteur et date. La version 1 est provisoire, posée par Snitch : 2 s comparable, 1 s contributive, 1 % d'écrêtage au plus. Ces valeurs attendent l'aperçu chiffré (#394), qui comparera 1 s, 1,5 s et 2 s ; elles ne changent aucun seuil de score.
+
+**Requalification.** `PUT /api/admin/voice-eligibility` (administrateurs) crée une nouvelle version si les valeurs changent (rien sinon), puis applique la règle active à toutes les empreintes de production en une opération en base, sans job Worker ni audio, et relance le rapprochement de toute la bibliothèque si une éligibilité a changé. La réponse donne le nombre d'empreintes requalifiées (`requalified`). Une nouvelle empreinte de production est décidée par la règle active dans la transaction qui l'enregistre ; un verrou consultatif (`snitch.voice_eligibility`, partagé à l'enregistrement, exclusif au changement de règle) garantit qu'aucune empreinte n'est décidée par une règle remplacée. `GET /api/admin/voice-eligibility` donne la règle active, les vingt dernières versions, les valeurs provisoires et le décompte des empreintes de Locuteur local de production par éligibilité, dont celles décidées par une autre règle (`stale`).
+
+**Non affectées.** Les empreintes de benchmark et celles d'une transition de modèle en attente (`benchmark = true`, ADR 0044, ADR 0056) gardent la décision de leur pipeline épinglé (durée et qualité minimales) et ne sont jamais requalifiées (`eligibility_rule_version` nul). À la bascule d'une transition, les empreintes du nouveau modèle entrent en production et la règle active les décide.
+
+**Empreintes existantes.** La migration `00143` garde la décision de chaque empreinte déjà stockée (`eligibility_rule_version` nul, `contributive = usable`) : elles ne sont requalifiées que lorsque l'administrateur enregistre la règle (après l'aperçu de #394). Seule exception, une empreinte chevauchée n'est jamais éligible. La migration calcule dès maintenant la Parole nette des empreintes sans mesures, tant que leurs tours existent.
+
+L'écran **Administration → Voix → Identification et seuils → Paramètres avancés → Empreintes vocales** règle les trois valeurs, affiche la version active (provisoire ou auteur et date), le décompte et l'historique.
+
 ## API
 
 - `GET /api/voice-matching` : tout utilisateur connecté (il voit si l'automatisation est active).
 - `PUT /api/admin/voice-matching` : administrateurs ; les quatre seuils sont obligatoires, `auto_enabled` est refusé. `400 invalid_voice_matching` pour des seuils incohérents. Les empreintes déjà stockées sont rapprochées de nouveau.
 - `POST /api/admin/voice-matching/rematch` : administrateurs ; renvoie le résumé (voix examinées par niveau, attributions retirées).
+- `GET` et `PUT /api/admin/voice-eligibility` : administrateurs ; règle d'éligibilité (voir plus haut). `400 invalid_voice_eligibility` pour une règle hors bornes ou une durée contributive supérieure à la durée comparable.
+- `VoiceFingerprint` (voix d'un clip) et `VoiceTraceFingerprint` (trace vocale) portent `usable` (comparable), `contributive`, `unusable_reason`, `eligibility_rule_version`, `net_speech_seconds` et `net_speech_source`.
 - `Attribution.candidates` : Personnes entre lesquelles le rapprochement hésite (ambiguë : celles dans la marge ; suggestion ou automatique : les meilleures alternatives) avec rang et score ; vide pour une validation humaine. L'historique d'un locuteur peut contenir l'action `match`.
 
 ## Données

@@ -66,6 +66,9 @@ _Avoid_ : Overlap, voix simultanées (qui désigne aussi deux pistes différente
 **Parole nette** : La parole d'un Locuteur local hors Chevauchement. C'est elle qui sert à calculer son empreinte et à mesurer ce qu'un échantillon apporte à une Référence.
 _Avoid_ : Parole propre, temps de parole (qui compte aussi les Chevauchements).
 
+**Éligibilité d'une empreinte** : Ce que Snitch permet à une empreinte, d'après sa Parole nette et une règle versionnée que l'administrateur règle. Une empreinte *comparable* est rapprochée seule d'une Référence ; une empreinte *contributive* peut entrer dans une Référence une fois validée par un humain, avec moins de Parole nette. Une empreinte chevauchée n'est jamais ni l'une ni l'autre. Changer la règle requalifie les empreintes sans les recalculer (ADR 0064).
+_Avoid_ : Empreinte utilisable, qualité minimale.
+
 **Source séparée** : Une voix isolée par un modèle à partir d'un Chevauchement. Elle sert à retrouver des paroles, jamais à calculer une empreinte ni à enrichir une Référence. Un extrait d'écoute découpé dans une piste n'en est pas une : il contient toutes les voix du moment.
 _Avoid_ : Piste séparée (qui désigne une vraie piste audio du clip), extrait.
 

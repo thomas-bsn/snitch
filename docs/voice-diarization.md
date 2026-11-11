@@ -53,7 +53,7 @@ Le contrat est additif : un résultat sans `measures` (Worker plus ancien) est a
 ## Données
 
 - `local_speakers` et `speaker_turns` : voix détectées par clip et par piste ; supprimées avec le clip.
-- `voice_fingerprints` : vecteur pgvector avec `model`, `model_version`, `dimensions`, durée, qualité et `usable`. Les empreintes trop courtes (`too_short`) ou de qualité insuffisante (`low_quality`) restent visibles mais ne servent ni de référence ni de base de propagation. Les vecteurs de modèles, versions ou dimensions différents ne doivent jamais être comparés. Les mesures sont stockées dans `measures_version`, `net_speech_seconds`, `overlap_ratio`, `overlapped`, `clipped_ratio`, `mean_level_dbfs` et `coherence` (migration 00142), toutes `NULL` pour une empreinte enregistrée sans mesures.
+- `voice_fingerprints` : vecteur pgvector avec `model`, `model_version`, `dimensions`, durée, qualité, `usable` (comparable) et `contributive`, décidés par la [règle d'éligibilité](voice-matching.md#éligibilité-des-empreintes) (#390). Les empreintes rejetées (`too_short`, `overlap_only`, `clipped`, ou `low_quality` avant la règle) restent visibles mais ne sont pas rapprochées seules. Les vecteurs de modèles, versions ou dimensions différents ne doivent jamais être comparés. Les mesures sont stockées dans `measures_version`, `net_speech_seconds`, `overlap_ratio`, `overlapped`, `clipped_ratio`, `mean_level_dbfs` et `coherence` (migration 00142), toutes `NULL` pour une empreinte enregistrée sans mesures.
 
 ## Consultation
 
