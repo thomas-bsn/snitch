@@ -6901,6 +6901,226 @@
         ]
       }
     },
+    "/api/admin/video-root/scan-runs/preview": {
+      "get": {
+        "operationId": "previewRootScan",
+        "summary": "Estimer le scan de toute la Racine vidéo, sans le lancer (administrateur)",
+        "description": "Parcourt les dossiers de la Racine (jamais le contenu des vidéos) et compte, sans lister les chemins, les vidéos qui seraient mises en file, celles déjà à jour et ce qui est exclu par motif. Les Dossiers privés sont exclus pour tous les rôles, Super-administrateur compris ; un dossier illisible est compté, pas bloquant.",
+        "responses": {
+          "200": {
+            "description": "Comptes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanPreview"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "video_root_unconfigured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs/current": {
+      "get": {
+        "operationId": "getCurrentRootScan",
+        "summary": "Dernier scan de toute la Racine vidéo : progression puis bilan (administrateur)",
+        "responses": {
+          "200": {
+            "description": "Le scan le plus récent, ou run null si aucun n'a jamais été demandé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanAnswer"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs": {
+      "post": {
+        "operationId": "startRootScan",
+        "summary": "Scanner toute la Racine vidéo en arrière-plan (administrateur, action explicite)",
+        "description": "Répond aussitôt : le parcours du disque et la mise en file avancent en arrière-plan, sans limite de nombre, et reprennent après un redémarrage. Met en file les vidéos non indexées, modifiées, ou indexées mais jamais analysées ; leur analyse suit ensuite les réglages de traitement. Exclut les Dossiers privés (tous rôles), les fichiers et dossiers masqués, les dossiers système et les clips privés. Un clip déjà analysé n'est pas réanalysé. Un seul scan ou une seule indexation en cours par Racine.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Scan enregistré, parcours en cours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanAnswer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "index_run_active : un scan ou une indexation est déjà en cours ; video_root_unconfigured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelRootScan",
+        "summary": "Annuler le scan : le parcours s'arrête et les vidéos pas encore prises ne sont plus demandées (administrateur)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanAnswer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "index_run_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "index_run_state : le scan est terminé ou annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/admin/settings/automatic-analysis": {
       "get": {
         "operationId": "getAutomaticAnalysisSetting",
@@ -23622,6 +23842,202 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/IndexRun"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "RootScanExcluded": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "private_folders",
+          "hidden",
+          "system",
+          "private_clips"
+        ],
+        "properties": {
+          "private_folders": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers privés laissés de côté sans être ouverts."
+          },
+          "hidden": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers et vidéos dont le nom commence par un point."
+          },
+          "system": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers système du NAS (#recycle, @eaDir)."
+          },
+          "private_clips": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos indexées dont le clip est privé."
+          }
+        }
+      },
+      "RootScanPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seen",
+          "to_queue",
+          "up_to_date",
+          "excluded",
+          "unreadable_folders",
+          "unreadable_paths"
+        ],
+        "properties": {
+          "seen": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos éligibles rencontrées."
+          },
+          "to_queue": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos qui seraient mises en file : non indexées, modifiées, ou indexées mais jamais analysées."
+          },
+          "up_to_date": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos indexées dont le clip est déjà analysé : rien à faire."
+          },
+          "excluded": {
+            "$ref": "#/components/schemas/RootScanExcluded"
+          },
+          "unreadable_folders": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers illisibles, sautés."
+          },
+          "unreadable_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Les premiers dossiers illisibles, relatifs à la Racine."
+          }
+        }
+      },
+      "RootScan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "finished_at",
+          "walking",
+          "seen",
+          "queued",
+          "done",
+          "pending",
+          "failed",
+          "up_to_date",
+          "waiting_for_worker",
+          "excluded",
+          "unreadable_folders",
+          "unreadable_paths",
+          "failures"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "cancelled",
+              "completed"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "walking": {
+            "type": "boolean",
+            "description": "Vrai tant que le disque est parcouru."
+          },
+          "seen": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos éligibles rencontrées jusqu'ici."
+          },
+          "queued": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos mises en file par ce scan."
+          },
+          "done": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos mises en file déjà prises par le scan géré."
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos mises en file qui attendent encore."
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos illisibles, disparues ou en erreur."
+          },
+          "up_to_date": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos indexées dont le clip est déjà analysé."
+          },
+          "waiting_for_worker": {
+            "type": "boolean",
+            "description": "Des vidéos attendent et aucun Worker n'est en ligne."
+          },
+          "excluded": {
+            "$ref": "#/components/schemas/RootScanExcluded"
+          },
+          "unreadable_folders": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers illisibles, sautés."
+          },
+          "unreadable_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IndexRunFailure"
+            },
+            "description": "Les premières vidéos en échec, avec leur code."
+          }
+        }
+      },
+      "RootScanAnswer": {
+        "type": "object",
+        "required": [
+          "run"
+        ],
+        "properties": {
+          "run": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RootScan"
               }
             ],
             "nullable": true

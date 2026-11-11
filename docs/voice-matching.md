@@ -66,7 +66,7 @@ Règle appliquée, dans cet ordre, à chaque empreinte de production (portées `
 
 **Non affectées.** Les empreintes de benchmark et celles d'une transition de modèle en attente (`benchmark = true`, ADR 0044, ADR 0056) gardent la décision de leur pipeline épinglé (durée et qualité minimales) et ne sont jamais requalifiées (`eligibility_rule_version` nul). À la bascule d'une transition, les empreintes du nouveau modèle entrent en production et la règle active les décide.
 
-**Empreintes existantes.** La migration `00143` garde la décision de chaque empreinte déjà stockée (`eligibility_rule_version` nul, `contributive = usable`) : elles ne sont requalifiées que lorsque l'administrateur enregistre la règle (après l'aperçu de #394). Seule exception, une empreinte chevauchée n'est jamais éligible. La migration calcule dès maintenant la Parole nette des empreintes sans mesures, tant que leurs tours existent.
+**Empreintes existantes.** La migration `00144` garde la décision de chaque empreinte déjà stockée (`eligibility_rule_version` nul, `contributive = usable`) : elles ne sont requalifiées que lorsque l'administrateur enregistre la règle (après l'aperçu de #394). Seule exception, une empreinte chevauchée n'est jamais éligible. La migration calcule dès maintenant la Parole nette des empreintes sans mesures, tant que leurs tours existent.
 
 L'écran **Administration → Voix → Identification et seuils → Paramètres avancés → Empreintes vocales** règle les trois valeurs, affiche la version active (provisoire ou auteur et date), le décompte et l'historique.
 

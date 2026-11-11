@@ -637,6 +637,36 @@ export const fr: Messages = {
     cancel: "Annuler",
     queued: "Fichiers ajoutés à la file.",
     queueTitle: "File des fichiers demandés",
+    queueMore: "… et {count} autres fichiers demandés.",
+    rootScan: {
+      confirmTitle: "Scanner toute la racine ?",
+      confirmBody:
+        "Les vidéos non indexées sont indexées, puis analysées selon les réglages de traitement, comme un nouveau clip. Un clip déjà analysé n’est pas réanalysé. Les Dossiers privés, les fichiers et dossiers masqués, les dossiers système et les clips privés sont laissés de côté. Le scan continue en arrière-plan, même si vous quittez la page ou si le serveur redémarre.",
+      confirm: "Mettre {count} vidéos en file",
+      started: "Scan de la racine lancé. Il continue en arrière-plan.",
+      title: "Scan de toute la racine",
+      walking:
+        "Parcours de la racine en cours : {seen} vidéos trouvées, {queued} mises en file.",
+      queueing: "{done} / {queued} vidéos mises en file prises en charge.",
+      progressLabel: "Progression du scan de la racine",
+      completed: "Scan terminé.",
+      cancelled: "Scan annulé.",
+      waitingForWorker:
+        "Aucun Worker n’est en ligne : les vidéos attendent et reprennent seules dès qu’un Worker se connecte.",
+      queued: "Mises en file",
+      upToDate: "Déjà à jour",
+      privateFolders: "Exclus : Dossiers privés",
+      hidden: "Exclus : masqués",
+      system: "Exclus : dossiers système",
+      privateClips: "Exclus : clips privés",
+      unreadable: "Dossiers illisibles, sautés",
+      unreadablePaths: "Dossiers illisibles : {paths}",
+      rootItself: "la racine elle-même",
+      failed: "Vidéos en erreur : {count}",
+      cancel: "Annuler le scan",
+      confirmCancel:
+        "Annuler le scan ? Les vidéos pas encore prises ne sont plus demandées ; ce qui est déjà indexé est conservé.",
+    },
     select: "Sélectionner {path}",
     status: {
       indexed: "Indexé",

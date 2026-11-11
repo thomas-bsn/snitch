@@ -31,6 +31,9 @@ _Avoid_ : Source (qui désigne aussi les origines historiques en lecture seule).
 **Indexation de la Racine** : L'action explicite d'un administrateur qui donne leur fiche clip, en une fois, à toutes les vidéos de la Racine vidéo qui n'en ont pas, avec ou sans leur analyse complète. Elle ne retraite jamais un clip existant, peut être mise en pause, reprise ou annulée, et continue sans que l'on reste sur la page.
 _Avoid_ : Scan (qui désigne la lecture du disque), import (qui désigne l'envoi de fichiers).
 
+**Scan de toute la Racine** : L'action explicite d'un administrateur qui met en file, en une fois et sans limite de nombre, toutes les vidéos éligibles de la Racine vidéo : les vidéos non indexées sont indexées, les clips jamais analysés sont analysés selon les réglages de traitement, un clip déjà analysé n'est pas réanalysé. Elle laisse toujours de côté les Dossiers privés, quel que soit le rôle, ainsi que les éléments masqués, les dossiers système et les clips privés. Elle continue en arrière-plan et reprend après un redémarrage.
+_Avoid_ : Indexation de la Racine (qui ne traite que les vidéos sans clip et peut viser un Dossier privé pour le Super-administrateur), réanalyse.
+
 **Demande de création de dossier** : La demande d'un utilisateur de créer un dossier dans la Racine vidéo. Elle attend l'approbation d'un Administrateur ; le dossier d'un Administrateur est créé sans demande.
 
 **Dossier privé** : Un dossier de premier niveau d'une Source que seul le Super-administrateur peut parcourir. Les autres utilisateurs voient son nom avec un cadenas, pas ses clips, sauf ceux qu'ils possèdent ou qui proviennent aussi d'un emplacement visible. Il est distinct de la visibilité d'un clip.

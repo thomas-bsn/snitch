@@ -529,13 +529,22 @@ type JobLogLine struct {
 }
 
 type LibraryIndexRun struct {
-	ID         int64              `json:"id"`
-	SourceID   int64              `json:"source_id"`
-	Mode       string             `json:"mode"`
-	Status     string             `json:"status"`
-	CreatedBy  pgtype.Int8        `json:"created_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ID                     int64              `json:"id"`
+	SourceID               int64              `json:"source_id"`
+	Mode                   string             `json:"mode"`
+	Status                 string             `json:"status"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	FinishedAt             pgtype.Timestamptz `json:"finished_at"`
+	Walking                bool               `json:"walking"`
+	Seen                   int32              `json:"seen"`
+	UpToDate               int32              `json:"up_to_date"`
+	ExcludedPrivateFolders int32              `json:"excluded_private_folders"`
+	ExcludedHidden         int32              `json:"excluded_hidden"`
+	ExcludedSystem         int32              `json:"excluded_system"`
+	ExcludedPrivateClips   int32              `json:"excluded_private_clips"`
+	UnreadableFolders      int32              `json:"unreadable_folders"`
+	UnreadablePaths        []string           `json:"unreadable_paths"`
 }
 
 type LocalSpeaker struct {
