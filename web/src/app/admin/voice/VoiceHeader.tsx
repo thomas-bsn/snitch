@@ -155,6 +155,9 @@ export function VoiceHeader({
           {enabled ? t("voiceAdmin.enabled") : t("voiceAdmin.disabled")}
         </p>
         <p className="text-sm text-mute">{t("voiceScreen.autoHint")}</p>
+        {accuracy.calibration.group && !accuracy.calibration.thresholds && (
+          <StatusNotice>{t("voiceScreen.autoSuspended")}</StatusNotice>
+        )}
         {accuracy.activation_proposed && (
           <StatusNotice>{t("voiceAdmin.proposed")}</StatusNotice>
         )}

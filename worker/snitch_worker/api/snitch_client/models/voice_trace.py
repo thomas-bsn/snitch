@@ -13,6 +13,7 @@ from typing import cast
 if TYPE_CHECKING:
   from ..models.speaker_coverage import SpeakerCoverage
   from ..models.voice_trace_diarization_type_0 import VoiceTraceDiarizationType0
+  from ..models.voice_trace_fingerprint import VoiceTraceFingerprint
   from ..models.voice_trace_segments_item import VoiceTraceSegmentsItem
   from ..models.voice_trace_transcription import VoiceTraceTranscription
   from ..models.voice_trace_turns_item import VoiceTraceTurnsItem
@@ -27,7 +28,8 @@ T = TypeVar("T", bound="VoiceTrace")
 
 @_attrs_define
 class VoiceTrace:
-    """ Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit.
+    """ Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit, et mesures
+    de qualité des empreintes de la piste (#389).
 
         Attributes:
             clip_id (int):
@@ -38,6 +40,8 @@ class VoiceTrace:
             segments (list[VoiceTraceSegmentsItem]): Segments bruts de la transcription avec les voix qui les recouvrent
                 (avant alignement) et la voix retenue (après).
             coverage (list[SpeakerCoverage]):
+            fingerprints (list[VoiceTraceFingerprint]): Empreintes de production des voix de la piste (voix ignorées
+                exclues), avec leurs mesures de qualité (#389). Jamais de vecteur.
      """
 
     clip_id: int
@@ -47,6 +51,7 @@ class VoiceTrace:
     turns: list[VoiceTraceTurnsItem]
     segments: list[VoiceTraceSegmentsItem]
     coverage: list[SpeakerCoverage]
+    fingerprints: list[VoiceTraceFingerprint]
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -56,6 +61,7 @@ class VoiceTrace:
     def to_dict(self) -> dict[str, Any]:
         from ..models.speaker_coverage import SpeakerCoverage # noqa: PLC0415
         from ..models.voice_trace_diarization_type_0 import VoiceTraceDiarizationType0 # noqa: PLC0415
+        from ..models.voice_trace_fingerprint import VoiceTraceFingerprint # noqa: PLC0415
         from ..models.voice_trace_segments_item import VoiceTraceSegmentsItem # noqa: PLC0415
         from ..models.voice_trace_transcription import VoiceTraceTranscription # noqa: PLC0415
         from ..models.voice_trace_turns_item import VoiceTraceTurnsItem # noqa: PLC0415
@@ -92,6 +98,13 @@ class VoiceTrace:
 
 
 
+        fingerprints = []
+        for fingerprints_item_data in self.fingerprints:
+            fingerprints_item = fingerprints_item_data.to_dict()
+            fingerprints.append(fingerprints_item)
+
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -103,6 +116,7 @@ class VoiceTrace:
             "turns": turns,
             "segments": segments,
             "coverage": coverage,
+            "fingerprints": fingerprints,
         })
 
         return field_dict
@@ -113,6 +127,7 @@ class VoiceTrace:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.speaker_coverage import SpeakerCoverage # noqa: PLC0415
         from ..models.voice_trace_diarization_type_0 import VoiceTraceDiarizationType0 # noqa: PLC0415
+        from ..models.voice_trace_fingerprint import VoiceTraceFingerprint # noqa: PLC0415
         from ..models.voice_trace_segments_item import VoiceTraceSegmentsItem # noqa: PLC0415
         from ..models.voice_trace_transcription import VoiceTraceTranscription # noqa: PLC0415
         from ..models.voice_trace_turns_item import VoiceTraceTurnsItem # noqa: PLC0415
@@ -174,6 +189,16 @@ class VoiceTrace:
             coverage.append(coverage_item)
 
 
+        fingerprints = []
+        _fingerprints = d.pop("fingerprints")
+        for fingerprints_item_data in (_fingerprints):
+            fingerprints_item = VoiceTraceFingerprint.from_dict(fingerprints_item_data)
+
+
+
+            fingerprints.append(fingerprints_item)
+
+
         voice_trace = cls(
             clip_id=clip_id,
             audio_stream_index=audio_stream_index,
@@ -182,6 +207,7 @@ class VoiceTrace:
             turns=turns,
             segments=segments,
             coverage=coverage,
+            fingerprints=fingerprints,
         )
 
 

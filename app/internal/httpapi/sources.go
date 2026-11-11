@@ -79,12 +79,22 @@ func (s *Server) sourceFiles(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
-	files, err := s.Library.ListFiles(r.Context(), id)
+	// The list is bounded: a scan of the whole Racine can index tens of thousands of files.
+	limit := library.MaxListedFiles
+	if raw := r.URL.Query().Get("limit"); raw != "" {
+		n, err := strconv.Atoi(raw)
+		if err != nil || n < 1 || n > library.MaxListedFiles {
+			fail(w, http.StatusBadRequest, "invalid_pagination")
+			return
+		}
+		limit = n
+	}
+	files, total, err := s.Library.ListFiles(r.Context(), id, limit)
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	reply(w, http.StatusOK, map[string]any{"items": files})
+	reply(w, http.StatusOK, map[string]any{"items": files, "total": total})
 }
 
 func (s *Server) scanSource(w http.ResponseWriter, r *http.Request) {

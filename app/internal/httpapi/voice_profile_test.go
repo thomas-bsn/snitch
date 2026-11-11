@@ -70,7 +70,7 @@ func testVoiceProfileDeletion(t *testing.T, pool *pgxpool.Pool) {
 	if err := pool.QueryRow(ctx, `SELECT id FROM local_speakers WHERE clip_id=$1 AND kind='microphone'`, clipC).Scan(&micID); err != nil {
 		t.Fatalf("the microphone track must be attributed before the deletion: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,model,model_version,dimensions,embedding) SELECT $1,$2,fingerprint_job_id,'speaker',0,2,2,0.9,true,model,model_version,dimensions,embedding FROM voice_fingerprints WHERE local_speaker_id=$3`, micID, clipC, nearAlice.ID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,contributive,model,model_version,dimensions,embedding) SELECT $1,$2,fingerprint_job_id,'speaker',0,2,2,0.9,true,true,model,model_version,dimensions,embedding FROM voice_fingerprints WHERE local_speaker_id=$3`, micID, clipC, nearAlice.ID); err != nil {
 		t.Fatal(err)
 	}
 	// clipB is private to the administrator: Alice's account must never see it.

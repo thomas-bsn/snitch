@@ -83,7 +83,7 @@ func (s *Server) explorerProperties(w http.ResponseWriter, r *http.Request) {
 		s.explorerFolderProperties(w, r, root, relative)
 		return
 	}
-	if !info.Mode().IsRegular() || !videoExtension(relative) {
+	if !info.Mode().IsRegular() || !library.IsVideoName(relative) {
 		fail(w, 422, "video_path_unavailable")
 		return
 	}
@@ -145,7 +145,7 @@ func (s *Server) explorerFolderProperties(w http.ResponseWriter, r *http.Request
 			}
 			return nil
 		}
-		if hiddenFolder || !entry.Type().IsRegular() || !videoExtension(entry.Name()) {
+		if hiddenFolder || !entry.Type().IsRegular() || !library.IsVideoName(entry.Name()) {
 			return nil
 		}
 		entries++

@@ -7,6 +7,7 @@ import { buttonClass } from "../../components/buttons";
 import { StatusPill } from "../../components/StatusPill";
 import { useDocumentTitle } from "../../components/useDocumentTitle";
 import { useI18n } from "../../i18n";
+import { useNumberFormats } from "../../useNumberFormats";
 import type { MessageKey } from "../../i18n/messages";
 import {
   EXECUTABLE_STAGES,
@@ -318,6 +319,7 @@ function RunDetail({ id }: { id: number }) {
       <p className="text-sm text-mute">
         {dateTime(language, data.created_at)} · {data.author_name}
       </p>
+      {data.scoring && <ScoringSummary scoring={data.scoring} />}
       {isRunning(data) && (
         <StatusNotice>{t("benchmark.results.waiting")}</StatusNotice>
       )}
@@ -579,6 +581,35 @@ function RunDetail({ id }: { id: number }) {
         </Link>
       </section>
     </div>
+  );
+}
+
+/**
+ * How a fingerprint run was scored: the production score mode and eligibility rule it recorded, so a threshold
+ * read in it is known to hold for production; a run older than them reads as the legacy centroid.
+ */
+function ScoringSummary({ scoring }: { scoring: NonNullable<Run["scoring"]> }) {
+  const { t, language } = useI18n();
+  const mode = t(
+    `benchmark.results.scoring.modes.${scoring.score_mode}` as MessageKey,
+  );
+  const rule = scoring.eligibility_rule;
+  const { seconds } = useNumberFormats();
+  return (
+    <p className="text-sm">
+      <strong>{t("benchmark.results.scoring.title")}</strong>{" "}
+      {rule
+        ? t("benchmark.results.scoring.current", {
+            mode,
+            modeVersion: scoring.score_mode_version ?? "–",
+            cap: seconds(scoring.reference_sample_cap_seconds ?? 0),
+            ruleVersion: rule.version,
+            comparable: seconds(rule.comparable_min_seconds),
+            contributive: seconds(rule.contributive_min_seconds),
+            clipped: percent(language, rule.max_clipped_ratio),
+          })
+        : t("benchmark.results.scoring.legacy", { mode })}
+    </p>
   );
 }
 

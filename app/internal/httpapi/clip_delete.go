@@ -312,6 +312,12 @@ func (s *Server) deleteClip(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// The clip's validated samples go with it (cascade): the References they belonged to change.
+	var heldSamples bool
+	if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_samples WHERE clip_id=$1 AND retired_at IS NULL)`, id).Scan(&heldSamples); err != nil {
+		s.internal(w, err)
+		return
+	}
 	for _, query := range []string{`DELETE FROM source_files WHERE clip_id=$1`, `DELETE FROM uploaded_media WHERE clip_id=$1`, `DELETE FROM uploads WHERE clip_id=$1`, `DELETE FROM clips WHERE id=$1`} {
 		if _, err = tx.Exec(ctx, query, id); err != nil {
 			s.internal(w, err)
@@ -321,6 +327,9 @@ func (s *Server) deleteClip(w http.ResponseWriter, r *http.Request) {
 	if err = tx.Commit(ctx); err != nil {
 		s.internal(w, err)
 		return
+	}
+	if heldSamples {
+		s.libraryMatchingChanged(ctx)
 	}
 	reply(w, 200, map[string]string{"status": "deleted"})
 }

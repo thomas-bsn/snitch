@@ -199,7 +199,7 @@ func (s *Server) deleteVoiceProfile(w http.ResponseWriter, r *http.Request) {
 	}
 	// The deleted profile can no longer be a candidate; microphone designations naming
 	// the Person are re-resolved and no longer attributed.
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	author := s.authorOf(r)
 	for _, clipID := range microphoneClips {
 		if _, applyErr := s.applyMicrophone(ctx, clipID, author); applyErr != nil {

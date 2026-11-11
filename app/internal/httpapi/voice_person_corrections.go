@@ -217,7 +217,7 @@ func (s *Server) mergePerson(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	unlock()
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	view, err := scanPerson(s.Pool.QueryRow(ctx, `SELECT `+personColumns+` FROM persons p WHERE p.id=$1`, target.ID))
 	if err != nil {
 		s.internal(w, err)
@@ -413,7 +413,7 @@ func (s *Server) separatePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	unlock()
 	s.reconcileMicrophones(ctx, affected, author)
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	view, err := scanPerson(s.Pool.QueryRow(ctx, `SELECT `+personColumns+` FROM persons p WHERE p.id=$1`, id))
 	if err != nil {
 		s.internal(w, err)
@@ -514,7 +514,7 @@ func (s *Server) deletePerson(w http.ResponseWriter, r *http.Request) {
 	}
 	unlock()
 	s.reconcileMicrophones(ctx, affected, author)
-	s.matchingChanged(ctx, 0)
+	s.libraryMatchingChanged(ctx)
 	reply(w, http.StatusOK, correctionSummaryView{Attributions: attributions, Samples: samples, MicrophoneRules: rules})
 }
 

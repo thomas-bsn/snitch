@@ -14,6 +14,7 @@ import { api, errorCode, mutation } from "../api/client";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
+import { useNumberFormats } from "../useNumberFormats";
 import { ExcerptPlayer } from "../people/ExcerptPlayer";
 import { useFailureText } from "../people/failureText";
 import { Avatar } from "../people/PersonParts";
@@ -78,7 +79,7 @@ export function VoiceDecision({
   trailing?: ReactNode;
   /** O, N, R, I and Space press the matching button, except inside a text field. */
   shortcuts?: boolean;
-  /** Lists the closest people the server proposes, each with its proximity. */
+  /** Lists the closest people the server proposes, each with its score. */
   showCandidates?: boolean;
   speaker: DecidedVoice;
   /** Name of the clip the excerpt comes from. */
@@ -86,6 +87,7 @@ export function VoiceDecision({
   onChanged: () => void;
 }) {
   const { t } = useI18n();
+  const { score } = useNumberFormats();
   const failureText = useFailureText();
   const { session } = useSession();
   const header = mutation(session?.csrf_token);
@@ -411,10 +413,7 @@ export function VoiceDecision({
               {person.display_name}
               {typeof confidence === "number" && (
                 <span className="ml-1 text-sm font-normal text-mute">
-                  ·{" "}
-                  {t("voiceDecision.similarity", {
-                    percent: Math.round(confidence * 100),
-                  })}
+                  · {t("voiceDecision.score", { score: score(confidence) })}
                 </span>
               )}
             </p>
@@ -445,17 +444,15 @@ export function VoiceDecision({
                 })}
                 {triage && (
                   <span className="text-xs">
-                    {t("voiceDecision.proximity", {
-                      percent: Math.round(candidate.score * 100),
+                    {t("voiceDecision.score", {
+                      score: score(candidate.score),
                     })}
                   </span>
                 )}
               </button>
               {!triage && (
                 <span className="text-xs text-mute">
-                  {t("voiceDecision.proximity", {
-                    percent: Math.round(candidate.score * 100),
-                  })}
+                  {t("voiceDecision.score", { score: score(candidate.score) })}
                 </span>
               )}
             </li>

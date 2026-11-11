@@ -4,6 +4,15 @@ import { useI18n } from "../i18n";
 import { useSession } from "../session";
 import { isAdministrator } from "../roles";
 import { buttonClass } from "../components/buttons";
+import { RootScanCounts, RootScanProgress } from "./RootScanReport";
+import {
+  cancelRootScan,
+  fetchCurrentRootScan,
+  previewRootScan,
+  startRootScan,
+  type RootScan,
+  type RootScanPreview,
+} from "./rootScanApi";
 
 type Root = {
   id: number;
@@ -18,6 +27,9 @@ type Queued = {
   error_code?: string;
   scan_requested?: boolean;
 };
+
+/** The queue lists this many files at most, bounded by the server: a scan of the whole Racine can request thousands. */
+const QUEUE_SHOWN = 200;
 
 async function request(
   path: string,
@@ -56,6 +68,9 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
   const [preview, setPreview] = useState<string[] | null>(null);
   const [previewSelection, setPreviewSelection] = useState<string[]>([]);
   const [queue, setQueue] = useState<Queued[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
+  const [rootScan, setRootScan] = useState<RootScan | null>(null);
+  const [rootPreview, setRootPreview] = useState<RootScanPreview | null>(null);
   const [folder, setFolder] = useState("");
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState("");
@@ -84,13 +99,18 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
       );
       setEntries(browsing.items);
       const files = await request(
-        `/api/admin/sources/${data.root.id}/files`,
+        `/api/admin/sources/${data.root.id}/files?limit=${QUEUE_SHOWN}`,
         csrf,
       );
       setQueue(files.items);
+      setQueueTotal(files.total);
+      const current = await fetchCurrentRootScan();
+      if (current.ok) setRootScan(current.value);
     } else {
       setEntries([]);
       setQueue([]);
+      setQueueTotal(0);
+      setRootScan(null);
     }
   }, [csrf, directory]);
 
@@ -121,8 +141,39 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
         paths,
         confirm: false,
       });
+      setRootPreview(null);
       setPreview(result.paths);
       setPreviewSelection(paths);
+    });
+  }
+
+  // « Scanner toute la racine » (#404): counts first, then a background scan on the server.
+  async function previewRoot() {
+    await action(async () => {
+      const result = await previewRootScan();
+      if (!result.ok) throw new Error(result.code);
+      setPreview(null);
+      setRootPreview(result.value);
+    });
+  }
+
+  async function startRoot() {
+    await action(async () => {
+      const result = await startRootScan(csrf);
+      if (!result.ok) throw new Error(result.code);
+      setRootPreview(null);
+      setRootScan(result.value);
+      setNotice(t("videoStorage.rootScan.started"));
+    });
+  }
+
+  function cancelRoot() {
+    if (!rootScan || !window.confirm(t("videoStorage.rootScan.confirmCancel")))
+      return;
+    void action(async () => {
+      const result = await cancelRootScan(rootScan.id, csrf);
+      if (!result.ok) throw new Error(result.code);
+      setRootScan(result.value);
     });
   }
 
@@ -244,7 +295,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                 <button
                   disabled={busy}
                   className={buttonClass("secondary")}
-                  onClick={() => void scan([""])}
+                  onClick={() => void previewRoot()}
                 >
                   {t("videoStorage.scanRoot")}
                 </button>
@@ -355,6 +406,43 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                   {t("videoStorage.createFolder")}
                 </button>
               </form>
+              {rootPreview && (
+                <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
+                  <h3 className="font-semibold">
+                    {t("videoStorage.rootScan.confirmTitle")}
+                  </h3>
+                  <p className="text-sm">
+                    {t("videoStorage.rootScan.confirmBody")}
+                  </p>
+                  <RootScanCounts
+                    counts={{ ...rootPreview, queued: rootPreview.to_queue }}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      disabled={busy || rootPreview.to_queue === 0}
+                      className={buttonClass("primary")}
+                      onClick={() => void startRoot()}
+                    >
+                      {t("videoStorage.rootScan.confirm", {
+                        count: rootPreview.to_queue,
+                      })}
+                    </button>
+                    <button
+                      className={buttonClass("secondary")}
+                      onClick={() => setRootPreview(null)}
+                    >
+                      {t("videoStorage.cancel")}
+                    </button>
+                  </div>
+                </div>
+              )}
+              {rootScan && (
+                <RootScanProgress
+                  run={rootScan}
+                  busy={busy}
+                  onCancel={cancelRoot}
+                />
+              )}
               {preview && (
                 <div className="flex flex-col gap-3 rounded-lg border border-line p-4">
                   <h3 className="font-semibold">
@@ -417,6 +505,13 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                       </li>
                     ))}
                   </ul>
+                  {queueTotal > queue.length && (
+                    <p className="text-sm text-mute">
+                      {t("videoStorage.queueMore", {
+                        count: queueTotal - queue.length,
+                      })}
+                    </p>
+                  )}
                 </>
               )}
             </>

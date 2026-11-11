@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -108,6 +109,11 @@ func (s *Server) getVoiceTrace(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	fingerprints, err := s.traceFingerprints(ctx, clip.ID, stream)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	segments := []traceSegment{}
 	coverageSegments := []coverageSegment{}
 	for position, raw := range transcript.Segments {
@@ -137,5 +143,70 @@ func (s *Server) getVoiceTrace(w http.ResponseWriter, r *http.Request) {
 		"turns":         turns,
 		"segments":      segments,
 		"coverage":      speakerCoverage(coverageTurns, coverageSegments),
+		"fingerprints":  fingerprints,
 	})
+}
+
+// traceMeasures are the quality measures of a fingerprint as its Worker reported them (#389).
+type traceMeasures struct {
+	Version          int      `json:"version"`
+	NetSpeechSeconds float64  `json:"net_speech_seconds"`
+	OverlapRatio     float64  `json:"overlap_ratio"`
+	Overlapped       bool     `json:"overlapped"`
+	ClippedRatio     *float64 `json:"clipped_ratio"`
+	MeanLevelDBFS    *float64 `json:"mean_level_dbfs"`
+	Coherence        *float64 `json:"coherence"`
+}
+
+type traceFingerprint struct {
+	ID             int64          `json:"id"`
+	LocalSpeakerID int64          `json:"local_speaker_id"`
+	Label          string         `json:"label"`
+	Scope          string         `json:"scope"`
+	TurnIndex      *int           `json:"turn_index"`
+	Start          float64        `json:"start_seconds"`
+	End            float64        `json:"end_seconds"`
+	Duration       float64        `json:"duration_seconds"`
+	Quality        float64        `json:"quality"`
+	Usable         bool           `json:"usable"`
+	UnusableReason string         `json:"unusable_reason"`
+	Model          string         `json:"model"`
+	ModelVersion   string         `json:"model_version"`
+	Measures       *traceMeasures `json:"measures"`
+	fingerprintEligibility
+}
+
+// traceFingerprints lists the production fingerprints of the track's voices (ignored voices excluded, as for the
+// turns) with their measures; measures is null for a fingerprint stored without them (older Worker or older row).
+func (s *Server) traceFingerprints(ctx context.Context, clipID int64, stream int) ([]traceFingerprint, error) {
+	rows, err := s.Pool.Query(ctx, `SELECT f.id,ls.id,ls.label,f.scope,st.turn_index,f.start_seconds,f.end_seconds,f.duration_seconds,f.quality,f.usable,f.unusable_reason,f.model,f.model_version,
+ f.measures_version,f.net_speech_seconds,f.overlap_ratio,f.overlapped,f.clipped_ratio,f.mean_level_dbfs,f.coherence,
+ f.contributive,f.eligibility_rule_version,f.net_speech_source
+ FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id LEFT JOIN speaker_turns st ON st.id=f.turn_id
+ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind<>'archived' AND NOT f.benchmark AND `+notIgnoredVoice+`
+ ORDER BY ls.ordinal,f.scope='turn',st.turn_index,f.id`, clipID, stream)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []traceFingerprint{}
+	for rows.Next() {
+		var f traceFingerprint
+		var version *int
+		var net, overlap *float64
+		var overlapped *bool
+		var m traceMeasures
+		if err = rows.Scan(&f.ID, &f.LocalSpeakerID, &f.Label, &f.Scope, &f.TurnIndex, &f.Start, &f.End, &f.Duration, &f.Quality, &f.Usable, &f.UnusableReason, &f.Model, &f.ModelVersion,
+			&version, &net, &overlap, &overlapped, &m.ClippedRatio, &m.MeanLevelDBFS, &m.Coherence,
+			&f.Contributive, &f.EligibilityRuleVersion, &f.NetSpeechSource); err != nil {
+			return nil, err
+		}
+		f.NetSpeechSeconds = net
+		if version != nil && net != nil && overlap != nil && overlapped != nil {
+			m.Version, m.NetSpeechSeconds, m.OverlapRatio, m.Overlapped = *version, *net, *overlap, *overlapped
+			f.Measures = &m
+		}
+		out = append(out, f)
+	}
+	return out, rows.Err()
 }

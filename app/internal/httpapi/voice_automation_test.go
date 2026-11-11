@@ -114,6 +114,12 @@ func testVoiceAutomation(t *testing.T, pool *pgxpool.Pool) {
 	eve := h.fixtureSpeaker(c[6], "REF_EVE", usableAt(135))
 	h.validate(eve, "Eve") // a single clip: reference only, never tested
 
+	// Thresholds belong to the fingerprint group (#393): without applied ones, nothing would be automatic.
+	if r := h.accuracy(); r.Evaluation.TestSamples != 4 || r.Evaluation.EvaluatedAutomatic != 0 || r.Evaluation.Precision != nil {
+		t.Fatalf("a group without applied thresholds attributes nothing automatically: %+v", r.Evaluation)
+	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75)
+
 	r := h.accuracy()
 	e := r.Evaluation
 	if e.ReferenceSamples != 5 || e.TestSamples != 4 || e.ExcludedSamples != 0 || e.EvaluatedAutomatic != 3 || e.Confirmed != 2 || !approx(e.Precision, 2.0/3) || !approx(e.Coverage, 0.75) {
@@ -159,9 +165,11 @@ func testVoiceAutomation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("criteria reached: Snitch must propose the activation: %+v", r)
 	}
 
-	// Unvalidated voices in a clip without any reference: strong, middling, far.
+	// Unvalidated voices in a clip without any reference: strong, middling, far. In production every validated
+	// sample of a Person adds up to her cumulative Reference (ADR 0064): Alice points at 1.5 degrees, Bob at 87.5,
+	// Carol at 134 (her test voice sounds like Bob), Eve at 135 and Frank at 337.5.
 	strong := h.fixtureSpeaker(c[9], "STRONG", usableAt(2))     // cosine 0.999 to Alice
-	middling := h.fixtureSpeaker(c[9], "MIDDLE", usableAt(210)) // 0.866 to Carol: a suggestion
+	middling := h.fixtureSpeaker(c[9], "MIDDLE", usableAt(300)) // 0.793 to Frank: a suggestion
 	far := h.fixtureSpeaker(c[9], "FAR", usableAt(225))         // unknown
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 	// The microphone speaker is counted apart: it never depends on the switch.

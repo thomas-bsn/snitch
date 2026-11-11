@@ -86,12 +86,14 @@ type benchmarkRunView struct {
 	Chains      []benchmarkChain `json:"chains"`
 	// ReferenceSources: where the references of the corpus come from (production and/or import); the bias warning
 	// applies only when production is among them.
-	ReferenceSources []string              `json:"reference_sources"`
-	AuthorName       string                `json:"author_name"`
-	CreatedAt        time.Time             `json:"created_at"`
-	FinishedAt       *time.Time            `json:"finished_at"`
-	Progress         benchmarkProgress     `json:"progress"`
-	Results          []benchmarkResultView `json:"results"`
+	ReferenceSources []string `json:"reference_sources"`
+	// Scoring: for a fingerprint run, the score mode and eligibility rule it is scored under (#397); null otherwise.
+	Scoring    *benchmarkScoring     `json:"scoring"`
+	AuthorName string                `json:"author_name"`
+	CreatedAt  time.Time             `json:"created_at"`
+	FinishedAt *time.Time            `json:"finished_at"`
+	Progress   benchmarkProgress     `json:"progress"`
+	Results    []benchmarkResultView `json:"results"`
 }
 
 type benchmarkProgress struct {
@@ -211,6 +213,7 @@ func (s *Server) loadBenchmarkRun(ctx context.Context, id int64, detail bool) (b
 	if json.Unmarshal(params, &parsed) == nil && parsed.Chains != nil {
 		v.Chains = parsed.Chains
 	}
+	v.Scoring = recordedScoring(v.Stage, params)
 	rows, err := s.Pool.Query(ctx, `SELECT j.id,rj.model_id,j.status,j.last_error FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 ORDER BY j.id,rj.model_id`, id)
 	if err != nil {
 		return v, err
@@ -417,6 +420,12 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	params = s.withProfiles(r.Context(), params, input.Stage)
+	if input.Stage == benchmarkStageFingerprint {
+		if params, err = withScoring(r.Context(), s.Pool, params); err != nil {
+			s.internal(w, err)
+			return
+		}
+	}
 	var runID int64
 	err = s.Pool.QueryRow(r.Context(), `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_id,author_name) VALUES($1,$2,$3,'running',$4,$5,$6,$7) RETURNING id`,
 		input.DatasetID, name, input.Stage, input.ModelIDs, params, ss.User.ID, ss.User.Username).Scan(&runID)
@@ -545,6 +554,18 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 	if active > 0 {
 		return nil
 	}
+	// A fingerprint run is scored under the mode and rule recorded when it started. One started before they were
+	// recorded is scored under those active now, which it records first: what is shown is what was used.
+	scoring := recordedScoring(stage, paramsRaw)
+	if scoring != nil && scoring.ScoreMode == scoreCentroidLegacy {
+		if paramsRaw, err = withScoring(ctx, tx, paramsRaw); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE benchmark_runs SET params=$2 WHERE id=$1`, runID, paramsRaw); err != nil {
+			return err
+		}
+		scoring = recordedScoring(stage, paramsRaw)
+	}
 	scored := 0
 	for _, model := range models {
 		var res benchModelResult
@@ -568,7 +589,7 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 		case "diarization":
 			res, err = computeDiarizationResult(ctx, tx, runID, datasetID, model)
 		default:
-			res, err = computeFingerprintResult(ctx, tx, runID, datasetID, model)
+			res, err = computeFingerprintResult(ctx, tx, runID, datasetID, model, *scoring)
 		}
 		if err != nil {
 			return err
@@ -600,9 +621,28 @@ type benchModelResult struct {
 	metrics        []byte
 }
 
+// benchmarkFingerprintsSQL lists the items of a dataset ($4) with the latest benchmark speaker fingerprint the
+// jobs of a run ($1) produced for a model ($2, repository $3), decided by the eligibility statement of production
+// under the rule of the run ($5-$8), read-only: no fingerprint is requalified, nothing is written.
+var benchmarkFingerprintsSQL = `WITH rule AS (
+  SELECT $5::int AS version,$6::double precision AS comparable_min_seconds,$7::double precision AS contributive_min_seconds,$8::double precision AS max_clipped_ratio
+), picked AS (
+  SELECT i.person_id,i.split,i.local_speaker_id,f.id AS fingerprint_id
+  FROM benchmark_dataset_items i
+  LEFT JOIN LATERAL (SELECT id FROM voice_fingerprints
+    WHERE local_speaker_id=i.local_speaker_id AND benchmark AND scope='speaker' AND model=$3
+      AND fingerprint_job_id IN (SELECT job_id FROM benchmark_run_jobs WHERE run_id=$1 AND model_id=$2)
+    ORDER BY id DESC LIMIT 1) f ON true
+  WHERE i.dataset_id=$4
+), ` + eligibilityDecidedOverSQL(`f.benchmark`, `f.id IN (SELECT fingerprint_id FROM picked)`) + `
+SELECT p.person_id,p.split,d.clip_id,d.model_version,d.dimensions,f.embedding::real[],d.net,d.reason='',d.now_contributive
+FROM picked p LEFT JOIN decided d ON d.id=p.fingerprint_id LEFT JOIN voice_fingerprints f ON f.id=d.id
+ORDER BY p.person_id,p.local_speaker_id`
+
 // computeFingerprintResult measures one model on the dataset from the benchmark fingerprints its own jobs
-// produced in this run (fingerprint_job_id), never from an older run's rows nor from production.
-func computeFingerprintResult(ctx context.Context, q pgQuerier, runID, datasetID int64, modelID string) (benchModelResult, error) {
+// produced in this run (fingerprint_job_id), never from an older run's rows nor from production. They are decided
+// by the eligibility rule of the run and scored under its score mode, as production would decide and score them.
+func computeFingerprintResult(ctx context.Context, q pgQuerier, runID, datasetID int64, modelID string, scoring benchmarkScoring) (benchModelResult, error) {
 	res := benchModelResult{model: modelID}
 	var repo string
 	err := q.QueryRow(ctx, `SELECT repo FROM voice_model_catalog WHERE id=$1`, modelID).Scan(&repo)
@@ -613,42 +653,50 @@ func computeFingerprintResult(ctx context.Context, q pgQuerier, runID, datasetID
 		repo = modelID
 	}
 	res.model = repo
-	rows, err := q.Query(ctx, `SELECT i.person_id,i.split,f.model_version,f.dimensions,f.embedding::real[]
-		FROM benchmark_dataset_items i
-		LEFT JOIN LATERAL (SELECT model_version,dimensions,embedding FROM voice_fingerprints
-			WHERE local_speaker_id=i.local_speaker_id AND benchmark AND usable AND scope='speaker' AND model=$3
-			  AND fingerprint_job_id IN (SELECT job_id FROM benchmark_run_jobs WHERE run_id=$1 AND model_id=$2)
-			ORDER BY id DESC LIMIT 1) f ON true
-		WHERE i.dataset_id=$4`, runID, modelID, repo, datasetID)
+	rule := scoring.EligibilityRule
+	rows, err := q.Query(ctx, benchmarkFingerprintsSQL, runID, modelID, repo, datasetID, rule.Version, rule.ComparableMinSeconds, rule.ContributiveMinSeconds, rule.MaxClippedRatio)
 	if err != nil {
 		return res, err
 	}
 	defer rows.Close()
 	var refs, tests []benchSample
+	withVector := 0
 	for rows.Next() {
 		var person int64
 		var split string
+		var clip *int64
 		var version *string
 		var dims *int
 		var vector []float32
-		if err = rows.Scan(&person, &split, &version, &dims, &vector); err != nil {
+		var net *float64
+		var comparable, contributive *bool
+		if err = rows.Scan(&person, &split, &clip, &version, &dims, &vector, &net, &comparable, &contributive); err != nil {
 			return res, err
 		}
 		res.total++
 		if vector == nil {
 			continue
 		}
-		res.scored++
+		withVector++
 		if res.version == "" && version != nil {
 			res.version = *version
 		}
 		if dims != nil && res.dimensions == 0 {
 			res.dimensions = *dims
 		}
+		s := benchSample{Person: person, Vector: vector}
+		if clip != nil {
+			s.Clip = *clip
+		}
+		if net != nil {
+			s.NetSpeech = *net
+		}
+		s.Comparable = comparable != nil && *comparable
+		s.Contributive = contributive != nil && *contributive
 		if split == "reference" {
-			refs = append(refs, benchSample{person, vector})
+			refs = append(refs, s)
 		} else {
-			tests = append(tests, benchSample{person, vector})
+			tests = append(tests, s)
 		}
 	}
 	if err = rows.Err(); err != nil {
@@ -658,15 +706,17 @@ func computeFingerprintResult(ctx context.Context, q pgQuerier, runID, datasetID
 	if err = q.QueryRow(ctx, `SELECT extract(epoch FROM max(j.updated_at)-min(j.created_at)) FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 AND rj.model_id=$2 AND j.status='done'`, runID, modelID).Scan(&res.elapsed); err != nil {
 		return res, err
 	}
+	metrics := evaluateFingerprints(scoring.ScoreMode, refs, tests, res.dimensions)
+	// An item is measured when its fingerprint exists and the rule lets it play its part, as in production.
+	res.scored = withVector - metrics.Ineligible
 	switch {
-	case res.scored == 0 || len(refs) == 0:
+	case res.scored == 0 || metrics.References == 0:
 		res.state = "failed"
 	case res.scored < res.total:
 		res.state = "partial"
 	default:
 		res.state = "complete"
 	}
-	metrics := evaluateFingerprints(refs, tests, res.dimensions)
 	if res.metrics, err = json.Marshal(metrics); err != nil {
 		return res, err
 	}

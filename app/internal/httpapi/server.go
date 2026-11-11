@@ -65,6 +65,12 @@ type Server struct {
 	backgroundWG          sync.WaitGroup
 	incidents             incidentSync
 	passwordSlots         chan struct{}
+	// Background voice matching (voice_matching_queue.go). matchingWake is nil when no loop runs: the server was
+	// not started, or matchingInline asks to run matching in the caller (tests that read it right after a
+	// change). matchingRetry is the pause before a failed pass is retried (0: 30 s).
+	matchingWake   chan struct{}
+	matchingInline bool
+	matchingRetry  time.Duration
 	// Discord avatar synchronization; the durations are zero in production (defaults) and shortened by tests.
 	avatarWG                                                 sync.WaitGroup
 	avatarRetryBase, avatarPause, avatarTick, avatarCooldown time.Duration
@@ -131,6 +137,11 @@ func (s *Server) Start(ctx context.Context) error {
 		return fmt.Errorf("start library: %w", err)
 	}
 	s.backgroundContext, s.backgroundCancel = context.WithCancel(ctx)
+	if !s.matchingInline {
+		s.matchingWake = make(chan struct{}, 1)
+		s.backgroundWG.Add(1)
+		go func() { defer s.backgroundWG.Done(); s.serveVoiceMatching(s.backgroundContext) }()
+	}
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.Events.Serve(s.backgroundContext) }()
 	s.backgroundWG.Add(1)
@@ -141,6 +152,8 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() { defer s.backgroundWG.Done(); s.serveAudioVoices(s.backgroundContext, time.Minute) }()
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveIncidents(s.backgroundContext, analysisInterval) }()
+	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.serveFingerprintRecompute(s.backgroundContext, time.Minute) }()
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveDiscordAvatars(s.backgroundContext) }()
 	s.backgroundWG.Add(1)
@@ -203,6 +216,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/library/explorer/index", s.protected(false, http.HandlerFunc(s.explorerIndex)))
 	mux.Handle("POST /api/admin/video-root/folders", s.protected(true, http.HandlerFunc(s.videoFolder)))
 	mux.Handle("POST /api/admin/video-root/scan", s.protected(true, http.HandlerFunc(s.videoScan)))
+	mux.Handle("GET /api/admin/video-root/scan-runs/preview", s.protected(true, http.HandlerFunc(s.previewRootScan)))
+	mux.Handle("GET /api/admin/video-root/scan-runs/current", s.protected(true, http.HandlerFunc(s.currentRootScan)))
+	mux.Handle("POST /api/admin/video-root/scan-runs", s.protected(true, http.HandlerFunc(s.startRootScan)))
+	mux.Handle("POST /api/admin/video-root/scan-runs/{id}/cancel", s.protected(true, http.HandlerFunc(s.cancelRootScan)))
 	mux.Handle("GET /api/admin/library/index-runs/preview", s.protected(true, http.HandlerFunc(s.previewIndexRun)))
 	mux.Handle("GET /api/admin/library/index-runs/current", s.protected(true, http.HandlerFunc(s.currentIndexRun)))
 	mux.Handle("POST /api/admin/library/index-runs", s.protected(true, http.HandlerFunc(s.startIndexRun)))
@@ -383,6 +400,9 @@ func (s *Server) Handler() http.Handler {
 	s.registerVoiceRoutes(mux)
 	s.registerPersonRoutes(mux)
 	s.registerVoiceMatchingRoutes(mux)
+	s.registerVoiceEligibilityRoutes(mux)
+	s.registerFingerprintRecomputeRoutes(mux)
+	s.registerVoiceScoreModeRoutes(mux)
 	s.registerVoiceProfileRoutes(mux)
 	s.registerPersonLinkRoutes(mux)
 	s.registerVoiceGroupRoutes(mux)

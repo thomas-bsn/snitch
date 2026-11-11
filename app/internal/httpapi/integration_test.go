@@ -98,10 +98,10 @@ func TestFoundation(t *testing.T) {
 		if _, e = pool.Exec(ctx, `UPDATE voice_pipeline_active SET version='voice-v1' WHERE id=true`); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
+		if _, e = pool.Exec(ctx, `DELETE FROM voice_fingerprint_transitions; DELETE FROM voice_recompute_runs; UPDATE voice_active_model SET model_id='pyannote-wespeaker-resnet34' WHERE kind='fingerprint'`); e != nil {
 			t.Fatal(e)
 		}
-		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events`); e != nil {
+		if _, e = pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5,precision_threshold=0.95,min_confirmations=50,auto_changed_at=NULL,auto_changed_by=NULL WHERE id=true; DELETE FROM voice_automation_events; DELETE FROM voice_eligibility_requalifications; DELETE FROM voice_eligibility_rules WHERE version>1; UPDATE voice_eligibility_rules SET comparable_min_seconds=2.0,contributive_min_seconds=1.0,max_clipped_ratio=0.01 WHERE version=1; DELETE FROM voice_score_modes WHERE version>1; UPDATE voice_score_modes SET mode='cumulative' WHERE version=1; TRUNCATE voice_profile_deletions; DELETE FROM voice_group_thresholds; DELETE FROM voice_matching_requests; UPDATE voice_matching_status SET running_since=NULL,last_finished_at=NULL,last_duration_ms=NULL,last_requests=NULL,last_failed_at=NULL`); e != nil {
 			t.Fatal(e)
 		}
 	}
@@ -347,6 +347,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceCoverage(t, pool)
 	})
+	t.Run("voice fingerprint measures", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintMeasures(t, pool)
+	})
 	t.Run("voice rediarization", func(t *testing.T) {
 		reset(t)
 		testVoiceRediarization(t, pool)
@@ -390,6 +394,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("ai benchmark fingerprints", func(t *testing.T) {
 		reset(t)
 		testAIBenchmarkFingerprints(t, pool)
+	})
+	t.Run("ai benchmark scoring", func(t *testing.T) {
+		reset(t)
+		testBenchmarkScoring(t, pool)
 	})
 	t.Run("ai benchmark transcription", func(t *testing.T) {
 		reset(t)
@@ -610,6 +618,22 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceMatching(t, pool)
 	})
+	t.Run("voice reference", func(t *testing.T) {
+		reset(t)
+		testVoiceReference(t, pool)
+	})
+	t.Run("voice matching in the background", func(t *testing.T) {
+		reset(t)
+		testVoiceMatchingBackground(t, pool)
+	})
+	t.Run("voice matching performance", func(t *testing.T) {
+		reset(t)
+		testVoiceMatchingPerformance(t, pool)
+	})
+	t.Run("person reference level", func(t *testing.T) {
+		reset(t)
+		testPersonReferenceLevel(t, pool)
+	})
 	t.Run("voice matching diagnostics", func(t *testing.T) {
 		reset(t)
 		testVoiceMatchingDiagnostics(t, pool)
@@ -617,6 +641,34 @@ func TestFoundation(t *testing.T) {
 	t.Run("voice automation", func(t *testing.T) {
 		reset(t)
 		testVoiceAutomation(t, pool)
+	})
+	t.Run("voice group thresholds", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupThresholds(t, pool)
+	})
+	t.Run("voice thresholds per score mode", func(t *testing.T) {
+		reset(t)
+		testVoiceThresholdsPerScoreMode(t, pool)
+	})
+	t.Run("voice calibration", func(t *testing.T) {
+		reset(t)
+		testVoiceCalibration(t, pool)
+	})
+	t.Run("voice group thresholds migration", func(t *testing.T) {
+		reset(t)
+		testVoiceGroupThresholdsMigration(t, pool)
+	})
+	t.Run("voice eligibility", func(t *testing.T) {
+		reset(t)
+		testVoiceEligibility(t, pool)
+	})
+	t.Run("voice eligibility preview", func(t *testing.T) {
+		reset(t)
+		testVoiceEligibilityPreview(t, pool)
+	})
+	t.Run("voice fingerprint recompute", func(t *testing.T) {
+		reset(t)
+		testVoiceFingerprintRecompute(t, pool)
 	})
 	t.Run("voice groups", func(t *testing.T) {
 		reset(t)
@@ -681,6 +733,10 @@ func TestFoundation(t *testing.T) {
 	t.Run("library index", func(t *testing.T) {
 		reset(t)
 		testLibraryIndex(t, pool)
+	})
+	t.Run("root scan", func(t *testing.T) {
+		reset(t)
+		testRootScan(t, pool)
 	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
@@ -1148,9 +1204,27 @@ func TestFoundation(t *testing.T) {
 		call(client, "PUT", "/api/voice-groups/999999/disposition", map[string]any{"disposition": "random", "local_speaker_ids": []int64{1}}, me.CSRF, 404)
 		// Voice matching settings and rematch (behavior in the voice matching suite).
 		call(client, "GET", "/api/voice-matching", nil, "", 200)
+		call(client, "GET", "/api/voice-matching/status", nil, "", 200) // its stream in the background matching suite
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.5, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-matching/rematch", nil, me.CSRF, 200)
+		// Fingerprint eligibility rule (behavior in the voice eligibility suite).
+		call(client, "GET", "/api/admin/voice-eligibility", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-eligibility", map[string]any{"comparable_min_seconds": 2, "contributive_min_seconds": 1, "max_clipped_ratio": 0.01}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-eligibility", map[string]any{"comparable_min_seconds": 1, "contributive_min_seconds": 2, "max_clipped_ratio": 0.01}, me.CSRF, 400)
+		call(client, "GET", "/api/admin/voice-eligibility/preview?durations=1&durations=2", nil, "", 200)
+		call(client, "GET", "/api/admin/voice-eligibility/preview?comparable_min_seconds=1&contributive_min_seconds=2", nil, "", 400)
+		call(client, "GET", "/api/admin/voice-fingerprint-recompute/preview", nil, "", 200)
+		call(client, "GET", "/api/admin/voice-fingerprint-recompute", nil, "", 200)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute/resume", nil, me.CSRF, 404)
+		call(client, "DELETE", "/api/admin/voice-fingerprint-recompute", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 99}, me.CSRF, 409)
+		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 0}, me.CSRF, 201)
+		call(client, "DELETE", "/api/admin/voice-fingerprint-recompute", nil, me.CSRF, 409)
+		// Score mode (behavior in the voice reference suite).
+		call(client, "GET", "/api/admin/voice-score-mode", nil, "", 200)
+		call(client, "PUT", "/api/admin/voice-score-mode", map[string]any{"mode": "best_sample"}, me.CSRF, 200)
+		call(client, "PUT", "/api/admin/voice-score-mode", map[string]any{"mode": "cumulative"}, me.CSRF, 200)
 		// Account link and voice profile deletion (behavior in the voice profile suite).
 		personPath := "/api/admin/persons/" + strconv64(contractPerson.ID) + "/account"
 		call(client, "GET", "/api/me/person", nil, "", 404)
@@ -1359,6 +1433,11 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/admin/library/index-runs/999999/pause", nil, me.CSRF, 404)
 		call(client, "POST", "/api/admin/library/index-runs/999999/resume", nil, me.CSRF, 404)
 		call(client, "POST", "/api/admin/library/index-runs/999999/cancel", nil, me.CSRF, 404)
+		// Scan of the whole video root (#404): conformity here, behavior in the root scan suite.
+		call(client, "GET", "/api/admin/video-root/scan-runs/preview", nil, "", 409)
+		call(client, "GET", "/api/admin/video-root/scan-runs/current", nil, "", 200)
+		call(client, "POST", "/api/admin/video-root/scan-runs", nil, me.CSRF, 409)
+		call(client, "POST", "/api/admin/video-root/scan-runs/999999/cancel", nil, me.CSRF, 404)
 		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)
@@ -1520,7 +1599,7 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/clips/"+strconv64(contractClipID)+"/voice-trace", nil, "", 200) // behavior in the voice coverage suite
 		for path, item := range spec.Paths.Map() {
 			for method := range item.Operations() {
-				if strings.Contains(path, "/voice-engine") || path == "/api/admin/voice-model-runtime-orders" || strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || strings.HasPrefix(path, "/api/admin/benchmarks") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/clips/{id}/audio-selection") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/updater" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || path == "/api/admin/workers/{id}/logs" || path == "/api/admin/workers/{id}/control" || path == "/api/worker/logs" || strings.HasPrefix(path, "/api/worker/control") || path == "/api/library/explorer/properties" || path == "/api/library/folder-logo" || path == "/api/library/folder-logo/history" {
+				if strings.Contains(path, "/voice-engine") || path == "/api/admin/voice-model-runtime-orders" || strings.HasPrefix(path, "/api/admin/video-root") || strings.HasPrefix(path, "/api/admin/voice-models/fingerprint-transition") || strings.HasPrefix(path, "/api/admin/benchmarks") || path == "/api/account/avatar" || path == "/api/account/avatar-settings" || path == "/api/account/avatar/discord-refresh" || strings.HasPrefix(path, "/api/admin/discord-bot") || strings.HasPrefix(path, "/api/uploads") || strings.HasPrefix(path, "/api/notifications") || path == "/api/clips/{id}/media" || path == "/api/clips/{id}/thumbnail" || path == "/api/admin/clips/{id}/transcription" || strings.HasPrefix(path, "/api/admin/clips/{id}/analysis") || strings.HasPrefix(path, "/api/admin/clips/{id}/audio-selection") || strings.HasPrefix(path, "/api/admin/analysis/") || path == "/api/admin/clips/{id}/analysis/events" || path == "/api/clips/{id}/analysis/events" || path == "/api/voice-matching/status/events" || path == "/api/search" || strings.HasPrefix(path, "/api/admin/transcriptions/batch-") || path == "/api/admin/transcription-pipeline" || path == "/api/admin/embeddings/settings" || path == "/api/admin/embeddings/settings/test" || path == "/api/admin/members" || path == "/api/admin/members/{id}" || path == "/api/admin/members/{id}/role" || path == "/api/account" || path == "/api/admin/workers/{id}/transcription-model" || path == "/api/admin/transcription-settings" || strings.HasPrefix(path, "/api/worker/transcription-config") || path == "/api/worker/install/{code}" || path == "/api/worker/revocation" || path == "/api/worker/jobs/{id}/logs" || path == "/api/admin/jobs/{id}/logs/events" || path == "/api/admin/worker-updates" || path == "/api/worker/update" || path == "/api/worker/updater" || path == "/api/worker/update-status" || strings.HasPrefix(path, "/api/worker/hf-token") || path == "/api/admin/hf-token" || path == "/api/admin/workers/events" || path == "/api/admin/workers/{id}/events" || path == "/api/admin/workers/{id}/logs" || path == "/api/admin/workers/{id}/control" || path == "/api/worker/logs" || strings.HasPrefix(path, "/api/worker/control") || path == "/api/library/explorer/properties" || path == "/api/library/folder-logo" || path == "/api/library/folder-logo/history" {
 					continue // These contract operations are covered by their focused integration suites, including explorer properties, custom folder logos and audio selection.
 				}
 				if !seen[method+" "+path] {

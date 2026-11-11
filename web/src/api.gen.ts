@@ -1662,6 +1662,80 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/video-root/scan-runs/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Estimer le scan de toute la Racine vidéo, sans le lancer (administrateur)
+     * @description Parcourt les dossiers de la Racine (jamais le contenu des vidéos) et compte, sans lister les chemins, les vidéos qui seraient mises en file, celles déjà à jour et ce qui est exclu par motif. Les Dossiers privés sont exclus pour tous les rôles, Super-administrateur compris ; un dossier illisible est compté, pas bloquant.
+     */
+    get: operations["previewRootScan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan-runs/current": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dernier scan de toute la Racine vidéo : progression puis bilan (administrateur) */
+    get: operations["getCurrentRootScan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan-runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Scanner toute la Racine vidéo en arrière-plan (administrateur, action explicite)
+     * @description Répond aussitôt : le parcours du disque et la mise en file avancent en arrière-plan, sans limite de nombre, et reprennent après un redémarrage. Met en file les vidéos non indexées, modifiées, ou indexées mais jamais analysées ; leur analyse suit ensuite les réglages de traitement. Exclut les Dossiers privés (tous rôles), les fichiers et dossiers masqués, les dossiers système et les clips privés. Un clip déjà analysé n'est pas réanalysé. Un seul scan ou une seule indexation en cours par Racine.
+     */
+    post: operations["startRootScan"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan-runs/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Annuler le scan : le parcours s'arrête et les vidéos pas encore prises ne sont plus demandées (administrateur) */
+    post: operations["cancelRootScan"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/settings/automatic-analysis": {
     parameters: {
       query?: never;
@@ -2973,6 +3047,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/voice-matching/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Après une validation, une correction ou un changement de réglage, le rapprochement suit en arrière-plan (#392) : cet état dit s'il est en cours et quand le dernier s'est terminé, donc si les suggestions affichées sont à jour. */
+    get: operations["getVoiceMatchingStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/voice-matching/status/events": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Utilisateurs connectés. Repli : GET /api/voice-matching/status. */
+    get: operations["streamVoiceMatchingStatus"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-matching": {
     parameters: {
       query?: never;
@@ -2981,7 +3089,7 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
+    /** @description Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut, au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409 voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status). */
     put: operations["updateVoiceMatching"];
     post?: never;
     delete?: never;
@@ -2999,8 +3107,114 @@ export interface paths {
     };
     get?: never;
     put?: never;
-    /** @description Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. */
+    /** @description Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres. */
     post: operations["rematchVoices"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-eligibility": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getVoiceEligibility"];
+    /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport avant/après) ; la relancer sous la même règle ne change aucune empreinte. */
+    put: operations["updateVoiceEligibility"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-score-mode": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getVoiceScoreMode"];
+    /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre le mode actif n'enregistre rien. */
+    put: operations["updateVoiceScoreMode"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-eligibility/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Décide les empreintes de Locuteur local de production sous la règle examinée et sous chaque durée, avec le calcul même de la requalification, dans une transaction en lecture seule. */
+    get: operations["previewVoiceEligibility"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Ampleur du recalcul des empreintes sur la Parole nette (#395), sans rien modifier ni lire de média : empreintes de Locuteur local de production au vecteur d'origine (sans mesures du Worker) dans le groupe du modèle d'empreinte actif, dont recalculables, tâches (une par diarisation) et clips, sources audio absentes, Locuteurs archivés sans diarisation courante, échantillons validés concernés. */
+    get: operations["previewVoiceRecompute"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Recalcul en cours ou, à défaut, le dernier terminé, avec sa progression ou son rapport final. Lire l'état fait aussi avancer un recalcul interrompu. */
+    get: operations["getVoiceRecompute"];
+    put?: never;
+    /** @description Administrateurs uniquement. Lance le recalcul : confirm_fingerprints doit être le nombre d'empreintes vu dans l'aperçu (voice_recompute_preview_stale sinon). Refusé pendant une transition de modèle d'empreinte ouverte (voice_transition_in_progress) et pendant un autre recalcul (voice_recompute_in_progress). Rien n'est rediarisé ; aucun job de production n'est remplacé. */
+    post: operations["startVoiceRecompute"];
+    /** @description Administrateurs uniquement. Annule le recalcul en cours : seules ses propres tâches sont annulées, les empreintes déjà recalculées restent, le rapport est figé et la bibliothèque rapprochée de nouveau (voice_recompute_not_running sans recalcul en cours). */
+    delete: operations["cancelVoiceRecompute"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Reprend le dernier recalcul : replanifie les empreintes dont la tâche a échoué ou a été annulée ; une tâche réussie n'est jamais recréée. Refusé pendant une transition de modèle d'empreinte ouverte. */
+    post: operations["resumeVoiceRecompute"];
     delete?: never;
     options?: never;
     head?: never;
@@ -5901,13 +6115,32 @@ export interface components {
       end_seconds: number;
       duration_seconds: number;
       quality: number;
-      /** @description Faux : ne sert ni de référence ni de base de propagation. */
+      /** @description Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064). */
       usable: boolean;
-      /** @enum {string} */
-      unusable_reason: "" | "too_short" | "low_quality";
+      /**
+       * @description Pourquoi l'empreinte n'est pas comparable (vide si elle l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ; clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes antérieures ou de benchmark).
+       * @enum {string}
+       */
+      unusable_reason:
+        | ""
+        | "too_short"
+        | "low_quality"
+        | "overlap_only"
+        | "clipped";
       model: string;
       model_version: string;
       dimensions: number;
+      /** @description Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais. */
+      contributive: boolean;
+      /** @description Version de la règle d'éligibilité qui a décidé. Null : décidée à l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification). */
+      eligibility_rule_version: number | null;
+      /** @description Parole nette retenue par la règle. Null : pas encore évaluée. */
+      net_speech_seconds: number | null;
+      /**
+       * @description Origine de la Parole nette : worker (mesures du Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur local validé puis archivé : durée de l'empreinte, majorant de la Parole nette).
+       * @enum {string|null}
+       */
+      net_speech_source: "worker" | "turns" | "estimated" | null;
     };
     PersonExists: {
       /** @enum {string} */
@@ -5956,6 +6189,64 @@ export interface components {
     };
     IndexRunAnswer: {
       run: components["schemas"]["IndexRun"] | null;
+    };
+    RootScanExcluded: {
+      /** @description Dossiers privés laissés de côté sans être ouverts. */
+      private_folders: number;
+      /** @description Dossiers et vidéos dont le nom commence par un point. */
+      hidden: number;
+      /** @description Dossiers système du NAS (#recycle, @eaDir). */
+      system: number;
+      /** @description Vidéos indexées dont le clip est privé. */
+      private_clips: number;
+    };
+    RootScanPreview: {
+      /** @description Vidéos éligibles rencontrées. */
+      seen: number;
+      /** @description Vidéos qui seraient mises en file : non indexées, modifiées, ou indexées mais jamais analysées. */
+      to_queue: number;
+      /** @description Vidéos indexées dont le clip est déjà analysé : rien à faire. */
+      up_to_date: number;
+      excluded: components["schemas"]["RootScanExcluded"];
+      /** @description Dossiers illisibles, sautés. */
+      unreadable_folders: number;
+      /** @description Les premiers dossiers illisibles, relatifs à la Racine. */
+      unreadable_paths: string[];
+    };
+    RootScan: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      status: "running" | "cancelled" | "completed";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** @description Vrai tant que le disque est parcouru. */
+      walking: boolean;
+      /** @description Vidéos éligibles rencontrées jusqu'ici. */
+      seen: number;
+      /** @description Vidéos mises en file par ce scan. */
+      queued: number;
+      /** @description Vidéos mises en file déjà prises par le scan géré. */
+      done: number;
+      /** @description Vidéos mises en file qui attendent encore. */
+      pending: number;
+      /** @description Vidéos illisibles, disparues ou en erreur. */
+      failed: number;
+      /** @description Vidéos indexées dont le clip est déjà analysé. */
+      up_to_date: number;
+      /** @description Des vidéos attendent et aucun Worker n'est en ligne. */
+      waiting_for_worker: boolean;
+      excluded: components["schemas"]["RootScanExcluded"];
+      /** @description Dossiers illisibles, sautés. */
+      unreadable_folders: number;
+      unreadable_paths: string[];
+      /** @description Les premières vidéos en échec, avec leur code. */
+      failures: components["schemas"]["IndexRunFailure"][];
+    };
+    RootScanAnswer: {
+      run: components["schemas"]["RootScan"] | null;
     };
     PersonInput: {
       display_name: string;
@@ -6024,6 +6315,8 @@ export interface components {
       voice_profile_deleted_at: string | null;
       /** Format: date-time */
       created_at: string;
+      /** @description Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou d'une correction. */
+      reference: components["schemas"]["PersonReference"] | null;
     };
     PersonMergeInput: {
       /**
@@ -6086,6 +6379,18 @@ export interface components {
       recorded_at: string;
       /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
       sample_count: number;
+      /**
+       * @description Ce que la Référence du groupe d'empreinte actif, dans le mode de score actif, fait de l'échantillon de cette voix : contributive (utilisé), ou la raison de son écart (en mode best_sample, un échantillon contributif mais non comparable est écarté comme too_short) ; null quand la voix ne fournit aucun échantillon actif.
+       * @enum {string|null}
+       */
+      reference_use:
+        | "contributive"
+        | "too_short"
+        | "overlap_only"
+        | "clipped"
+        | "low_quality"
+        | "no_fingerprint"
+        | null;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];
@@ -6418,6 +6723,10 @@ export interface components {
       auto_changed_at: string | null;
       /** Format: date-time */
       updated_at: string;
+      /** @description Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une installation sans empreinte (valeurs provisoires). */
+      group: components["schemas"]["VoiceFingerprintGroup"] | null;
+      /** @description Le groupe actif a des seuils appliqués par un administrateur pour le mode de score actif. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique. */
+      thresholds_applied: boolean;
     };
     VoiceMatchingInput: {
       automatic_threshold: number;
@@ -6425,6 +6734,17 @@ export interface components {
       suggestion_threshold: number;
       ambiguity_margin: number;
       max_candidates: number;
+      group?: components["schemas"]["VoiceFingerprintGroup"];
+      /**
+       * @description Origine tracée des seuils appliqués ; administrator par défaut. proposal n'est accepté que pour les valeurs exactes de la proposition actuelle de la mesure pour ce groupe et ce mode de score, sinon 409 voice_threshold_proposal_stale.
+       * @enum {string}
+       */
+      source?: "administrator" | "proposal";
+      /**
+       * @description Mode de score pour lequel les seuils sont appliqués ; mode actif par défaut. Les seuils d'un mode ne valent jamais pour l'autre.
+       * @enum {string}
+       */
+      score_mode?: "cumulative" | "best_sample";
     };
     VoiceMatchingSummary: {
       evaluated: number;
@@ -6434,6 +6754,34 @@ export interface components {
       unknown: number;
       /** @description Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle. */
       removed: number;
+    };
+    VoiceMatchingStatus: {
+      /** @description Des demandes de rapprochement attendent (validation, correction, nouvelles empreintes, réglage). */
+      pending: boolean;
+      /** @description Un passage de rapprochement est en cours. */
+      running: boolean;
+      /**
+       * Format: date-time
+       * @description Début du passage en cours ; null sans passage en cours.
+       */
+      running_since: string | null;
+      /**
+       * Format: date-time
+       * @description Fin du dernier passage réussi ; null s'il n'y en a jamais eu.
+       */
+      last_finished_at: string | null;
+      /**
+       * Format: int64
+       * @description Durée du dernier passage réussi, en millisecondes.
+       */
+      last_duration_ms: number | null;
+      /** @description Nombre de demandes prises en compte par le dernier passage réussi : plusieurs décisions rapprochées font un seul passage. */
+      last_requests: number | null;
+      /**
+       * Format: date-time
+       * @description Échec du dernier passage tenté, repris automatiquement ; null quand le dernier passage a réussi.
+       */
+      last_failed_at: string | null;
     };
     VoiceAutomationCriteriaInput: {
       precision_threshold: number;
@@ -6508,6 +6856,7 @@ export interface components {
       /** Format: date-time */
       measured_at: string;
       auto_enabled: boolean;
+      /** @description Seuil automatique du groupe d'empreintes actif (ou provisoire). */
       automatic_threshold: number;
       precision_threshold: number;
       min_confirmations: number;
@@ -6523,6 +6872,7 @@ export interface components {
       activation_proposed: boolean;
       /** @description Historique des activations et désactivations, du plus récent au plus ancien. */
       events: components["schemas"]["VoiceAutomationEvent"][];
+      calibration: components["schemas"]["VoiceCalibration"];
     };
     /** @description Exactement un de person_id ou new_person_name. */
     AttributionInput: {
@@ -6879,7 +7229,10 @@ export interface components {
       items: components["schemas"]["Source"][];
     };
     SourceFiles: {
+      /** @description Premiers fichiers de la source dans l'ordre des chemins, au plus limit. */
       items: components["schemas"]["SourceFile"][];
+      /** @description Nombre de fichiers de la source. */
+      total: number;
     };
     SourceFile: {
       name: string;
@@ -7142,7 +7495,7 @@ export interface components {
       uncovered_seconds: number;
       attributed_segments: number;
     };
-    /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit. */
+    /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit, et mesures de qualité des empreintes de la piste (#389). */
     VoiceTrace: {
       /** Format: int64 */
       clip_id: number;
@@ -7189,6 +7542,67 @@ export interface components {
         corrected: boolean;
       }[];
       coverage: components["schemas"]["SpeakerCoverage"][];
+      /** @description Empreintes de production des voix de la piste (voix ignorées exclues), avec leurs mesures de qualité (#389). Jamais de vecteur. */
+      fingerprints: components["schemas"]["VoiceTraceFingerprint"][];
+    };
+    VoiceTraceFingerprint: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      local_speaker_id: number;
+      label: string;
+      /** @enum {string} */
+      scope: "speaker" | "turn";
+      /** @description Tour de l'empreinte ; null pour l'empreinte d'un Locuteur local. */
+      turn_index: number | null;
+      start_seconds: number;
+      end_seconds: number;
+      duration_seconds: number;
+      quality: number;
+      /** @description Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064). */
+      usable: boolean;
+      /**
+       * @description Pourquoi l'empreinte n'est pas comparable (vide si elle l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ; clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes antérieures ou de benchmark).
+       * @enum {string}
+       */
+      unusable_reason:
+        | ""
+        | "too_short"
+        | "low_quality"
+        | "overlap_only"
+        | "clipped";
+      model: string;
+      model_version: string;
+      /** @description Null pour une empreinte enregistrée sans mesures (Worker ou ligne antérieurs) : mesures inconnues. */
+      measures: components["schemas"]["FingerprintMeasures"] | null;
+      /** @description Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais. */
+      contributive: boolean;
+      /** @description Version de la règle d'éligibilité qui a décidé. Null : décidée à l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification). */
+      eligibility_rule_version: number | null;
+      /** @description Parole nette retenue par la règle. Null : pas encore évaluée. */
+      net_speech_seconds: number | null;
+      /**
+       * @description Origine de la Parole nette : worker (mesures du Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur local validé puis archivé : durée de l'empreinte, majorant de la Parole nette).
+       * @enum {string|null}
+       */
+      net_speech_source: "worker" | "turns" | "estimated" | null;
+    };
+    /** @description Mesures de qualité d'une empreinte rapportées par le Worker (ADR 0064). Elles décrivent l'empreinte sans décider de son éligibilité. */
+    FingerprintMeasures: {
+      /** @description Version des définitions du Worker (1 : intervalles de Parole nette d'au moins 0,5 s). */
+      version: number;
+      /** @description Parole nette entrée dans le vecteur ; 0 pour une empreinte chevauchée. */
+      net_speech_seconds: number;
+      /** @description Part de la parole du tour ou du Locuteur local en Chevauchement. */
+      overlap_ratio: number;
+      /** @description Aucun intervalle net suffisant : vecteur calculé sur les tours entiers, jamais éligible comme référence. */
+      overlapped: boolean;
+      /** @description Part d'échantillons écrêtés de l'audio utilisé ; null si l'audio n'a pas été mesuré. */
+      clipped_ratio: number | null;
+      /** @description Niveau moyen (RMS) de l'audio utilisé, en dBFS ; null si l'audio n'a pas été mesuré. */
+      mean_level_dbfs: number | null;
+      /** @description Cosinus moyen entre les vecteurs des tours du Locuteur local ; null avec un seul tour et pour l'empreinte d'un tour. */
+      coherence: number | null;
     };
     AudioTrackRule: {
       title?: string;
@@ -8271,6 +8685,31 @@ export interface components {
       results: components["schemas"]["BenchmarkResult"][];
       /** @description Bout en bout : les paires de modèles que représentent les identifiants des résultats. */
       chains: components["schemas"]["BenchmarkChain"][];
+      /** @description Empreinte : mode de score et règle d'éligibilité sous lesquels le run est noté (#397). Null pour les autres étapes. */
+      scoring: components["schemas"]["BenchmarkScoring"] | null;
+    };
+    /** @description Comment un benchmark d'empreinte note : la fonction de score de production sous le mode et la règle d'éligibilité actifs au lancement du run. Un run antérieur à leur enregistrement vaut « centroid » (centroïde non pondéré, ancien), sans règle. */
+    BenchmarkScoring: {
+      /** @enum {string} */
+      score_mode: "cumulative" | "best_sample" | "centroid";
+      score_mode_version: number | null;
+      /**
+       * Format: double
+       * @description Plafond du poids d'un échantillon dans une Référence cumulative.
+       */
+      reference_sample_cap_seconds: number | null;
+      eligibility_rule:
+        | components["schemas"]["BenchmarkEligibilityRule"]
+        | null;
+    };
+    BenchmarkEligibilityRule: {
+      version: number;
+      /** Format: double */
+      comparable_min_seconds: number;
+      /** Format: double */
+      contributive_min_seconds: number;
+      /** Format: double */
+      max_clipped_ratio: number;
     };
     BenchmarkRunList: {
       runs: components["schemas"]["BenchmarkRun"][];
@@ -8336,6 +8775,8 @@ export interface components {
       /** Format: double */
       impostor_mean_score?: number | null;
       ignored_dimension?: number;
+      /** @description Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non contributive, ou non comparable en mode meilleur échantillon ; test non comparable). */
+      ineligible?: number;
       /** @description Transcription : clips (et pistes) mesurés. */
       clips?: number;
       reference_words?: number;
@@ -8611,6 +9052,422 @@ export interface components {
     };
     WorkerControlAck: {
       paused: boolean;
+    };
+    VoiceEligibilityInput: {
+      /** @description Parole nette minimale d'une empreinte comparable. */
+      comparable_min_seconds: number;
+      /** @description Parole nette minimale d'une empreinte contributive ; au plus la durée comparable. */
+      contributive_min_seconds: number;
+      /** @description Part maximale d'échantillons écrêtés ; au-delà, l'empreinte est rejetée (clipped). */
+      max_clipped_ratio: number;
+    };
+    /** @description Une version de la règle d'éligibilité. La version 1 est la règle provisoire de Snitch. */
+    VoiceEligibilityRule: {
+      version: number;
+      /** @description Parole nette minimale d'une empreinte comparable. */
+      comparable_min_seconds: number;
+      /** @description Parole nette minimale d'une empreinte contributive ; au plus la durée comparable. */
+      contributive_min_seconds: number;
+      /** @description Part maximale d'échantillons écrêtés ; au-delà, l'empreinte est rejetée (clipped). */
+      max_clipped_ratio: number;
+      /** @description Administrateur qui a fixé cette version ; null pour la règle provisoire. */
+      author: string | null;
+      /** @description Règle provisoire de Snitch, en attente d'une décision de l'administrateur. */
+      provisional: boolean;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description Empreintes de Locuteur local de production, par éligibilité. */
+    VoiceEligibilitySummary: {
+      /** @description Comparables. */
+      comparable: number;
+      /** @description Contributives sans être comparables. */
+      contributive_only: number;
+      /** @description Ni comparables ni contributives : Parole nette trop courte. */
+      too_short: number;
+      /** @description Rejetées : chevauchées. */
+      overlap_only: number;
+      /** @description Rejetées : écrêtées. */
+      clipped: number;
+      /** @description Rejetées avant la règle (qualité insuffisante). */
+      low_quality: number;
+      /** @description Décidées par une autre règle que la règle active (ou avant la règle). */
+      stale: number;
+    };
+    /** @description Règle d'éligibilité des empreintes (ADR 0064) : règle active, historique, valeurs provisoires et décompte. */
+    VoiceEligibility: {
+      rule: components["schemas"]["VoiceEligibilityRule"];
+      /** @description Vingt dernières versions, la plus récente d'abord. */
+      history: components["schemas"]["VoiceEligibilityRule"][];
+      defaults: components["schemas"]["VoiceEligibilityInput"];
+      summary: components["schemas"]["VoiceEligibilitySummary"];
+      /** @description Dix dernières requalifications, la plus récente d'abord. */
+      requalifications: components["schemas"]["VoiceEligibilityRequalification"][];
+      /** @description Après une modification : empreintes dont l'éligibilité a changé. */
+      requalified?: number;
+    };
+    /** @description Empreintes de Locuteur local de production par éligibilité, et Personnes qui ont une Référence. */
+    VoiceEligibilityOutcome: {
+      /** @description Empreintes de Locuteur local de production présentes. */
+      present: number;
+      /** @description Comparables. */
+      comparable: number;
+      /** @description Contributives (comparables comprises). */
+      contributive: number;
+      /** @description Ni comparables ni contributives : Parole nette trop courte. */
+      too_short: number;
+      /** @description Rejetées : chevauchées. */
+      overlap_only: number;
+      /** @description Rejetées : écrêtées. */
+      clipped: number;
+      /** @description Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle. */
+      low_quality: number;
+      /** @description Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence. */
+      persons_with_reference: number;
+    };
+    /** @description Éligibilité qu'une requalification sous cette règle écrirait, comparée à l'état enregistré. */
+    VoiceEligibilityScenario: {
+      rule: components["schemas"]["VoiceEligibilityInput"];
+      /** @description Empreintes de Locuteur local de production présentes. */
+      present: number;
+      /** @description Comparables. */
+      comparable: number;
+      /** @description Contributives (comparables comprises). */
+      contributive: number;
+      /** @description Ni comparables ni contributives : Parole nette trop courte. */
+      too_short: number;
+      /** @description Rejetées : chevauchées. */
+      overlap_only: number;
+      /** @description Rejetées : écrêtées. */
+      clipped: number;
+      /** @description Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle. */
+      low_quality: number;
+      /** @description Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence. */
+      persons_with_reference: number;
+      /** @description Empreintes qui deviendraient comparables. */
+      recovered_comparable: number;
+      /** @description Empreintes qui deviendraient contributives. */
+      recovered_contributive: number;
+      /** @description Empreintes comparables aujourd'hui qui cesseraient de l'être. */
+      lost_comparable: number;
+      /** @description Empreintes contributives aujourd'hui qui cesseraient de l'être. */
+      lost_contributive: number;
+    };
+    /** @description Échantillons validés actifs d'une Personne dans un groupe d'empreintes, sous la règle examinée. */
+    VoiceEligibilityPersonPreview: {
+      person: components["schemas"]["PersonRef"];
+      /** @description Empreintes de ses échantillons validés actifs. */
+      present: number;
+      /** @description Comparables sous la règle examinée. */
+      comparable: number;
+      /** @description Contributives sous la règle examinée. */
+      contributive: number;
+      /** @description Trop courtes, non contributives. */
+      too_short: number;
+      /** @description Chevauchées. */
+      overlap_only: number;
+      /** @description Écrêtées. */
+      clipped: number;
+      /** @description Dont le clip n'a plus de source audio connue en base. */
+      missing_sources: number;
+      /** @description Dont la Parole nette est estimée (ni mesures ni tours). */
+      estimated: number;
+      /** @description A une Référence sous la règle examinée. */
+      reference: boolean;
+      /** @description A une Référence selon l'éligibilité enregistrée. */
+      reference_now: boolean;
+    };
+    /** @description Un groupe d'empreintes de production (modèle, version, dimensions). */
+    VoiceEligibilityGroupPreview: {
+      model: string;
+      model_version: string;
+      dimensions: number;
+      /** @description Empreintes dont le clip n'a plus de source audio connue en base (aucun média lu). */
+      missing_sources: number;
+      /** @description Empreintes de Locuteur local archivé sans tours : Parole nette estimée par la durée de l'empreinte. */
+      estimated: number;
+      /** @description Empreintes dont le vecteur précède la Parole nette (sans mesures du Worker) : vecteur d'origine, requalifié sans recalcul. */
+      original_vectors: number;
+      /** @description Part de la parole retirée par les Chevauchements, pondérée par le temps de parole, sur les empreintes dont le Chevauchement est connu ; null sans aucune. */
+      overlap_share: number | null;
+      current: components["schemas"]["VoiceEligibilityOutcome"];
+      candidate: components["schemas"]["VoiceEligibilityScenario"];
+      /** @description Une par durée minimale, appliquée aux deux usages, avec la part d'écrêtage examinée. */
+      scenarios: components["schemas"]["VoiceEligibilityScenario"][];
+      persons: components["schemas"]["VoiceEligibilityPersonPreview"][];
+    };
+    /** @description Aperçu sans effet de l'éligibilité des empreintes enregistrées (#394) : mêmes calculs que la requalification. */
+    VoiceEligibilityPreview: {
+      /** @description Version de la règle active. */
+      active_version: number;
+      /** @description Personnes ayant au moins un Échantillon vocal validé actif. */
+      persons_with_samples: number;
+      groups: components["schemas"]["VoiceEligibilityGroupPreview"][];
+    };
+    VoiceRecomputePreview: {
+      /** @description Empreintes de Locuteur local de production au vecteur d'origine, dans le groupe du modèle actif. */
+      fingerprints: number;
+      /** @description Dont recalculables. */
+      recomputable: number;
+      /** @description Tâches d'empreinte à créer, une par diarisation. */
+      jobs: number;
+      /** @description Clips concernés. */
+      clips: number;
+      /** @description Empreintes dont la source audio est absente : signalées, laissées en service. */
+      missing_sources: number;
+      /** @description Empreintes de Locuteurs archivés sans diarisation courante : non recalculables. */
+      archived: number;
+      /** @description Empreintes d'un échantillon validé actif. */
+      references: number;
+      /** @description Une transition de modèle d'empreinte est ouverte : le recalcul est refusé. */
+      transition_open: boolean;
+      /** @description Un recalcul est déjà en cours. */
+      running: boolean;
+    };
+    VoiceRecomputeInput: {
+      /** @description Nombre d'empreintes vu dans l'aperçu. */
+      confirm_fingerprints: number;
+    };
+    VoiceRecomputeReport: {
+      /** @description Empreintes du recalcul. */
+      fingerprints: number;
+      /** @description Empreintes en attente de leur tâche. */
+      pending: number;
+      /** @description Empreintes remplacées par leur recalcul sur la Parole nette. */
+      recomputed: number;
+      /** @description Recalculées rejetées avant, comparables désormais. */
+      recovered: number;
+      /** @description Recalculées non contributives avant, contributives désormais. */
+      recovered_contributive: number;
+      /** @description Recalculées rejetées avant et après. */
+      still_rejected: number;
+      /** @description Recalculées comparables avant, plus maintenant. */
+      lost: number;
+      /** @description Tâche terminée sans nouvelle empreinte : l'ancienne reste en service. */
+      errors: number;
+      /** @description Tâche annulée : l'ancienne empreinte reste en service. */
+      cancelled: number;
+      /** @description Empreinte d'origine remplacée ou supprimée hors du recalcul (nouvelle diarisation, suppression). */
+      obsolete: number;
+      /** @description Source audio absente : l'empreinte requalifiée reste en service. */
+      missing_sources: number;
+      /** @description Locuteur archivé ou sans diarisation courante : non recalculable, l'empreinte reste en service. */
+      archived: number;
+    };
+    VoiceRecomputeRun: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      status: "running" | "completed" | "cancelled";
+      /** @description Nombre d'empreintes confirmé au lancement. */
+      announced: number;
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /**
+       * Format: date-time
+       * @description Fin du rapprochement de toute la bibliothèque relancé à la fin du recalcul.
+       */
+      rematched_at: string | null;
+      report: components["schemas"]["VoiceRecomputeReport"];
+    };
+    VoiceRecomputeState: {
+      transition_open: boolean;
+      run?: components["schemas"]["VoiceRecomputeRun"];
+    };
+    /** @description Une requalification tracée : auteur, règle appliquée, date et rapport avant/après. */
+    VoiceEligibilityRequalification: {
+      /** Format: int64 */
+      id: number;
+      rule_version: number;
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Empreintes de production dont l'éligibilité a changé. */
+      changed: number;
+      /** @description Empreintes requalifiées dont le clip n'a plus de source audio connue. */
+      missing_sources: number;
+      /** @description Empreintes à Parole nette estimée. */
+      estimated: number;
+      /** @description Empreintes gardant leur vecteur d'origine. */
+      original_vectors: number;
+      before: components["schemas"]["VoiceEligibilityOutcome"];
+      after: components["schemas"]["VoiceEligibilityOutcome"];
+    };
+    VoiceScoreModeInput: {
+      /**
+       * @description cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables.
+       * @enum {string}
+       */
+      mode: "cumulative" | "best_sample";
+    };
+    /** @description Une version du mode de score. La version 1 est le mode par défaut de Snitch. */
+    VoiceScoreModeVersion: {
+      version: number;
+      /**
+       * @description cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables.
+       * @enum {string}
+       */
+      mode: "cumulative" | "best_sample";
+      /** @description Administrateur qui a choisi ce mode ; null pour le mode par défaut. */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description Mode de score du rapprochement (ADR 0064) : version active et historique. */
+    VoiceScoreMode: {
+      version: number;
+      /**
+       * @description cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables.
+       * @enum {string}
+       */
+      mode: "cumulative" | "best_sample";
+      /** @description Administrateur qui a choisi ce mode ; null pour le mode par défaut. */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Vingt dernières versions, la plus récente d'abord. */
+      history: components["schemas"]["VoiceScoreModeVersion"][];
+    };
+    PersonReferenceDiscard: {
+      /**
+       * @description Raison de l'écart : celle de l'empreinte du Locuteur local dans le groupe actif (too_short, overlap_only, clipped, low_quality), ou no_fingerprint quand la voix n'a aucune empreinte de production dans ce groupe.
+       * @enum {string}
+       */
+      reason:
+        | "too_short"
+        | "overlap_only"
+        | "clipped"
+        | "low_quality"
+        | "no_fingerprint";
+      count: number;
+    };
+    /** @description La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version, dimensions) actif et selon le mode de score actif, et son niveau : en mode cumulative, les échantillons à empreinte contributive ; en mode best_sample, les seuls échantillons à empreinte comparable. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue. */
+    PersonReference: {
+      /**
+       * @description none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ; avec moins de 3 Références, good.
+       * @enum {string}
+       */
+      level: "good" | "weak" | "none";
+      /**
+       * @description Pourquoi la Référence a ce niveau.
+       * @enum {string}
+       */
+      basis:
+        | "no_sample"
+        | "single_clip"
+        | "few_references"
+        | "below_median"
+        | "median_or_more";
+      /** @description Échantillons validés actifs qui entrent dans la Référence du mode de score actif (empreinte contributive du groupe actif ; comparable en mode best_sample). */
+      contributive_samples: number;
+      /** @description Clips distincts de ces échantillons. */
+      clips: number;
+      /** @description Parole nette cumulée de ces échantillons, après plafond par échantillon. */
+      net_speech_seconds: number;
+      /** @description Échantillons validés actifs écartés de la Référence, groupés par raison. */
+      discarded: components["schemas"]["PersonReferenceDiscard"][];
+    };
+    /** @description Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes d'un même groupe sont comparées. */
+    VoiceFingerprintGroup: {
+      model: string;
+      model_version: string;
+      dimensions: number;
+    };
+    /** @description Une version des seuils appliqués à un groupe d'empreintes pour un mode de score (ADR 0064). Les versions sont numérotées par groupe ; la plus haute version d'un mode est en vigueur pour ce mode. */
+    VoiceGroupThresholds: {
+      version: number;
+      suggestion_threshold: number;
+      automatic_threshold: number;
+      ambiguity_margin: number;
+      /**
+       * @description migration : seuils de l'installation repris pour le groupe actif ; administrator : saisis ; proposal : proposition de la Précision mesurée appliquée par l'administrateur.
+       * @enum {string}
+       */
+      source: "migration" | "administrator" | "proposal";
+      /**
+       * @description Mode de score auquel ces seuils s'appliquent.
+       * @enum {string}
+       */
+      score_mode: "cumulative" | "best_sample";
+      /** @description Administrateur ; null pour Snitch (migration). */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description Classe de score de largeur 0,05 ; un score négatif est compté dans la première classe, un score de 1 dans la dernière. Un score est une similarité cosinus, jamais une probabilité. */
+    VoiceScoreBin: {
+      from: number;
+      to: number;
+      /** @description Scores d'un test contre la Référence de sa propre Personne. */
+      same_person: number;
+      /** @description Scores d'un test contre la Référence d'une autre Personne. */
+      other_person: number;
+    };
+    /** @description Décision rejouée sur les tests à un jeu de seuils. */
+    VoiceThresholdSweep: {
+      automatic_threshold: number;
+      /** @description Seuil de suggestion utilisé : celui du groupe, abaissé au seuil automatique s'il le dépasse. */
+      suggestion_threshold: number;
+      ambiguity_margin: number;
+      /** @description Tests attribués automatiquement. */
+      automatic: number;
+      /** @description Attributions automatiques désignant une autre Personne que celle validée. */
+      errors: number;
+      /** @description Tests laissés à vérifier (suggestion, ambiguïté ou inconnu). */
+      to_verify: number;
+      /** @description Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort automatiquement. */
+      unknown_automatic: number;
+      /** @description Taux d'inconnus simulés reconnus à tort : unknown_automatic sur le nombre d'inconnus simulés rejoués (un par test) ; null sans test. */
+      unknown_automatic_rate: number | null;
+    };
+    /** @description Proposition de seuils : jamais appliquée sans action de l'administrateur. */
+    VoiceThresholdProposal: {
+      suggestion_threshold: number;
+      /** @description Plus bas seuil, au centième, à partir duquel la mesure garde la précision minimale des critères d'activation et ne reconnaît aucun inconnu simulé. */
+      automatic_threshold: number;
+      ambiguity_margin: number;
+      figures: components["schemas"]["VoiceThresholdSweep"];
+    };
+    /** @description Mesure d'un mode de score sur le groupe actif. */
+    VoiceCalibrationMode: {
+      /** @enum {string} */
+      mode: "cumulative" | "best_sample";
+      /** @description Tests ayant une empreinte comparable dans le groupe ; chacun est aussi rejoué comme inconnu simulé. */
+      tests: number;
+      /** @description Personnes ayant une Référence dans ce mode et au moins un test. */
+      persons: number;
+      same_person_scores: number;
+      other_person_scores: number;
+      distribution: components["schemas"]["VoiceScoreBin"][];
+      /** @description Seuil automatique de 0,05 à 1 par pas de 0,05. */
+      sweep: components["schemas"]["VoiceThresholdSweep"][];
+      /** @description Seuils appliqués au groupe pour ce mode ; null : dans ce mode, suggestions seulement. */
+      thresholds: components["schemas"]["VoiceGroupThresholds"] | null;
+      /** @description Chiffres aux seuils appliqués au groupe pour ce mode ; null sans seuils appliqués pour ce mode. */
+      current: components["schemas"]["VoiceThresholdSweep"] | null;
+      proposal: components["schemas"]["VoiceThresholdProposal"] | null;
+      /**
+       * @description Raison de l'absence de proposition : too_few (effectifs trop faibles), no_safe_threshold (aucun seuil ne garde la précision sans reconnaître d'inconnu).
+       * @enum {string}
+       */
+      withheld: "" | "too_few" | "no_safe_threshold";
+    };
+    /** @description Calibration des seuils du groupe d'empreintes actif (ADR 0064), les deux modes de score côte à côte. */
+    VoiceCalibration: {
+      /** @description Groupe actif ; null tant qu'aucune empreinte n'a été produite. */
+      group: components["schemas"]["VoiceFingerprintGroup"] | null;
+      /** @description Seuils appliqués au groupe pour le mode de score actif ; null : suggestions seulement, aucune Attribution automatique. */
+      thresholds: components["schemas"]["VoiceGroupThresholds"] | null;
+      /** @description Vingt dernières versions, la plus récente d'abord. */
+      history: components["schemas"]["VoiceGroupThresholds"][];
+      /** @enum {string} */
+      active_mode: "cumulative" | "best_sample";
+      min_tests: number;
+      min_persons: number;
+      modes: components["schemas"]["VoiceCalibrationMode"][];
     };
   };
   responses: never;
@@ -12387,7 +13244,10 @@ export interface operations {
   };
   sourceFiles: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Nombre maximal de fichiers renvoyés, dans l'ordre des chemins ; 1000 par défaut et au plus. Hors bornes : 400 invalid_pagination. */
+        limit?: number;
+      };
       header?: never;
       path: {
         id: number;
@@ -13152,6 +14012,166 @@ export interface operations {
         };
       };
       /** @description index_run_state : l'indexation est terminée ou annulée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewRootScan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Comptes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanPreview"];
+        };
+      };
+      /** @description video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getCurrentRootScan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Le scan le plus récent, ou run null si aucun n'a jamais été demandé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanAnswer"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startRootScan: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scan enregistré, parcours en cours */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanAnswer"];
+        };
+      };
+      /** @description index_run_active : un scan ou une indexation est déjà en cours ; video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelRootScan: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scan annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : le scan est terminé ou annulé */
       409: {
         headers: {
           [name: string]: unknown;
@@ -16960,6 +17980,64 @@ export interface operations {
       };
     };
   };
+  getVoiceMatchingStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Où en est le rapprochement vocal */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceMatchingStatus"];
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  streamVoiceMatchingStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Flux text/event-stream : un évènement `snapshot` {seq, snapshot: VoiceMatchingStatus} à l'ouverture, puis à chaque demande ou passage de rapprochement. La session est revérifiée avant chaque snapshot ; un évènement `forbidden` clôt le flux quand elle est perdue. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "text/event-stream": string;
+        };
+      };
+      /** @description Erreur (401 unauthorized) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
   updateVoiceMatching: {
     parameters: {
       query?: never;
@@ -16976,7 +18054,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau */
+      /** @description Seuils appliqués ; les empreintes déjà stockées sont rapprochées de nouveau */
       200: {
         headers: {
           [name: string]: unknown;
@@ -17015,6 +18093,332 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceMatchingSummary"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceEligibility: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Règle d'éligibilité des empreintes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEligibility"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceEligibility: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceEligibilityInput"];
+      };
+    };
+    responses: {
+      /** @description Règle enregistrée (nouvelle version si elle change) ; toutes les empreintes de production sont requalifiées en base, sans Worker ni audio, puis rapprochées de nouveau si une éligibilité a changé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEligibility"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceScoreMode: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Mode de score actif et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceScoreMode"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateVoiceScoreMode: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceScoreModeInput"];
+      };
+    };
+    responses: {
+      /** @description Mode enregistré (nouvelle version s'il change) ; les empreintes stockées sont alors rapprochées de nouveau */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceScoreMode"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceEligibility: {
+    parameters: {
+      query?: {
+        /** @description Règle examinée ; par défaut la valeur active. */
+        comparable_min_seconds?: number;
+        /** @description Règle examinée ; par défaut la valeur active. */
+        contributive_min_seconds?: number;
+        /** @description Règle examinée ; par défaut la valeur active. */
+        max_clipped_ratio?: number;
+        /** @description Durées minimales des scénarios (0,5 à 60 s, six au plus) ; par défaut 1, 1,5 et 2 s. */
+        durations?: number[];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu chiffré, sans aucune écriture ni lecture de média */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceEligibilityPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputePreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du recalcul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceRecomputeInput"];
+      };
+    };
+    responses: {
+      /** @description Recalcul lancé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Recalcul annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du recalcul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
         };
       };
       /** @description Erreur */

@@ -637,6 +637,36 @@ export const fr: Messages = {
     cancel: "Annuler",
     queued: "Fichiers ajoutés à la file.",
     queueTitle: "File des fichiers demandés",
+    queueMore: "… et {count} autres fichiers demandés.",
+    rootScan: {
+      confirmTitle: "Scanner toute la racine ?",
+      confirmBody:
+        "Les vidéos non indexées sont indexées, puis analysées selon les réglages de traitement, comme un nouveau clip. Un clip déjà analysé n’est pas réanalysé. Les Dossiers privés, les fichiers et dossiers masqués, les dossiers système et les clips privés sont laissés de côté. Le scan continue en arrière-plan, même si vous quittez la page ou si le serveur redémarre.",
+      confirm: "Mettre {count} vidéos en file",
+      started: "Scan de la racine lancé. Il continue en arrière-plan.",
+      title: "Scan de toute la racine",
+      walking:
+        "Parcours de la racine en cours : {seen} vidéos trouvées, {queued} mises en file.",
+      queueing: "{done} / {queued} vidéos mises en file prises en charge.",
+      progressLabel: "Progression du scan de la racine",
+      completed: "Scan terminé.",
+      cancelled: "Scan annulé.",
+      waitingForWorker:
+        "Aucun Worker n’est en ligne : les vidéos attendent et reprennent seules dès qu’un Worker se connecte.",
+      queued: "Mises en file",
+      upToDate: "Déjà à jour",
+      privateFolders: "Exclus : Dossiers privés",
+      hidden: "Exclus : masqués",
+      system: "Exclus : dossiers système",
+      privateClips: "Exclus : clips privés",
+      unreadable: "Dossiers illisibles, sautés",
+      unreadablePaths: "Dossiers illisibles : {paths}",
+      rootItself: "la racine elle-même",
+      failed: "Vidéos en erreur : {count}",
+      cancel: "Annuler le scan",
+      confirmCancel:
+        "Annuler le scan ? Les vidéos pas encore prises ne sont plus demandées ; ce qui est déjà indexé est conservé.",
+    },
     select: "Sélectionner {path}",
     status: {
       indexed: "Indexé",
@@ -1049,13 +1079,181 @@ export const fr: Messages = {
     fake: "Fournisseur factice (tests)",
     model: "Modèle de diarisation",
     modelVersion: "Version du modèle",
-    minDuration: "Durée minimale d’une empreinte (secondes)",
-    minQuality: "Qualité minimale",
     fakeSpeakers: "Locuteurs factices",
-    savePipeline: "Enregistrer et versionner",
+    eligibility: {
+      comparableMin: "Parole nette d’une empreinte comparable (secondes)",
+      comparableHint:
+        "À partir de cette durée, une voix est rapprochée seule des références.",
+      contributiveMin: "Parole nette d’une empreinte contributive (secondes)",
+      contributiveHint:
+        "À partir de cette durée, une voix validée est contributive : elle peut entrer dans la Référence de sa Personne. Au plus la durée comparable.",
+      maxClipped: "Part maximale d’échantillons écrêtés",
+      maxClippedHint:
+        "Au-delà, un son saturé fait rejeter l’empreinte (0,01 = 1 %).",
+      provisional:
+        "Règle {version} : valeurs provisoires fixées par Snitch, à confirmer par un administrateur.",
+      rule: "Règle {version}, fixée par {author} le {date}.",
+      summary:
+        "Empreintes vocales : {comparable} comparables, {contributive} seulement contributives, {tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées, {lowQuality} rejetées avant la règle.",
+      stale:
+        "{count} empreintes relèvent encore d’une règle antérieure. Enregistrer la règle les requalifie.",
+      save: "Enregistrer et requalifier",
+      requalified: "{count} empreintes ont changé d’éligibilité.",
+      history: "Versions précédentes de la règle",
+      historyItem:
+        "Règle {version} : comparable {comparable} s, contributive {contributive} s, écrêtage au plus {clipped} · {author} · {date}",
+      snitch: "Snitch",
+      preview: "Voir l’aperçu chiffré",
+      previewTitle:
+        "Aperçu des empreintes enregistrées sous cette règle (comparable {comparable}, contributive {contributive}). Rien n’est encore modifié.",
+      previewEmpty: "Aucune empreinte de production n’est encore enregistrée.",
+      groupLabel: "Groupe d’empreintes {name}",
+      previewFacts:
+        "{present} empreintes de Locuteur local : {missing} sans source audio connue, {estimated} à Parole nette estimée, {original} gardant leur vecteur d’origine.",
+      overlapShare: "Les Chevauchements retirent {value} de la parole.",
+      overlapUnknown:
+        "La part de parole retirée par les Chevauchements est inconnue.",
+      personsReference:
+        "{count} des {total} personnes ayant des échantillons validés auraient une Référence.",
+      scenarios: "Effet par durée minimale",
+      scenariosHint:
+        "Chaque durée s’applique aux deux usages. +n : empreintes gagnées, −n : empreintes perdues, par rapport à aujourd’hui.",
+      ruleColumn: "Règle",
+      comparableColumn: "Comparables",
+      contributiveColumn: "Contributives",
+      rejectedColumn: "Rejetées",
+      referenceColumn: "Personnes avec une Référence",
+      current: "Aujourd’hui",
+      examined: "Règle examinée ({comparable} / {contributive})",
+      duration: "Minimum {value}",
+      rejected:
+        "{tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées",
+      rejectedBefore: ", {count} rejetées avant la règle",
+      perPerson: "Par personne, sous la règle examinée",
+      personColumn: "Personne",
+      presentColumn: "Empreintes",
+      missingColumn: "Sans source",
+      referenceKept: "Oui",
+      referenceGained: "Oui (nouvelle)",
+      referenceLost: "Non (perdue)",
+      referenceNone: "Non",
+      requalifyHint:
+        "Requalifier applique cette règle en base : aucun Worker, aucune lecture audio, vecteurs inchangés. Aucune personne, validation ni échantillon validé n’est modifié.",
+      requalify: "Requalifier avec cette règle",
+      reportTitle:
+        "Dernière requalification : règle {version}, par {author} le {date}. {count} empreintes ont changé d’éligibilité.",
+      reportBefore: "Avant :",
+      reportAfter: "Après :",
+      reportOutcome:
+        "{comparable} comparables, {contributive} contributives, {tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées, {lowQuality} rejetées avant la règle ; {persons} personnes avec une Référence.",
+      reportFacts:
+        "{missing} requalifiées sans source audio connue, {estimated} à Parole nette estimée, {original} gardant leur vecteur d’origine.",
+    },
+    recompute: {
+      title: "Recalculer les empreintes sur la Parole nette",
+      hint: "Des tâches d’empreinte recalculent les vecteurs enregistrés avant la Parole nette, à partir des diarisations déjà faites. Rien n’est rediarisé ; aucune Personne, validation ni Échantillon vocal validé ne change. Chaque ancienne empreinte reste en service jusqu’au succès de la nouvelle.",
+      preview: "Voir l’ampleur du recalcul",
+      fingerprints: "Empreintes au vecteur d’origine",
+      recomputable: "Recalculables",
+      jobs: "Tâches d’empreinte",
+      clips: "Clips",
+      missing: "Sources audio absentes",
+      archived: "Voix archivées, non recalculables",
+      references: "Échantillons validés concernés",
+      transitionOpen:
+        "Un changement du modèle d’empreinte est en cours : le recalcul attend sa fin.",
+      confirm: "Je recalcule ces {count} empreintes",
+      start: "Lancer le recalcul",
+      started: "Lancé par {author} le {date}, {count} empreintes confirmées.",
+      running:
+        "Recalcul en cours : {done} empreintes traitées sur {total}, {pending} en attente.",
+      completed: "Recalcul terminé le {date}.",
+      cancelled: "Recalcul annulé le {date}.",
+      rematched: "Toute la bibliothèque a été rapprochée de nouveau le {date}.",
+      rematching: "Toute la bibliothèque est en cours de rapprochement.",
+      report:
+        "{recomputed} recalculées : {recovered} récupérées (désormais comparables), {recoveredContributive} devenues contributives, {stillRejected} toujours rejetées, {lost} qui ne sont plus comparables.",
+      reportKept:
+        "Restées en service : {errors} en erreur, {cancelled} annulées, {missing} sans source audio, {archived} voix archivées, {obsolete} remplacées par ailleurs.",
+      resume: "Reprendre",
+      cancel: "Annuler le recalcul",
+      cancelText:
+        "Seules les tâches du recalcul sont annulées ; les empreintes déjà recalculées restent.",
+      keep: "Le laisser continuer",
+    },
+    score: {
+      title: "Score d’une voix",
+      hint: "La façon de comparer une voix aux échantillons validés d’une personne. Le changer rapproche de nouveau toutes les voix enregistrées.",
+      legend: "Mode de score",
+      cumulative: "Référence cumulative (par défaut)",
+      cumulativeHint:
+        "Les échantillons validés d’une personne se cumulent, pondérés par leur parole nette : plusieurs extraits brefs reconnaissent une voix qu’aucun ne reconnaît seul.",
+      bestSample: "Meilleur échantillon",
+      bestSampleHint:
+        "Chaque échantillon comparable est comparé seul et le plus proche compte. Les échantillons brefs sont écartés.",
+      defaultMode: "Mode {version} : mode par défaut de Snitch.",
+      current: "Mode {version}, choisi par {author} le {date}.",
+      save: "Enregistrer le mode de score",
+      history: "Modes de score précédents",
+      historyItem: "Mode {version} : {mode} · {author} · {date}",
+    },
+    thresholds: {
+      group:
+        "Seuils du modèle d’empreinte {model} · {version} · {dimensions} dimensions",
+      noGroup:
+        "Aucun modèle d’empreinte n’a encore produit d’empreinte : ces valeurs sont provisoires. Un modèle s’en sert pour ses suggestions tant que des seuils ne lui sont pas appliqués.",
+      applied:
+        "Seuils version {version} pour le mode {mode}, {source}, par {author} le {date}.",
+      none: "Aucun seuil appliqué à ce modèle pour le mode de score actif : il ne produit que des suggestions, jamais d’attribution automatique. Appliquez des seuils après la mesure ci-dessous.",
+      migration: "repris de l’installation",
+      administrator: "saisis",
+      proposal: "issus de la proposition de la mesure",
+      history: "Seuils précédents de ce modèle",
+      historyItem:
+        "Version {version} ({mode}) : automatique {automatic}, suggestion {suggestion}, marge {margin} · {source} · {author} · {date}",
+      scoreNote:
+        "Un score est une similarité cosinus entre −1 et 1 dont l’échelle dépend du modèle d’empreinte : ce n’est pas une probabilité.",
+    },
+    calibration: {
+      title: "Calibration des seuils",
+      hint: "Rejoue le rapprochement sur les échantillons validés du modèle actif, références et tests sur des clips distincts. Chaque test est aussi rejoué sans la Référence de sa personne, comme une voix inconnue : il doit être refusé. Rien n’est appliqué sans votre action.",
+      noGroup: "Aucune empreinte : rien à mesurer.",
+      activeMode: "{mode} (mode actif)",
+      figures:
+        "{tests} tests, {persons} personnes mesurées ; {same} scores même personne, {other} scores autre personne.",
+      distribution: "Distribution des scores",
+      scoreColumn: "Score",
+      sameColumn: "Même personne",
+      otherColumn: "Autre personne",
+      sweep: "Balayage du seuil automatique",
+      thresholdColumn: "Seuil automatique",
+      automaticColumn: "Automatiques",
+      errorsColumn: "Erreurs",
+      toVerifyColumn: "À vérifier",
+      unknownColumn: "Inconnus reconnus à tort",
+      current:
+        "Aux seuils appliqués : {automatic} automatiques, {errors} erreurs, {toVerify} à vérifier ; {unknown} inconnus simulés sur {tests} reconnus à tort ({rate}).",
+      noCurrent:
+        "Aucun seuil appliqué pour ce mode : pas de chiffres aux seuils appliqués.",
+      applied:
+        "Appliqués pour ce mode : suggestion {suggestion}, automatique {automatic}, marge {margin}.",
+      noneApplied:
+        "Aucun seuil appliqué pour ce mode : dans ce mode, le modèle ne fait que des suggestions.",
+      proposal:
+        "Proposition : suggestion {suggestion}, automatique {automatic}, marge {margin}. Sur la mesure : {automaticCount} automatiques, {errors} erreurs, {toVerify} à vérifier, {unknown} inconnus simulés sur {tests} reconnus à tort ({rate}).",
+      rule: "Seuil automatique : le plus bas qui garde la précision minimale des critères d’activation sans reconnaître aucun inconnu simulé. Suggestion : 95 % des scores même personne au-dessus. Marge : couvre 95 % des confusions mesurées.",
+      tooFew:
+        "Effectifs trop faibles pour proposer des seuils : {tests} tests et {persons} personnes, il en faut au moins {minTests} et {minPersons}.",
+      noSafe:
+        "Aucun seuil ne garde la précision minimale sans reconnaître d’inconnu simulé : pas de proposition.",
+      apply: "Appliquer cette proposition au modèle",
+      applyInactive: "Appliquer cette proposition au mode {mode}",
+      otherMode:
+        "Mode non actif : les seuils appliqués pour lui ne prennent effet que lorsqu’il devient le mode de score actif.",
+    },
     matching: "Rapprochement vocal",
     matchingHint:
-      "Seuls les échantillons validés par un humain servent de références. Les seuils restent à évaluer.",
+      "Seuls les échantillons validés par un humain servent de références. Les seuils appartiennent à un modèle d’empreinte et à un mode de score, et ne changent que par l’action d’un administrateur.",
     autoThreshold: "Seuil d’attribution automatique",
     suggestionThreshold: "Seuil de suggestion",
     margin: "Marge d’ambiguïté",
@@ -1101,6 +1299,8 @@ export const fr: Messages = {
     measured: "Précision mesurée",
     autoHint:
       "Jamais activée d’elle-même : vous seul·e l’activez, après confirmation. Les validations humaines ne sont jamais écrasées.",
+    autoSuspended:
+      "L’attribution automatique est suspendue pour le modèle d’empreinte actif : aucun seuil ne lui a été appliqué, il ne produit que des suggestions. Mesurez et appliquez ses seuils dans les réglages avancés.",
     enableTitle: "Activer l’attribution automatique ?",
     enableText:
       "Les voix reconnues avec assez de confiance seront attribuées sans vous demander. Vous pouvez la désactiver à tout moment.",
@@ -1124,7 +1324,7 @@ export const fr: Messages = {
     candidatesHint: "Nombre de personnes proposées pour une voix.",
     fingerprintSettings: "Empreintes vocales",
     fingerprintHint:
-      "Les extraits trop courts ou de mauvaise qualité ne produisent pas d’empreinte. Enregistrer crée une nouvelle version du pipeline.",
+      "Snitch décide des empreintes utilisées d’après leur Parole nette, la parole qu’aucune autre voix ne recouvre. Enregistrer la règle requalifie toutes les empreintes déjà stockées, sans rien réanalyser, puis rapproche de nouveau les voix.",
     automationSettings: "Critères d’automatisation",
     precisionHint:
       "Précision mesurée requise avant que l’activation soit proposée.",
@@ -2001,6 +2201,18 @@ export const fr: Messages = {
       infoLabel: "Définition : {metric}",
       genuine: "genuine",
       impostor: "impostor",
+      scoring: {
+        title: "Score :",
+        modes: {
+          cumulative: "Référence cumulative",
+          best_sample: "Meilleur échantillon",
+          centroid: "Centroïde (ancien)",
+        },
+        current:
+          "{mode} (version {modeVersion}, un échantillon pèse au plus {cap}), règle d’éligibilité version {ruleVersion} : comparable dès {comparable}, contributive dès {contributive}, saturation au plus {clipped}. Noté comme la production : un seuil lu ici vaut pour la production sous ce mode et cette règle.",
+        legacy:
+          "{mode} : moyenne non pondérée des empreintes de référence, retenues par les seuils du pipeline épinglé. Ses seuils ne valent pas pour le score de production actuel.",
+      },
     },
     metrics: {
       cpwer: {
@@ -3525,17 +3737,25 @@ export const fr: Messages = {
     label: "Volume",
     mute: "Couper le son",
   },
+  matchingStatus: {
+    label: "Rapprochement des voix",
+    inProgress:
+      "Rapprochement des voix en cours : les suggestions se mettent à jour.",
+    upToDate: "Suggestions à jour · dernier rapprochement à {time}",
+    never: "Aucun rapprochement des voix pour l'instant.",
+    failed:
+      "Le dernier rapprochement des voix a échoué ; il est relancé automatiquement ({time}).",
+  },
   voiceDecision: {
     listenLabel: "Écouter un extrait de {label}",
     candidates: "Personnes les plus proches",
-    proximity: "{percent} % de proximité",
+    score: "score {score}",
     yesShort: "Oui",
     useExisting: "Utiliser {person}",
     createAnyway: "Créer quand même une nouvelle personne",
     noShort: "Non",
     falseDetection: "Fausse détection",
     looksLike: "Ça ressemble à",
-    similarity: "{percent} % de ressemblance",
     yes: "C’est {person}",
     no: "Ce n’est pas {person}",
     identify: "Identifier",
@@ -3622,7 +3842,10 @@ export const fr: Messages = {
       delete: "Supprimer {name}",
       separate: "Séparer des voix de {name}",
       created: "{name} a été créée.",
-      videoCount: "{count} vidéo(s)",
+      videos: {
+        one: "{count} vidéo",
+        other: "{count} vidéos",
+      },
       videosTitle: "Vidéos où {name} est entendue",
       videosEmpty: "Aucune vidéo que vous puissiez voir.",
       figuresLabel: "Chiffres de {name}",
@@ -3643,19 +3866,44 @@ export const fr: Messages = {
       heardState: "validée",
       referenceWarningTitle: "Référence à renforcer",
       referenceWarningNone:
-        "{name} n’a aucun échantillon validé : Snitch ne sait pas encore reconnaître cette voix. Confirmez d’autres voix pour constituer une Référence.",
+        "Aucune voix validée de {name} n’entre encore dans sa Référence : Snitch ne sait pas reconnaître cette voix. Confirmez d’autres voix, assez longues et non couvertes par une autre voix, pour constituer une Référence.",
       referenceWarningWeak:
-        "{name} a peu d’échantillons validés : la reconnaissance peut être peu fiable. Confirmez d’autres voix pour renforcer la Référence.",
-    },
-    figures: {
-      minutes: "{minutes} min de parole",
-      hours: "{hours} h {minutes} min de parole",
+        "{basis}. La reconnaissance de {name} peut être peu fiable : confirmez d’autres voix, sur d’autres vidéos, pour renforcer la Référence.",
     },
     reference: {
       levelLabel: "Référence : {level}",
-      good: "solide",
+      good: "bonne",
       weak: "faible",
-      none: "absente",
+      none: "aucune",
+      basis: {
+        no_sample: "Aucun échantillon n’entre encore dans la Référence",
+        single_clip: "Construite sur une seule vidéo",
+        few_references:
+          "Construite sur plusieurs vidéos ; trop peu de Références pour la comparer",
+        below_median: "Moins de voix nette que la moitié des Personnes",
+        median_or_more: "Plus de voix nette que la moitié des Personnes",
+      },
+      title: "Référence utilisée par la reconnaissance",
+      label: "Référence de {name}",
+      used: "Échantillons utilisés",
+      usedValue: "{used} sur {validated} validés",
+      clips: "Vidéos distinctes",
+      speech: "Voix nette",
+      setAside: "Écartés",
+      setAsideCount: {
+        one: "{count} échantillon",
+        other: "{count} échantillons",
+      },
+      setAsideLine: "{count} : {reason}",
+      reasons: {
+        too_short: "trop court",
+        overlap_only: "toujours couvert par une autre voix",
+        clipped: "son saturé",
+        low_quality: "qualité trop faible",
+        no_fingerprint: "pas encore d’empreinte vocale",
+      },
+      voiceUsed: "Utilisée par la Référence",
+      voiceSetAside: "Écartée : {reason}",
     },
     actions: {
       label: "Actions sur {name}",

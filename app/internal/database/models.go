@@ -529,13 +529,22 @@ type JobLogLine struct {
 }
 
 type LibraryIndexRun struct {
-	ID         int64              `json:"id"`
-	SourceID   int64              `json:"source_id"`
-	Mode       string             `json:"mode"`
-	Status     string             `json:"status"`
-	CreatedBy  pgtype.Int8        `json:"created_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	ID                     int64              `json:"id"`
+	SourceID               int64              `json:"source_id"`
+	Mode                   string             `json:"mode"`
+	Status                 string             `json:"status"`
+	CreatedBy              pgtype.Int8        `json:"created_by"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	FinishedAt             pgtype.Timestamptz `json:"finished_at"`
+	Walking                bool               `json:"walking"`
+	Seen                   int32              `json:"seen"`
+	UpToDate               int32              `json:"up_to_date"`
+	ExcludedPrivateFolders int32              `json:"excluded_private_folders"`
+	ExcludedHidden         int32              `json:"excluded_hidden"`
+	ExcludedSystem         int32              `json:"excluded_system"`
+	ExcludedPrivateClips   int32              `json:"excluded_private_clips"`
+	UnreadableFolders      int32              `json:"unreadable_folders"`
+	UnreadablePaths        []string           `json:"unreadable_paths"`
 }
 
 type LocalSpeaker struct {
@@ -930,6 +939,30 @@ type VoiceDispositionEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceEligibilityRequalification struct {
+	ID              int64              `json:"id"`
+	RuleVersion     int32              `json:"rule_version"`
+	AuthorID        pgtype.Int8        `json:"author_id"`
+	AuthorUsername  pgtype.Text        `json:"author_username"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	Changed         int32              `json:"changed"`
+	MissingSources  int32              `json:"missing_sources"`
+	Estimated       int32              `json:"estimated"`
+	OriginalVectors int32              `json:"original_vectors"`
+	Before          []byte             `json:"before"`
+	After           []byte             `json:"after"`
+}
+
+type VoiceEligibilityRule struct {
+	Version                int32              `json:"version"`
+	ComparableMinSeconds   float64            `json:"comparable_min_seconds"`
+	ContributiveMinSeconds float64            `json:"contributive_min_seconds"`
+	MaxClippedRatio        float64            `json:"max_clipped_ratio"`
+	AuthorID               pgtype.Int8        `json:"author_id"`
+	AuthorUsername         pgtype.Text        `json:"author_username"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceEngineRegistry struct {
 	Digest        string             `json:"digest"`
 	Engine        string             `json:"engine"`
@@ -947,24 +980,34 @@ type VoiceEngineRegistry struct {
 }
 
 type VoiceFingerprint struct {
-	ID               int64              `json:"id"`
-	LocalSpeakerID   int64              `json:"local_speaker_id"`
-	ClipID           int64              `json:"clip_id"`
-	FingerprintJobID int64              `json:"fingerprint_job_id"`
-	Scope            string             `json:"scope"`
-	TurnID           pgtype.Int8        `json:"turn_id"`
-	StartSeconds     float64            `json:"start_seconds"`
-	EndSeconds       float64            `json:"end_seconds"`
-	DurationSeconds  float64            `json:"duration_seconds"`
-	Quality          float64            `json:"quality"`
-	Usable           bool               `json:"usable"`
-	UnusableReason   string             `json:"unusable_reason"`
-	Model            string             `json:"model"`
-	ModelVersion     string             `json:"model_version"`
-	Dimensions       int32              `json:"dimensions"`
-	Embedding        pgvector.Vector    `json:"embedding"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	Benchmark        bool               `json:"benchmark"`
+	ID                     int64              `json:"id"`
+	LocalSpeakerID         int64              `json:"local_speaker_id"`
+	ClipID                 int64              `json:"clip_id"`
+	FingerprintJobID       int64              `json:"fingerprint_job_id"`
+	Scope                  string             `json:"scope"`
+	TurnID                 pgtype.Int8        `json:"turn_id"`
+	StartSeconds           float64            `json:"start_seconds"`
+	EndSeconds             float64            `json:"end_seconds"`
+	DurationSeconds        float64            `json:"duration_seconds"`
+	Quality                float64            `json:"quality"`
+	Usable                 bool               `json:"usable"`
+	UnusableReason         string             `json:"unusable_reason"`
+	Model                  string             `json:"model"`
+	ModelVersion           string             `json:"model_version"`
+	Dimensions             int32              `json:"dimensions"`
+	Embedding              pgvector.Vector    `json:"embedding"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	Benchmark              bool               `json:"benchmark"`
+	MeasuresVersion        pgtype.Int4        `json:"measures_version"`
+	NetSpeechSeconds       pgtype.Float8      `json:"net_speech_seconds"`
+	OverlapRatio           pgtype.Float8      `json:"overlap_ratio"`
+	Overlapped             pgtype.Bool        `json:"overlapped"`
+	ClippedRatio           pgtype.Float8      `json:"clipped_ratio"`
+	MeanLevelDbfs          pgtype.Float8      `json:"mean_level_dbfs"`
+	Coherence              pgtype.Float8      `json:"coherence"`
+	Contributive           bool               `json:"contributive"`
+	EligibilityRuleVersion pgtype.Int4        `json:"eligibility_rule_version"`
+	NetSpeechSource        pgtype.Text        `json:"net_speech_source"`
 }
 
 type VoiceFingerprintTransition struct {
@@ -996,6 +1039,28 @@ type VoiceGroupLink struct {
 	ComputedAt   pgtype.Timestamptz `json:"computed_at"`
 }
 
+type VoiceGroupThreshold struct {
+	ID                  int64              `json:"id"`
+	Model               string             `json:"model"`
+	ModelVersion        string             `json:"model_version"`
+	Dimensions          int32              `json:"dimensions"`
+	Version             int32              `json:"version"`
+	SuggestionThreshold float64            `json:"suggestion_threshold"`
+	AutomaticThreshold  float64            `json:"automatic_threshold"`
+	AmbiguityMargin     float64            `json:"ambiguity_margin"`
+	Source              string             `json:"source"`
+	ScoreMode           string             `json:"score_mode"`
+	AuthorID            pgtype.Int8        `json:"author_id"`
+	AuthorUsername      pgtype.Text        `json:"author_username"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+}
+
+type VoiceMatchingRequest struct {
+	ID          int64              `json:"id"`
+	ClipID      pgtype.Int8        `json:"clip_id"`
+	RequestedAt pgtype.Timestamptz `json:"requested_at"`
+}
+
 type VoiceMatchingSetting struct {
 	ID                  bool               `json:"id"`
 	AutoEnabled         bool               `json:"auto_enabled"`
@@ -1009,6 +1074,15 @@ type VoiceMatchingSetting struct {
 	MinConfirmations    int32              `json:"min_confirmations"`
 	AutoChangedAt       pgtype.Timestamptz `json:"auto_changed_at"`
 	AutoChangedBy       pgtype.Int8        `json:"auto_changed_by"`
+}
+
+type VoiceMatchingStatus struct {
+	ID             bool               `json:"id"`
+	RunningSince   pgtype.Timestamptz `json:"running_since"`
+	LastFinishedAt pgtype.Timestamptz `json:"last_finished_at"`
+	LastDurationMs pgtype.Int8        `json:"last_duration_ms"`
+	LastRequests   pgtype.Int4        `json:"last_requests"`
+	LastFailedAt   pgtype.Timestamptz `json:"last_failed_at"`
 }
 
 type VoiceModelCandidate struct {
@@ -1062,6 +1136,39 @@ type VoiceProfileDeletion struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceRecomputeItem struct {
+	RunID              int64       `json:"run_id"`
+	FingerprintID      int64       `json:"fingerprint_id"`
+	LocalSpeakerID     int64       `json:"local_speaker_id"`
+	ClipID             int64       `json:"clip_id"`
+	Kind               string      `json:"kind"`
+	AudioStreamIndex   int32       `json:"audio_stream_index"`
+	DiarizationJobID   int64       `json:"diarization_job_id"`
+	Step               pgtype.Text `json:"step"`
+	InputVersion       pgtype.Text `json:"input_version"`
+	BeforeUsable       bool        `json:"before_usable"`
+	BeforeContributive bool        `json:"before_contributive"`
+	JobID              pgtype.Int8 `json:"job_id"`
+}
+
+type VoiceRecomputeJob struct {
+	JobID int64 `json:"job_id"`
+	RunID int64 `json:"run_id"`
+}
+
+type VoiceRecomputeRun struct {
+	ID             int64              `json:"id"`
+	Status         string             `json:"status"`
+	Announced      int32              `json:"announced"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername pgtype.Text        `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	Report         []byte             `json:"report"`
+	RematchedAt    pgtype.Timestamptz `json:"rematched_at"`
+}
+
 type VoiceRefusal struct {
 	LocalSpeakerID int64              `json:"local_speaker_id"`
 	PersonID       int64              `json:"person_id"`
@@ -1094,6 +1201,14 @@ type VoiceSample struct {
 	RetiredAt      pgtype.Timestamptz `json:"retired_at"`
 	RetiredBy      pgtype.Int8        `json:"retired_by"`
 	RetiredReason  string             `json:"retired_reason"`
+}
+
+type VoiceScoreMode struct {
+	Version        int32              `json:"version"`
+	Mode           string             `json:"mode"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername pgtype.Text        `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Worker struct {

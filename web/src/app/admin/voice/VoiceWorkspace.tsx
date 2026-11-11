@@ -34,7 +34,8 @@ type Props = {
   catalogue: Catalogue;
   workers: Row[];
   overview: components["schemas"]["VoiceOverview"];
-  pipeline: components["schemas"]["VoicePipeline"];
+  eligibility: components["schemas"]["VoiceEligibility"];
+  scoreMode: components["schemas"]["VoiceScoreMode"];
   matching: components["schemas"]["VoiceMatchingSettings"];
   accuracy: components["schemas"]["VoiceAccuracy"];
   onChanged: () => void;
@@ -44,7 +45,8 @@ export function VoiceWorkspace({
   catalogue,
   workers,
   overview,
-  pipeline,
+  eligibility,
+  scoreMode,
   matching,
   accuracy,
   onChanged,
@@ -375,7 +377,8 @@ export function VoiceWorkspace({
               onChanged={onChanged}
             />
             <VoiceAdvanced
-              pipeline={pipeline}
+              eligibility={eligibility}
+              scoreMode={scoreMode}
               matching={matching}
               accuracy={accuracy}
               onChanged={onChanged}

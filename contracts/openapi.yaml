@@ -5669,6 +5669,17 @@
               "format": "int64",
               "minimum": 1
             }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Nombre maximal de fichiers renvoyés, dans l'ordre des chemins ; 1000 par défaut et au plus. Hors bornes : 400 invalid_pagination.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
           }
         ],
         "responses": {
@@ -6875,6 +6886,226 @@
           },
           "409": {
             "description": "index_run_state : l'indexation est terminée ou annulée",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs/preview": {
+      "get": {
+        "operationId": "previewRootScan",
+        "summary": "Estimer le scan de toute la Racine vidéo, sans le lancer (administrateur)",
+        "description": "Parcourt les dossiers de la Racine (jamais le contenu des vidéos) et compte, sans lister les chemins, les vidéos qui seraient mises en file, celles déjà à jour et ce qui est exclu par motif. Les Dossiers privés sont exclus pour tous les rôles, Super-administrateur compris ; un dossier illisible est compté, pas bloquant.",
+        "responses": {
+          "200": {
+            "description": "Comptes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanPreview"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "video_root_unconfigured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs/current": {
+      "get": {
+        "operationId": "getCurrentRootScan",
+        "summary": "Dernier scan de toute la Racine vidéo : progression puis bilan (administrateur)",
+        "responses": {
+          "200": {
+            "description": "Le scan le plus récent, ou run null si aucun n'a jamais été demandé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanAnswer"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs": {
+      "post": {
+        "operationId": "startRootScan",
+        "summary": "Scanner toute la Racine vidéo en arrière-plan (administrateur, action explicite)",
+        "description": "Répond aussitôt : le parcours du disque et la mise en file avancent en arrière-plan, sans limite de nombre, et reprennent après un redémarrage. Met en file les vidéos non indexées, modifiées, ou indexées mais jamais analysées ; leur analyse suit ensuite les réglages de traitement. Exclut les Dossiers privés (tous rôles), les fichiers et dossiers masqués, les dossiers système et les clips privés. Un clip déjà analysé n'est pas réanalysé. Un seul scan ou une seule indexation en cours par Racine.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Scan enregistré, parcours en cours",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanAnswer"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "index_run_active : un scan ou une indexation est déjà en cours ; video_root_unconfigured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/video-root/scan-runs/{id}/cancel": {
+      "post": {
+        "operationId": "cancelRootScan",
+        "summary": "Annuler le scan : le parcours s'arrête et les vidéos pas encore prises ne sont plus demandées (administrateur)",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Scan annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RootScanAnswer"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "index_run_not_found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "index_run_state : le scan est terminé ou annulé",
             "content": {
               "application/json": {
                 "schema": {
@@ -12796,6 +13027,72 @@
         ]
       }
     },
+    "/api/voice-matching/status": {
+      "get": {
+        "operationId": "getVoiceMatchingStatus",
+        "responses": {
+          "200": {
+            "description": "Où en est le rapprochement vocal",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceMatchingStatus"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 unauthorized)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Utilisateurs connectés. Après une validation, une correction ou un changement de réglage, le rapprochement suit en arrière-plan (#392) : cet état dit s'il est en cours et quand le dernier s'est terminé, donc si les suggestions affichées sont à jour.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/voice-matching/status/events": {
+      "get": {
+        "operationId": "streamVoiceMatchingStatus",
+        "responses": {
+          "200": {
+            "description": "Flux text/event-stream : un évènement `snapshot` {seq, snapshot: VoiceMatchingStatus} à l'ouverture, puis à chaque demande ou passage de rapprochement. La session est revérifiée avant chaque snapshot ; un évènement `forbidden` clôt le flux quand elle est perdue.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (401 unauthorized)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Utilisateurs connectés. Repli : GET /api/voice-matching/status.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice-matching": {
       "put": {
         "operationId": "updateVoiceMatching",
@@ -12829,7 +13126,7 @@
         },
         "responses": {
           "200": {
-            "description": "Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau",
+            "description": "Seuils appliqués ; les empreintes déjà stockées sont rapprochées de nouveau",
             "content": {
               "application/json": {
                 "schema": {
@@ -12849,7 +13146,7 @@
             }
           }
         },
-        "description": "Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo.",
+        "description": "Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut, au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409 voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. Le rapprochement qui suit se fait en arrière-plan (GET /api/voice-matching/status).",
         "security": [
           {
             "session": []
@@ -12900,12 +13197,498 @@
             }
           }
         },
-        "description": "Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé.",
+        "description": "Administrateurs uniquement. Recalcule les attributions automatiques à partir des empreintes et des références actuelles ; ne crée jamais d'Échantillon vocal validé. Exécute tout de suite un passage complet, qui prend aussi en compte les demandes en attente, et en renvoie les chiffres.",
         "security": [
           {
             "session": []
           }
         ]
+      }
+    },
+    "/api/admin/voice-eligibility": {
+      "get": {
+        "operationId": "getVoiceEligibility",
+        "responses": {
+          "200": {
+            "description": "Règle d'éligibilité des empreintes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEligibility"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateVoiceEligibility",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceEligibilityInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Règle enregistrée (nouvelle version si elle change) ; toutes les empreintes de production sont requalifiées en base, sans Worker ni audio, puis rapprochées de nouveau si une éligibilité a changé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEligibility"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées. Chaque requalification, même sous une règle inchangée, est tracée (auteur, règle, date, rapport avant/après) ; la relancer sous la même règle ne change aucune empreinte.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice-score-mode": {
+      "get": {
+        "operationId": "getVoiceScoreMode",
+        "responses": {
+          "200": {
+            "description": "Mode de score actif et historique",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceScoreMode"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateVoiceScoreMode",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceScoreModeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mode enregistré (nouvelle version s'il change) ; les empreintes stockées sont alors rapprochées de nouveau",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceScoreMode"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre le mode actif n'enregistre rien.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice-eligibility/preview": {
+      "get": {
+        "operationId": "previewVoiceEligibility",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "comparable_min_seconds",
+            "required": false,
+            "description": "Règle examinée ; par défaut la valeur active.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "contributive_min_seconds",
+            "required": false,
+            "description": "Règle examinée ; par défaut la valeur active.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "max_clipped_ratio",
+            "required": false,
+            "description": "Règle examinée ; par défaut la valeur active.",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "durations",
+            "required": false,
+            "style": "form",
+            "explode": true,
+            "description": "Durées minimales des scénarios (0,5 à 60 s, six au plus) ; par défaut 1, 1,5 et 2 s.",
+            "schema": {
+              "type": "array",
+              "maxItems": 6,
+              "items": {
+                "type": "number"
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Aperçu chiffré, sans aucune écriture ni lecture de média",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEligibilityPreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Décide les empreintes de Locuteur local de production sous la règle examinée et sous chaque durée, avec le calcul même de la requalification, dans une transaction en lecture seule.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
+    "/api/admin/voice-fingerprint-recompute/preview": {
+      "get": {
+        "operationId": "previewVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Ampleur du recalcul des empreintes sur la Parole nette (#395), sans rien modifier ni lire de média : empreintes de Locuteur local de production au vecteur d'origine (sans mesures du Worker) dans le groupe du modèle d'empreinte actif, dont recalculables, tâches (une par diarisation) et clips, sources audio absentes, Locuteurs archivés sans diarisation courante, échantillons validés concernés.",
+        "responses": {
+          "200": {
+            "description": "Aperçu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputePreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-fingerprint-recompute": {
+      "get": {
+        "operationId": "getVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Recalcul en cours ou, à défaut, le dernier terminé, avec sa progression ou son rapport final. Lire l'état fait aussi avancer un recalcul interrompu.",
+        "responses": {
+          "200": {
+            "description": "État du recalcul",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Lance le recalcul : confirm_fingerprints doit être le nombre d'empreintes vu dans l'aperçu (voice_recompute_preview_stale sinon). Refusé pendant une transition de modèle d'empreinte ouverte (voice_transition_in_progress) et pendant un autre recalcul (voice_recompute_in_progress). Rien n'est rediarisé ; aucun job de production n'est remplacé.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRecomputeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recalcul lancé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cancelVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Annule le recalcul en cours : seules ses propres tâches sont annulées, les empreintes déjà recalculées restent, le rapport est figé et la bibliothèque rapprochée de nouveau (voice_recompute_not_running sans recalcul en cours).",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recalcul annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-fingerprint-recompute/resume": {
+      "post": {
+        "operationId": "resumeVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Reprend le dernier recalcul : replanifie les empreintes dont la tâche a échoué ou a été annulée ; une tâche réussie n'est jamais recréée. Refusé pendant une transition de modèle d'empreinte ouverte.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du recalcul",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/admin/voice-accuracy": {
@@ -23281,7 +24064,11 @@
           "unusable_reason",
           "model",
           "model_version",
-          "dimensions"
+          "dimensions",
+          "contributive",
+          "eligibility_rule_version",
+          "net_speech_seconds",
+          "net_speech_source"
         ],
         "properties": {
           "id": {
@@ -23311,15 +24098,18 @@
           },
           "usable": {
             "type": "boolean",
-            "description": "Faux : ne sert ni de référence ni de base de propagation."
+            "description": "Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064)."
           },
           "unusable_reason": {
             "type": "string",
             "enum": [
               "",
               "too_short",
-              "low_quality"
-            ]
+              "low_quality",
+              "overlap_only",
+              "clipped"
+            ],
+            "description": "Pourquoi l'empreinte n'est pas comparable (vide si elle l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ; clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes antérieures ou de benchmark)."
           },
           "model": {
             "type": "string"
@@ -23329,6 +24119,31 @@
           },
           "dimensions": {
             "type": "integer"
+          },
+          "contributive": {
+            "type": "boolean",
+            "description": "Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais."
+          },
+          "eligibility_rule_version": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Version de la règle d'éligibilité qui a décidé. Null : décidée à l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification)."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Parole nette retenue par la règle. Null : pas encore évaluée."
+          },
+          "net_speech_source": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "worker",
+              "turns",
+              "estimated"
+            ],
+            "description": "Origine de la Parole nette : worker (mesures du Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur local validé puis archivé : durée de l'empreinte, majorant de la Parole nette)."
           }
         }
       },
@@ -23504,6 +24319,202 @@
           }
         }
       },
+      "RootScanExcluded": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "private_folders",
+          "hidden",
+          "system",
+          "private_clips"
+        ],
+        "properties": {
+          "private_folders": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers privés laissés de côté sans être ouverts."
+          },
+          "hidden": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers et vidéos dont le nom commence par un point."
+          },
+          "system": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers système du NAS (#recycle, @eaDir)."
+          },
+          "private_clips": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos indexées dont le clip est privé."
+          }
+        }
+      },
+      "RootScanPreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "seen",
+          "to_queue",
+          "up_to_date",
+          "excluded",
+          "unreadable_folders",
+          "unreadable_paths"
+        ],
+        "properties": {
+          "seen": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos éligibles rencontrées."
+          },
+          "to_queue": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos qui seraient mises en file : non indexées, modifiées, ou indexées mais jamais analysées."
+          },
+          "up_to_date": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos indexées dont le clip est déjà analysé : rien à faire."
+          },
+          "excluded": {
+            "$ref": "#/components/schemas/RootScanExcluded"
+          },
+          "unreadable_folders": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers illisibles, sautés."
+          },
+          "unreadable_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Les premiers dossiers illisibles, relatifs à la Racine."
+          }
+        }
+      },
+      "RootScan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "created_at",
+          "finished_at",
+          "walking",
+          "seen",
+          "queued",
+          "done",
+          "pending",
+          "failed",
+          "up_to_date",
+          "waiting_for_worker",
+          "excluded",
+          "unreadable_folders",
+          "unreadable_paths",
+          "failures"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "cancelled",
+              "completed"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "walking": {
+            "type": "boolean",
+            "description": "Vrai tant que le disque est parcouru."
+          },
+          "seen": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos éligibles rencontrées jusqu'ici."
+          },
+          "queued": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos mises en file par ce scan."
+          },
+          "done": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos mises en file déjà prises par le scan géré."
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos mises en file qui attendent encore."
+          },
+          "failed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos illisibles, disparues ou en erreur."
+          },
+          "up_to_date": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Vidéos indexées dont le clip est déjà analysé."
+          },
+          "waiting_for_worker": {
+            "type": "boolean",
+            "description": "Des vidéos attendent et aucun Worker n'est en ligne."
+          },
+          "excluded": {
+            "$ref": "#/components/schemas/RootScanExcluded"
+          },
+          "unreadable_folders": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dossiers illisibles, sautés."
+          },
+          "unreadable_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "failures": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/IndexRunFailure"
+            },
+            "description": "Les premières vidéos en échec, avec leur code."
+          }
+        }
+      },
+      "RootScanAnswer": {
+        "type": "object",
+        "required": [
+          "run"
+        ],
+        "properties": {
+          "run": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RootScan"
+              }
+            ],
+            "nullable": true
+          }
+        }
+      },
       "PersonInput": {
         "type": "object",
         "additionalProperties": false,
@@ -23655,7 +24666,8 @@
           "speaking_seconds",
           "voice_profile_deleted_at",
           "created_at",
-          "account_username"
+          "account_username",
+          "reference"
         ],
         "properties": {
           "id": {
@@ -23701,6 +24713,15 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "reference": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonReference"
+              }
+            ],
+            "nullable": true,
+            "description": "Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou d'une correction."
           }
         }
       },
@@ -23871,7 +24892,8 @@
           "label",
           "speaking_seconds",
           "recorded_at",
-          "sample_count"
+          "sample_count",
+          "reference_use"
         ],
         "properties": {
           "local_speaker_id": {
@@ -23899,6 +24921,19 @@
           "sample_count": {
             "type": "integer",
             "description": "Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait."
+          },
+          "reference_use": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "contributive",
+              "too_short",
+              "overlap_only",
+              "clipped",
+              "low_quality",
+              "no_fingerprint"
+            ],
+            "description": "Ce que la Référence du groupe d'empreinte actif, dans le mode de score actif, fait de l'échantillon de cette voix : contributive (utilisé), ou la raison de son écart (en mode best_sample, un échantillon contributif mais non comparable est écarté comme too_short) ; null quand la voix ne fournit aucun échantillon actif."
           }
         }
       },
@@ -24842,7 +25877,9 @@
           "precision_threshold",
           "min_confirmations",
           "auto_changed_at",
-          "updated_at"
+          "updated_at",
+          "group",
+          "thresholds_applied"
         ],
         "properties": {
           "auto_enabled": {
@@ -24892,6 +25929,19 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "group": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceFingerprintGroup"
+              }
+            ],
+            "nullable": true,
+            "description": "Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une installation sans empreinte (valeurs provisoires)."
+          },
+          "thresholds_applied": {
+            "type": "boolean",
+            "description": "Le groupe actif a des seuils appliqués par un administrateur pour le mode de score actif. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique."
           }
         }
       },
@@ -24925,6 +25975,25 @@
             "type": "integer",
             "minimum": 2,
             "maximum": 20
+          },
+          "group": {
+            "$ref": "#/components/schemas/VoiceFingerprintGroup"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "administrator",
+              "proposal"
+            ],
+            "description": "Origine tracée des seuils appliqués ; administrator par défaut. proposal n'est accepté que pour les valeurs exactes de la proposition actuelle de la mesure pour ce groupe et ce mode de score, sinon 409 voice_threshold_proposal_stale."
+          },
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "Mode de score pour lequel les seuils sont appliqués ; mode actif par défaut. Les seuils d'un mode ne valent jamais pour l'autre."
           }
         }
       },
@@ -24957,6 +26026,59 @@
           "removed": {
             "type": "integer",
             "description": "Attributions automatiques retirées : voix validée entre-temps, empreinte inutilisable ou plus aucune référence du même modèle."
+          }
+        }
+      },
+      "VoiceMatchingStatus": {
+        "type": "object",
+        "required": [
+          "pending",
+          "running",
+          "running_since",
+          "last_finished_at",
+          "last_duration_ms",
+          "last_requests",
+          "last_failed_at"
+        ],
+        "properties": {
+          "pending": {
+            "type": "boolean",
+            "description": "Des demandes de rapprochement attendent (validation, correction, nouvelles empreintes, réglage)."
+          },
+          "running": {
+            "type": "boolean",
+            "description": "Un passage de rapprochement est en cours."
+          },
+          "running_since": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Début du passage en cours ; null sans passage en cours."
+          },
+          "last_finished_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Fin du dernier passage réussi ; null s'il n'y en a jamais eu."
+          },
+          "last_duration_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Durée du dernier passage réussi, en millisecondes."
+          },
+          "last_requests": {
+            "type": "integer",
+            "minimum": 0,
+            "nullable": true,
+            "description": "Nombre de demandes prises en compte par le dernier passage réussi : plusieurs décisions rapprochées font un seul passage."
+          },
+          "last_failed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "Échec du dernier passage tenté, repris automatiquement ; null quand le dernier passage a réussi."
           }
         }
       },
@@ -25201,7 +26323,8 @@
           "library",
           "criteria",
           "activation_proposed",
-          "events"
+          "events",
+          "calibration"
         ],
         "properties": {
           "measured_at": {
@@ -25212,7 +26335,8 @@
             "type": "boolean"
           },
           "automatic_threshold": {
-            "type": "number"
+            "type": "number",
+            "description": "Seuil automatique du groupe d'empreintes actif (ou provisoire)."
           },
           "precision_threshold": {
             "type": "number"
@@ -25261,6 +26385,9 @@
               "$ref": "#/components/schemas/VoiceAutomationEvent"
             },
             "description": "Historique des activations et désactivations, du plus récent au plus ancien."
+          },
+          "calibration": {
+            "$ref": "#/components/schemas/VoiceCalibration"
           }
         }
       },
@@ -26336,14 +27463,21 @@
       "SourceFiles": {
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "total"
         ],
         "properties": {
           "items": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SourceFile"
-            }
+            },
+            "description": "Premiers fichiers de la source dans l'ordre des chemins, au plus limit."
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre de fichiers de la source."
           }
         }
       },
@@ -27158,7 +28292,7 @@
       },
       "VoiceTrace": {
         "type": "object",
-        "description": "Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit.",
+        "description": "Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit, et mesures de qualité des empreintes de la piste (#389).",
         "required": [
           "clip_id",
           "audio_stream_index",
@@ -27166,7 +28300,8 @@
           "diarization",
           "turns",
           "segments",
-          "coverage"
+          "coverage",
+          "fingerprints"
         ],
         "properties": {
           "clip_id": {
@@ -27327,6 +28462,186 @@
             "items": {
               "$ref": "#/components/schemas/SpeakerCoverage"
             }
+          },
+          "fingerprints": {
+            "type": "array",
+            "description": "Empreintes de production des voix de la piste (voix ignorées exclues), avec leurs mesures de qualité (#389). Jamais de vecteur.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceTraceFingerprint"
+            }
+          }
+        }
+      },
+      "VoiceTraceFingerprint": {
+        "type": "object",
+        "required": [
+          "id",
+          "local_speaker_id",
+          "label",
+          "scope",
+          "turn_index",
+          "start_seconds",
+          "end_seconds",
+          "duration_seconds",
+          "quality",
+          "usable",
+          "unusable_reason",
+          "model",
+          "model_version",
+          "measures",
+          "contributive",
+          "eligibility_rule_version",
+          "net_speech_seconds",
+          "net_speech_source"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "local_speaker_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "label": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "speaker",
+              "turn"
+            ]
+          },
+          "turn_index": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Tour de l'empreinte ; null pour l'empreinte d'un Locuteur local."
+          },
+          "start_seconds": {
+            "type": "number"
+          },
+          "end_seconds": {
+            "type": "number"
+          },
+          "duration_seconds": {
+            "type": "number"
+          },
+          "quality": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "usable": {
+            "type": "boolean",
+            "description": "Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064)."
+          },
+          "unusable_reason": {
+            "type": "string",
+            "enum": [
+              "",
+              "too_short",
+              "low_quality",
+              "overlap_only",
+              "clipped"
+            ],
+            "description": "Pourquoi l'empreinte n'est pas comparable (vide si elle l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ; clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes antérieures ou de benchmark)."
+          },
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "measures": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FingerprintMeasures"
+              }
+            ],
+            "nullable": true,
+            "description": "Null pour une empreinte enregistrée sans mesures (Worker ou ligne antérieurs) : mesures inconnues."
+          },
+          "contributive": {
+            "type": "boolean",
+            "description": "Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais."
+          },
+          "eligibility_rule_version": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Version de la règle d'éligibilité qui a décidé. Null : décidée à l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification)."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Parole nette retenue par la règle. Null : pas encore évaluée."
+          },
+          "net_speech_source": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "worker",
+              "turns",
+              "estimated"
+            ],
+            "description": "Origine de la Parole nette : worker (mesures du Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur local validé puis archivé : durée de l'empreinte, majorant de la Parole nette)."
+          }
+        }
+      },
+      "FingerprintMeasures": {
+        "type": "object",
+        "description": "Mesures de qualité d'une empreinte rapportées par le Worker (ADR 0064). Elles décrivent l'empreinte sans décider de son éligibilité.",
+        "required": [
+          "version",
+          "net_speech_seconds",
+          "overlap_ratio",
+          "overlapped",
+          "clipped_ratio",
+          "mean_level_dbfs",
+          "coherence"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version des définitions du Worker (1 : intervalles de Parole nette d'au moins 0,5 s)."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Parole nette entrée dans le vecteur ; 0 pour une empreinte chevauchée."
+          },
+          "overlap_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Part de la parole du tour ou du Locuteur local en Chevauchement."
+          },
+          "overlapped": {
+            "type": "boolean",
+            "description": "Aucun intervalle net suffisant : vecteur calculé sur les tours entiers, jamais éligible comme référence."
+          },
+          "clipped_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "nullable": true,
+            "description": "Part d'échantillons écrêtés de l'audio utilisé ; null si l'audio n'a pas été mesuré."
+          },
+          "mean_level_dbfs": {
+            "type": "number",
+            "minimum": -120,
+            "maximum": 0,
+            "nullable": true,
+            "description": "Niveau moyen (RMS) de l'audio utilisé, en dBFS ; null si l'audio n'a pas été mesuré."
+          },
+          "coherence": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1,
+            "nullable": true,
+            "description": "Cosinus moyen entre les vecteurs des tours du Locuteur local ; null avec un seul tour et pour l'empreinte d'un tour."
           }
         }
       },
@@ -30837,6 +32152,15 @@
               "$ref": "#/components/schemas/BenchmarkChain"
             },
             "description": "Bout en bout : les paires de modèles que représentent les identifiants des résultats."
+          },
+          "scoring": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkScoring"
+              }
+            ],
+            "nullable": true,
+            "description": "Empreinte : mode de score et règle d'éligibilité sous lesquels le run est noté (#397). Null pour les autres étapes."
           }
         },
         "required": [
@@ -30851,7 +32175,72 @@
           "progress",
           "results",
           "chains",
-          "reference_sources"
+          "reference_sources",
+          "scoring"
+        ]
+      },
+      "BenchmarkScoring": {
+        "type": "object",
+        "description": "Comment un benchmark d'empreinte note : la fonction de score de production sous le mode et la règle d'éligibilité actifs au lancement du run. Un run antérieur à leur enregistrement vaut « centroid » (centroïde non pondéré, ancien), sans règle.",
+        "properties": {
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample",
+              "centroid"
+            ]
+          },
+          "score_mode_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "reference_sample_cap_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Plafond du poids d'un échantillon dans une Référence cumulative."
+          },
+          "eligibility_rule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkEligibilityRule"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "score_mode",
+          "score_mode_version",
+          "reference_sample_cap_seconds",
+          "eligibility_rule"
+        ]
+      },
+      "BenchmarkEligibilityRule": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "comparable_min_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": [
+          "version",
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio"
         ]
       },
       "BenchmarkRunList": {
@@ -31078,6 +32467,10 @@
           },
           "ignored_dimension": {
             "type": "integer"
+          },
+          "ineligible": {
+            "type": "integer",
+            "description": "Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non contributive, ou non comparable en mode meilleur échantillon ; test non comparable)."
           },
           "clips": {
             "type": "integer",
@@ -31865,6 +33258,1269 @@
         "properties": {
           "paused": {
             "type": "boolean"
+          }
+        }
+      },
+      "VoiceEligibilityInput": {
+        "type": "object",
+        "required": [
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio"
+        ],
+        "properties": {
+          "comparable_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte comparable."
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte contributive ; au plus la durée comparable."
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Part maximale d'échantillons écrêtés ; au-delà, l'empreinte est rejetée (clipped)."
+          }
+        }
+      },
+      "VoiceEligibilityRule": {
+        "type": "object",
+        "description": "Une version de la règle d'éligibilité. La version 1 est la règle provisoire de Snitch.",
+        "required": [
+          "version",
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio",
+          "author",
+          "provisional",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "comparable_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte comparable."
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte contributive ; au plus la durée comparable."
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Part maximale d'échantillons écrêtés ; au-delà, l'empreinte est rejetée (clipped)."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a fixé cette version ; null pour la règle provisoire."
+          },
+          "provisional": {
+            "type": "boolean",
+            "description": "Règle provisoire de Snitch, en attente d'une décision de l'administrateur."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceEligibilitySummary": {
+        "type": "object",
+        "description": "Empreintes de Locuteur local de production, par éligibilité.",
+        "required": [
+          "comparable",
+          "contributive_only",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "low_quality",
+          "stale"
+        ],
+        "properties": {
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables."
+          },
+          "contributive_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives sans être comparables."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ni comparables ni contributives : Parole nette trop courte."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : écrêtées."
+          },
+          "low_quality": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées avant la règle (qualité insuffisante)."
+          },
+          "stale": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Décidées par une autre règle que la règle active (ou avant la règle)."
+          }
+        }
+      },
+      "VoiceEligibility": {
+        "type": "object",
+        "description": "Règle d'éligibilité des empreintes (ADR 0064) : règle active, historique, valeurs provisoires et décompte.",
+        "required": [
+          "rule",
+          "history",
+          "defaults",
+          "summary",
+          "requalifications"
+        ],
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/VoiceEligibilityRule"
+          },
+          "history": {
+            "type": "array",
+            "description": "Vingt dernières versions, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityRule"
+            }
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/VoiceEligibilityInput"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/VoiceEligibilitySummary"
+          },
+          "requalifications": {
+            "type": "array",
+            "description": "Dix dernières requalifications, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityRequalification"
+            }
+          },
+          "requalified": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Après une modification : empreintes dont l'éligibilité a changé."
+          }
+        }
+      },
+      "VoiceEligibilityOutcome": {
+        "type": "object",
+        "description": "Empreintes de Locuteur local de production par éligibilité, et Personnes qui ont une Référence.",
+        "required": [
+          "present",
+          "comparable",
+          "contributive",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "low_quality",
+          "persons_with_reference"
+        ],
+        "properties": {
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local de production présentes."
+          },
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables."
+          },
+          "contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives (comparables comprises)."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ni comparables ni contributives : Parole nette trop courte."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : écrêtées."
+          },
+          "low_quality": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle."
+          },
+          "persons_with_reference": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence."
+          }
+        }
+      },
+      "VoiceEligibilityScenario": {
+        "type": "object",
+        "description": "Éligibilité qu'une requalification sous cette règle écrirait, comparée à l'état enregistré.",
+        "required": [
+          "rule",
+          "present",
+          "comparable",
+          "contributive",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "low_quality",
+          "persons_with_reference",
+          "recovered_comparable",
+          "recovered_contributive",
+          "lost_comparable",
+          "lost_contributive"
+        ],
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/VoiceEligibilityInput"
+          },
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local de production présentes."
+          },
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables."
+          },
+          "contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives (comparables comprises)."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ni comparables ni contributives : Parole nette trop courte."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : écrêtées."
+          },
+          "low_quality": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées avant la règle (qualité insuffisante) ; toujours 0 sous une règle."
+          },
+          "persons_with_reference": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Personnes dont au moins un Échantillon vocal validé actif est contributif : elles ont une Référence."
+          },
+          "recovered_comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes qui deviendraient comparables."
+          },
+          "recovered_contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes qui deviendraient contributives."
+          },
+          "lost_comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes comparables aujourd'hui qui cesseraient de l'être."
+          },
+          "lost_contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes contributives aujourd'hui qui cesseraient de l'être."
+          }
+        }
+      },
+      "VoiceEligibilityPersonPreview": {
+        "type": "object",
+        "description": "Échantillons validés actifs d'une Personne dans un groupe d'empreintes, sous la règle examinée.",
+        "required": [
+          "person",
+          "present",
+          "comparable",
+          "contributive",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "missing_sources",
+          "estimated",
+          "reference",
+          "reference_now"
+        ],
+        "properties": {
+          "person": {
+            "$ref": "#/components/schemas/PersonRef"
+          },
+          "present": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de ses échantillons validés actifs."
+          },
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables sous la règle examinée."
+          },
+          "contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives sous la règle examinée."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Trop courtes, non contributives."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Écrêtées."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dont le clip n'a plus de source audio connue en base."
+          },
+          "estimated": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dont la Parole nette est estimée (ni mesures ni tours)."
+          },
+          "reference": {
+            "type": "boolean",
+            "description": "A une Référence sous la règle examinée."
+          },
+          "reference_now": {
+            "type": "boolean",
+            "description": "A une Référence selon l'éligibilité enregistrée."
+          }
+        }
+      },
+      "VoiceEligibilityGroupPreview": {
+        "type": "object",
+        "description": "Un groupe d'empreintes de production (modèle, version, dimensions).",
+        "required": [
+          "model",
+          "model_version",
+          "dimensions",
+          "missing_sources",
+          "estimated",
+          "original_vectors",
+          "overlap_share",
+          "current",
+          "candidate",
+          "scenarios",
+          "persons"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "dimensions": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes dont le clip n'a plus de source audio connue en base (aucun média lu)."
+          },
+          "estimated": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local archivé sans tours : Parole nette estimée par la durée de l'empreinte."
+          },
+          "original_vectors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes dont le vecteur précède la Parole nette (sans mesures du Worker) : vecteur d'origine, requalifié sans recalcul."
+          },
+          "overlap_share": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "nullable": true,
+            "description": "Part de la parole retirée par les Chevauchements, pondérée par le temps de parole, sur les empreintes dont le Chevauchement est connu ; null sans aucune."
+          },
+          "current": {
+            "$ref": "#/components/schemas/VoiceEligibilityOutcome"
+          },
+          "candidate": {
+            "$ref": "#/components/schemas/VoiceEligibilityScenario"
+          },
+          "scenarios": {
+            "type": "array",
+            "description": "Une par durée minimale, appliquée aux deux usages, avec la part d'écrêtage examinée.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityScenario"
+            }
+          },
+          "persons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityPersonPreview"
+            }
+          }
+        }
+      },
+      "VoiceEligibilityPreview": {
+        "type": "object",
+        "description": "Aperçu sans effet de l'éligibilité des empreintes enregistrées (#394) : mêmes calculs que la requalification.",
+        "required": [
+          "active_version",
+          "persons_with_samples",
+          "groups"
+        ],
+        "properties": {
+          "active_version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version de la règle active."
+          },
+          "persons_with_samples": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Personnes ayant au moins un Échantillon vocal validé actif."
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityGroupPreview"
+            }
+          }
+        }
+      },
+      "VoiceRecomputePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fingerprints",
+          "recomputable",
+          "jobs",
+          "clips",
+          "missing_sources",
+          "archived",
+          "references",
+          "transition_open",
+          "running"
+        ],
+        "properties": {
+          "fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local de production au vecteur d'origine, dans le groupe du modèle actif."
+          },
+          "recomputable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dont recalculables."
+          },
+          "jobs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tâches d'empreinte à créer, une par diarisation."
+          },
+          "clips": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Clips concernés."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes dont la source audio est absente : signalées, laissées en service."
+          },
+          "archived": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteurs archivés sans diarisation courante : non recalculables."
+          },
+          "references": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes d'un échantillon validé actif."
+          },
+          "transition_open": {
+            "type": "boolean",
+            "description": "Une transition de modèle d'empreinte est ouverte : le recalcul est refusé."
+          },
+          "running": {
+            "type": "boolean",
+            "description": "Un recalcul est déjà en cours."
+          }
+        }
+      },
+      "VoiceRecomputeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "confirm_fingerprints"
+        ],
+        "properties": {
+          "confirm_fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre d'empreintes vu dans l'aperçu."
+          }
+        }
+      },
+      "VoiceRecomputeReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fingerprints",
+          "pending",
+          "recomputed",
+          "recovered",
+          "recovered_contributive",
+          "still_rejected",
+          "lost",
+          "errors",
+          "cancelled",
+          "obsolete",
+          "missing_sources",
+          "archived"
+        ],
+        "properties": {
+          "fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes du recalcul."
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes en attente de leur tâche."
+          },
+          "recomputed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes remplacées par leur recalcul sur la Parole nette."
+          },
+          "recovered": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées rejetées avant, comparables désormais."
+          },
+          "recovered_contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées non contributives avant, contributives désormais."
+          },
+          "still_rejected": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées rejetées avant et après."
+          },
+          "lost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées comparables avant, plus maintenant."
+          },
+          "errors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tâche terminée sans nouvelle empreinte : l'ancienne reste en service."
+          },
+          "cancelled": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tâche annulée : l'ancienne empreinte reste en service."
+          },
+          "obsolete": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreinte d'origine remplacée ou supprimée hors du recalcul (nouvelle diarisation, suppression)."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Source audio absente : l'empreinte requalifiée reste en service."
+          },
+          "archived": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Locuteur archivé ou sans diarisation courante : non recalculable, l'empreinte reste en service."
+          }
+        }
+      },
+      "VoiceRecomputeRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "announced",
+          "author",
+          "created_at",
+          "finished_at",
+          "rematched_at",
+          "report"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "announced": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre d'empreintes confirmé au lancement."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "rematched_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "Fin du rapprochement de toute la bibliothèque relancé à la fin du recalcul."
+          },
+          "report": {
+            "$ref": "#/components/schemas/VoiceRecomputeReport"
+          }
+        }
+      },
+      "VoiceRecomputeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transition_open"
+        ],
+        "properties": {
+          "transition_open": {
+            "type": "boolean"
+          },
+          "run": {
+            "$ref": "#/components/schemas/VoiceRecomputeRun"
+          }
+        }
+      },
+      "VoiceEligibilityRequalification": {
+        "type": "object",
+        "description": "Une requalification tracée : auteur, règle appliquée, date et rapport avant/après.",
+        "required": [
+          "id",
+          "rule_version",
+          "author",
+          "created_at",
+          "changed",
+          "missing_sources",
+          "estimated",
+          "original_vectors",
+          "before",
+          "after"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "rule_version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "changed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de production dont l'éligibilité a changé."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes requalifiées dont le clip n'a plus de source audio connue."
+          },
+          "estimated": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes à Parole nette estimée."
+          },
+          "original_vectors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes gardant leur vecteur d'origine."
+          },
+          "before": {
+            "$ref": "#/components/schemas/VoiceEligibilityOutcome"
+          },
+          "after": {
+            "$ref": "#/components/schemas/VoiceEligibilityOutcome"
+          }
+        }
+      },
+      "VoiceScoreModeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables."
+          }
+        }
+      },
+      "VoiceScoreModeVersion": {
+        "type": "object",
+        "description": "Une version du mode de score. La version 1 est le mode par défaut de Snitch.",
+        "required": [
+          "version",
+          "mode",
+          "author",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a choisi ce mode ; null pour le mode par défaut."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceScoreMode": {
+        "type": "object",
+        "description": "Mode de score du rapprochement (ADR 0064) : version active et historique.",
+        "required": [
+          "version",
+          "mode",
+          "author",
+          "created_at",
+          "history"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "cumulative : cosinus avec la Référence de la Personne, moyenne de ses échantillons contributifs validés pondérée par leur Parole nette plafonnée. best_sample : meilleur cosinus avec un seul de ses échantillons comparables."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a choisi ce mode ; null pour le mode par défaut."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "history": {
+            "type": "array",
+            "description": "Vingt dernières versions, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceScoreModeVersion"
+            }
+          }
+        }
+      },
+      "PersonReferenceDiscard": {
+        "type": "object",
+        "required": [
+          "reason",
+          "count"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "too_short",
+              "overlap_only",
+              "clipped",
+              "low_quality",
+              "no_fingerprint"
+            ],
+            "description": "Raison de l'écart : celle de l'empreinte du Locuteur local dans le groupe actif (too_short, overlap_only, clipped, low_quality), ou no_fingerprint quand la voix n'a aucune empreinte de production dans ce groupe."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PersonReference": {
+        "type": "object",
+        "description": "La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version, dimensions) actif et selon le mode de score actif, et son niveau : en mode cumulative, les échantillons à empreinte contributive ; en mode best_sample, les seuls échantillons à empreinte comparable. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue.",
+        "required": [
+          "level",
+          "basis",
+          "contributive_samples",
+          "clips",
+          "net_speech_seconds",
+          "discarded"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "good",
+              "weak",
+              "none"
+            ],
+            "description": "none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ; avec moins de 3 Références, good."
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "no_sample",
+              "single_clip",
+              "few_references",
+              "below_median",
+              "median_or_more"
+            ],
+            "description": "Pourquoi la Référence a ce niveau."
+          },
+          "contributive_samples": {
+            "type": "integer",
+            "description": "Échantillons validés actifs qui entrent dans la Référence du mode de score actif (empreinte contributive du groupe actif ; comparable en mode best_sample)."
+          },
+          "clips": {
+            "type": "integer",
+            "description": "Clips distincts de ces échantillons."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "description": "Parole nette cumulée de ces échantillons, après plafond par échantillon."
+          },
+          "discarded": {
+            "type": "array",
+            "description": "Échantillons validés actifs écartés de la Référence, groupés par raison.",
+            "items": {
+              "$ref": "#/components/schemas/PersonReferenceDiscard"
+            }
+          }
+        }
+      },
+      "VoiceFingerprintGroup": {
+        "type": "object",
+        "description": "Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes d'un même groupe sont comparées.",
+        "additionalProperties": false,
+        "required": [
+          "model",
+          "model_version",
+          "dimensions"
+        ],
+        "properties": {
+          "model": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "model_version": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "dimensions": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2000
+          }
+        }
+      },
+      "VoiceGroupThresholds": {
+        "type": "object",
+        "description": "Une version des seuils appliqués à un groupe d'empreintes pour un mode de score (ADR 0064). Les versions sont numérotées par groupe ; la plus haute version d'un mode est en vigueur pour ce mode.",
+        "required": [
+          "version",
+          "suggestion_threshold",
+          "automatic_threshold",
+          "ambiguity_margin",
+          "source",
+          "score_mode",
+          "author",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "suggestion_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "automatic_threshold": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "ambiguity_margin": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "migration",
+              "administrator",
+              "proposal"
+            ],
+            "description": "migration : seuils de l'installation repris pour le groupe actif ; administrator : saisis ; proposal : proposition de la Précision mesurée appliquée par l'administrateur."
+          },
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "Mode de score auquel ces seuils s'appliquent."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur ; null pour Snitch (migration)."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceScoreBin": {
+        "type": "object",
+        "description": "Classe de score de largeur 0,05 ; un score négatif est compté dans la première classe, un score de 1 dans la dernière. Un score est une similarité cosinus, jamais une probabilité.",
+        "required": [
+          "from",
+          "to",
+          "same_person",
+          "other_person"
+        ],
+        "properties": {
+          "from": {
+            "type": "number"
+          },
+          "to": {
+            "type": "number"
+          },
+          "same_person": {
+            "type": "integer",
+            "description": "Scores d'un test contre la Référence de sa propre Personne."
+          },
+          "other_person": {
+            "type": "integer",
+            "description": "Scores d'un test contre la Référence d'une autre Personne."
+          }
+        }
+      },
+      "VoiceThresholdSweep": {
+        "type": "object",
+        "description": "Décision rejouée sur les tests à un jeu de seuils.",
+        "required": [
+          "automatic_threshold",
+          "suggestion_threshold",
+          "ambiguity_margin",
+          "automatic",
+          "errors",
+          "to_verify",
+          "unknown_automatic",
+          "unknown_automatic_rate"
+        ],
+        "properties": {
+          "automatic_threshold": {
+            "type": "number"
+          },
+          "suggestion_threshold": {
+            "type": "number",
+            "description": "Seuil de suggestion utilisé : celui du groupe, abaissé au seuil automatique s'il le dépasse."
+          },
+          "ambiguity_margin": {
+            "type": "number"
+          },
+          "automatic": {
+            "type": "integer",
+            "description": "Tests attribués automatiquement."
+          },
+          "errors": {
+            "type": "integer",
+            "description": "Attributions automatiques désignant une autre Personne que celle validée."
+          },
+          "to_verify": {
+            "type": "integer",
+            "description": "Tests laissés à vérifier (suggestion, ambiguïté ou inconnu)."
+          },
+          "unknown_automatic": {
+            "type": "integer",
+            "description": "Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort automatiquement."
+          },
+          "unknown_automatic_rate": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Taux d'inconnus simulés reconnus à tort : unknown_automatic sur le nombre d'inconnus simulés rejoués (un par test) ; null sans test."
+          }
+        }
+      },
+      "VoiceThresholdProposal": {
+        "type": "object",
+        "description": "Proposition de seuils : jamais appliquée sans action de l'administrateur.",
+        "required": [
+          "suggestion_threshold",
+          "automatic_threshold",
+          "ambiguity_margin",
+          "figures"
+        ],
+        "properties": {
+          "suggestion_threshold": {
+            "type": "number"
+          },
+          "automatic_threshold": {
+            "type": "number",
+            "description": "Plus bas seuil, au centième, à partir duquel la mesure garde la précision minimale des critères d'activation et ne reconnaît aucun inconnu simulé."
+          },
+          "ambiguity_margin": {
+            "type": "number"
+          },
+          "figures": {
+            "$ref": "#/components/schemas/VoiceThresholdSweep"
+          }
+        }
+      },
+      "VoiceCalibrationMode": {
+        "type": "object",
+        "description": "Mesure d'un mode de score sur le groupe actif.",
+        "required": [
+          "mode",
+          "tests",
+          "persons",
+          "same_person_scores",
+          "other_person_scores",
+          "distribution",
+          "sweep",
+          "thresholds",
+          "current",
+          "proposal",
+          "withheld"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ]
+          },
+          "tests": {
+            "type": "integer",
+            "description": "Tests ayant une empreinte comparable dans le groupe ; chacun est aussi rejoué comme inconnu simulé."
+          },
+          "persons": {
+            "type": "integer",
+            "description": "Personnes ayant une Référence dans ce mode et au moins un test."
+          },
+          "same_person_scores": {
+            "type": "integer"
+          },
+          "other_person_scores": {
+            "type": "integer"
+          },
+          "distribution": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceScoreBin"
+            }
+          },
+          "sweep": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceThresholdSweep"
+            },
+            "description": "Seuil automatique de 0,05 à 1 par pas de 0,05."
+          },
+          "thresholds": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceGroupThresholds"
+              }
+            ],
+            "nullable": true,
+            "description": "Seuils appliqués au groupe pour ce mode ; null : dans ce mode, suggestions seulement."
+          },
+          "current": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceThresholdSweep"
+              }
+            ],
+            "nullable": true,
+            "description": "Chiffres aux seuils appliqués au groupe pour ce mode ; null sans seuils appliqués pour ce mode."
+          },
+          "proposal": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceThresholdProposal"
+              }
+            ],
+            "nullable": true
+          },
+          "withheld": {
+            "type": "string",
+            "enum": [
+              "",
+              "too_few",
+              "no_safe_threshold"
+            ],
+            "description": "Raison de l'absence de proposition : too_few (effectifs trop faibles), no_safe_threshold (aucun seuil ne garde la précision sans reconnaître d'inconnu)."
+          }
+        }
+      },
+      "VoiceCalibration": {
+        "type": "object",
+        "description": "Calibration des seuils du groupe d'empreintes actif (ADR 0064), les deux modes de score côte à côte.",
+        "required": [
+          "group",
+          "thresholds",
+          "history",
+          "active_mode",
+          "min_tests",
+          "min_persons",
+          "modes"
+        ],
+        "properties": {
+          "group": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceFingerprintGroup"
+              }
+            ],
+            "nullable": true,
+            "description": "Groupe actif ; null tant qu'aucune empreinte n'a été produite."
+          },
+          "thresholds": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceGroupThresholds"
+              }
+            ],
+            "nullable": true,
+            "description": "Seuils appliqués au groupe pour le mode de score actif ; null : suggestions seulement, aucune Attribution automatique."
+          },
+          "history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceGroupThresholds"
+            },
+            "description": "Vingt dernières versions, la plus récente d'abord."
+          },
+          "active_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ]
+          },
+          "min_tests": {
+            "type": "integer"
+          },
+          "min_persons": {
+            "type": "integer"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/VoiceCalibrationMode"
+            }
           }
         }
       }

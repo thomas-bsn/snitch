@@ -31,6 +31,9 @@ _Avoid_ : Source (qui désigne aussi les origines historiques en lecture seule).
 **Indexation de la Racine** : L'action explicite d'un administrateur qui donne leur fiche clip, en une fois, à toutes les vidéos de la Racine vidéo qui n'en ont pas, avec ou sans leur analyse complète. Elle ne retraite jamais un clip existant, peut être mise en pause, reprise ou annulée, et continue sans que l'on reste sur la page.
 _Avoid_ : Scan (qui désigne la lecture du disque), import (qui désigne l'envoi de fichiers).
 
+**Scan de toute la Racine** : L'action explicite d'un administrateur qui met en file, en une fois et sans limite de nombre, toutes les vidéos éligibles de la Racine vidéo : les vidéos non indexées sont indexées, les clips jamais analysés sont analysés selon les réglages de traitement, un clip déjà analysé n'est pas réanalysé. Elle laisse toujours de côté les Dossiers privés, quel que soit le rôle, ainsi que les éléments masqués, les dossiers système et les clips privés. Elle continue en arrière-plan et reprend après un redémarrage.
+_Avoid_ : Indexation de la Racine (qui ne traite que les vidéos sans clip et peut viser un Dossier privé pour le Super-administrateur), réanalyse.
+
 **Demande de création de dossier** : La demande d'un utilisateur de créer un dossier dans la Racine vidéo. Elle attend l'approbation d'un Administrateur ; le dossier d'un Administrateur est créé sans demande.
 
 **Dossier privé** : Un dossier de premier niveau d'une Source que seul le Super-administrateur peut parcourir. Les autres utilisateurs voient son nom avec un cadenas, pas ses clips, sauf ceux qu'ils possèdent ou qui proviennent aussi d'un emplacement visible. Il est distinct de la visibilité d'un clip.
@@ -57,7 +60,20 @@ _Avoid_ : Score, confiance (qui mesure la proximité des voix, pas la décision)
 
 **Attribution automatique** : Une attribution déduite par Snitch, distincte d'une validation humaine. Elle n'est jamais un échantillon vocal validé et ne sert pas de référence. Seul l'administrateur active ou désactive ce mode.
 
-**Référence** : L'ensemble des échantillons vocaux validés d'une Personne, avec lesquels les autres voix sont comparées.
+**Référence** : L'ensemble des échantillons vocaux validés d'une Personne, avec lesquels les autres voix sont comparées. Ses échantillons se cumulent : plusieurs extraits brefs valent ensemble ce qu'aucun ne vaut seul (ADR 0064).
+_Avoid_ : Profil cumulatif, centroïde.
+
+**Chevauchement** : Un moment d'une piste où plusieurs Locuteurs locaux parlent en même temps.
+_Avoid_ : Overlap, voix simultanées (qui désigne aussi deux pistes différentes).
+
+**Parole nette** : La parole d'un Locuteur local hors Chevauchement. C'est elle qui sert à calculer son empreinte et à mesurer ce qu'un échantillon apporte à une Référence.
+_Avoid_ : Parole propre, temps de parole (qui compte aussi les Chevauchements).
+
+**Éligibilité d'une empreinte** : Ce que Snitch permet à une empreinte, d'après sa Parole nette et une règle versionnée que l'administrateur règle. Une empreinte *comparable* est rapprochée seule d'une Référence ; une empreinte *contributive* peut entrer dans une Référence une fois validée par un humain, avec moins de Parole nette. Une empreinte chevauchée n'est jamais ni l'une ni l'autre. Changer la règle requalifie les empreintes sans les recalculer (ADR 0064).
+_Avoid_ : Empreinte utilisable, qualité minimale.
+
+**Source séparée** : Une voix isolée par un modèle à partir d'un Chevauchement. Elle sert à retrouver des paroles, jamais à calculer une empreinte ni à enrichir une Référence. Un extrait d'écoute découpé dans une piste n'en est pas une : il contient toutes les voix du moment.
+_Avoid_ : Piste séparée (qui désigne une vraie piste audio du clip), extrait.
 
 **Voix ambiguë** : Une voix proche de plusieurs Personnes sans qu'aucune ne se détache ; elle est présentée avec ses candidates et jamais attribuée d'elle-même.
 
@@ -137,7 +153,7 @@ _Avoid_ : Jeton du Worker (accès du Worker à Snitch), clé maître.
 
 **Liaison de runtime** : La Release d'engine avec laquelle un modèle prêt s'exécute sur un Worker. Une mise à jour installe la nouvelle Release à côté de l'ancienne, réutilise les poids déjà validés et ne publie la liaison qu'après une inférence de test réussie ; entre-temps le modèle sert avec l'ancienne. Un retour arrière rebascule explicitement vers une Release déjà installée et approuvée, jamais vers une Release révoquée.
 
-**Empreinte vocale réelle** : Une empreinte produite par un modèle d'empreinte du catalogue exécuté pour de bon sur un Worker (et non par un double de test). Elle porte le modèle, sa version, ses dimensions, un vecteur normalisé, la durée de parole utilisée et une qualité ; elle n'est jamais comparée à celle d'une autre famille, version ou dimension. Une preuve sur la machine de l'opérateur (matériel, mémoire, durée) reste distincte des tests automatiques.
+**Empreinte vocale réelle** : Une empreinte produite par un modèle d'empreinte du catalogue exécuté pour de bon sur un Worker (et non par un double de test). Elle porte le modèle, sa version, ses dimensions, un vecteur normalisé calculé sur la Parole nette, la durée de parole utilisée, une qualité et ses mesures (Chevauchement, écrêtage, niveau, cohérence) ; elle n'est jamais comparée à celle d'une autre famille, version ou dimension. Une preuve sur la machine de l'opérateur (matériel, mémoire, durée) reste distincte des tests automatiques.
 
 **Enveloppe de release** : Le fichier signé qu'un éditeur de confiance remet au Super-administrateur pour importer une Release d'engine : l'identité de la clé, le manifeste et sa signature. La clé privée de l'éditeur reste chez lui ; Snitch ne la voit jamais. Reste valable pour le parcours signé, sous « Avancé », réservé au propriétaire.
 

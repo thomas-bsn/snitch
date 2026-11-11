@@ -20,6 +20,10 @@ import { SegmentActions } from "../library/SegmentActions";
 import { clipTitle, fetchClip, fetchClipVoice } from "../library/libraryApi";
 import type { LocalSpeaker, TranscriptSegment } from "../library/libraryApi";
 import { VoiceDecision } from "../voices/VoiceDecision";
+import {
+  MatchingStatusLine,
+  useVoiceMatchingStatus,
+} from "../voices/MatchingStatus";
 import { useFailureText } from "./failureText";
 import { claimPlayback } from "./ExcerptPlayer";
 import { HandledNotice } from "./HandledNotice";
@@ -80,6 +84,8 @@ export function ProcessScreen({
   );
   const voice =
     voiceLoad.state.status === "ready" ? voiceLoad.state.value : undefined;
+  // Matching follows a decision in the background: when a pass ends, the suggestions are read again.
+  const matching = useVoiceMatchingStatus(voiceLoad.reload);
   const clipData = clip.status === "ready" ? clip.value : undefined;
   const name = clipData ? clipTitle(clipData) : "";
 
@@ -265,6 +271,7 @@ export function ProcessScreen({
             {t("people.process.title", { clip: name })}
           </h1>
           {total > 0 && <p className="m-0 text-xs text-mute">{clock(total)}</p>}
+          <MatchingStatusLine status={matching} className="text-xs" />
         </div>
         <div className="flex items-center gap-2 text-sm">
           <span className="text-mute">

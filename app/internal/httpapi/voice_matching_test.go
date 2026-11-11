@@ -56,7 +56,7 @@ func (h *voiceHarness) fixtureSpeaker(clipID int64, label string, fp fixtureFing
 		reason = "too_short"
 	}
 	vector, _ := json.Marshal(fp.vector)
-	if _, err := h.pool.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding) VALUES($1,$2,$3,'speaker',0,2,2,$4,$5,$6,$7,$8,$9,$10::vector)`, speaker, clipID, fingerprint, fp.quality, fp.usable, reason, fp.model, fp.version, fp.dimensions, string(vector)); err != nil {
+	if _, err := h.pool.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,contributive,model,model_version,dimensions,embedding) VALUES($1,$2,$3,'speaker',0,2,2,$4,$5,$6,$5,$7,$8,$9,$10::vector)`, speaker, clipID, fingerprint, fp.quality, fp.usable, reason, fp.model, fp.version, fp.dimensions, string(vector)); err != nil {
 		h.t.Fatal(err)
 	}
 	return fixtureSpeaker{ID: speaker, ClipID: clipID}
@@ -126,6 +126,8 @@ func (h *voiceHarness) personOf(sp fixtureSpeaker) int64 {
 
 func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 3)
+	// These synthetic voices speak about 1 s: an eligibility rule at 1 s makes them comparable (#390).
+	h.putEligibility(1, 0.5, 0.05)
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5`); err != nil {
 		t.Fatal(err)
 	}
@@ -236,9 +238,16 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	if got = h.matched(near); got.DecisionLevel != "suggestion" || got.Person == nil || got.Person.ID != alice {
 		t.Fatalf("after the correction Bob has no reference: NEAR is a suggestion for Alice again: %+v", got)
 	}
-	if got = h.matched(middling); got.Person == nil || got.Person.ID != alice || got.Attribution.Confidence == nil || *got.Attribution.Confidence < 0.96 {
-		t.Fatalf("MIDDLE must follow the corrected references (Alice at 20 degrees now): %+v", got)
+	// Alice's samples at 0 and 20 degrees add up to a cumulative Reference at 10 degrees (ADR 0064): MIDDLE, at
+	// 35 degrees, scores cos(25). With the best-sample score of phase 5, her sample at 20 degrees gives cos(15).
+	if got = h.matched(middling); got.Person == nil || got.Person.ID != alice || got.Attribution.Confidence == nil || math.Abs(*got.Attribution.Confidence-math.Cos(25*math.Pi/180)) > 1e-4 {
+		t.Fatalf("MIDDLE must follow Alice's corrected cumulative Reference: %+v", got)
 	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-score-mode", map[string]any{"mode": "best_sample"}, http.StatusOK)
+	if got = h.matched(middling); got.Person == nil || got.Person.ID != alice || got.Attribution.Confidence == nil || math.Abs(*got.Attribution.Confidence-math.Cos(15*math.Pi/180)) > 1e-4 {
+		t.Fatalf("in the best-sample mode MIDDLE follows Alice's closest sample (20 degrees): %+v", got)
+	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-score-mode", map[string]any{"mode": "cumulative"}, http.StatusOK)
 	if h.count(`SELECT count(*) FROM voice_samples WHERE retired_at IS NULL`) != 3 || h.count(`SELECT count(*) FROM voice_samples`) != 4 {
 		t.Fatal("the correction must retire one sample and create one, matching none")
 	}
@@ -255,6 +264,11 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
+	// Thresholds belong to a fingerprint group (#393): without thresholds applied to it, a group only suggests.
+	if got = h.matched(near); got.DecisionLevel != "suggestion" {
+		t.Fatalf("a group without applied thresholds is never automatic: %+v", got)
+	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75)
 	if got = h.matched(near); got.DecisionLevel != "automatic" || got.State != "identified" || got.Person == nil || got.Person.ID != alice {
 		t.Fatalf("a strong match is automatic once the automation is enabled: %+v", got)
 	}
@@ -265,7 +279,7 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	// Thresholds are configured by administrators only, and a change re-examines the
 	// stored fingerprints.
 	peer := h.newUser("peer")
-	thresholds := map[string]any{"automatic_threshold": 0.99, "suggestion_threshold": 0.97, "ambiguity_margin": 0.05, "max_candidates": 5}
+	thresholds := map[string]any{"automatic_threshold": 0.99, "suggestion_threshold": 0.97, "ambiguity_margin": 0.05, "max_candidates": 5, "group": fixtureGroup}
 	h.userCall(peer, http.MethodPut, "/api/admin/voice-matching", thresholds, http.StatusForbidden)
 	h.userCall(peer, http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusForbidden)
 	if body := h.userCall(peer, http.MethodGet, "/api/voice-matching", nil, http.StatusOK); !json.Valid(body) {
@@ -280,16 +294,22 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	} {
 		h.adminCall(http.MethodPut, "/api/admin/voice-matching", bad, http.StatusBadRequest)
 	}
-	h.adminCall(http.MethodPut, "/api/admin/voice-matching", thresholds, http.StatusOK)
-	if got = h.matched(near); got.DecisionLevel != "suggestion" {
-		t.Fatalf("a stricter automatic threshold turns NEAR back into a suggestion: %+v", got)
+	// MIDDLE (cos 25 = 0.906 with Alice's cumulative Reference) is automatic at 0.90.
+	if got = h.matched(middling); got.DecisionLevel != "automatic" {
+		t.Fatalf("MIDDLE is automatic at the default thresholds: %+v", got)
 	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.95, "suggestion_threshold": 0.8, "ambiguity_margin": 0.05, "max_candidates": 5, "group": fixtureGroup}, http.StatusOK)
+	if got = h.matched(middling); got.DecisionLevel != "suggestion" {
+		t.Fatalf("a stricter automatic threshold turns MIDDLE back into a suggestion: %+v", got)
+	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", thresholds, http.StatusOK)
 	if got = h.matched(middling); got.DecisionLevel != "unknown" || got.Person != nil {
 		t.Fatalf("a stricter suggestion threshold turns MIDDLE into unknown: %+v", got)
 	}
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75`); err != nil {
 		t.Fatal(err)
 	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75)
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 
 	// Fingerprints arriving from the worker are matched against the existing references.

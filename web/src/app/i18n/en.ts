@@ -626,6 +626,35 @@ export const en = {
     cancel: "Cancel",
     queued: "Files added to the queue.",
     queueTitle: "Requested files",
+    queueMore: "… and {count} more requested files.",
+    rootScan: {
+      confirmTitle: "Scan the entire root?",
+      confirmBody:
+        "Unindexed videos are indexed, then analysed according to the processing settings, like any new clip. A clip already analysed is not analysed again. Private folders, hidden files and folders, system folders and private clips are left out. The scan goes on in the background, even if you leave this page or the server restarts.",
+      confirm: "Queue {count} videos",
+      started: "Root scan started. It goes on in the background.",
+      title: "Scan of the entire root",
+      walking: "Walking the root: {seen} videos found, {queued} queued.",
+      queueing: "{done} / {queued} queued videos taken in charge.",
+      progressLabel: "Root scan progress",
+      completed: "Scan completed.",
+      cancelled: "Scan cancelled.",
+      waitingForWorker:
+        "No Worker is online: videos wait and resume on their own once a Worker connects.",
+      queued: "Queued",
+      upToDate: "Already up to date",
+      privateFolders: "Left out: private folders",
+      hidden: "Left out: hidden",
+      system: "Left out: system folders",
+      privateClips: "Left out: private clips",
+      unreadable: "Unreadable folders, skipped",
+      unreadablePaths: "Unreadable folders: {paths}",
+      rootItself: "the root itself",
+      failed: "Videos in error: {count}",
+      cancel: "Cancel the scan",
+      confirmCancel:
+        "Cancel the scan? Videos not taken yet are no longer requested; what is already indexed is kept.",
+    },
     select: "Select {path}",
     status: {
       indexed: "Indexed",
@@ -1029,13 +1058,179 @@ export const en = {
     fake: "Synthetic provider (tests)",
     model: "Diarization model",
     modelVersion: "Model version",
-    minDuration: "Minimum fingerprint duration (seconds)",
-    minQuality: "Minimum quality",
     fakeSpeakers: "Synthetic speakers",
-    savePipeline: "Save and version",
+    eligibility: {
+      comparableMin: "Net speech for a comparable fingerprint (seconds)",
+      comparableHint:
+        "From this duration, a voice is matched on its own against the references.",
+      contributiveMin: "Net speech for a contributive fingerprint (seconds)",
+      contributiveHint:
+        "From this duration, a validated voice is contributive: it can enter the Reference of its Person. At most the comparable duration.",
+      maxClipped: "Maximum share of clipped samples",
+      maxClippedHint:
+        "Above it, saturated audio rejects the fingerprint (0.01 = 1%).",
+      provisional:
+        "Rule {version}: provisional values set by Snitch, to be confirmed by an administrator.",
+      rule: "Rule {version}, set by {author} on {date}.",
+      summary:
+        "Voice fingerprints: {comparable} comparable, {contributive} contributive only, {tooShort} too short, {overlap} overlapped, {clipped} clipped, {lowQuality} rejected before the rule.",
+      stale:
+        "{count} fingerprints are still decided by an earlier rule. Saving the rule requalifies them.",
+      save: "Save and requalify",
+      requalified: "{count} fingerprints changed eligibility.",
+      history: "Earlier versions of the rule",
+      historyItem:
+        "Rule {version}: comparable {comparable} s, contributive {contributive} s, clipped at most {clipped} · {author} · {date}",
+      snitch: "Snitch",
+      preview: "Preview the figures",
+      previewTitle:
+        "Preview of the stored fingerprints under this rule (comparable {comparable}, contributive {contributive}). Nothing has changed yet.",
+      previewEmpty: "No production fingerprint is stored yet.",
+      groupLabel: "Fingerprint group {name}",
+      previewFacts:
+        "{present} local speaker fingerprints: {missing} without a known audio source, {estimated} with an estimated net speech, {original} keeping their original vector.",
+      overlapShare: "Overlaps remove {value} of the speech.",
+      overlapUnknown: "The share of speech removed by overlaps is unknown.",
+      personsReference:
+        "{count} of {total} people with validated samples would have a Reference.",
+      scenarios: "Effect by minimum duration",
+      scenariosHint:
+        "Each duration is applied to both uses. +n: fingerprints gained, −n: fingerprints lost, compared with today.",
+      ruleColumn: "Rule",
+      comparableColumn: "Comparable",
+      contributiveColumn: "Contributive",
+      rejectedColumn: "Rejected",
+      referenceColumn: "People with a Reference",
+      current: "Today",
+      examined: "Examined rule ({comparable} / {contributive})",
+      duration: "Minimum {value}",
+      rejected: "{tooShort} too short, {overlap} overlapped, {clipped} clipped",
+      rejectedBefore: ", {count} rejected before the rule",
+      perPerson: "By person, under the examined rule",
+      personColumn: "Person",
+      presentColumn: "Fingerprints",
+      missingColumn: "Without source",
+      referenceKept: "Yes",
+      referenceGained: "Yes (new)",
+      referenceLost: "No (lost)",
+      referenceNone: "No",
+      requalifyHint:
+        "Requalifying applies this rule in the database: no Worker, no audio read, vectors unchanged. No person, validation or validated sample is modified.",
+      requalify: "Requalify with this rule",
+      reportTitle:
+        "Last requalification: rule {version}, by {author} on {date}. {count} fingerprints changed eligibility.",
+      reportBefore: "Before:",
+      reportAfter: "After:",
+      reportOutcome:
+        "{comparable} comparable, {contributive} contributive, {tooShort} too short, {overlap} overlapped, {clipped} clipped, {lowQuality} rejected before the rule; {persons} people with a Reference.",
+      reportFacts:
+        "{missing} requalified without a known audio source, {estimated} with an estimated net speech, {original} keeping their original vector.",
+    },
+    recompute: {
+      title: "Recompute the fingerprints on the net speech",
+      hint: "Fingerprint jobs recompute the vectors stored before the net speech, from the diarizations already made. Nothing is rediarized; no Person, validation or validated sample changes. Each old fingerprint stays in service until its new one succeeds.",
+      preview: "See the extent of the recalculation",
+      fingerprints: "Fingerprints with an original vector",
+      recomputable: "Recomputable",
+      jobs: "Fingerprint jobs",
+      clips: "Clips",
+      missing: "Missing audio sources",
+      archived: "Archived voices, not recomputable",
+      references: "Validated samples concerned",
+      transitionOpen:
+        "A fingerprint model change is under way: the recalculation waits for its end.",
+      confirm: "I recompute these {count} fingerprints",
+      start: "Start the recalculation",
+      started: "Started by {author} on {date}, {count} fingerprints confirmed.",
+      running:
+        "Recalculation under way: {done} of {total} fingerprints handled, {pending} waiting.",
+      completed: "Recalculation completed on {date}.",
+      cancelled: "Recalculation cancelled on {date}.",
+      rematched: "The whole library was matched again on {date}.",
+      rematching: "The whole library is being matched again.",
+      report:
+        "{recomputed} recomputed: {recovered} recovered (comparable now), {recoveredContributive} newly contributive, {stillRejected} still rejected, {lost} no longer comparable.",
+      reportKept:
+        "Kept in service: {errors} errors, {cancelled} cancelled, {missing} without audio source, {archived} archived voices, {obsolete} replaced elsewhere.",
+      resume: "Resume",
+      cancel: "Cancel the recalculation",
+      cancelText:
+        "Only the recalculation's own jobs are cancelled; the fingerprints already recomputed stay.",
+      keep: "Keep it running",
+    },
+    score: {
+      title: "Score of a voice",
+      hint: "How a voice is compared with a person's validated samples. Changing it matches every stored voice again.",
+      legend: "Score mode",
+      cumulative: "Cumulative reference (default)",
+      cumulativeHint:
+        "The validated samples of a person add up, weighted by their net speech: several short extracts recognise a voice none of them recognises alone.",
+      bestSample: "Best sample",
+      bestSampleHint:
+        "Each comparable sample is compared on its own and the closest one counts. Short samples are left out.",
+      defaultMode: "Mode {version}: Snitch's default.",
+      current: "Mode {version}, chosen by {author} on {date}.",
+      save: "Save the score mode",
+      history: "Earlier score modes",
+      historyItem: "Mode {version}: {mode} · {author} · {date}",
+    },
+    thresholds: {
+      group:
+        "Thresholds of the fingerprint model {model} · {version} · {dimensions} dimensions",
+      noGroup:
+        "No fingerprint model has produced a fingerprint yet: these values are provisional. A model uses them for its suggestions until thresholds are applied to it.",
+      applied:
+        "Thresholds version {version} for the {mode} mode, {source}, by {author} on {date}.",
+      none: "No thresholds applied to this model for the active score mode: it only produces suggestions, never an automatic attribution. Apply thresholds after the measurement below.",
+      migration: "taken over from the installation",
+      administrator: "typed in",
+      proposal: "from the measurement's proposal",
+      history: "Earlier thresholds of this model",
+      historyItem:
+        "Version {version} ({mode}): automatic {automatic}, suggestion {suggestion}, margin {margin} · {source} · {author} · {date}",
+      scoreNote:
+        "A score is a cosine similarity between −1 and 1 whose scale depends on the fingerprint model: it is not a probability.",
+    },
+    calibration: {
+      title: "Threshold calibration",
+      hint: "Replays matching on the validated samples of the active model, references and tests from separate clips. Each test is also replayed without its person's Reference, as an unknown voice: it must be refused. Nothing is applied without your action.",
+      noGroup: "No fingerprint yet: nothing to measure.",
+      activeMode: "{mode} (active mode)",
+      figures:
+        "{tests} tests, {persons} people measured; {same} same-person scores, {other} other-person scores.",
+      distribution: "Score distribution",
+      scoreColumn: "Score",
+      sameColumn: "Same person",
+      otherColumn: "Other person",
+      sweep: "Automatic threshold sweep",
+      thresholdColumn: "Automatic threshold",
+      automaticColumn: "Automatic",
+      errorsColumn: "Errors",
+      toVerifyColumn: "To verify",
+      unknownColumn: "Unknowns wrongly recognised",
+      current:
+        "At the applied thresholds: {automatic} automatic, {errors} errors, {toVerify} to verify; {unknown} of {tests} simulated unknowns wrongly recognised ({rate}).",
+      noCurrent:
+        "No thresholds applied for this mode: no figures at applied thresholds.",
+      applied:
+        "Applied for this mode: suggestion {suggestion}, automatic {automatic}, margin {margin}.",
+      noneApplied:
+        "No thresholds applied for this mode: in this mode the model only suggests.",
+      proposal:
+        "Proposal: suggestion {suggestion}, automatic {automatic}, margin {margin}. On the measurement: {automaticCount} automatic, {errors} errors, {toVerify} to verify, {unknown} of {tests} simulated unknowns wrongly recognised ({rate}).",
+      rule: "Automatic threshold: the lowest that keeps the minimum precision of the activation criteria without recognising any simulated unknown. Suggestion: 95% of same-person scores above it. Margin: covers 95% of the measured confusions.",
+      tooFew:
+        "Too few figures to propose thresholds: {tests} tests and {persons} people, at least {minTests} and {minPersons} are needed.",
+      noSafe:
+        "No threshold keeps the minimum precision without recognising a simulated unknown: no proposal.",
+      apply: "Apply this proposal to the model",
+      applyInactive: "Apply this proposal for the {mode} mode",
+      otherMode:
+        "Inactive mode: thresholds applied for it only take effect once it is the active score mode.",
+    },
     matching: "Voice matching",
     matchingHint:
-      "Only human-validated samples are references. Thresholds must be evaluated.",
+      "Only human-validated samples are references. Thresholds belong to a fingerprint model and a score mode, and are only changed by an administrator.",
     autoThreshold: "Automatic attribution threshold",
     suggestionThreshold: "Suggestion threshold",
     margin: "Ambiguity margin",
@@ -1080,6 +1275,8 @@ export const en = {
     measured: "Measured precision",
     autoHint:
       "Never enabled on its own: only you can turn it on, after a confirmation. Human validations are never overwritten.",
+    autoSuspended:
+      "Automatic attribution is suspended for the active fingerprint model: no thresholds have been applied to it, so it only produces suggestions. Measure and apply its thresholds in the advanced settings.",
     enableTitle: "Enable automatic attribution?",
     enableText:
       "Voices recognised with enough confidence will be attributed without asking. You can disable it at any time.",
@@ -1103,7 +1300,7 @@ export const en = {
     candidatesHint: "Number of people proposed for a voice.",
     fingerprintSettings: "Voice fingerprints",
     fingerprintHint:
-      "Short or poor-quality extracts do not produce a fingerprint. Saving creates a new pipeline version.",
+      "Snitch decides which fingerprints are used from their net speech, the speech no other voice covers. Saving the rule requalifies every stored fingerprint, without analysing anything again, then matches the voices again.",
     automationSettings: "Automation criteria",
     precisionHint: "Measured precision required before activation is proposed.",
     confirmationsHint: "Human confirmations required before activation.",
@@ -1959,6 +2156,18 @@ export const en = {
       infoLabel: "Definition: {metric}",
       genuine: "genuine",
       impostor: "impostor",
+      scoring: {
+        title: "Score:",
+        modes: {
+          cumulative: "Cumulative reference",
+          best_sample: "Best sample",
+          centroid: "Centroid (legacy)",
+        },
+        current:
+          "{mode} (version {modeVersion}, one sample weighs at most {cap}), eligibility rule version {ruleVersion}: comparable from {comparable}, contributive from {contributive}, at most {clipped} clipped. Scored like production: a threshold read here holds for production under this mode and rule.",
+        legacy:
+          "{mode}: the unweighted mean of the reference fingerprints, kept by the thresholds of the pinned pipeline. Its thresholds do not hold for the current production score.",
+      },
     },
     metrics: {
       cpwer: {
@@ -3461,17 +3670,24 @@ export const en = {
     label: "Volume",
     mute: "Mute",
   },
+  matchingStatus: {
+    label: "Voice matching",
+    inProgress: "Voice matching in progress: suggestions are being updated.",
+    upToDate: "Suggestions up to date · last matching at {time}",
+    never: "No voice matching yet.",
+    failed:
+      "The last voice matching failed; it is retried automatically ({time}).",
+  },
   voiceDecision: {
     listenLabel: "Listen to an excerpt of {label}",
     candidates: "Closest people",
-    proximity: "{percent}% proximity",
+    score: "score {score}",
     yesShort: "Yes",
     useExisting: "Use {person}",
     createAnyway: "Create a new person anyway",
     noShort: "No",
     falseDetection: "False detection",
     looksLike: "Looks like",
-    similarity: "{percent}% proximity",
     yes: "It is {person}",
     no: "It is not {person}",
     identify: "Identify",
@@ -3557,7 +3773,10 @@ export const en = {
       delete: "Delete {name}",
       separate: "Separate voices of {name}",
       created: "{name} was created.",
-      videoCount: "{count} video(s)",
+      videos: {
+        one: "{count} video",
+        other: "{count} videos",
+      },
       videosTitle: "Videos where {name} is heard",
       videosEmpty: "No video you can see.",
       figuresLabel: "Figures of {name}",
@@ -3578,19 +3797,44 @@ export const en = {
       heardState: "validated",
       referenceWarningTitle: "Reference to strengthen",
       referenceWarningNone:
-        "{name} has no validated sample: Snitch cannot recognize this voice yet. Confirm more voices to build a Reference.",
+        "No validated voice of {name} enters their Reference yet: Snitch cannot recognize this voice. Confirm more voices, long enough and not covered by another voice, to build a Reference.",
       referenceWarningWeak:
-        "{name} has few validated samples: recognition may be unreliable. Confirm more voices to strengthen the Reference.",
-    },
-    figures: {
-      minutes: "{minutes} min of speech",
-      hours: "{hours} h {minutes} min of speech",
+        "{basis}. Recognition of {name} may be unreliable: confirm more voices, on other videos, to strengthen the Reference.",
     },
     reference: {
       levelLabel: "Reference: {level}",
       good: "good",
       weak: "weak",
       none: "none",
+      basis: {
+        no_sample: "No sample enters the Reference yet",
+        single_clip: "Built on a single video",
+        few_references:
+          "Built on several videos; too few References to compare it with",
+        below_median: "Less clean speech than half of the Persons",
+        median_or_more: "More clean speech than half of the Persons",
+      },
+      title: "Reference used by recognition",
+      label: "Reference of {name}",
+      used: "Samples used",
+      usedValue: "{used} of {validated} validated",
+      clips: "Distinct videos",
+      speech: "Clean speech",
+      setAside: "Set aside",
+      setAsideCount: {
+        one: "{count} sample",
+        other: "{count} samples",
+      },
+      setAsideLine: "{count}: {reason}",
+      reasons: {
+        too_short: "too short",
+        overlap_only: "always covered by another voice",
+        clipped: "saturated sound",
+        low_quality: "quality too low",
+        no_fingerprint: "no voice fingerprint yet",
+      },
+      voiceUsed: "Used by the Reference",
+      voiceSetAside: "Set aside: {reason}",
     },
     actions: {
       label: "Actions on {name}",

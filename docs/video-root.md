@@ -39,11 +39,24 @@ Après le changement :
 
 Dans **Administration › Dossiers**, ouvrez **Scanner des vidéos et gérer les dossiers**, naviguez dans la racine et :
 
-1. cochez un ou plusieurs fichiers ou sous-dossiers, ou utilisez **Scanner toute la racine** ;
+1. cochez un ou plusieurs fichiers ou sous-dossiers, puis **Préparer le scan de la sélection** ;
 2. prévisualisez la liste des fichiers vidéo trouvés ;
 3. confirmez avec **Ajouter à la file**.
 
-Un sous-dossier sélectionné inclut ses sous-dossiers. Rien n'est analysé avant la confirmation. La file affiche chaque fichier avec son état :
+Un sous-dossier sélectionné inclut ses sous-dossiers. Rien n'est analysé avant la confirmation.
+
+### Scanner toute la racine
+
+**Scanner toute la racine** prend tout ce qui est éligible, sans limite de nombre (ADR 0038, amendement #404) :
+
+- l'aperçu annonce des comptes, sans lister les chemins : vidéos à mettre en file, déjà à jour, exclues par motif (Dossier privé, masqué, système, clip privé) et dossiers illisibles ;
+- après confirmation, la réponse est immédiate : le parcours du disque et la mise en file avancent en arrière-plan, continuent si l'on quitte la page et reprennent après un redémarrage du serveur ;
+- les vidéos non indexées sont indexées ; un clip jamais analysé est ensuite analysé selon les réglages de traitement, comme un nouveau clip ; un clip déjà analysé n'est pas réanalysé (la réanalyse reste une action de la fiche ou de la Bibliothèque) ;
+- les Dossiers privés sont toujours laissés de côté, **Super-administrateur compris** : il scanne un Dossier privé en le sélectionnant explicitement. Les fichiers et dossiers masqués (nom commençant par un point), les dossiers système et les clips privés sont aussi exclus ;
+- un dossier illisible est sauté et compté (les premiers sont nommés), sans arrêter le reste ;
+- l'écran montre la progression (vidéos trouvées, puis prises en charge) et le bilan ; **Annuler le scan** arrête le parcours et ne demande plus les vidéos pas encore prises. Un seul scan ou une seule Indexation de la Racine est actif à la fois ; relancer ne crée aucun doublon.
+
+La file affiche les fichiers demandés (les 200 premiers, bornés par le serveur : `GET /api/admin/sources/{id}/files?limit=200` renvoie au plus `limit` fichiers, 1 000 par défaut et au plus, avec le total de la source) avec leur état :
 
 - **Indexé** : le fichier est prêt et plus rien n'attend ;
 - **En attente d'un Worker** : la demande est enregistrée, mais aucun Worker n'est connecté ;
@@ -69,7 +82,7 @@ La **Bibliothèque** parcourt la racine comme un explorateur (ADR 0032) : un arb
 
 Les dossiers nommés exactement `#recycle` (corbeille UGREEN) et `@eaDir` (métadonnées NAS) sont exclus automatiquement, à tous les niveaux de l'arborescence. Snitch ne les ouvre pas, même s'ils sont inaccessibles au conteneur. La même règle s'applique à l'estimation et au lancement de l'Indexation de la Racine, au scan manuel et au sélecteur d'import, à l'explorateur (avec ou sans filtres) et à la découverte des vidéos des sources historiques. Une sélection directe de ces dossiers ou de leur contenu est refusée.
 
-Il n'est pas nécessaire de changer les permissions de ces dossiers système. Les refus de permission sur les dossiers ordinaires restent signalés : un scan manuel ou une estimation incomplète échoue ; la réconciliation historique affiche un avertissement et conserve les états précédents. Les Dossiers privés accessibles au Super-administrateur restent parcourus et indexés pour lui.
+Il n'est pas nécessaire de changer les permissions de ces dossiers système. Les refus de permission sur les dossiers ordinaires restent signalés : un scan de sélection ou une estimation de l'Indexation incomplète échoue ; **Scanner toute la racine** saute le dossier illisible et le compte dans son bilan ; la réconciliation historique affiche un avertissement et conserve les états précédents. Les Dossiers privés accessibles au Super-administrateur restent parcourus et indexés pour lui par l'Indexation de la Racine et par une sélection explicite, jamais par **Scanner toute la racine**.
 
 ## Dossiers privés
 

@@ -17,6 +17,7 @@ if TYPE_CHECKING:
   from ..models.voice_accuracy_library import VoiceAccuracyLibrary
   from ..models.voice_accuracy_person import VoiceAccuracyPerson
   from ..models.voice_automation_event import VoiceAutomationEvent
+  from ..models.voice_calibration import VoiceCalibration
 
 
 
@@ -32,7 +33,7 @@ class VoiceAccuracy:
         Attributes:
             measured_at (datetime.datetime):
             auto_enabled (bool):
-            automatic_threshold (float):
+            automatic_threshold (float): Seuil automatique du groupe d'empreintes actif (ou provisoire).
             precision_threshold (float):
             min_confirmations (int):
             evaluation (VoiceAccuracyEvaluation):
@@ -43,6 +44,8 @@ class VoiceAccuracy:
                 l'activation à l'administrateur.
             events (list[VoiceAutomationEvent]): Historique des activations et désactivations, du plus récent au plus
                 ancien.
+            calibration (VoiceCalibration): Calibration des seuils du groupe d'empreintes actif (ADR 0064), les deux modes
+                de score côte à côte.
      """
 
     measured_at: datetime.datetime
@@ -56,6 +59,7 @@ class VoiceAccuracy:
     criteria: VoiceAccuracyCriteria
     activation_proposed: bool
     events: list[VoiceAutomationEvent]
+    calibration: VoiceCalibration
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -68,6 +72,7 @@ class VoiceAccuracy:
         from ..models.voice_accuracy_library import VoiceAccuracyLibrary # noqa: PLC0415
         from ..models.voice_accuracy_person import VoiceAccuracyPerson # noqa: PLC0415
         from ..models.voice_automation_event import VoiceAutomationEvent # noqa: PLC0415
+        from ..models.voice_calibration import VoiceCalibration # noqa: PLC0415
         measured_at = self.measured_at.isoformat()
 
         auto_enabled = self.auto_enabled
@@ -100,6 +105,8 @@ class VoiceAccuracy:
 
 
 
+        calibration = self.calibration.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -115,6 +122,7 @@ class VoiceAccuracy:
             "criteria": criteria,
             "activation_proposed": activation_proposed,
             "events": events,
+            "calibration": calibration,
         })
 
         return field_dict
@@ -128,6 +136,7 @@ class VoiceAccuracy:
         from ..models.voice_accuracy_library import VoiceAccuracyLibrary # noqa: PLC0415
         from ..models.voice_accuracy_person import VoiceAccuracyPerson # noqa: PLC0415
         from ..models.voice_automation_event import VoiceAutomationEvent # noqa: PLC0415
+        from ..models.voice_calibration import VoiceCalibration # noqa: PLC0415
         d = dict(src_dict)
         measured_at = datetime.datetime.fromisoformat(d.pop("measured_at"))
 
@@ -179,6 +188,11 @@ class VoiceAccuracy:
             events.append(events_item)
 
 
+        calibration = VoiceCalibration.from_dict(d.pop("calibration"))
+
+
+
+
         voice_accuracy = cls(
             measured_at=measured_at,
             auto_enabled=auto_enabled,
@@ -191,6 +205,7 @@ class VoiceAccuracy:
             criteria=criteria,
             activation_proposed=activation_proposed,
             events=events,
+            calibration=calibration,
         )
 
 

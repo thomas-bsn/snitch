@@ -7,19 +7,30 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
+import { MatchingStatus } from "../../voices/MatchingStatus";
+import {
+  EligibilityPreview,
+  RequalificationReport,
+} from "./EligibilityPreview";
+import { FingerprintRecompute } from "./FingerprintRecompute";
+import { VoiceCalibration } from "./VoiceCalibration";
 
-type Pipeline = components["schemas"]["VoicePipeline"];
+type Eligibility = components["schemas"]["VoiceEligibility"];
+type EligibilityInput = components["schemas"]["VoiceEligibilityInput"];
+type Preview = components["schemas"]["VoiceEligibilityPreview"];
 type Matching = components["schemas"]["VoiceMatchingSettings"];
+type ScoreMode = components["schemas"]["VoiceScoreMode"];
+type ScoreModeName = ScoreMode["mode"];
 type Accuracy = components["schemas"]["VoiceAccuracy"];
+type Thresholds = components["schemas"]["VoiceGroupThresholds"];
 
-// The values the installation starts with: a reset goes back to them.
+// The values the installation starts with: a reset goes back to them. The eligibility rule's come from the
+// server (its provisional version).
 const DEFAULTS = {
   automatic_threshold: 0.9,
   suggestion_threshold: 0.75,
   ambiguity_margin: 0.05,
   max_candidates: 5,
-  min_fingerprint_seconds: 1,
-  min_quality: 0.5,
   precision_threshold: 0.95,
   min_confirmations: 50,
 };
@@ -29,12 +40,14 @@ const pct = (x: number | null, none: string) =>
 
 /** The thresholds, folded away: nothing here is needed to use the screen. */
 export function VoiceAdvanced({
-  pipeline,
+  eligibility,
+  scoreMode,
   matching,
   accuracy,
   onChanged,
 }: {
-  pipeline: Pipeline;
+  eligibility: Eligibility;
+  scoreMode: ScoreMode;
   matching: Matching;
   accuracy: Accuracy;
   onChanged: () => void;
@@ -42,8 +55,14 @@ export function VoiceAdvanced({
   const { t, error } = useI18n();
   const { session } = useSession();
   const headers = mutation(session?.csrf_token);
-  const [fp, setFp] = useState<Partial<Pipeline>>();
+  const [rule, setRule] = useState<Partial<EligibilityInput>>();
+  const [requalified, setRequalified] = useState<number>();
+  const [preview, setPreview] = useState<{
+    figures: Preview;
+    rule: EligibilityInput;
+  }>();
   const [match, setMatch] = useState<Partial<Matching>>();
+  const [mode, setMode] = useState<ScoreModeName>();
   const [precision, setPrecision] = useState<string>();
   const [confirmations, setConfirmations] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -52,7 +71,12 @@ export function VoiceAdvanced({
   const [resetting, setResetting] = useState(false);
   const [summary, setSummary] =
     useState<components["schemas"]["VoiceMatchingSummary"]>();
-  const pipe = { ...pipeline, ...fp };
+  const current: EligibilityInput = {
+    comparable_min_seconds: eligibility.rule.comparable_min_seconds,
+    contributive_min_seconds: eligibility.rule.contributive_min_seconds,
+    max_clipped_ratio: eligibility.rule.max_clipped_ratio,
+  };
+  const r = { ...current, ...rule };
   const m = { ...matching, ...match };
   const none = t("voiceAdmin.notMeasured");
   async function run(
@@ -77,33 +101,91 @@ export function VoiceAdvanced({
       setResetting(false);
     }
   }
-  const savePipeline = (e: FormEvent) => {
+  const putRule = async (body: EligibilityInput) => {
+    const result = await api.PUT("/api/admin/voice-eligibility", {
+      params: { header: headers },
+      body,
+    });
+    if (result.data) {
+      setRequalified(result.data.requalified);
+      setPreview(undefined);
+    }
+    return result;
+  };
+  // The preview writes nothing: it is not a saved setting.
+  async function loadPreview() {
+    const examined = r;
+    setBusy(true);
+    setFailure(undefined);
+    setNotice(false);
+    try {
+      const result = await api.GET("/api/admin/voice-eligibility/preview", {
+        params: { query: examined },
+      });
+      if (result.error) setFailure(errorCode(result.error) ?? "unknown");
+      else setPreview({ figures: result.data, rule: examined });
+    } catch {
+      setFailure("unavailable");
+    } finally {
+      setBusy(false);
+    }
+  }
+  const saveRule = (e: FormEvent) => {
     e.preventDefault();
     void run(
-      () =>
-        api.PUT("/api/admin/voice-pipeline", {
-          params: { header: headers },
-          body: pipe,
-        }),
-      () => setFp(undefined),
+      () => putRule(r),
+      () => setRule(undefined),
     );
   };
+  // Thresholds go to the fingerprint group the screen shows: if the model changed meanwhile, the server refuses.
+  const group = matching.group ?? undefined;
+  const putThresholds = (
+    values: Pick<
+      Matching,
+      "automatic_threshold" | "suggestion_threshold" | "ambiguity_margin"
+    >,
+    source: "administrator" | "proposal" = "administrator",
+    scoreMode?: ScoreModeName,
+  ) =>
+    api.PUT("/api/admin/voice-matching", {
+      params: { header: headers },
+      body: {
+        automatic_threshold: values.automatic_threshold,
+        suggestion_threshold: values.suggestion_threshold,
+        ambiguity_margin: values.ambiguity_margin,
+        max_candidates: m.max_candidates,
+        ...(group ? { group, source } : {}),
+        ...(scoreMode ? { score_mode: scoreMode } : {}),
+      },
+    });
   const saveMatching = (e: FormEvent) => {
     e.preventDefault();
     void run(
-      () =>
-        api.PUT("/api/admin/voice-matching", {
-          params: { header: headers },
-          body: {
-            automatic_threshold: m.automatic_threshold,
-            suggestion_threshold: m.suggestion_threshold,
-            ambiguity_margin: m.ambiguity_margin,
-            max_candidates: m.max_candidates,
-          },
-        }),
+      () => putThresholds(m),
       () => setMatch(undefined),
     );
   };
+  // Thresholds in force for the active score mode; the history lists every other version, of both modes.
+  const thresholds = accuracy.calibration.thresholds;
+  const earlierThresholds = accuracy.calibration.history.filter(
+    (v) => v.version !== thresholds?.version,
+  );
+  const sourceLabel = (v: Thresholds) => t(`voiceAdmin.thresholds.${v.source}`);
+  const saveScoreMode = (e: FormEvent) => {
+    e.preventDefault();
+    void run(
+      () =>
+        api.PUT("/api/admin/voice-score-mode", {
+          params: { header: headers },
+          body: { mode: mode ?? scoreMode.mode },
+        }),
+      () => setMode(undefined),
+    );
+  };
+  const modeLabel = (m: ScoreModeName) =>
+    m === "cumulative"
+      ? t("voiceAdmin.score.cumulative")
+      : t("voiceAdmin.score.bestSample");
   const criteriaBody = (p: number, c: number) =>
     api.PUT("/api/admin/voice-automation/criteria", {
       params: { header: headers },
@@ -133,6 +215,7 @@ export function VoiceAdvanced({
             suggestion_threshold: DEFAULTS.suggestion_threshold,
             ambiguity_margin: DEFAULTS.ambiguity_margin,
             max_candidates: DEFAULTS.max_candidates,
+            ...(group ? { group } : {}),
           },
         });
         if (a.error) return a;
@@ -141,24 +224,26 @@ export function VoiceAdvanced({
           DEFAULTS.min_confirmations,
         );
         if (b.error) return b;
+        if (scoreMode.mode !== "cumulative") {
+          const c = await api.PUT("/api/admin/voice-score-mode", {
+            params: { header: headers },
+            body: { mode: "cumulative" },
+          });
+          if (c.error) return c;
+        }
+        const d = eligibility.defaults;
         if (
-          pipeline.min_fingerprint_seconds ===
-            DEFAULTS.min_fingerprint_seconds &&
-          pipeline.min_quality === DEFAULTS.min_quality
+          d.comparable_min_seconds === current.comparable_min_seconds &&
+          d.contributive_min_seconds === current.contributive_min_seconds &&
+          d.max_clipped_ratio === current.max_clipped_ratio
         )
           return b;
-        return api.PUT("/api/admin/voice-pipeline", {
-          params: { header: headers },
-          body: {
-            ...pipeline,
-            min_fingerprint_seconds: DEFAULTS.min_fingerprint_seconds,
-            min_quality: DEFAULTS.min_quality,
-          },
-        });
+        return putRule(d);
       },
       () => {
-        setFp(undefined);
+        setRule(undefined);
         setMatch(undefined);
+        setMode(undefined);
         setPrecision(undefined);
         setConfirmations(undefined);
       },
@@ -182,6 +267,33 @@ export function VoiceAdvanced({
             {t("voiceAdmin.matching")}
           </h4>
           <p className="text-mute">{t("voiceAdmin.matchingHint")}</p>
+          <MatchingStatus />
+          <p className="font-medium">
+            {group
+              ? t("voiceAdmin.thresholds.group", {
+                  model: group.model,
+                  version: group.model_version,
+                  dimensions: group.dimensions,
+                })
+              : t("voiceAdmin.thresholds.noGroup")}
+          </p>
+          {group && (
+            <p>
+              {thresholds
+                ? t("voiceAdmin.thresholds.applied", {
+                    version: thresholds.version,
+                    mode: modeLabel(thresholds.score_mode),
+                    source: sourceLabel(thresholds),
+                    author:
+                      thresholds.author ?? t("voiceAdmin.eligibility.snitch"),
+                    date: new Date(thresholds.created_at).toLocaleString(),
+                  })
+                : t("voiceAdmin.thresholds.none")}
+            </p>
+          )}
+          <p className="text-sm text-mute">
+            {t("voiceAdmin.thresholds.scoreNote")}
+          </p>
           <form
             onSubmit={saveMatching}
             className="flex max-w-xl flex-col gap-3"
@@ -259,6 +371,32 @@ export function VoiceAdvanced({
               </button>
             </div>
           </form>
+          {earlierThresholds.length > 0 && (
+            <div>
+              <p id="adv-thresholds-history" className="font-medium">
+                {t("voiceAdmin.thresholds.history")}
+              </p>
+              <ul
+                aria-labelledby="adv-thresholds-history"
+                className="list-disc pl-5"
+              >
+                {earlierThresholds.map((v) => (
+                  <li key={v.version}>
+                    {t("voiceAdmin.thresholds.historyItem", {
+                      version: v.version,
+                      mode: modeLabel(v.score_mode),
+                      automatic: v.automatic_threshold,
+                      suggestion: v.suggestion_threshold,
+                      margin: v.ambiguity_margin,
+                      source: sourceLabel(v),
+                      author: v.author ?? t("voiceAdmin.eligibility.snitch"),
+                      date: new Date(v.created_at).toLocaleString(),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {summary && (
             <p role="status">
               {t("voiceAdmin.rematched", {
@@ -272,6 +410,88 @@ export function VoiceAdvanced({
           )}
         </section>
 
+        <section aria-labelledby="adv-score" className="flex flex-col gap-3">
+          <h4 id="adv-score" className="font-semibold">
+            {t("voiceAdmin.score.title")}
+          </h4>
+          <p className="text-mute">{t("voiceAdmin.score.hint")}</p>
+          <p>
+            {scoreMode.author === null
+              ? t("voiceAdmin.score.defaultMode", {
+                  version: scoreMode.version,
+                })
+              : t("voiceAdmin.score.current", {
+                  version: scoreMode.version,
+                  author: scoreMode.author,
+                  date: new Date(scoreMode.created_at).toLocaleString(),
+                })}
+          </p>
+          <form
+            onSubmit={saveScoreMode}
+            className="flex max-w-xl flex-col gap-3"
+          >
+            <fieldset className="flex flex-col gap-2">
+              <legend className="font-medium">
+                {t("voiceAdmin.score.legend")}
+              </legend>
+              {(["cumulative", "best_sample"] as const).map((value) => (
+                <label key={value} className="flex min-h-11 gap-2">
+                  <input
+                    type="radio"
+                    name="score-mode"
+                    value={value}
+                    checked={(mode ?? scoreMode.mode) === value}
+                    onChange={() => setMode(value)}
+                    aria-describedby={`score-mode-${value}-hint`}
+                    className="mt-1"
+                  />
+                  <span className="flex flex-col">
+                    <span>{modeLabel(value)}</span>
+                    <span
+                      id={`score-mode-${value}-hint`}
+                      className="text-sm text-mute"
+                    >
+                      {value === "cumulative"
+                        ? t("voiceAdmin.score.cumulativeHint")
+                        : t("voiceAdmin.score.bestSampleHint")}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </fieldset>
+            <div>
+              <button
+                disabled={busy || (mode ?? scoreMode.mode) === scoreMode.mode}
+                className={buttonClass("primary")}
+              >
+                {t("voiceAdmin.score.save")}
+              </button>
+            </div>
+          </form>
+          {scoreMode.history.length > 1 && (
+            <div>
+              <p id="adv-score-history" className="font-medium">
+                {t("voiceAdmin.score.history")}
+              </p>
+              <ul
+                aria-labelledby="adv-score-history"
+                className="list-disc pl-5"
+              >
+                {scoreMode.history.slice(1).map((v) => (
+                  <li key={v.version}>
+                    {t("voiceAdmin.score.historyItem", {
+                      version: v.version,
+                      mode: modeLabel(v.mode),
+                      author: v.author ?? t("voiceAdmin.eligibility.snitch"),
+                      date: new Date(v.created_at).toLocaleString(),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
         <section
           aria-labelledby="adv-fingerprint"
           className="flex flex-col gap-3"
@@ -280,38 +500,137 @@ export function VoiceAdvanced({
             {t("voiceScreen.fingerprintSettings")}
           </h4>
           <p className="text-mute">{t("voiceScreen.fingerprintHint")}</p>
-          <form
-            onSubmit={savePipeline}
-            className="flex max-w-xl flex-col gap-3"
-          >
+          <p>
+            {eligibility.rule.provisional
+              ? t("voiceAdmin.eligibility.provisional", {
+                  version: eligibility.rule.version,
+                })
+              : t("voiceAdmin.eligibility.rule", {
+                  version: eligibility.rule.version,
+                  author: eligibility.rule.author ?? "",
+                  date: new Date(eligibility.rule.created_at).toLocaleString(),
+                })}
+          </p>
+          <p>
+            {t("voiceAdmin.eligibility.summary", {
+              comparable: eligibility.summary.comparable,
+              contributive: eligibility.summary.contributive_only,
+              tooShort: eligibility.summary.too_short,
+              overlap: eligibility.summary.overlap_only,
+              clipped: eligibility.summary.clipped,
+              lowQuality: eligibility.summary.low_quality,
+            })}
+          </p>
+          {eligibility.summary.stale > 0 && (
+            <p className="text-mute">
+              {t("voiceAdmin.eligibility.stale", {
+                count: eligibility.summary.stale,
+              })}
+            </p>
+          )}
+          <form onSubmit={saveRule} className="flex max-w-xl flex-col gap-3">
             <Field
-              label={t("voiceAdmin.minDuration")}
+              label={t("voiceAdmin.eligibility.comparableMin")}
+              hint={t("voiceAdmin.eligibility.comparableHint")}
               type="number"
-              min={0.1}
+              min={0.5}
               max={60}
               step={0.1}
-              value={pipe.min_fingerprint_seconds}
+              value={r.comparable_min_seconds}
               onChange={(e) =>
-                setFp({ ...fp, min_fingerprint_seconds: num(e.target.value) })
+                setRule({
+                  ...rule,
+                  comparable_min_seconds: num(e.target.value),
+                })
               }
             />
             <Field
-              label={t("voiceAdmin.minQuality")}
+              label={t("voiceAdmin.eligibility.contributiveMin")}
+              hint={t("voiceAdmin.eligibility.contributiveHint")}
+              type="number"
+              min={0.5}
+              max={60}
+              step={0.1}
+              value={r.contributive_min_seconds}
+              onChange={(e) =>
+                setRule({
+                  ...rule,
+                  contributive_min_seconds: num(e.target.value),
+                })
+              }
+            />
+            <Field
+              label={t("voiceAdmin.eligibility.maxClipped")}
+              hint={t("voiceAdmin.eligibility.maxClippedHint")}
               type="number"
               min={0}
               max={1}
-              step={0.05}
-              value={pipe.min_quality}
+              step="any"
+              value={r.max_clipped_ratio}
               onChange={(e) =>
-                setFp({ ...fp, min_quality: num(e.target.value) })
+                setRule({ ...rule, max_clipped_ratio: num(e.target.value) })
               }
             />
-            <div>
+            <div className="flex flex-wrap gap-2">
               <button disabled={busy} className={buttonClass("primary")}>
-                {t("voiceAdmin.savePipeline")}
+                {t("voiceAdmin.eligibility.save")}
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                className={buttonClass()}
+                onClick={() => void loadPreview()}
+              >
+                {t("voiceAdmin.eligibility.preview")}
               </button>
             </div>
           </form>
+          {preview && (
+            <EligibilityPreview
+              preview={preview.figures}
+              rule={preview.rule}
+              busy={busy}
+              onRequalify={() =>
+                void run(
+                  () => putRule(preview.rule),
+                  () => setRule(undefined),
+                )
+              }
+            />
+          )}
+          {requalified !== undefined && (
+            <p role="status">
+              {t("voiceAdmin.eligibility.requalified", { count: requalified })}
+            </p>
+          )}
+          {eligibility.requalifications.length > 0 && (
+            <RequalificationReport report={eligibility.requalifications[0]} />
+          )}
+          <FingerprintRecompute />
+          {eligibility.history.length > 1 && (
+            <div>
+              <p id="adv-eligibility-history" className="font-medium">
+                {t("voiceAdmin.eligibility.history")}
+              </p>
+              <ul
+                aria-labelledby="adv-eligibility-history"
+                className="list-disc pl-5"
+              >
+                {eligibility.history.slice(1).map((v) => (
+                  <li key={v.version}>
+                    {t("voiceAdmin.eligibility.historyItem", {
+                      version: v.version,
+                      comparable: v.comparable_min_seconds,
+                      contributive: v.contributive_min_seconds,
+                      clipped: v.max_clipped_ratio,
+                      author: v.author ?? t("voiceAdmin.eligibility.snitch"),
+                      date: new Date(v.created_at).toLocaleString(),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </section>
 
         <section
@@ -424,6 +743,16 @@ export function VoiceAdvanced({
               </button>
             </div>
           </form>
+          <VoiceCalibration
+            calibration={accuracy.calibration}
+            busy={busy}
+            onApply={(p, scoreMode) =>
+              void run(
+                () => putThresholds(p, "proposal", scoreMode),
+                () => setMatch(undefined),
+              )
+            }
+          />
           {accuracy.events.length > 0 && (
             <ul className="list-disc pl-5">
               {accuracy.events.map((event, i) => (
