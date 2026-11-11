@@ -425,10 +425,7 @@ func (s *Server) matchGroupScores(ctx context.Context, tx pgx.Tx, g matchGroup, 
 // measured accuracy).
 func loadReferenceSamples(ctx context.Context, q pgQuerier, g matchGroup, sampleIDs []int64) ([]referenceSample, error) {
 	rows, err := q.Query(ctx, `SELECT vs.person_id,vs.clip_id,f.embedding::real[],COALESCE(f.net_speech_seconds,f.duration_seconds),f.usable
-  FROM voice_samples vs
-  JOIN voice_fingerprints f ON f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id
-  WHERE vs.retired_at IS NULL AND NOT EXISTS (SELECT 1 FROM persons p WHERE p.id=vs.person_id AND p.voice_profile_deleted_at IS NOT NULL)
-    AND f.contributive AND NOT f.benchmark AND f.scope='speaker' AND f.model=$1 AND f.model_version=$2 AND f.dimensions=$3
+  `+referenceSamplesFrom+`
     AND ($4::bigint[] IS NULL OR vs.id=ANY($4))
   ORDER BY vs.person_id,vs.id`, g.model, g.version, g.dimensions, sampleIDs)
 	if err != nil {

@@ -86,6 +86,7 @@ from .benchmark_dataset_created_stages_item import BenchmarkDatasetCreatedStages
 from .benchmark_dataset_input import BenchmarkDatasetInput
 from .benchmark_dataset_list import BenchmarkDatasetList
 from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
+from .benchmark_eligibility_rule import BenchmarkEligibilityRule
 from .benchmark_job_error import BenchmarkJobError
 from .benchmark_metrics import BenchmarkMetrics
 from .benchmark_model import BenchmarkModel
@@ -104,6 +105,8 @@ from .benchmark_run_input_stage import BenchmarkRunInputStage
 from .benchmark_run_list import BenchmarkRunList
 from .benchmark_run_stage import BenchmarkRunStage
 from .benchmark_run_status import BenchmarkRunStatus
+from .benchmark_scoring import BenchmarkScoring
+from .benchmark_scoring_score_mode import BenchmarkScoringScoreMode
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
@@ -331,9 +334,15 @@ from .person_link_request_status import PersonLinkRequestStatus
 from .person_list import PersonList
 from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
+from .person_reference import PersonReference
+from .person_reference_basis import PersonReferenceBasis
+from .person_reference_discard import PersonReferenceDiscard
+from .person_reference_discard_reason import PersonReferenceDiscardReason
+from .person_reference_level import PersonReferenceLevel
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .person_voice_reference_use import PersonVoiceReferenceUse
 from .poll_worker_restart_response_200 import PollWorkerRestartResponse200
 from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
@@ -584,6 +593,12 @@ from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
 from .voice_profile_deletion import VoiceProfileDeletion
+from .voice_recompute_input import VoiceRecomputeInput
+from .voice_recompute_preview import VoiceRecomputePreview
+from .voice_recompute_report import VoiceRecomputeReport
+from .voice_recompute_run import VoiceRecomputeRun
+from .voice_recompute_run_status import VoiceRecomputeRunStatus
+from .voice_recompute_state import VoiceRecomputeState
 from .voice_rediarization_confirmation import VoiceRediarizationConfirmation
 from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_refusal import VoiceRefusal
@@ -819,6 +834,7 @@ __all__ = (
     "BenchmarkDatasetInput",
     "BenchmarkDatasetList",
     "BenchmarkDatasetStagesItem",
+    "BenchmarkEligibilityRule",
     "BenchmarkJobError",
     "BenchmarkMetrics",
     "BenchmarkModel",
@@ -837,6 +853,8 @@ __all__ = (
     "BenchmarkRunList",
     "BenchmarkRunStage",
     "BenchmarkRunStatus",
+    "BenchmarkScoring",
+    "BenchmarkScoringScoreMode",
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
@@ -1064,9 +1082,15 @@ __all__ = (
     "PersonList",
     "PersonMergeInput",
     "PersonRef",
+    "PersonReference",
+    "PersonReferenceBasis",
+    "PersonReferenceDiscard",
+    "PersonReferenceDiscardReason",
+    "PersonReferenceLevel",
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PersonVoiceReferenceUse",
     "PollWorkerRestartResponse200",
     "PostWorkerInstallEventsBody",
     "PostWorkerTranscriptionConfigStatusBody",
@@ -1317,6 +1341,12 @@ __all__ = (
     "VoicePipelineProvider",
     "VoicePipelineState",
     "VoiceProfileDeletion",
+    "VoiceRecomputeInput",
+    "VoiceRecomputePreview",
+    "VoiceRecomputeReport",
+    "VoiceRecomputeRun",
+    "VoiceRecomputeRunStatus",
+    "VoiceRecomputeState",
     "VoiceRediarizationConfirmation",
     "VoiceRediarizationStake",
     "VoiceRefusal",

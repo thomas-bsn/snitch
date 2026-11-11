@@ -338,6 +338,14 @@ func (s *Server) startFingerprintTransition(w http.ResponseWriter, r *http.Reque
 			}
 			return orderFailure{http.StatusConflict, "voice_transition_in_progress"}
 		}
+		// A recalculation of the fingerprints writes in the active model's group: the model waits for its end (#395).
+		var recomputing bool
+		if err := tx.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_recompute_runs WHERE status='running')`).Scan(&recomputing); err != nil || recomputing {
+			if err != nil {
+				return err
+			}
+			return orderFailure{http.StatusConflict, "voice_recompute_in_progress"}
+		}
 		view, err := previewOfTransition(r.Context(), tx, input.ToModelID)
 		if err != nil {
 			return err

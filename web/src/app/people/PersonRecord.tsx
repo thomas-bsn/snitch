@@ -7,7 +7,8 @@ import { StatusPill } from "../components/StatusPill";
 import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
 import { PersonActions } from "./PersonActions";
-import { Avatar, referenceLevel, shortDate, speechShort } from "./PersonParts";
+import { Avatar, ReferenceBadge, shortDate } from "./PersonParts";
+import { durationText } from "./referenceFigures";
 import { PersonVideos, PersonVoices } from "./PersonVoices";
 import {
   fetchPerson,
@@ -15,6 +16,7 @@ import {
   fetchPersonVoices,
   type Person,
   type PersonImpact,
+  type PersonReference,
   type PersonVoice,
 } from "./peopleApi";
 
@@ -31,6 +33,80 @@ export function Counts({ person }: { person: Person }) {
           })
         : t("people.persons.noReference")}
     </>
+  );
+}
+
+/**
+ * The Reference as recognition uses it: the samples it is built on, their videos and clean speech, and the
+ * validated samples it sets aside, grouped by reason.
+ */
+function ReferencePanel({
+  person,
+  reference,
+}: {
+  person: Person;
+  reference: PersonReference;
+}) {
+  const { t, language } = useI18n();
+  const plural = (count: number) =>
+    new Intl.PluralRules(language).select(count) === "one" ? "one" : "other";
+  const rows: [string, string][] = [
+    [
+      t("people.reference.used"),
+      t("people.reference.usedValue", {
+        used: reference.contributive_samples,
+        validated: person.validated_sample_count,
+      }),
+    ],
+    [t("people.reference.clips"), String(reference.clips)],
+    [t("people.reference.speech"), durationText(reference.net_speech_seconds)],
+  ];
+  return (
+    <section
+      role="group"
+      aria-label={t("people.reference.label", { name: person.display_name })}
+      className="flex flex-col gap-2 rounded-lg border border-line p-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="m-0 text-sm font-semibold">
+          {t("people.reference.title")}
+        </h3>
+        <ReferenceBadge reference={reference} />
+      </div>
+      <p className="m-0 text-sm text-mute">
+        {t(`people.reference.basis.${reference.basis}`)}
+      </p>
+      <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-sm">
+        {rows.map(([label, value]) => (
+          <div key={label} className="contents">
+            <dt className="text-mute">{label}</dt>
+            <dd className="m-0 font-medium tabular-nums">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      {reference.discarded.length > 0 && (
+        <div className="text-sm">
+          <h4 className="m-0 text-sm font-semibold">
+            {t("people.reference.setAside")}
+          </h4>
+          <ul className="m-0 list-none p-0">
+            {reference.discarded.map((d) => (
+              <li key={d.reason}>
+                {t("people.reference.setAsideLine", {
+                  count: t(
+                    `people.reference.setAsideCount.${plural(d.count)}`,
+                    {
+                      count: d.count,
+                    },
+                  ),
+                  reason: t(`people.reference.reasons.${d.reason}`),
+                })}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -120,7 +196,8 @@ export function PersonRecord({
   }
 
   const { person, impact, voices } = state.value;
-  const level = referenceLevel(person.validated_sample_count);
+  // The level is the server's, the same as on the directory card.
+  const level = person.reference?.level ?? "none";
   const lastHeard = voices.reduce<string | undefined>(
     (latest, voice) =>
       latest === undefined || voice.recorded_at > latest
@@ -138,12 +215,12 @@ export function PersonRecord({
     [t("people.persons.tiles.videos"), String(person.clip_count), false],
     [
       t("people.persons.tiles.speech"),
-      speechShort(person.speaking_seconds),
+      durationText(person.speaking_seconds),
       false,
     ],
     [
       t("people.persons.tiles.samples"),
-      String(person.validated_sample_count),
+      String(person.reference?.contributive_samples ?? 0),
       false,
     ],
     [
@@ -218,9 +295,17 @@ export function PersonRecord({
             level === "none"
               ? "people.persons.referenceWarningNone"
               : "people.persons.referenceWarningWeak",
-            { name: person.display_name },
+            {
+              name: person.display_name,
+              basis: person.reference
+                ? t(`people.reference.basis.${person.reference.basis}`)
+                : "",
+            },
           )}
         </div>
+      )}
+      {person.reference && (
+        <ReferencePanel person={person} reference={person.reference} />
       )}
       <PersonVideos person={person} voices={voices} />
       <PersonVoices person={person} voices={voices} />

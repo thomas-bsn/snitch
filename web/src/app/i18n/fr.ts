@@ -1149,6 +1149,38 @@ export const fr: Messages = {
       reportFacts:
         "{missing} requalifiées sans source audio connue, {estimated} à Parole nette estimée, {original} gardant leur vecteur d’origine.",
     },
+    recompute: {
+      title: "Recalculer les empreintes sur la Parole nette",
+      hint: "Des tâches d’empreinte recalculent les vecteurs enregistrés avant la Parole nette, à partir des diarisations déjà faites. Rien n’est rediarisé ; aucune Personne, validation ni Échantillon vocal validé ne change. Chaque ancienne empreinte reste en service jusqu’au succès de la nouvelle.",
+      preview: "Voir l’ampleur du recalcul",
+      fingerprints: "Empreintes au vecteur d’origine",
+      recomputable: "Recalculables",
+      jobs: "Tâches d’empreinte",
+      clips: "Clips",
+      missing: "Sources audio absentes",
+      archived: "Voix archivées, non recalculables",
+      references: "Échantillons validés concernés",
+      transitionOpen:
+        "Un changement du modèle d’empreinte est en cours : le recalcul attend sa fin.",
+      confirm: "Je recalcule ces {count} empreintes",
+      start: "Lancer le recalcul",
+      started: "Lancé par {author} le {date}, {count} empreintes confirmées.",
+      running:
+        "Recalcul en cours : {done} empreintes traitées sur {total}, {pending} en attente.",
+      completed: "Recalcul terminé le {date}.",
+      cancelled: "Recalcul annulé le {date}.",
+      rematched: "Toute la bibliothèque a été rapprochée de nouveau le {date}.",
+      rematching: "Toute la bibliothèque est en cours de rapprochement.",
+      report:
+        "{recomputed} recalculées : {recovered} récupérées (désormais comparables), {recoveredContributive} devenues contributives, {stillRejected} toujours rejetées, {lost} qui ne sont plus comparables.",
+      reportKept:
+        "Restées en service : {errors} en erreur, {cancelled} annulées, {missing} sans source audio, {archived} voix archivées, {obsolete} remplacées par ailleurs.",
+      resume: "Reprendre",
+      cancel: "Annuler le recalcul",
+      cancelText:
+        "Seules les tâches du recalcul sont annulées ; les empreintes déjà recalculées restent.",
+      keep: "Le laisser continuer",
+    },
     score: {
       title: "Score d’une voix",
       hint: "La façon de comparer une voix aux échantillons validés d’une personne. Le changer rapproche de nouveau toutes les voix enregistrées.",
@@ -2163,6 +2195,18 @@ export const fr: Messages = {
       infoLabel: "Définition : {metric}",
       genuine: "genuine",
       impostor: "impostor",
+      scoring: {
+        title: "Score :",
+        modes: {
+          cumulative: "Référence cumulative",
+          best_sample: "Meilleur échantillon",
+          centroid: "Centroïde (ancien)",
+        },
+        current:
+          "{mode} (version {modeVersion}, un échantillon pèse au plus {cap} s), règle d’éligibilité version {ruleVersion} : comparable dès {comparable} s, contributive dès {contributive} s, saturation au plus {clipped}. Noté comme la production : un seuil lu ici vaut pour la production sous ce mode et cette règle.",
+        legacy:
+          "{mode} : moyenne non pondérée des empreintes de référence, retenues par les seuils du pipeline épinglé. Ses seuils ne valent pas pour le score de production actuel.",
+      },
     },
     metrics: {
       cpwer: {
@@ -3784,7 +3828,10 @@ export const fr: Messages = {
       delete: "Supprimer {name}",
       separate: "Séparer des voix de {name}",
       created: "{name} a été créée.",
-      videoCount: "{count} vidéo(s)",
+      videos: {
+        one: "{count} vidéo",
+        other: "{count} vidéos",
+      },
       videosTitle: "Vidéos où {name} est entendue",
       videosEmpty: "Aucune vidéo que vous puissiez voir.",
       figuresLabel: "Chiffres de {name}",
@@ -3805,19 +3852,44 @@ export const fr: Messages = {
       heardState: "validée",
       referenceWarningTitle: "Référence à renforcer",
       referenceWarningNone:
-        "{name} n’a aucun échantillon validé : Snitch ne sait pas encore reconnaître cette voix. Confirmez d’autres voix pour constituer une Référence.",
+        "Aucune voix validée de {name} n’est encore utilisable par la reconnaissance : Snitch ne sait pas reconnaître cette voix. Confirmez d’autres voix, assez longues et non couvertes par une autre voix, pour constituer une Référence.",
       referenceWarningWeak:
-        "{name} a peu d’échantillons validés : la reconnaissance peut être peu fiable. Confirmez d’autres voix pour renforcer la Référence.",
-    },
-    figures: {
-      minutes: "{minutes} min de parole",
-      hours: "{hours} h {minutes} min de parole",
+        "{basis}. La reconnaissance de {name} peut être peu fiable : confirmez d’autres voix, sur d’autres vidéos, pour renforcer la Référence.",
     },
     reference: {
       levelLabel: "Référence : {level}",
-      good: "solide",
+      good: "bonne",
       weak: "faible",
-      none: "absente",
+      none: "aucune",
+      basis: {
+        no_sample: "Aucun échantillon utilisable par la reconnaissance",
+        single_clip: "Construite sur une seule vidéo",
+        few_references:
+          "Construite sur plusieurs vidéos ; trop peu de Références pour la comparer",
+        below_median: "Moins de voix nette que la moitié des Personnes",
+        median_or_more: "Plus de voix nette que la moitié des Personnes",
+      },
+      title: "Référence utilisée par la reconnaissance",
+      label: "Référence de {name}",
+      used: "Échantillons utilisés",
+      usedValue: "{used} sur {validated} validés",
+      clips: "Vidéos distinctes",
+      speech: "Voix nette",
+      setAside: "Écartés",
+      setAsideCount: {
+        one: "{count} échantillon",
+        other: "{count} échantillons",
+      },
+      setAsideLine: "{count} : {reason}",
+      reasons: {
+        too_short: "trop court",
+        overlap_only: "toujours couvert par une autre voix",
+        clipped: "son saturé",
+        low_quality: "qualité trop faible",
+        no_fingerprint: "pas encore d’empreinte vocale",
+      },
+      voiceUsed: "Utilisée par la Référence",
+      voiceSetAside: "Écartée : {reason}",
     },
     actions: {
       label: "Actions sur {name}",

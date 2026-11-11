@@ -13389,6 +13389,231 @@
         ]
       }
     },
+    "/api/admin/voice-fingerprint-recompute/preview": {
+      "get": {
+        "operationId": "previewVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Ampleur du recalcul des empreintes sur la Parole nette (#395), sans rien modifier ni lire de média : empreintes de Locuteur local de production au vecteur d'origine (sans mesures du Worker) dans le groupe du modèle d'empreinte actif, dont recalculables, tâches (une par diarisation) et clips, sources audio absentes, Locuteurs archivés sans diarisation courante, échantillons validés concernés.",
+        "responses": {
+          "200": {
+            "description": "Aperçu",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputePreview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-fingerprint-recompute": {
+      "get": {
+        "operationId": "getVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Recalcul en cours ou, à défaut, le dernier terminé, avec sa progression ou son rapport final. Lire l'état fait aussi avancer un recalcul interrompu.",
+        "responses": {
+          "200": {
+            "description": "État du recalcul",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Lance le recalcul : confirm_fingerprints doit être le nombre d'empreintes vu dans l'aperçu (voice_recompute_preview_stale sinon). Refusé pendant une transition de modèle d'empreinte ouverte (voice_transition_in_progress) et pendant un autre recalcul (voice_recompute_in_progress). Rien n'est rediarisé ; aucun job de production n'est remplacé.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceRecomputeInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Recalcul lancé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "cancelVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Annule le recalcul en cours : seules ses propres tâches sont annulées, les empreintes déjà recalculées restent, le rapport est figé et la bibliothèque rapprochée de nouveau (voice_recompute_not_running sans recalcul en cours).",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recalcul annulé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/voice-fingerprint-recompute/resume": {
+      "post": {
+        "operationId": "resumeVoiceRecompute",
+        "security": [
+          {
+            "session": []
+          }
+        ],
+        "description": "Administrateurs uniquement. Reprend le dernier recalcul : replanifie les empreintes dont la tâche a échoué ou a été annulée ; une tâche réussie n'est jamais recréée. Refusé pendant une transition de modèle d'empreinte ouverte.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "État du recalcul",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceRecomputeState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/voice-accuracy": {
       "get": {
         "operationId": "getVoiceAccuracy",
@@ -24364,7 +24589,8 @@
           "speaking_seconds",
           "voice_profile_deleted_at",
           "created_at",
-          "account_username"
+          "account_username",
+          "reference"
         ],
         "properties": {
           "id": {
@@ -24410,6 +24636,15 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "reference": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PersonReference"
+              }
+            ],
+            "nullable": true,
+            "description": "Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou d'une correction."
           }
         }
       },
@@ -24580,7 +24815,8 @@
           "label",
           "speaking_seconds",
           "recorded_at",
-          "sample_count"
+          "sample_count",
+          "reference_use"
         ],
         "properties": {
           "local_speaker_id": {
@@ -24608,6 +24844,19 @@
           "sample_count": {
             "type": "integer",
             "description": "Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait."
+          },
+          "reference_use": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "contributive",
+              "too_short",
+              "overlap_only",
+              "clipped",
+              "low_quality",
+              "no_fingerprint"
+            ],
+            "description": "Ce que la Référence du groupe d'empreinte actif fait de l'échantillon de cette voix : contributive, ou la raison de son écart ; null quand la voix ne fournit aucun échantillon actif."
           }
         }
       },
@@ -31758,6 +32007,15 @@
               "$ref": "#/components/schemas/BenchmarkChain"
             },
             "description": "Bout en bout : les paires de modèles que représentent les identifiants des résultats."
+          },
+          "scoring": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkScoring"
+              }
+            ],
+            "nullable": true,
+            "description": "Empreinte : mode de score et règle d'éligibilité sous lesquels le run est noté (#397). Null pour les autres étapes."
           }
         },
         "required": [
@@ -31772,7 +32030,72 @@
           "progress",
           "results",
           "chains",
-          "reference_sources"
+          "reference_sources",
+          "scoring"
+        ]
+      },
+      "BenchmarkScoring": {
+        "type": "object",
+        "description": "Comment un benchmark d'empreinte note : la fonction de score de production sous le mode et la règle d'éligibilité actifs au lancement du run. Un run antérieur à leur enregistrement vaut « centroid » (centroïde non pondéré, ancien), sans règle.",
+        "properties": {
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample",
+              "centroid"
+            ]
+          },
+          "score_mode_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "reference_sample_cap_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Plafond du poids d'un échantillon dans une Référence cumulative."
+          },
+          "eligibility_rule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkEligibilityRule"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "score_mode",
+          "score_mode_version",
+          "reference_sample_cap_seconds",
+          "eligibility_rule"
+        ]
+      },
+      "BenchmarkEligibilityRule": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "comparable_min_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": [
+          "version",
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio"
         ]
       },
       "BenchmarkRunList": {
@@ -31999,6 +32322,10 @@
           },
           "ignored_dimension": {
             "type": "integer"
+          },
+          "ineligible": {
+            "type": "integer",
+            "description": "Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non contributive, ou non comparable en mode meilleur échantillon ; test non comparable)."
           },
           "clips": {
             "type": "integer",
@@ -33265,6 +33592,230 @@
           }
         }
       },
+      "VoiceRecomputePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fingerprints",
+          "recomputable",
+          "jobs",
+          "clips",
+          "missing_sources",
+          "archived",
+          "references",
+          "transition_open",
+          "running"
+        ],
+        "properties": {
+          "fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteur local de production au vecteur d'origine, dans le groupe du modèle actif."
+          },
+          "recomputable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Dont recalculables."
+          },
+          "jobs": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tâches d'empreinte à créer, une par diarisation."
+          },
+          "clips": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Clips concernés."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes dont la source audio est absente : signalées, laissées en service."
+          },
+          "archived": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes de Locuteurs archivés sans diarisation courante : non recalculables."
+          },
+          "references": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes d'un échantillon validé actif."
+          },
+          "transition_open": {
+            "type": "boolean",
+            "description": "Une transition de modèle d'empreinte est ouverte : le recalcul est refusé."
+          },
+          "running": {
+            "type": "boolean",
+            "description": "Un recalcul est déjà en cours."
+          }
+        }
+      },
+      "VoiceRecomputeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "confirm_fingerprints"
+        ],
+        "properties": {
+          "confirm_fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre d'empreintes vu dans l'aperçu."
+          }
+        }
+      },
+      "VoiceRecomputeReport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "fingerprints",
+          "pending",
+          "recomputed",
+          "recovered",
+          "recovered_contributive",
+          "still_rejected",
+          "lost",
+          "errors",
+          "cancelled",
+          "obsolete",
+          "missing_sources",
+          "archived"
+        ],
+        "properties": {
+          "fingerprints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes du recalcul."
+          },
+          "pending": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes en attente de leur tâche."
+          },
+          "recomputed": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreintes remplacées par leur recalcul sur la Parole nette."
+          },
+          "recovered": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées rejetées avant, comparables désormais."
+          },
+          "recovered_contributive": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées non contributives avant, contributives désormais."
+          },
+          "still_rejected": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées rejetées avant et après."
+          },
+          "lost": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Recalculées comparables avant, plus maintenant."
+          },
+          "errors": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tâche terminée sans nouvelle empreinte : l'ancienne reste en service."
+          },
+          "cancelled": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Tâche annulée : l'ancienne empreinte reste en service."
+          },
+          "obsolete": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Empreinte d'origine remplacée ou supprimée hors du recalcul (nouvelle diarisation, suppression)."
+          },
+          "missing_sources": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Source audio absente : l'empreinte requalifiée reste en service."
+          },
+          "archived": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Locuteur archivé ou sans diarisation courante : non recalculable, l'empreinte reste en service."
+          }
+        }
+      },
+      "VoiceRecomputeRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "status",
+          "announced",
+          "author",
+          "created_at",
+          "finished_at",
+          "rematched_at",
+          "report"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "running",
+              "completed",
+              "cancelled"
+            ]
+          },
+          "announced": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre d'empreintes confirmé au lancement."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time"
+          },
+          "rematched_at": {
+            "type": "string",
+            "nullable": true,
+            "format": "date-time",
+            "description": "Fin du rapprochement de toute la bibliothèque relancé à la fin du recalcul."
+          },
+          "report": {
+            "$ref": "#/components/schemas/VoiceRecomputeReport"
+          }
+        }
+      },
+      "VoiceRecomputeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "transition_open"
+        ],
+        "properties": {
+          "transition_open": {
+            "type": "boolean"
+          },
+          "run": {
+            "$ref": "#/components/schemas/VoiceRecomputeRun"
+          }
+        }
+      },
       "VoiceEligibilityRequalification": {
         "type": "object",
         "description": "Une requalification tracée : auteur, règle appliquée, date et rapport avant/après.",
@@ -33412,6 +33963,83 @@
             "description": "Vingt dernières versions, la plus récente d'abord.",
             "items": {
               "$ref": "#/components/schemas/VoiceScoreModeVersion"
+            }
+          }
+        }
+      },
+      "PersonReferenceDiscard": {
+        "type": "object",
+        "required": [
+          "reason",
+          "count"
+        ],
+        "properties": {
+          "reason": {
+            "type": "string",
+            "enum": [
+              "too_short",
+              "overlap_only",
+              "clipped",
+              "low_quality",
+              "no_fingerprint"
+            ],
+            "description": "Raison de l'écart : celle de l'empreinte du Locuteur local dans le groupe actif (too_short, overlap_only, clipped, low_quality), ou no_fingerprint quand la voix n'a aucune empreinte de production dans ce groupe."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1
+          }
+        }
+      },
+      "PersonReference": {
+        "type": "object",
+        "description": "La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version, dimensions) actif, et son niveau. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue.",
+        "required": [
+          "level",
+          "basis",
+          "contributive_samples",
+          "clips",
+          "net_speech_seconds",
+          "discarded"
+        ],
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "good",
+              "weak",
+              "none"
+            ],
+            "description": "none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ; avec moins de 3 Références, good."
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "no_sample",
+              "single_clip",
+              "few_references",
+              "below_median",
+              "median_or_more"
+            ],
+            "description": "Pourquoi la Référence a ce niveau."
+          },
+          "contributive_samples": {
+            "type": "integer",
+            "description": "Échantillons validés actifs qui entrent dans la Référence (empreinte contributive du groupe actif)."
+          },
+          "clips": {
+            "type": "integer",
+            "description": "Clips distincts de ces échantillons."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "description": "Parole nette cumulée de ces échantillons, après plafond par échantillon."
+          },
+          "discarded": {
+            "type": "array",
+            "description": "Échantillons validés actifs écartés de la Référence, groupés par raison.",
+            "items": {
+              "$ref": "#/components/schemas/PersonReferenceDiscard"
             }
           }
         }

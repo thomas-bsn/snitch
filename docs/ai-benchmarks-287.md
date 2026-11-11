@@ -28,6 +28,16 @@ Chaînes de deux modèles (diarisation + transcription) composées à partir des
 
 Depuis le détail d'un résultat de transcription ou de diarisation : « Utiliser en production… », avec aperçu (modèle remplacé, Workers prêts, clips déjà analysés dont ceux portant un travail humain) et confirmation explicite. Elle ne change que le modèle du travail à venir : aucune réanalyse n'est lancée, aucune correction ni validation n'est touchée, et chaque changement est enregistré. Voir l'[ADR 0062](adr/0062-activation-explicite-d-un-modele-mesure.md). L'empreinte garde sa transition (ADR 0044).
 
+## Empreinte notée comme la production (#397, ADR 0064)
+
+Le benchmark d'empreinte n'a plus son propre score (centroïde non pondéré des références) : il construit ses Références et note ses tests avec la fonction de score de production (`voice_score.go`), sur des empreintes décidées par la règle d'éligibilité de production.
+
+- **Au lancement**, un run d'empreinte enregistre dans `benchmark_runs.params.scoring` le mode de score actif (`cumulative` ou `best_sample`, avec sa version), la règle d'éligibilité active (version, durées comparable et contributive, écrêtage maximal) et le plafond du poids d'un échantillon (10 s). Il est noté sous ces valeurs, même si elles changent avant la fin du run.
+- **Éligibilité** : chaque empreinte de benchmark est décidée, en lecture seule, par l'instruction SQL de la requalification de production sous la règle du run (rien n'est écrit, la décision stockée du pipeline épinglé n'est pas lue). Une empreinte de référence entre dans la Référence si elle est contributive (comparable en mode meilleur échantillon) ; un test n'est noté que s'il est comparable. Les autres sont comptées dans `metrics.ineligible` et ne comptent pas comme mesurées (résultat `partial`).
+- **Non-dérive** : pour les mêmes vecteurs et la même Parole nette, le score d'un essai du benchmark est exactement la confiance que donne le rapprochement de production, dans chaque mode (`TestFoundation/ai_benchmark_scoring`). L'égalité est exacte car le même code calcule en Go dans les deux cas (plus de pgvector dans le score) ; les échantillons sont additionnés par Personne puis par Locuteur local, ordre qui ne peut changer qu'au dernier bit avec trois échantillons ou plus d'une même Personne.
+- **Affichage** : `BenchmarkRun.scoring` (nul hors empreinte) ; le détail d'un run d'empreinte indique le mode, sa version et la règle. Un run enregistré avant #397 reste lisible avec ses chiffres d'origine et s'affiche « Centroïde (ancien) », sans règle ; ses seuils ne valent pas pour le score actuel. Un run encore ouvert lors de la mise à jour est noté sous le mode et la règle actifs à son règlement, qu'il enregistre alors.
+- Un run n'écrit toujours rien dans la bibliothèque : ni échantillon, ni attribution, ni décision d'éligibilité de production (vérifié par `ai_benchmark_scoring` et `voice_benchmark_isolation`).
+
 ## Restant
 
 - Découverte des modèles de transcription par les Workers (aujourd'hui l'administrateur les nomme).

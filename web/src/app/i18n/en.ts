@@ -1126,6 +1126,38 @@ export const en = {
       reportFacts:
         "{missing} requalified without a known audio source, {estimated} with an estimated net speech, {original} keeping their original vector.",
     },
+    recompute: {
+      title: "Recompute the fingerprints on the net speech",
+      hint: "Fingerprint jobs recompute the vectors stored before the net speech, from the diarizations already made. Nothing is rediarized; no Person, validation or validated sample changes. Each old fingerprint stays in service until its new one succeeds.",
+      preview: "See the extent of the recalculation",
+      fingerprints: "Fingerprints with an original vector",
+      recomputable: "Recomputable",
+      jobs: "Fingerprint jobs",
+      clips: "Clips",
+      missing: "Missing audio sources",
+      archived: "Archived voices, not recomputable",
+      references: "Validated samples concerned",
+      transitionOpen:
+        "A fingerprint model change is under way: the recalculation waits for its end.",
+      confirm: "I recompute these {count} fingerprints",
+      start: "Start the recalculation",
+      started: "Started by {author} on {date}, {count} fingerprints confirmed.",
+      running:
+        "Recalculation under way: {done} of {total} fingerprints handled, {pending} waiting.",
+      completed: "Recalculation completed on {date}.",
+      cancelled: "Recalculation cancelled on {date}.",
+      rematched: "The whole library was matched again on {date}.",
+      rematching: "The whole library is being matched again.",
+      report:
+        "{recomputed} recomputed: {recovered} recovered (comparable now), {recoveredContributive} newly contributive, {stillRejected} still rejected, {lost} no longer comparable.",
+      reportKept:
+        "Kept in service: {errors} errors, {cancelled} cancelled, {missing} without audio source, {archived} archived voices, {obsolete} replaced elsewhere.",
+      resume: "Resume",
+      cancel: "Cancel the recalculation",
+      cancelText:
+        "Only the recalculation's own jobs are cancelled; the fingerprints already recomputed stay.",
+      keep: "Keep it running",
+    },
     score: {
       title: "Score of a voice",
       hint: "How a voice is compared with a person's validated samples. Changing it matches every stored voice again.",
@@ -2118,6 +2150,18 @@ export const en = {
       infoLabel: "Definition: {metric}",
       genuine: "genuine",
       impostor: "impostor",
+      scoring: {
+        title: "Score:",
+        modes: {
+          cumulative: "Cumulative reference",
+          best_sample: "Best sample",
+          centroid: "Centroid (legacy)",
+        },
+        current:
+          "{mode} (version {modeVersion}, one sample weighs at most {cap} s), eligibility rule version {ruleVersion}: comparable from {comparable} s, contributive from {contributive} s, at most {clipped} clipped. Scored like production: a threshold read here holds for production under this mode and rule.",
+        legacy:
+          "{mode}: the unweighted mean of the reference fingerprints, kept by the thresholds of the pinned pipeline. Its thresholds do not hold for the current production score.",
+      },
     },
     metrics: {
       cpwer: {
@@ -3716,7 +3760,10 @@ export const en = {
       delete: "Delete {name}",
       separate: "Separate voices of {name}",
       created: "{name} was created.",
-      videoCount: "{count} video(s)",
+      videos: {
+        one: "{count} video",
+        other: "{count} videos",
+      },
       videosTitle: "Videos where {name} is heard",
       videosEmpty: "No video you can see.",
       figuresLabel: "Figures of {name}",
@@ -3737,19 +3784,44 @@ export const en = {
       heardState: "validated",
       referenceWarningTitle: "Reference to strengthen",
       referenceWarningNone:
-        "{name} has no validated sample: Snitch cannot recognize this voice yet. Confirm more voices to build a Reference.",
+        "No validated voice of {name} can be used by recognition yet: Snitch cannot recognize this voice. Confirm more voices, long enough and not covered by another voice, to build a Reference.",
       referenceWarningWeak:
-        "{name} has few validated samples: recognition may be unreliable. Confirm more voices to strengthen the Reference.",
-    },
-    figures: {
-      minutes: "{minutes} min of speech",
-      hours: "{hours} h {minutes} min of speech",
+        "{basis}. Recognition of {name} may be unreliable: confirm more voices, on other videos, to strengthen the Reference.",
     },
     reference: {
       levelLabel: "Reference: {level}",
       good: "good",
       weak: "weak",
       none: "none",
+      basis: {
+        no_sample: "No sample usable by recognition yet",
+        single_clip: "Built on a single video",
+        few_references:
+          "Built on several videos; too few References to compare it with",
+        below_median: "Less clean speech than half of the Persons",
+        median_or_more: "More clean speech than half of the Persons",
+      },
+      title: "Reference used by recognition",
+      label: "Reference of {name}",
+      used: "Samples used",
+      usedValue: "{used} of {validated} validated",
+      clips: "Distinct videos",
+      speech: "Clean speech",
+      setAside: "Set aside",
+      setAsideCount: {
+        one: "{count} sample",
+        other: "{count} samples",
+      },
+      setAsideLine: "{count}: {reason}",
+      reasons: {
+        too_short: "too short",
+        overlap_only: "always covered by another voice",
+        clipped: "saturated sound",
+        low_quality: "quality too low",
+        no_fingerprint: "no voice fingerprint yet",
+      },
+      voiceUsed: "Used by the Reference",
+      voiceSetAside: "Set aside: {reason}",
     },
     actions: {
       label: "Actions on {name}",

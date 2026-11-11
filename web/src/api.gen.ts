@@ -3134,6 +3134,59 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/voice-fingerprint-recompute/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Ampleur du recalcul des empreintes sur la Parole nette (#395), sans rien modifier ni lire de média : empreintes de Locuteur local de production au vecteur d'origine (sans mesures du Worker) dans le groupe du modèle d'empreinte actif, dont recalculables, tâches (une par diarisation) et clips, sources audio absentes, Locuteurs archivés sans diarisation courante, échantillons validés concernés. */
+    get: operations["previewVoiceRecompute"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. Recalcul en cours ou, à défaut, le dernier terminé, avec sa progression ou son rapport final. Lire l'état fait aussi avancer un recalcul interrompu. */
+    get: operations["getVoiceRecompute"];
+    put?: never;
+    /** @description Administrateurs uniquement. Lance le recalcul : confirm_fingerprints doit être le nombre d'empreintes vu dans l'aperçu (voice_recompute_preview_stale sinon). Refusé pendant une transition de modèle d'empreinte ouverte (voice_transition_in_progress) et pendant un autre recalcul (voice_recompute_in_progress). Rien n'est rediarisé ; aucun job de production n'est remplacé. */
+    post: operations["startVoiceRecompute"];
+    /** @description Administrateurs uniquement. Annule le recalcul en cours : seules ses propres tâches sont annulées, les empreintes déjà recalculées restent, le rapport est figé et la bibliothèque rapprochée de nouveau (voice_recompute_not_running sans recalcul en cours). */
+    delete: operations["cancelVoiceRecompute"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/voice-fingerprint-recompute/resume": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement. Reprend le dernier recalcul : replanifie les empreintes dont la tâche a échoué ou a été annulée ; une tâche réussie n'est jamais recréée. Refusé pendant une transition de modèle d'empreinte ouverte. */
+    post: operations["resumeVoiceRecompute"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-accuracy": {
     parameters: {
       query?: never;
@@ -6228,6 +6281,8 @@ export interface components {
       voice_profile_deleted_at: string | null;
       /** Format: date-time */
       created_at: string;
+      /** @description Rempli en lecture (liste et fiche) ; null dans le résultat d'une création ou d'une correction. */
+      reference: components["schemas"]["PersonReference"] | null;
     };
     PersonMergeInput: {
       /**
@@ -6290,6 +6345,18 @@ export interface components {
       recorded_at: string;
       /** @description Échantillons vocaux actifs que cette voix fournit aux références (0 ou 1) : ce qu'une séparation en retirerait. */
       sample_count: number;
+      /**
+       * @description Ce que la Référence du groupe d'empreinte actif fait de l'échantillon de cette voix : contributive, ou la raison de son écart ; null quand la voix ne fournit aucun échantillon actif.
+       * @enum {string|null}
+       */
+      reference_use:
+        | "contributive"
+        | "too_short"
+        | "overlap_only"
+        | "clipped"
+        | "low_quality"
+        | "no_fingerprint"
+        | null;
     };
     PersonVoiceList: {
       items: components["schemas"]["PersonVoice"][];
@@ -8548,6 +8615,31 @@ export interface components {
       results: components["schemas"]["BenchmarkResult"][];
       /** @description Bout en bout : les paires de modèles que représentent les identifiants des résultats. */
       chains: components["schemas"]["BenchmarkChain"][];
+      /** @description Empreinte : mode de score et règle d'éligibilité sous lesquels le run est noté (#397). Null pour les autres étapes. */
+      scoring: components["schemas"]["BenchmarkScoring"] | null;
+    };
+    /** @description Comment un benchmark d'empreinte note : la fonction de score de production sous le mode et la règle d'éligibilité actifs au lancement du run. Un run antérieur à leur enregistrement vaut « centroid » (centroïde non pondéré, ancien), sans règle. */
+    BenchmarkScoring: {
+      /** @enum {string} */
+      score_mode: "cumulative" | "best_sample" | "centroid";
+      score_mode_version: number | null;
+      /**
+       * Format: double
+       * @description Plafond du poids d'un échantillon dans une Référence cumulative.
+       */
+      reference_sample_cap_seconds: number | null;
+      eligibility_rule:
+        | components["schemas"]["BenchmarkEligibilityRule"]
+        | null;
+    };
+    BenchmarkEligibilityRule: {
+      version: number;
+      /** Format: double */
+      comparable_min_seconds: number;
+      /** Format: double */
+      contributive_min_seconds: number;
+      /** Format: double */
+      max_clipped_ratio: number;
     };
     BenchmarkRunList: {
       runs: components["schemas"]["BenchmarkRun"][];
@@ -8613,6 +8705,8 @@ export interface components {
       /** Format: double */
       impostor_mean_score?: number | null;
       ignored_dimension?: number;
+      /** @description Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non contributive, ou non comparable en mode meilleur échantillon ; test non comparable). */
+      ineligible?: number;
       /** @description Transcription : clips (et pistes) mesurés. */
       clips?: number;
       reference_words?: number;
@@ -9040,6 +9134,79 @@ export interface components {
       persons_with_samples: number;
       groups: components["schemas"]["VoiceEligibilityGroupPreview"][];
     };
+    VoiceRecomputePreview: {
+      /** @description Empreintes de Locuteur local de production au vecteur d'origine, dans le groupe du modèle actif. */
+      fingerprints: number;
+      /** @description Dont recalculables. */
+      recomputable: number;
+      /** @description Tâches d'empreinte à créer, une par diarisation. */
+      jobs: number;
+      /** @description Clips concernés. */
+      clips: number;
+      /** @description Empreintes dont la source audio est absente : signalées, laissées en service. */
+      missing_sources: number;
+      /** @description Empreintes de Locuteurs archivés sans diarisation courante : non recalculables. */
+      archived: number;
+      /** @description Empreintes d'un échantillon validé actif. */
+      references: number;
+      /** @description Une transition de modèle d'empreinte est ouverte : le recalcul est refusé. */
+      transition_open: boolean;
+      /** @description Un recalcul est déjà en cours. */
+      running: boolean;
+    };
+    VoiceRecomputeInput: {
+      /** @description Nombre d'empreintes vu dans l'aperçu. */
+      confirm_fingerprints: number;
+    };
+    VoiceRecomputeReport: {
+      /** @description Empreintes du recalcul. */
+      fingerprints: number;
+      /** @description Empreintes en attente de leur tâche. */
+      pending: number;
+      /** @description Empreintes remplacées par leur recalcul sur la Parole nette. */
+      recomputed: number;
+      /** @description Recalculées rejetées avant, comparables désormais. */
+      recovered: number;
+      /** @description Recalculées non contributives avant, contributives désormais. */
+      recovered_contributive: number;
+      /** @description Recalculées rejetées avant et après. */
+      still_rejected: number;
+      /** @description Recalculées comparables avant, plus maintenant. */
+      lost: number;
+      /** @description Tâche terminée sans nouvelle empreinte : l'ancienne reste en service. */
+      errors: number;
+      /** @description Tâche annulée : l'ancienne empreinte reste en service. */
+      cancelled: number;
+      /** @description Empreinte d'origine remplacée ou supprimée hors du recalcul (nouvelle diarisation, suppression). */
+      obsolete: number;
+      /** @description Source audio absente : l'empreinte requalifiée reste en service. */
+      missing_sources: number;
+      /** @description Locuteur archivé ou sans diarisation courante : non recalculable, l'empreinte reste en service. */
+      archived: number;
+    };
+    VoiceRecomputeRun: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      status: "running" | "completed" | "cancelled";
+      /** @description Nombre d'empreintes confirmé au lancement. */
+      announced: number;
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /**
+       * Format: date-time
+       * @description Fin du rapprochement de toute la bibliothèque relancé à la fin du recalcul.
+       */
+      rematched_at: string | null;
+      report: components["schemas"]["VoiceRecomputeReport"];
+    };
+    VoiceRecomputeState: {
+      transition_open: boolean;
+      run?: components["schemas"]["VoiceRecomputeRun"];
+    };
     /** @description Une requalification tracée : auteur, règle appliquée, date et rapport avant/après. */
     VoiceEligibilityRequalification: {
       /** Format: int64 */
@@ -9093,6 +9260,45 @@ export interface components {
       created_at: string;
       /** @description Vingt dernières versions, la plus récente d'abord. */
       history: components["schemas"]["VoiceScoreModeVersion"][];
+    };
+    PersonReferenceDiscard: {
+      /**
+       * @description Raison de l'écart : celle de l'empreinte du Locuteur local dans le groupe actif (too_short, overlap_only, clipped, low_quality), ou no_fingerprint quand la voix n'a aucune empreinte de production dans ce groupe.
+       * @enum {string}
+       */
+      reason:
+        | "too_short"
+        | "overlap_only"
+        | "clipped"
+        | "low_quality"
+        | "no_fingerprint";
+      count: number;
+    };
+    /** @description La Référence de la Personne telle que le rapprochement l'utilise, dans le groupe d'empreinte (modèle, version, dimensions) actif, et son niveau. Le niveau est calculé par le serveur sur toutes les Personnes du groupe, quels que soient le lecteur et la page lue. */
+    PersonReference: {
+      /**
+       * @description none sans échantillon contributif ; weak sur un seul clip ; sinon, à partir de 3 Personnes avec Référence dans le groupe, good à partir de la médiane de leur Parole nette et weak en dessous ; avec moins de 3 Références, good.
+       * @enum {string}
+       */
+      level: "good" | "weak" | "none";
+      /**
+       * @description Pourquoi la Référence a ce niveau.
+       * @enum {string}
+       */
+      basis:
+        | "no_sample"
+        | "single_clip"
+        | "few_references"
+        | "below_median"
+        | "median_or_more";
+      /** @description Échantillons validés actifs qui entrent dans la Référence (empreinte contributive du groupe actif). */
+      contributive_samples: number;
+      /** @description Clips distincts de ces échantillons. */
+      clips: number;
+      /** @description Parole nette cumulée de ces échantillons, après plafond par échantillon. */
+      net_speech_seconds: number;
+      /** @description Échantillons validés actifs écartés de la Référence, groupés par raison. */
+      discarded: components["schemas"]["PersonReferenceDiscard"][];
     };
     /** @description Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes d'un même groupe sont comparées. */
     VoiceFingerprintGroup: {
@@ -17920,6 +18126,164 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceEligibilityPreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Aperçu */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputePreview"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du recalcul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["VoiceRecomputeInput"];
+      };
+    };
+    responses: {
+      /** @description Recalcul lancé */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Recalcul annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  resumeVoiceRecompute: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description État du recalcul */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["VoiceRecomputeState"];
         };
       };
       /** @description Erreur */

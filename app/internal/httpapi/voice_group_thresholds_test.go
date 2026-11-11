@@ -188,6 +188,9 @@ func testVoiceGroupThresholds(t *testing.T, pool *pgxpool.Pool) {
 	newNear := newModel
 	newNear.vector = angle(5)
 	nearV2 := h.fixtureSpeaker(c[3], "NEAR_V2", newNear)
+	newFar := newModel
+	newFar.vector = angle(120)
+	h.fixtureSpeaker(c[3], "FAR_V2", newFar) // the new group now holds the most fingerprints
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 	if got := h.matched(nearV2); got.DecisionLevel != "suggestion" || got.Person == nil || got.Person.ID != alice {
 		t.Fatalf("a group without thresholds only suggests: %+v", got)
@@ -196,7 +199,7 @@ func testVoiceGroupThresholds(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the first group keeps its thresholds: %+v", got)
 	}
 	if v := h.matchingSettings(peer); v.Group == nil || v.Group.ModelVersion != "emb-v2" || v.ThresholdsApplied {
-		t.Fatalf("the latest group is the active one, without thresholds: %+v", v)
+		t.Fatalf("the group with the most fingerprints stands in for the active model, without thresholds: %+v", v)
 	}
 	h.applyThresholds(map[string]any{"model": "fixture-embedding", "model_version": "emb-v2", "dimensions": 4}, 0.9, 0.75)
 	if got := h.matched(nearV2); got.DecisionLevel != "automatic" {
@@ -286,10 +289,10 @@ func testVoiceCalibration(t *testing.T, pool *pgxpool.Pool) {
 	}
 }
 
-// Migration 00147 gives the thresholds of the installation to the active fingerprint group, and to nothing else.
+// Migration 00148 gives the thresholds of the installation to the active fingerprint group, and to nothing else.
 func testVoiceGroupThresholdsMigration(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()
-	raw, err := migrations.Files.ReadFile("00147_voice_group_thresholds.sql")
+	raw, err := migrations.Files.ReadFile("00148_voice_group_thresholds.sql")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -309,6 +312,7 @@ func testVoiceGroupThresholdsMigration(t *testing.T, pool *pgxpool.Pool) {
 	// Production fingerprints of an older group, then of the active one; benchmark fingerprints are ignored.
 	h.fixtureSpeaker(h.clipIDs[0], "OLD", fixtureFingerprint{model: "fixture-embedding", version: "emb-v0", dimensions: 4, vector: angle(0), quality: 0.9, usable: true})
 	h.fixtureSpeaker(h.clipIDs[0], "ACTIVE", usableAt(0))
+	h.fixtureSpeaker(h.clipIDs[1], "ACTIVE_2", usableAt(10))
 	bench := h.fixtureSpeaker(h.clipIDs[1], "BENCH", fixtureFingerprint{model: "fixture-embedding", version: "emb-v3", dimensions: 4, vector: angle(0), quality: 0.9, usable: true})
 	if _, err = pool.Exec(ctx, `UPDATE voice_fingerprints SET benchmark=true WHERE local_speaker_id=$1`, bench.ID); err != nil {
 		t.Fatal(err)

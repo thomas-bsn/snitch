@@ -11,7 +11,7 @@ import { useI18n } from "../i18n";
 import { CorrectionLog } from "./CorrectionLog";
 import { useFailureText } from "./failureText";
 import { NewPersonDialog } from "./PersonDialogs";
-import { Avatar, ReferenceBadge, speechText } from "./PersonParts";
+import { Avatar, ReferenceBadge, VideoCount } from "./PersonParts";
 import { PersonRecord } from "./PersonRecord";
 import { fetchPersonPage } from "./peopleApi";
 
@@ -119,7 +119,7 @@ export function PersonDirectory() {
           {items.length > 0 && (
             <ul
               aria-label={t("people.persons.listLabel")}
-              className="m-0 grid list-none grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 p-0"
+              className="m-0 grid list-none auto-rows-fr grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3 p-0"
             >
               {items.map((person) => (
                 <li key={person.id}>
@@ -140,14 +140,13 @@ export function PersonDirectory() {
                         {t("people.persons.account")}
                       </StatusPill>
                     )}
-                    <span className="text-xs text-mute">
-                      {t("people.persons.videoCount", {
-                        count: person.clip_count,
-                      })}
-                      {" · "}
-                      {speechText(person.speaking_seconds, t)}
+                    {/* The figures sit at the bottom: every card of the grid has the same height. */}
+                    <span className="mt-auto flex flex-col items-center gap-1.5 pt-1">
+                      <VideoCount count={person.clip_count} />
+                      {person.reference && (
+                        <ReferenceBadge reference={person.reference} />
+                      )}
                     </span>
-                    <ReferenceBadge samples={person.validated_sample_count} />
                   </Link>
                 </li>
               ))}

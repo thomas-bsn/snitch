@@ -8,10 +8,19 @@ import (
 // Metrics of the voice identification benchmark (#287). They are computed on one model at a time, from the
 // vectors of that model only: cosine scores of two models are never merged or compared, each model carries
 // its own operating threshold (the one of its equal error rate).
+//
+// The benchmark scores like production (#397, ADR 0064): its References are built and its voices scored by the
+// one score of Snitch (voice_score.go), under the score mode recorded with the run, from fingerprints decided
+// by the eligibility rule recorded with the run. A threshold read in a run therefore holds for production.
 
+// benchSample is the benchmark fingerprint of a dataset voice, as the eligibility rule of the run decided it.
 type benchSample struct {
-	Person int64
-	Vector []float32
+	Person       int64
+	Clip         int64
+	Vector       []float32
+	NetSpeech    float64
+	Comparable   bool
+	Contributive bool
 }
 
 type fingerprintMetrics struct {
@@ -31,6 +40,9 @@ type fingerprintMetrics struct {
 	GenuineMean      *float64 `json:"genuine_mean_score"`
 	ImpostorMean     *float64 `json:"impostor_mean_score"`
 	IgnoredDimension int      `json:"ignored_dimension"`
+	// Ineligible counts the fingerprints the rule leaves out, as production would: a reference that cannot enter
+	// a Reference under the mode, a test that is not comparable.
+	Ineligible int `json:"ineligible"`
 }
 
 type benchTrial struct {
@@ -38,96 +50,54 @@ type benchTrial struct {
 	genuine bool
 }
 
-func cosine(a, b []float32) float64 {
-	var dot, na, nb float64
-	for i := range a {
-		dot += float64(a[i]) * float64(b[i])
-		na += float64(a[i]) * float64(a[i])
-		nb += float64(b[i]) * float64(b[i])
-	}
-	if na == 0 || nb == 0 {
-		return 0
-	}
-	return dot / (math.Sqrt(na) * math.Sqrt(nb))
-}
-
-// centroids builds the reference of each Person: the mean of its unit-normalised reference vectors.
-func centroids(references []benchSample, dims int) map[int64][]float32 {
-	sums := map[int64][]float64{}
-	for _, r := range references {
-		var norm float64
-		for _, x := range r.Vector {
-			norm += float64(x) * float64(x)
-		}
-		if norm == 0 {
-			continue
-		}
-		norm = math.Sqrt(norm)
-		sum, ok := sums[r.Person]
-		if !ok {
-			sum = make([]float64, dims)
-			sums[r.Person] = sum
-		}
-		for i, x := range r.Vector {
-			sum[i] += float64(x) / norm
-		}
-	}
-	out := make(map[int64][]float32, len(sums))
-	for person, sum := range sums {
-		v := make([]float32, dims)
-		for i, x := range sum {
-			v[i] = float32(x)
-		}
-		out[person] = v
-	}
-	return out
-}
-
-// evaluateFingerprints scores every test against the centroid of every Person that has references. A trial is
-// genuine when the centroid is the one of the test's Person. Samples whose dimension differs from the
-// references' are ignored and counted, never compared.
-func evaluateFingerprints(references, tests []benchSample, dims int) fingerprintMetrics {
+// evaluateFingerprints scores every test against the Reference of every Person that has one, as production
+// matching does (voiceReferences). A trial is genuine when the Reference is the one of the test's Person.
+// Samples whose dimension differs from dims are ignored and counted, never compared; samples the eligibility
+// rule leaves out are counted as ineligible.
+func evaluateFingerprints(mode scoreMode, references, tests []benchSample, dims int) fingerprintMetrics {
 	m := fingerprintMetrics{}
-	var refs, tsts []benchSample
+	var samples []referenceSample
 	for _, s := range references {
-		if len(s.Vector) == dims {
-			refs = append(refs, s)
-		} else {
+		switch {
+		case len(s.Vector) != dims:
 			m.IgnoredDimension++
+		case !s.Contributive || (mode == scoreBestSample && !s.Comparable):
+			m.Ineligible++
+		default:
+			samples = append(samples, referenceSample{Person: s.Person, Clip: s.Clip, Vector: s.Vector, NetSpeech: s.NetSpeech, Comparable: s.Comparable})
 		}
 	}
+	var tsts []benchSample
 	for _, s := range tests {
-		if len(s.Vector) == dims {
-			tsts = append(tsts, s)
-		} else {
+		switch {
+		case len(s.Vector) != dims:
 			m.IgnoredDimension++
+		case !s.Comparable:
+			m.Ineligible++ // production never matches a voice that is not comparable
+		default:
+			tsts = append(tsts, s)
 		}
 	}
-	m.References, m.Tests = len(refs), len(tsts)
-	cs := centroids(refs, dims)
-	m.Persons = len(cs)
-	persons := make([]int64, 0, len(cs))
-	for p := range cs {
-		persons = append(persons, p)
-	}
-	sort.Slice(persons, func(i, j int) bool { return persons[i] < persons[j] })
+	m.References, m.Tests = len(samples), len(tsts)
+	refs := newVoiceReferences(mode, dims, samples)
+	persons := refs.persons()
+	m.Persons = len(persons)
 
 	type decision struct {
-		best    int64
-		score   float64
-		truth   int64
-		scoring bool
+		best  int64
+		score float64
+		truth int64
 	}
 	var trials []benchTrial
 	var decisions []decision
 	var genuineSum, impostorSum float64
 	for _, t := range tsts {
-		if _, ok := cs[t.Person]; !ok {
-			continue // a test whose Person has no usable reference cannot be scored
+		if _, ok := refs.score(t.Vector, t.Person); !ok {
+			continue // a test whose Person has no Reference, or a null vector, cannot be scored
 		}
-		d := decision{truth: t.Person, scoring: true, score: math.Inf(-1)}
+		d := decision{truth: t.Person, score: math.Inf(-1)}
 		for _, p := range persons {
-			score := cosine(t.Vector, cs[p])
+			score, _ := refs.score(t.Vector, p)
 			genuine := p == t.Person
 			trials = append(trials, benchTrial{score, genuine})
 			if genuine {

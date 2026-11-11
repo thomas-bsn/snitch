@@ -11,6 +11,7 @@ import {
   EligibilityPreview,
   RequalificationReport,
 } from "./EligibilityPreview";
+import { FingerprintRecompute } from "./FingerprintRecompute";
 import { VoiceCalibration } from "./VoiceCalibration";
 
 type Eligibility = components["schemas"]["VoiceEligibility"];
@@ -595,6 +596,7 @@ export function VoiceAdvanced({
           {eligibility.requalifications.length > 0 && (
             <RequalificationReport report={eligibility.requalifications[0]} />
           )}
+          <FingerprintRecompute />
           {eligibility.history.length > 1 && (
             <div>
               <p id="adv-eligibility-history" className="font-medium">

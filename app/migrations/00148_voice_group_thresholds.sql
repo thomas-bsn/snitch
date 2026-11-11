@@ -31,22 +31,25 @@ CREATE TABLE voice_group_thresholds (
     UNIQUE (model, model_version, dimensions, version)
 );
 
--- The thresholds of the installation go to the active group: the group of the latest production speaker
--- fingerprint of the active fingerprint model, or, when that model has none, of a model outside the catalogue
--- (development and synthetic workers). A blank installation has no group and gets nothing. Kept identical to
--- activeFingerprintGroup (voice_active_group.go).
+-- The thresholds of the installation go to the active group, and to no other: the group of the latest usable
+-- production speaker fingerprints of the active fingerprint model or, when that model has none, the group with
+-- the most production speaker fingerprints (models outside the catalogue). A blank installation has no group and
+-- gets nothing; any other group starts without thresholds. Kept identical to activeFingerprintGroup
+-- (voice_active_group.go).
 INSERT INTO voice_group_thresholds(model, model_version, dimensions, version, suggestion_threshold, automatic_threshold, ambiguity_margin, source, score_mode)
+WITH candidates AS (
+    (SELECT 0 AS priority, f.model, f.model_version, f.dimensions FROM voice_fingerprints f
+     WHERE f.usable AND NOT f.benchmark AND f.scope = 'speaker'
+       AND f.model = (SELECT m.repo FROM voice_active_model a JOIN voice_model_catalog m ON m.id = a.model_id WHERE a.kind = 'fingerprint')
+     GROUP BY f.model, f.model_version, f.dimensions ORDER BY max(f.id) DESC LIMIT 1)
+    UNION ALL
+    (SELECT 1, f.model, f.model_version, f.dimensions FROM voice_fingerprints f
+     WHERE NOT f.benchmark AND f.scope = 'speaker'
+     GROUP BY f.model, f.model_version, f.dimensions ORDER BY count(*) DESC, max(f.id) DESC LIMIT 1)
+)
 SELECT g.model, g.model_version, g.dimensions, 1, s.suggestion_threshold, s.automatic_threshold, s.ambiguity_margin, 'migration',
        (SELECT mode FROM voice_score_modes ORDER BY version DESC LIMIT 1)
-FROM (
-    SELECT f.model, f.model_version, f.dimensions
-    FROM voice_fingerprints f
-    LEFT JOIN (SELECT m.repo FROM voice_active_model a JOIN voice_model_catalog m ON m.id = a.model_id WHERE a.kind = 'fingerprint') active ON active.repo = f.model
-    WHERE NOT f.benchmark AND f.scope = 'speaker'
-      AND (active.repo IS NOT NULL OR NOT EXISTS (SELECT 1 FROM voice_model_catalog c WHERE c.kind = 'fingerprint' AND c.repo = f.model))
-    ORDER BY (active.repo IS NOT NULL) DESC, f.id DESC
-    LIMIT 1
-) g
+FROM (SELECT * FROM candidates ORDER BY priority LIMIT 1) g
 CROSS JOIN voice_matching_settings s
 WHERE s.id AND NOT EXISTS (SELECT 1 FROM voice_group_thresholds);
 

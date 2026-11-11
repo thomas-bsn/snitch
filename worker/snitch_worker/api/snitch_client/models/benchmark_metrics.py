@@ -44,6 +44,8 @@ class BenchmarkMetrics:
             genuine_mean_score (float | None | Unset):
             impostor_mean_score (float | None | Unset):
             ignored_dimension (int | Unset):
+            ineligible (int | Unset): Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non
+                contributive, ou non comparable en mode meilleur échantillon ; test non comparable).
             clips (int | Unset): Transcription : clips (et pistes) mesurés.
             reference_words (int | Unset):
             word_errors (int | Unset):
@@ -85,6 +87,7 @@ class BenchmarkMetrics:
     genuine_mean_score: float | None | Unset = UNSET
     impostor_mean_score: float | None | Unset = UNSET
     ignored_dimension: int | Unset = UNSET
+    ineligible: int | Unset = UNSET
     clips: int | Unset = UNSET
     reference_words: int | Unset = UNSET
     word_errors: int | Unset = UNSET
@@ -173,6 +176,8 @@ class BenchmarkMetrics:
             impostor_mean_score = self.impostor_mean_score
 
         ignored_dimension = self.ignored_dimension
+
+        ineligible = self.ineligible
 
         clips = self.clips
 
@@ -283,6 +288,8 @@ class BenchmarkMetrics:
             field_dict["impostor_mean_score"] = impostor_mean_score
         if ignored_dimension is not UNSET:
             field_dict["ignored_dimension"] = ignored_dimension
+        if ineligible is not UNSET:
+            field_dict["ineligible"] = ineligible
         if clips is not UNSET:
             field_dict["clips"] = clips
         if reference_words is not UNSET:
@@ -423,6 +430,8 @@ class BenchmarkMetrics:
 
         ignored_dimension = d.pop("ignored_dimension", UNSET)
 
+        ineligible = d.pop("ineligible", UNSET)
+
         clips = d.pop("clips", UNSET)
 
         reference_words = d.pop("reference_words", UNSET)
@@ -540,6 +549,7 @@ class BenchmarkMetrics:
             genuine_mean_score=genuine_mean_score,
             impostor_mean_score=impostor_mean_score,
             ignored_dimension=ignored_dimension,
+            ineligible=ineligible,
             clips=clips,
             reference_words=reference_words,
             word_errors=word_errors,

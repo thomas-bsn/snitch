@@ -19,6 +19,7 @@ if TYPE_CHECKING:
   from ..models.benchmark_chain import BenchmarkChain
   from ..models.benchmark_progress import BenchmarkProgress
   from ..models.benchmark_result import BenchmarkResult
+  from ..models.benchmark_scoring import BenchmarkScoring
 
 
 
@@ -47,6 +48,8 @@ class BenchmarkRun:
             results (list[BenchmarkResult]):
             chains (list[BenchmarkChain]): Bout en bout : les paires de modèles que représentent les identifiants des
                 résultats.
+            scoring (BenchmarkScoring | None): Empreinte : mode de score et règle d'éligibilité sous lesquels le run est
+                noté (#397). Null pour les autres étapes.
             finished_at (datetime.datetime | None | Unset):
      """
 
@@ -62,6 +65,7 @@ class BenchmarkRun:
     progress: BenchmarkProgress
     results: list[BenchmarkResult]
     chains: list[BenchmarkChain]
+    scoring: BenchmarkScoring | None
     finished_at: datetime.datetime | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -73,6 +77,7 @@ class BenchmarkRun:
         from ..models.benchmark_chain import BenchmarkChain # noqa: PLC0415
         from ..models.benchmark_progress import BenchmarkProgress # noqa: PLC0415
         from ..models.benchmark_result import BenchmarkResult # noqa: PLC0415
+        from ..models.benchmark_scoring import BenchmarkScoring # noqa: PLC0415
         id = self.id
 
         dataset_id = self.dataset_id
@@ -114,6 +119,12 @@ class BenchmarkRun:
 
 
 
+        scoring: dict[str, Any] | None
+        if isinstance(self.scoring, BenchmarkScoring):
+            scoring = self.scoring.to_dict()
+        else:
+            scoring = self.scoring
+
         finished_at: None | str | Unset
         if isinstance(self.finished_at, Unset):
             finished_at = UNSET
@@ -138,6 +149,7 @@ class BenchmarkRun:
             "progress": progress,
             "results": results,
             "chains": chains,
+            "scoring": scoring,
         })
         if finished_at is not UNSET:
             field_dict["finished_at"] = finished_at
@@ -151,6 +163,7 @@ class BenchmarkRun:
         from ..models.benchmark_chain import BenchmarkChain # noqa: PLC0415
         from ..models.benchmark_progress import BenchmarkProgress # noqa: PLC0415
         from ..models.benchmark_result import BenchmarkResult # noqa: PLC0415
+        from ..models.benchmark_scoring import BenchmarkScoring # noqa: PLC0415
         d = dict(src_dict)
         id = d.pop("id")
 
@@ -213,6 +226,24 @@ class BenchmarkRun:
             chains.append(chains_item)
 
 
+        def _parse_scoring(data: object) -> BenchmarkScoring | None:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                scoring_type_1 = BenchmarkScoring.from_dict(data)
+
+
+
+                return scoring_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(BenchmarkScoring | None, data)
+
+        scoring = _parse_scoring(d.pop("scoring"))
+
+
         def _parse_finished_at(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -246,6 +277,7 @@ class BenchmarkRun:
             progress=progress,
             results=results,
             chains=chains,
+            scoring=scoring,
             finished_at=finished_at,
         )
 

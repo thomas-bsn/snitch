@@ -221,8 +221,9 @@ async function dismissSetupBanner() {
 
 /**
  * Fiches de personnes (états `annuaire-personne*`) : des clips d'archives dont l'unique voix est
- * validée, avec empreintes, donc des échantillons de Référence. Marc : 3 clips en plus de la
- * réunion (Référence solide) ; Thomas : 1 clip (Référence faible, l'alerte jaune s'affiche).
+ * validée, avec empreintes, donc des échantillons de Référence (les empreintes de la réunion sont en
+ * échec). Marc : 3 clips (Référence bonne : plusieurs vidéos, et moins de 3 Références pour comparer) ;
+ * Thomas : 1 clip (Référence faible : une seule vidéo, l'alerte jaune s'affiche).
  */
 const ARCHIVES: [string, string][] = [
   ["Archive plateau — prise A", "Marc Lefèvre"],
