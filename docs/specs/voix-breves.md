@@ -92,7 +92,7 @@ Valider une Personne relance déjà le rapprochement de toute la bibliothèque. 
 - La validation répond dès qu'elle est enregistrée ; le rapprochement suit en arrière-plan.
 - Plusieurs validations rapprochées déclenchent un seul rapprochement.
 - L'interface indique qu'un rapprochement est en cours et quand il s'est terminé.
-- Sa durée est mesurée sur un volume synthétique de l'ordre de la bibliothèque visée (30 000 Locuteurs locaux, 200 Personnes) et consignée dans le bilan.
+- Sa durée est mesurée sur un volume synthétique de l'ordre de la bibliothèque visée (30 000 Locuteurs locaux, 200 Personnes) et consignée dans le bilan ([mesure](../performance-rapprochement.md)).
 
 ## Hors périmètre
 
