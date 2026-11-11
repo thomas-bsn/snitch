@@ -7142,7 +7142,7 @@ export interface components {
       uncovered_seconds: number;
       attributed_segments: number;
     };
-    /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit. */
+    /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit, et mesures de qualité des empreintes de la piste (#389). */
     VoiceTrace: {
       /** Format: int64 */
       clip_id: number;
@@ -7189,6 +7189,46 @@ export interface components {
         corrected: boolean;
       }[];
       coverage: components["schemas"]["SpeakerCoverage"][];
+      /** @description Empreintes de production des voix de la piste (voix ignorées exclues), avec leurs mesures de qualité (#389). Jamais de vecteur. */
+      fingerprints: components["schemas"]["VoiceTraceFingerprint"][];
+    };
+    VoiceTraceFingerprint: {
+      /** Format: int64 */
+      id: number;
+      /** Format: int64 */
+      local_speaker_id: number;
+      label: string;
+      /** @enum {string} */
+      scope: "speaker" | "turn";
+      /** @description Tour de l'empreinte ; null pour l'empreinte d'un Locuteur local. */
+      turn_index: number | null;
+      start_seconds: number;
+      end_seconds: number;
+      duration_seconds: number;
+      quality: number;
+      usable: boolean;
+      unusable_reason: string;
+      model: string;
+      model_version: string;
+      /** @description Null pour une empreinte enregistrée sans mesures (Worker ou ligne antérieurs) : mesures inconnues. */
+      measures: components["schemas"]["FingerprintMeasures"] | null;
+    };
+    /** @description Mesures de qualité d'une empreinte rapportées par le Worker (ADR 0064). Elles décrivent l'empreinte sans décider de son éligibilité. */
+    FingerprintMeasures: {
+      /** @description Version des définitions du Worker (1 : intervalles de Parole nette d'au moins 0,5 s). */
+      version: number;
+      /** @description Parole nette entrée dans le vecteur ; 0 pour une empreinte chevauchée. */
+      net_speech_seconds: number;
+      /** @description Part de la parole du tour ou du Locuteur local en Chevauchement. */
+      overlap_ratio: number;
+      /** @description Aucun intervalle net suffisant : vecteur calculé sur les tours entiers, jamais éligible comme référence. */
+      overlapped: boolean;
+      /** @description Part d'échantillons écrêtés de l'audio utilisé ; null si l'audio n'a pas été mesuré. */
+      clipped_ratio: number | null;
+      /** @description Niveau moyen (RMS) de l'audio utilisé, en dBFS ; null si l'audio n'a pas été mesuré. */
+      mean_level_dbfs: number | null;
+      /** @description Cosinus moyen entre les vecteurs des tours du Locuteur local ; null avec un seul tour et pour l'empreinte d'un tour. */
+      coherence: number | null;
     };
     AudioTrackRule: {
       title?: string;

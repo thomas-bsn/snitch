@@ -965,6 +965,13 @@ type VoiceFingerprint struct {
 	Embedding        pgvector.Vector    `json:"embedding"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	Benchmark        bool               `json:"benchmark"`
+	MeasuresVersion  pgtype.Int4        `json:"measures_version"`
+	NetSpeechSeconds pgtype.Float8      `json:"net_speech_seconds"`
+	OverlapRatio     pgtype.Float8      `json:"overlap_ratio"`
+	Overlapped       pgtype.Bool        `json:"overlapped"`
+	ClippedRatio     pgtype.Float8      `json:"clipped_ratio"`
+	MeanLevelDbfs    pgtype.Float8      `json:"mean_level_dbfs"`
+	Coherence        pgtype.Float8      `json:"coherence"`
 }
 
 type VoiceFingerprintTransition struct {

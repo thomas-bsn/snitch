@@ -27158,7 +27158,7 @@
       },
       "VoiceTrace": {
         "type": "object",
-        "description": "Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit.",
+        "description": "Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit, et mesures de qualité des empreintes de la piste (#389).",
         "required": [
           "clip_id",
           "audio_stream_index",
@@ -27166,7 +27166,8 @@
           "diarization",
           "turns",
           "segments",
-          "coverage"
+          "coverage",
+          "fingerprints"
         ],
         "properties": {
           "clip_id": {
@@ -27327,6 +27328,148 @@
             "items": {
               "$ref": "#/components/schemas/SpeakerCoverage"
             }
+          },
+          "fingerprints": {
+            "type": "array",
+            "description": "Empreintes de production des voix de la piste (voix ignorées exclues), avec leurs mesures de qualité (#389). Jamais de vecteur.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceTraceFingerprint"
+            }
+          }
+        }
+      },
+      "VoiceTraceFingerprint": {
+        "type": "object",
+        "required": [
+          "id",
+          "local_speaker_id",
+          "label",
+          "scope",
+          "turn_index",
+          "start_seconds",
+          "end_seconds",
+          "duration_seconds",
+          "quality",
+          "usable",
+          "unusable_reason",
+          "model",
+          "model_version",
+          "measures"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "local_speaker_id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "label": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "speaker",
+              "turn"
+            ]
+          },
+          "turn_index": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Tour de l'empreinte ; null pour l'empreinte d'un Locuteur local."
+          },
+          "start_seconds": {
+            "type": "number"
+          },
+          "end_seconds": {
+            "type": "number"
+          },
+          "duration_seconds": {
+            "type": "number"
+          },
+          "quality": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "usable": {
+            "type": "boolean"
+          },
+          "unusable_reason": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "model_version": {
+            "type": "string"
+          },
+          "measures": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FingerprintMeasures"
+              }
+            ],
+            "nullable": true,
+            "description": "Null pour une empreinte enregistrée sans mesures (Worker ou ligne antérieurs) : mesures inconnues."
+          }
+        }
+      },
+      "FingerprintMeasures": {
+        "type": "object",
+        "description": "Mesures de qualité d'une empreinte rapportées par le Worker (ADR 0064). Elles décrivent l'empreinte sans décider de son éligibilité.",
+        "required": [
+          "version",
+          "net_speech_seconds",
+          "overlap_ratio",
+          "overlapped",
+          "clipped_ratio",
+          "mean_level_dbfs",
+          "coherence"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Version des définitions du Worker (1 : intervalles de Parole nette d'au moins 0,5 s)."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "minimum": 0,
+            "description": "Parole nette entrée dans le vecteur ; 0 pour une empreinte chevauchée."
+          },
+          "overlap_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Part de la parole du tour ou du Locuteur local en Chevauchement."
+          },
+          "overlapped": {
+            "type": "boolean",
+            "description": "Aucun intervalle net suffisant : vecteur calculé sur les tours entiers, jamais éligible comme référence."
+          },
+          "clipped_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "nullable": true,
+            "description": "Part d'échantillons écrêtés de l'audio utilisé ; null si l'audio n'a pas été mesuré."
+          },
+          "mean_level_dbfs": {
+            "type": "number",
+            "minimum": -120,
+            "maximum": 0,
+            "nullable": true,
+            "description": "Niveau moyen (RMS) de l'audio utilisé, en dBFS ; null si l'audio n'a pas été mesuré."
+          },
+          "coherence": {
+            "type": "number",
+            "minimum": -1,
+            "maximum": 1,
+            "nullable": true,
+            "description": "Cosinus moyen entre les vecteurs des tours du Locuteur local ; null avec un seul tour et pour l'empreinte d'un tour."
           }
         }
       },
