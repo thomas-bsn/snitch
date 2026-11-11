@@ -383,6 +383,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerVoiceRoutes(mux)
 	s.registerPersonRoutes(mux)
 	s.registerVoiceMatchingRoutes(mux)
+	s.registerVoiceEligibilityRoutes(mux)
 	s.registerVoiceProfileRoutes(mux)
 	s.registerPersonLinkRoutes(mux)
 	s.registerVoiceGroupRoutes(mux)

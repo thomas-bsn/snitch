@@ -185,6 +185,10 @@ type voiceView struct {
 			UnusableCause string  `json:"unusable_reason"`
 			Model         string  `json:"model"`
 			ModelVersion  string  `json:"model_version"`
+			Contributive  bool    `json:"contributive"`
+			RuleVersion   *int    `json:"eligibility_rule_version"`
+			NetSpeech     float64 `json:"net_speech_seconds"`
+			NetSource     string  `json:"net_speech_source"`
 		} `json:"fingerprints"`
 	} `json:"speakers"`
 }
@@ -477,19 +481,30 @@ func testVoiceDiarization(t *testing.T, pool *pgxpool.Pool) {
 	}
 	h.complete(fp, fingerprints(job.ID+999, item("SPEAKER_00", "speaker", 0, 1.5, 0.9)), http.StatusBadRequest)
 	h.complete(fp, fingerprints(job.ID, map[string]any{"speaker_label": "SPEAKER_00", "scope": "speaker", "start": 0, "end": 1.5, "quality": 0.9, "embedding": []float64{1, 2}}), http.StatusBadRequest)
-	h.complete(fp, fingerprints(job.ID, item("SPEAKER_00", "speaker", 0, 1.5, 0.9), item("SPEAKER_00", "turn", 0, 0.4, 0.9), item("SPEAKER_01", "speaker", 1, 2.5, 0.2)), http.StatusOK)
+	// The eligibility rule decides (provisional rule: 2 s comparable, 1 s contributive), never the quality. Without
+	// measures, the net speech comes from the stored turns: SPEAKER_00 speaks 0–1.5 s, SPEAKER_01 from 1 s.
+	measuredItem := item("SPEAKER_01", "speaker", 1, 3.5, 0.2)
+	measuredItem["measures"] = map[string]any{"version": 1, "net_speech_seconds": 2.5, "overlap_ratio": 0, "overlapped": false}
+	items := []map[string]any{item("SPEAKER_00", "speaker", 0, 1.5, 0.9), item("SPEAKER_00", "turn", 0, 0.4, 0.9), measuredItem}
+	h.complete(fp, fingerprints(job.ID, items...), http.StatusOK)
 	view = h.voice()
 	if view.Status != "done" || len(view.Speakers) != 2 {
 		t.Fatalf("clip with unknown voices must complete: %+v", view)
 	}
 	first, second := view.Speakers[0].Fingerprints, view.Speakers[1].Fingerprints
-	if len(first) != 2 || !first[0].Usable || first[0].Model != "fixture-embedding" || first[0].ModelVersion != "emb-v1" || first[0].Duration != 1.5 || first[0].Quality != 0.9 {
-		t.Fatalf("usable fingerprint did not keep duration/quality/model/version: %+v", first)
+	if len(first) != 2 || first[0].Model != "fixture-embedding" || first[0].ModelVersion != "emb-v1" || first[0].Duration != 1.5 || first[0].Quality != 0.9 {
+		t.Fatalf("fingerprint did not keep duration/quality/model/version: %+v", first)
 	}
-	if first[1].Usable || first[1].UnusableCause != "too_short" || len(second) != 1 || second[0].Usable || second[0].UnusableCause != "low_quality" {
-		t.Fatalf("short or poor fingerprints must be unusable as references: %+v %+v", first, second)
+	if f := first[0]; f.Usable || !f.Contributive || f.UnusableCause != "too_short" || f.NetSource != "turns" || f.NetSpeech != 1 || f.RuleVersion == nil || *f.RuleVersion != 1 {
+		t.Fatalf("1 s of net speech from the turns is contributive only: %+v", f)
 	}
-	h.complete(fp, fingerprints(job.ID, item("SPEAKER_00", "speaker", 0, 1.5, 0.9), item("SPEAKER_00", "turn", 0, 0.4, 0.9), item("SPEAKER_01", "speaker", 1, 2.5, 0.2)), http.StatusOK)
+	if f := first[1]; f.Usable || f.Contributive || f.UnusableCause != "too_short" {
+		t.Fatalf("a 0.4 s turn is neither comparable nor contributive: %+v", f)
+	}
+	if len(second) != 1 || !second[0].Usable || !second[0].Contributive || second[0].NetSource != "worker" {
+		t.Fatalf("2.5 s of measured net speech is comparable whatever its quality: %+v", second)
+	}
+	h.complete(fp, fingerprints(job.ID, items...), http.StatusOK)
 	var fingerprintRows int
 	_ = pool.QueryRow(context.Background(), `SELECT count(*) FROM voice_fingerprints`).Scan(&fingerprintRows)
 	if fingerprintRows != 3 {
@@ -549,7 +564,7 @@ func testVoiceDiarization(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("job list leaked fingerprint vectors: %s", body)
 	}
 	// Deleting a clip would cascade; at minimum the schema forbids mixing dimensions.
-	if _, err = pool.Exec(context.Background(), `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,model,model_version,dimensions,embedding) SELECT id,clip_id,diarization_job_id,'speaker',0,1,1,1,true,'m','v',3,'[1,2,3,4]' FROM local_speakers LIMIT 1`); err == nil {
+	if _, err = pool.Exec(context.Background(), `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,contributive,model,model_version,dimensions,embedding) SELECT id,clip_id,diarization_job_id,'speaker',0,1,1,1,true,true,'m','v',3,'[1,2,3,4]' FROM local_speakers LIMIT 1`); err == nil {
 		t.Fatal("fingerprint dimensions must match their declared dimensions")
 	}
 }

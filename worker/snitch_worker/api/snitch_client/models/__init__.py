@@ -495,6 +495,10 @@ from .voice_disposition_input import VoiceDispositionInput
 from .voice_disposition_input_disposition import VoiceDispositionInputDisposition
 from .voice_disposition_view import VoiceDispositionView
 from .voice_disposition_view_disposition import VoiceDispositionViewDisposition
+from .voice_eligibility import VoiceEligibility
+from .voice_eligibility_input import VoiceEligibilityInput
+from .voice_eligibility_rule import VoiceEligibilityRule
+from .voice_eligibility_summary import VoiceEligibilitySummary
 from .voice_engine_import import VoiceEngineImport
 from .voice_engine_manifest import VoiceEngineManifest
 from .voice_engine_manifest_capabilities_item import VoiceEngineManifestCapabilitiesItem
@@ -508,6 +512,7 @@ from .voice_engine_registry import VoiceEngineRegistry
 from .voice_engine_release import VoiceEngineRelease
 from .voice_engine_wheel import VoiceEngineWheel
 from .voice_fingerprint import VoiceFingerprint
+from .voice_fingerprint_net_speech_source import VoiceFingerprintNetSpeechSource
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
 from .voice_group import VoiceGroup
@@ -568,7 +573,9 @@ from .voice_step_status import VoiceStepStatus
 from .voice_trace import VoiceTrace
 from .voice_trace_diarization_type_0 import VoiceTraceDiarizationType0
 from .voice_trace_fingerprint import VoiceTraceFingerprint
+from .voice_trace_fingerprint_net_speech_source import VoiceTraceFingerprintNetSpeechSource
 from .voice_trace_fingerprint_scope import VoiceTraceFingerprintScope
+from .voice_trace_fingerprint_unusable_reason import VoiceTraceFingerprintUnusableReason
 from .voice_trace_segments_item import VoiceTraceSegmentsItem
 from .voice_trace_segments_item_candidates_item import VoiceTraceSegmentsItemCandidatesItem
 from .voice_trace_transcription import VoiceTraceTranscription
@@ -1191,6 +1198,10 @@ __all__ = (
     "VoiceDispositionInputDisposition",
     "VoiceDispositionView",
     "VoiceDispositionViewDisposition",
+    "VoiceEligibility",
+    "VoiceEligibilityInput",
+    "VoiceEligibilityRule",
+    "VoiceEligibilitySummary",
     "VoiceEngineImport",
     "VoiceEngineManifest",
     "VoiceEngineManifestCapabilitiesItem",
@@ -1204,6 +1215,7 @@ __all__ = (
     "VoiceEngineRelease",
     "VoiceEngineWheel",
     "VoiceFingerprint",
+    "VoiceFingerprintNetSpeechSource",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
     "VoiceGroup",
@@ -1264,7 +1276,9 @@ __all__ = (
     "VoiceTrace",
     "VoiceTraceDiarizationType0",
     "VoiceTraceFingerprint",
+    "VoiceTraceFingerprintNetSpeechSource",
     "VoiceTraceFingerprintScope",
+    "VoiceTraceFingerprintUnusableReason",
     "VoiceTraceSegmentsItem",
     "VoiceTraceSegmentsItemCandidatesItem",
     "VoiceTraceTranscription",

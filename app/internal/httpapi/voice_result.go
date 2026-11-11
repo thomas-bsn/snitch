@@ -464,28 +464,48 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 			turnID = &id
 		}
 		duration := *fp.End - *fp.Start
-		reason := ""
-		if duration < config.MinFingerprintSeconds {
-			reason = "too_short"
-		} else if *fp.Quality < config.MinQuality {
-			reason = "low_quality"
+		// Measures carry no time: the plan's track offset above never applies to them (ADR 0052).
+		m := fp.Measures
+		var source *string
+		if m == nil {
+			m = &fingerprintMeasures{}
+		} else {
+			worker := "worker"
+			source = &worker
+		}
+		// A production fingerprint is decided by the eligibility rule below. A benchmark one keeps the thresholds
+		// of its pinned pipeline, as before the rule (ADR 0044, ADR 0056): the rule never touches it.
+		reason := "too_short"
+		if benchmark {
+			reason = ""
+			if m.Overlapped != nil && *m.Overlapped {
+				reason = "overlap_only"
+			} else if duration < config.MinFingerprintSeconds {
+				reason = "too_short"
+			} else if *fp.Quality < config.MinQuality {
+				reason = "low_quality"
+			}
 		}
 		values := make([]string, len(fp.Embedding))
 		for i, v := range fp.Embedding {
 			values[i] = strconv.FormatFloat(float64(float32(v)), 'g', -1, 32)
 		}
 		vector := "[" + strings.Join(values, ",") + "]"
-		// Measures carry no time: the plan's track offset above never applies to them (ADR 0052).
-		m := fp.Measures
-		if m == nil {
-			m = &fingerprintMeasures{}
-		}
-		if _, err = tx.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,turn_id,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding,benchmark,
- measures_version,net_speech_seconds,overlap_ratio,overlapped,clipped_ratio,mean_level_dbfs,coherence)
- VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15::vector,$16,$17,$18,$19,$20,$21,$22,$23)`, speakerID, job.ClipID, job.ID, fp.Scope, turnID, *fp.Start, *fp.End, duration, *fp.Quality, reason == "", reason, result.EmbeddingModel, result.EmbeddingModelVersion, result.Dimensions, vector, benchmark,
-			m.Version, m.NetSpeechSeconds, m.OverlapRatio, m.Overlapped, m.ClippedRatio, m.MeanLevelDBFS, m.Coherence); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,turn_id,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,contributive,model,model_version,dimensions,embedding,benchmark,
+ measures_version,net_speech_seconds,overlap_ratio,overlapped,clipped_ratio,mean_level_dbfs,coherence,net_speech_source)
+ VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$10,$12,$13,$14,$15::vector,$16,$17,$18,$19,$20,$21,$22,$23,$24)`, speakerID, job.ClipID, job.ID, fp.Scope, turnID, *fp.Start, *fp.End, duration, *fp.Quality, reason == "", reason, result.EmbeddingModel, result.EmbeddingModelVersion, result.Dimensions, vector, benchmark,
+			m.Version, m.NetSpeechSeconds, m.OverlapRatio, m.Overlapped, m.ClippedRatio, m.MeanLevelDBFS, m.Coherence, source); err != nil {
 			return fmt.Errorf("insert fingerprint: %w", err)
 		}
+	}
+	if benchmark {
+		return nil
+	}
+	if err = lockEligibilityShared(ctx, tx); err != nil {
+		return fmt.Errorf("lock eligibility rule: %w", err)
+	}
+	if _, err = qualifyFingerprints(ctx, tx, &job.ID); err != nil {
+		return fmt.Errorf("decide fingerprint eligibility: %w", err)
 	}
 	return nil
 }

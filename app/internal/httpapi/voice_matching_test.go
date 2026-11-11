@@ -56,7 +56,7 @@ func (h *voiceHarness) fixtureSpeaker(clipID int64, label string, fp fixtureFing
 		reason = "too_short"
 	}
 	vector, _ := json.Marshal(fp.vector)
-	if _, err := h.pool.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,embedding) VALUES($1,$2,$3,'speaker',0,2,2,$4,$5,$6,$7,$8,$9,$10::vector)`, speaker, clipID, fingerprint, fp.quality, fp.usable, reason, fp.model, fp.version, fp.dimensions, string(vector)); err != nil {
+	if _, err := h.pool.Exec(ctx, `INSERT INTO voice_fingerprints(local_speaker_id,clip_id,fingerprint_job_id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,contributive,model,model_version,dimensions,embedding) VALUES($1,$2,$3,'speaker',0,2,2,$4,$5,$6,$5,$7,$8,$9,$10::vector)`, speaker, clipID, fingerprint, fp.quality, fp.usable, reason, fp.model, fp.version, fp.dimensions, string(vector)); err != nil {
 		h.t.Fatal(err)
 	}
 	return fixtureSpeaker{ID: speaker, ClipID: clipID}
@@ -126,6 +126,8 @@ func (h *voiceHarness) personOf(sp fixtureSpeaker) int64 {
 
 func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarnessClips(t, pool, 3)
+	// These synthetic voices speak about 1 s: an eligibility rule at 1 s makes them comparable (#390).
+	h.putEligibility(1, 0.5, 0.05)
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5`); err != nil {
 		t.Fatal(err)
 	}

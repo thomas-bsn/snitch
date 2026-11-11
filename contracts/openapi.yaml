@@ -12908,6 +12908,98 @@
         ]
       }
     },
+    "/api/admin/voice-eligibility": {
+      "get": {
+        "operationId": "getVoiceEligibility",
+        "responses": {
+          "200": {
+            "description": "Règle d'éligibilité des empreintes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEligibility"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      },
+      "put": {
+        "operationId": "updateVoiceEligibility",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VoiceEligibilityInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Règle enregistrée (nouvelle version si elle change) ; toutes les empreintes de production sont requalifiées en base, sans Worker ni audio, puis rapprochées de nouveau si une éligibilité a changé",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VoiceEligibility"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date). Les empreintes de benchmark et d'une transition de modèle en attente ne sont pas requalifiées.",
+        "security": [
+          {
+            "session": []
+          }
+        ]
+      }
+    },
     "/api/admin/voice-accuracy": {
       "get": {
         "operationId": "getVoiceAccuracy",
@@ -23281,7 +23373,11 @@
           "unusable_reason",
           "model",
           "model_version",
-          "dimensions"
+          "dimensions",
+          "contributive",
+          "eligibility_rule_version",
+          "net_speech_seconds",
+          "net_speech_source"
         ],
         "properties": {
           "id": {
@@ -23311,15 +23407,18 @@
           },
           "usable": {
             "type": "boolean",
-            "description": "Faux : ne sert ni de référence ni de base de propagation."
+            "description": "Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064)."
           },
           "unusable_reason": {
             "type": "string",
             "enum": [
               "",
               "too_short",
-              "low_quality"
-            ]
+              "low_quality",
+              "overlap_only",
+              "clipped"
+            ],
+            "description": "Pourquoi l'empreinte n'est pas comparable (vide si elle l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ; clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes antérieures ou de benchmark)."
           },
           "model": {
             "type": "string"
@@ -23329,6 +23428,31 @@
           },
           "dimensions": {
             "type": "integer"
+          },
+          "contributive": {
+            "type": "boolean",
+            "description": "Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais."
+          },
+          "eligibility_rule_version": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Version de la règle d'éligibilité qui a décidé. Null : décidée à l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification)."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Parole nette retenue par la règle. Null : pas encore évaluée."
+          },
+          "net_speech_source": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "worker",
+              "turns",
+              "estimated"
+            ],
+            "description": "Origine de la Parole nette : worker (mesures du Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur local validé puis archivé : durée de l'empreinte, majorant de la Parole nette)."
           }
         }
       },
@@ -27354,7 +27478,11 @@
           "unusable_reason",
           "model",
           "model_version",
-          "measures"
+          "measures",
+          "contributive",
+          "eligibility_rule_version",
+          "net_speech_seconds",
+          "net_speech_source"
         ],
         "properties": {
           "id": {
@@ -27395,10 +27523,19 @@
             "maximum": 1
           },
           "usable": {
-            "type": "boolean"
+            "type": "boolean",
+            "description": "Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064)."
           },
           "unusable_reason": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+              "",
+              "too_short",
+              "low_quality",
+              "overlap_only",
+              "clipped"
+            ],
+            "description": "Pourquoi l'empreinte n'est pas comparable (vide si elle l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ; clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes antérieures ou de benchmark)."
           },
           "model": {
             "type": "string"
@@ -27414,6 +27551,31 @@
             ],
             "nullable": true,
             "description": "Null pour une empreinte enregistrée sans mesures (Worker ou ligne antérieurs) : mesures inconnues."
+          },
+          "contributive": {
+            "type": "boolean",
+            "description": "Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais."
+          },
+          "eligibility_rule_version": {
+            "type": "integer",
+            "nullable": true,
+            "description": "Version de la règle d'éligibilité qui a décidé. Null : décidée à l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification)."
+          },
+          "net_speech_seconds": {
+            "type": "number",
+            "nullable": true,
+            "minimum": 0,
+            "description": "Parole nette retenue par la règle. Null : pas encore évaluée."
+          },
+          "net_speech_source": {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              "worker",
+              "turns",
+              "estimated"
+            ],
+            "description": "Origine de la Parole nette : worker (mesures du Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur local validé puis archivé : durée de l'empreinte, majorant de la Parole nette)."
           }
         }
       },
@@ -32008,6 +32170,167 @@
         "properties": {
           "paused": {
             "type": "boolean"
+          }
+        }
+      },
+      "VoiceEligibilityInput": {
+        "type": "object",
+        "required": [
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio"
+        ],
+        "properties": {
+          "comparable_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte comparable."
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte contributive ; au plus la durée comparable."
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Part maximale d'échantillons écrêtés ; au-delà, l'empreinte est rejetée (clipped)."
+          }
+        }
+      },
+      "VoiceEligibilityRule": {
+        "type": "object",
+        "description": "Une version de la règle d'éligibilité. La version 1 est la règle provisoire de Snitch.",
+        "required": [
+          "version",
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio",
+          "author",
+          "provisional",
+          "created_at"
+        ],
+        "properties": {
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "comparable_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte comparable."
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "minimum": 0.5,
+            "maximum": 60,
+            "description": "Parole nette minimale d'une empreinte contributive ; au plus la durée comparable."
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Part maximale d'échantillons écrêtés ; au-delà, l'empreinte est rejetée (clipped)."
+          },
+          "author": {
+            "type": "string",
+            "nullable": true,
+            "description": "Administrateur qui a fixé cette version ; null pour la règle provisoire."
+          },
+          "provisional": {
+            "type": "boolean",
+            "description": "Règle provisoire de Snitch, en attente d'une décision de l'administrateur."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "VoiceEligibilitySummary": {
+        "type": "object",
+        "description": "Empreintes de Locuteur local de production, par éligibilité.",
+        "required": [
+          "comparable",
+          "contributive_only",
+          "too_short",
+          "overlap_only",
+          "clipped",
+          "low_quality",
+          "stale"
+        ],
+        "properties": {
+          "comparable": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Comparables."
+          },
+          "contributive_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Contributives sans être comparables."
+          },
+          "too_short": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Ni comparables ni contributives : Parole nette trop courte."
+          },
+          "overlap_only": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : chevauchées."
+          },
+          "clipped": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées : écrêtées."
+          },
+          "low_quality": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Rejetées avant la règle (qualité insuffisante)."
+          },
+          "stale": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Décidées par une autre règle que la règle active (ou avant la règle)."
+          }
+        }
+      },
+      "VoiceEligibility": {
+        "type": "object",
+        "description": "Règle d'éligibilité des empreintes (ADR 0064) : règle active, historique, valeurs provisoires et décompte.",
+        "required": [
+          "rule",
+          "history",
+          "defaults",
+          "summary"
+        ],
+        "properties": {
+          "rule": {
+            "$ref": "#/components/schemas/VoiceEligibilityRule"
+          },
+          "history": {
+            "type": "array",
+            "description": "Vingt dernières versions, la plus récente d'abord.",
+            "items": {
+              "$ref": "#/components/schemas/VoiceEligibilityRule"
+            }
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/VoiceEligibilityInput"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/VoiceEligibilitySummary"
+          },
+          "requalified": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Après une modification : empreintes dont l'éligibilité a changé."
           }
         }
       }

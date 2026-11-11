@@ -930,6 +930,16 @@ type VoiceDispositionEvent struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
+type VoiceEligibilityRule struct {
+	Version                int32              `json:"version"`
+	ComparableMinSeconds   float64            `json:"comparable_min_seconds"`
+	ContributiveMinSeconds float64            `json:"contributive_min_seconds"`
+	MaxClippedRatio        float64            `json:"max_clipped_ratio"`
+	AuthorID               pgtype.Int8        `json:"author_id"`
+	AuthorUsername         pgtype.Text        `json:"author_username"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+}
+
 type VoiceEngineRegistry struct {
 	Digest        string             `json:"digest"`
 	Engine        string             `json:"engine"`
@@ -947,31 +957,34 @@ type VoiceEngineRegistry struct {
 }
 
 type VoiceFingerprint struct {
-	ID               int64              `json:"id"`
-	LocalSpeakerID   int64              `json:"local_speaker_id"`
-	ClipID           int64              `json:"clip_id"`
-	FingerprintJobID int64              `json:"fingerprint_job_id"`
-	Scope            string             `json:"scope"`
-	TurnID           pgtype.Int8        `json:"turn_id"`
-	StartSeconds     float64            `json:"start_seconds"`
-	EndSeconds       float64            `json:"end_seconds"`
-	DurationSeconds  float64            `json:"duration_seconds"`
-	Quality          float64            `json:"quality"`
-	Usable           bool               `json:"usable"`
-	UnusableReason   string             `json:"unusable_reason"`
-	Model            string             `json:"model"`
-	ModelVersion     string             `json:"model_version"`
-	Dimensions       int32              `json:"dimensions"`
-	Embedding        pgvector.Vector    `json:"embedding"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	Benchmark        bool               `json:"benchmark"`
-	MeasuresVersion  pgtype.Int4        `json:"measures_version"`
-	NetSpeechSeconds pgtype.Float8      `json:"net_speech_seconds"`
-	OverlapRatio     pgtype.Float8      `json:"overlap_ratio"`
-	Overlapped       pgtype.Bool        `json:"overlapped"`
-	ClippedRatio     pgtype.Float8      `json:"clipped_ratio"`
-	MeanLevelDbfs    pgtype.Float8      `json:"mean_level_dbfs"`
-	Coherence        pgtype.Float8      `json:"coherence"`
+	ID                     int64              `json:"id"`
+	LocalSpeakerID         int64              `json:"local_speaker_id"`
+	ClipID                 int64              `json:"clip_id"`
+	FingerprintJobID       int64              `json:"fingerprint_job_id"`
+	Scope                  string             `json:"scope"`
+	TurnID                 pgtype.Int8        `json:"turn_id"`
+	StartSeconds           float64            `json:"start_seconds"`
+	EndSeconds             float64            `json:"end_seconds"`
+	DurationSeconds        float64            `json:"duration_seconds"`
+	Quality                float64            `json:"quality"`
+	Usable                 bool               `json:"usable"`
+	UnusableReason         string             `json:"unusable_reason"`
+	Model                  string             `json:"model"`
+	ModelVersion           string             `json:"model_version"`
+	Dimensions             int32              `json:"dimensions"`
+	Embedding              pgvector.Vector    `json:"embedding"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	Benchmark              bool               `json:"benchmark"`
+	MeasuresVersion        pgtype.Int4        `json:"measures_version"`
+	NetSpeechSeconds       pgtype.Float8      `json:"net_speech_seconds"`
+	OverlapRatio           pgtype.Float8      `json:"overlap_ratio"`
+	Overlapped             pgtype.Bool        `json:"overlapped"`
+	ClippedRatio           pgtype.Float8      `json:"clipped_ratio"`
+	MeanLevelDbfs          pgtype.Float8      `json:"mean_level_dbfs"`
+	Coherence              pgtype.Float8      `json:"coherence"`
+	Contributive           bool               `json:"contributive"`
+	EligibilityRuleVersion pgtype.Int4        `json:"eligibility_rule_version"`
+	NetSpeechSource        pgtype.Text        `json:"net_speech_source"`
 }
 
 type VoiceFingerprintTransition struct {

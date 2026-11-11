@@ -173,13 +173,15 @@ type traceFingerprint struct {
 	Model          string         `json:"model"`
 	ModelVersion   string         `json:"model_version"`
 	Measures       *traceMeasures `json:"measures"`
+	fingerprintEligibility
 }
 
 // traceFingerprints lists the production fingerprints of the track's voices (ignored voices excluded, as for the
 // turns) with their measures; measures is null for a fingerprint stored without them (older Worker or older row).
 func (s *Server) traceFingerprints(ctx context.Context, clipID int64, stream int) ([]traceFingerprint, error) {
 	rows, err := s.Pool.Query(ctx, `SELECT f.id,ls.id,ls.label,f.scope,st.turn_index,f.start_seconds,f.end_seconds,f.duration_seconds,f.quality,f.usable,f.unusable_reason,f.model,f.model_version,
- f.measures_version,f.net_speech_seconds,f.overlap_ratio,f.overlapped,f.clipped_ratio,f.mean_level_dbfs,f.coherence
+ f.measures_version,f.net_speech_seconds,f.overlap_ratio,f.overlapped,f.clipped_ratio,f.mean_level_dbfs,f.coherence,
+ f.contributive,f.eligibility_rule_version,f.net_speech_source
  FROM voice_fingerprints f JOIN local_speakers ls ON ls.id=f.local_speaker_id LEFT JOIN speaker_turns st ON st.id=f.turn_id
  WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND ls.kind<>'archived' AND NOT f.benchmark AND `+notIgnoredVoice+`
  ORDER BY ls.ordinal,f.scope='turn',st.turn_index,f.id`, clipID, stream)
@@ -195,9 +197,11 @@ func (s *Server) traceFingerprints(ctx context.Context, clipID int64, stream int
 		var overlapped *bool
 		var m traceMeasures
 		if err = rows.Scan(&f.ID, &f.LocalSpeakerID, &f.Label, &f.Scope, &f.TurnIndex, &f.Start, &f.End, &f.Duration, &f.Quality, &f.Usable, &f.UnusableReason, &f.Model, &f.ModelVersion,
-			&version, &net, &overlap, &overlapped, &m.ClippedRatio, &m.MeanLevelDBFS, &m.Coherence); err != nil {
+			&version, &net, &overlap, &overlapped, &m.ClippedRatio, &m.MeanLevelDBFS, &m.Coherence,
+			&f.Contributive, &f.EligibilityRuleVersion, &f.NetSpeechSource); err != nil {
 			return nil, err
 		}
+		f.NetSpeechSeconds = net
 		if version != nil && net != nil && overlap != nil && overlapped != nil {
 			m.Version, m.NetSpeechSeconds, m.OverlapRatio, m.Overlapped = *version, *net, *overlap, *overlapped
 			f.Measures = &m

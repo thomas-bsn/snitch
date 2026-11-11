@@ -489,6 +489,13 @@ func (s *Server) switchFingerprintModel(ctx context.Context, t fingerprintTransi
 		if _, err = tx.Exec(ctx, `UPDATE voice_fingerprints SET benchmark=false WHERE benchmark AND model=$1 AND fingerprint_job_id NOT IN (SELECT job_id FROM benchmark_run_jobs)`, to.Repo); err != nil {
 			return err
 		}
+		// Staged, they kept the decision of their pinned pipeline; in production, the eligibility rule decides (#390).
+		if err = lockEligibilityShared(ctx, tx); err != nil {
+			return err
+		}
+		if _, err = qualifyFingerprints(ctx, tx, nil); err != nil {
+			return err
+		}
 		if _, err = tx.Exec(ctx, `UPDATE voice_active_model SET model_id=$1 WHERE kind='fingerprint'`, to.ID); err != nil {
 			return err
 		}

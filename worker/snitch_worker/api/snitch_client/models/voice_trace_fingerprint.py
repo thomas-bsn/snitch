@@ -8,7 +8,9 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.voice_trace_fingerprint_net_speech_source import VoiceTraceFingerprintNetSpeechSource
 from ..models.voice_trace_fingerprint_scope import VoiceTraceFingerprintScope
+from ..models.voice_trace_fingerprint_unusable_reason import VoiceTraceFingerprintUnusableReason
 from typing import cast
 
 if TYPE_CHECKING:
@@ -35,12 +37,24 @@ class VoiceTraceFingerprint:
             end_seconds (float):
             duration_seconds (float):
             quality (float):
-            usable (bool):
-            unusable_reason (str):
+            usable (bool): Comparable : rapprochée seule d'une Référence. Décidé par la règle d'éligibilité (ADR 0064).
+            unusable_reason (VoiceTraceFingerprintUnusableReason): Pourquoi l'empreinte n'est pas comparable (vide si elle
+                l'est). too_short : Parole nette sous la durée comparable de la règle (elle peut rester contributive, voir
+                contributive) ; overlap_only : aucun intervalle net suffisant, l'empreinte est faite de tours chevauchés ;
+                clipped : trop d'échantillons écrêtés ; low_quality : décidée avant la règle d'éligibilité (empreintes
+                antérieures ou de benchmark).
             model (str):
             model_version (str):
             measures (FingerprintMeasures | None): Null pour une empreinte enregistrée sans mesures (Worker ou ligne
                 antérieurs) : mesures inconnues.
+            contributive (bool): Peut entrer dans une Référence une fois validée par un humain. Une empreinte comparable
+                (usable) est toujours contributive ; une empreinte chevauchée ou écrêtée ne l'est jamais.
+            eligibility_rule_version (int | None): Version de la règle d'éligibilité qui a décidé. Null : décidée à
+                l'enregistrement (empreinte antérieure à la règle, jusqu'à une requalification).
+            net_speech_seconds (float | None): Parole nette retenue par la règle. Null : pas encore évaluée.
+            net_speech_source (VoiceTraceFingerprintNetSpeechSource): Origine de la Parole nette : worker (mesures du
+                Worker), turns (calculée depuis les tours stockés), estimated (ni mesures ni tours, par exemple un Locuteur
+                local validé puis archivé : durée de l'empreinte, majorant de la Parole nette).
      """
 
     id: int
@@ -53,10 +67,14 @@ class VoiceTraceFingerprint:
     duration_seconds: float
     quality: float
     usable: bool
-    unusable_reason: str
+    unusable_reason: VoiceTraceFingerprintUnusableReason
     model: str
     model_version: str
     measures: FingerprintMeasures | None
+    contributive: bool
+    eligibility_rule_version: int | None
+    net_speech_seconds: float | None
+    net_speech_source: VoiceTraceFingerprintNetSpeechSource
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -86,7 +104,7 @@ class VoiceTraceFingerprint:
 
         usable = self.usable
 
-        unusable_reason = self.unusable_reason
+        unusable_reason = self.unusable_reason.value
 
         model = self.model
 
@@ -97,6 +115,16 @@ class VoiceTraceFingerprint:
             measures = self.measures.to_dict()
         else:
             measures = self.measures
+
+        contributive = self.contributive
+
+        eligibility_rule_version: int | None
+        eligibility_rule_version = self.eligibility_rule_version
+
+        net_speech_seconds: float | None
+        net_speech_seconds = self.net_speech_seconds
+
+        net_speech_source = self.net_speech_source.value
 
 
         field_dict: dict[str, Any] = {}
@@ -116,6 +144,10 @@ class VoiceTraceFingerprint:
             "model": model,
             "model_version": model_version,
             "measures": measures,
+            "contributive": contributive,
+            "eligibility_rule_version": eligibility_rule_version,
+            "net_speech_seconds": net_speech_seconds,
+            "net_speech_source": net_speech_source,
         })
 
         return field_dict
@@ -155,7 +187,10 @@ class VoiceTraceFingerprint:
 
         usable = d.pop("usable")
 
-        unusable_reason = d.pop("unusable_reason")
+        unusable_reason = VoiceTraceFingerprintUnusableReason(d.pop("unusable_reason"))
+
+
+
 
         model = d.pop("model")
 
@@ -179,6 +214,29 @@ class VoiceTraceFingerprint:
         measures = _parse_measures(d.pop("measures"))
 
 
+        contributive = d.pop("contributive")
+
+        def _parse_eligibility_rule_version(data: object) -> int | None:
+            if data is None:
+                return data
+            return cast(int | None, data)
+
+        eligibility_rule_version = _parse_eligibility_rule_version(d.pop("eligibility_rule_version"))
+
+
+        def _parse_net_speech_seconds(data: object) -> float | None:
+            if data is None:
+                return data
+            return cast(float | None, data)
+
+        net_speech_seconds = _parse_net_speech_seconds(d.pop("net_speech_seconds"))
+
+
+        net_speech_source = VoiceTraceFingerprintNetSpeechSource(d.pop("net_speech_source"))
+
+
+
+
         voice_trace_fingerprint = cls(
             id=id,
             local_speaker_id=local_speaker_id,
@@ -194,6 +252,10 @@ class VoiceTraceFingerprint:
             model=model,
             model_version=model_version,
             measures=measures,
+            contributive=contributive,
+            eligibility_rule_version=eligibility_rule_version,
+            net_speech_seconds=net_speech_seconds,
+            net_speech_source=net_speech_source,
         )
 
 

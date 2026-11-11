@@ -66,6 +66,8 @@ func validateTraceContract(t *testing.T, url string, body []byte) {
 // a result of an older Worker, without measures, is accepted as before. Synthetic vectors only.
 func testVoiceFingerprintMeasures(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	// These synthetic voices speak about 1 s: an eligibility rule at 1 s makes them comparable (#390).
+	h.putEligibility(1, 0.5, 0.05)
 	h.putPipeline(fakePipeline(2))
 	h.transcribe()
 	h.adminCall(http.MethodPost, fmt.Sprintf("/api/admin/clips/%d/voice", h.clipID), map[string]any{"audio_stream_index": 2}, http.StatusCreated)
@@ -129,9 +131,9 @@ func testVoiceFingerprintMeasures(t *testing.T, pool *pgxpool.Pool) {
 	if third.Label != "SPEAKER_01" || third.Measures != nil || !third.Usable {
 		t.Fatalf("a fingerprint without measures is stored as before, its measures unknown: %+v", third)
 	}
-	// Eligibility is not decided by the measures in this ticket: the same rule as before applies.
+	// The eligibility rule decides from the measured net speech (1 s here).
 	if !first.Usable || first.Duration != 1.0 {
-		t.Fatalf("usable unchanged: %+v", first)
+		t.Fatalf("1 s of net speech under a 1 s rule is comparable: %+v", first)
 	}
 	// Measures never leave the administrator's trace: the clip's voice view stays as it was.
 	var view struct {

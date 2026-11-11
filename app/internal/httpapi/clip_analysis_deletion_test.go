@@ -153,6 +153,8 @@ func testClipAnalysisDeletion(t *testing.T, pool *pgxpool.Pool) {
 // full path: fingerprints and matching alone, and the whole analysis at once.
 func testClipAnalysisDeletionCascades(t *testing.T, pool *pgxpool.Pool) {
 	h := newVoiceHarness(t, pool)
+	// These synthetic voices speak about 1 s: an eligibility rule at 1 s makes them comparable (#390).
+	h.putEligibility(1, 0.5, 0.05)
 	h.useSingleAudioTrack()
 	_, second := h.diarizeClip()
 	// A validated reference lets the other voice be matched automatically.

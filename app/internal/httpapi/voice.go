@@ -318,6 +318,16 @@ type voiceFingerprintView struct {
 	Model          string  `json:"model"`
 	ModelVersion   string  `json:"model_version"`
 	Dimensions     int     `json:"dimensions"`
+	fingerprintEligibility
+}
+
+// fingerprintEligibility is what the eligibility rule decided for a fingerprint, and from which net speech
+// (ADR 0064, #390). Usable means comparable.
+type fingerprintEligibility struct {
+	Contributive           bool     `json:"contributive"`
+	EligibilityRuleVersion *int     `json:"eligibility_rule_version"`
+	NetSpeechSeconds       *float64 `json:"net_speech_seconds"`
+	NetSpeechSource        *string  `json:"net_speech_source"`
 }
 
 // DecisionLevel is the decision level of an attribution. The values are part of the
@@ -514,14 +524,14 @@ func (s *Server) voiceSpeakers(ctx context.Context, clipID int64, indexes []int)
 	for i, sp := range speakers {
 		byID[sp.ID] = i
 	}
-	fpRows, err := s.Pool.Query(ctx, `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions FROM voice_fingerprints WHERE clip_id=$1 AND NOT benchmark ORDER BY id`, clipID)
+	fpRows, err := s.Pool.Query(ctx, `SELECT local_speaker_id,id,scope,start_seconds,end_seconds,duration_seconds,quality,usable,unusable_reason,model,model_version,dimensions,contributive,eligibility_rule_version,net_speech_seconds,net_speech_source FROM voice_fingerprints WHERE clip_id=$1 AND NOT benchmark ORDER BY id`, clipID)
 	if err != nil {
 		return nil, err
 	}
 	for fpRows.Next() {
 		var speakerID int64
 		var fp voiceFingerprintView
-		if err = fpRows.Scan(&speakerID, &fp.ID, &fp.Scope, &fp.StartSeconds, &fp.EndSeconds, &fp.DurationSecond, &fp.Quality, &fp.Usable, &fp.UnusableReason, &fp.Model, &fp.ModelVersion, &fp.Dimensions); err != nil {
+		if err = fpRows.Scan(&speakerID, &fp.ID, &fp.Scope, &fp.StartSeconds, &fp.EndSeconds, &fp.DurationSecond, &fp.Quality, &fp.Usable, &fp.UnusableReason, &fp.Model, &fp.ModelVersion, &fp.Dimensions, &fp.Contributive, &fp.EligibilityRuleVersion, &fp.NetSpeechSeconds, &fp.NetSpeechSource); err != nil {
 			fpRows.Close()
 			return nil, err
 		}
