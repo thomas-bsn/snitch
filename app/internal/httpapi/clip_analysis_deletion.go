@@ -144,6 +144,13 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 		return analysisDeletionStake{}, err
 	}
 	has := func(step string) bool { return slices.Contains(steps, step) }
+	// Deleting the voices or the vectors of validated samples changes the References they belonged to.
+	var referencesChange bool
+	if has("diarization") || has("fingerprints") {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM voice_samples WHERE clip_id=$1 AND retired_at IS NULL)`, clipID).Scan(&referencesChange); err != nil {
+			return stake, err
+		}
+	}
 	if has("transcription") {
 		if _, err = tx.Exec(ctx, `DELETE FROM jobs WHERE clip_id=$1 AND step LIKE 'transcription.audio.%'`, clipID); err != nil {
 			return stake, err
@@ -208,7 +215,13 @@ func (s *Server) deleteAnalysisSteps(ctx context.Context, clipID int64, steps []
 		clipID, steps, userID, username, stake.Segments, corrections, stake.Voices, stake.ValidatedVoices, stake.Persons, stake.Refusals, stake.Dispositions); err != nil {
 		return stake, err
 	}
-	return stake, tx.Commit(ctx)
+	if err = tx.Commit(ctx); err != nil {
+		return stake, err
+	}
+	if referencesChange {
+		s.matchingChanged(ctx, 0)
+	}
+	return stake, nil
 }
 
 // deleteClipAnalysis deletes the chosen steps of a clip, or the whole analysis. Reserved to

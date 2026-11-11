@@ -159,9 +159,11 @@ func testVoiceAutomation(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("criteria reached: Snitch must propose the activation: %+v", r)
 	}
 
-	// Unvalidated voices in a clip without any reference: strong, middling, far.
+	// Unvalidated voices in a clip without any reference: strong, middling, far. In production every validated
+	// sample of a Person adds up to her cumulative Reference (ADR 0064): Alice points at 1.5 degrees, Bob at 87.5,
+	// Carol at 134 (her test voice sounds like Bob), Eve at 135 and Frank at 337.5.
 	strong := h.fixtureSpeaker(c[9], "STRONG", usableAt(2))     // cosine 0.999 to Alice
-	middling := h.fixtureSpeaker(c[9], "MIDDLE", usableAt(210)) // 0.866 to Carol: a suggestion
+	middling := h.fixtureSpeaker(c[9], "MIDDLE", usableAt(300)) // 0.793 to Frank: a suggestion
 	far := h.fixtureSpeaker(c[9], "FAR", usableAt(225))         // unknown
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 	// The microphone speaker is counted apart: it never depends on the switch.

@@ -238,9 +238,16 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	if got = h.matched(near); got.DecisionLevel != "suggestion" || got.Person == nil || got.Person.ID != alice {
 		t.Fatalf("after the correction Bob has no reference: NEAR is a suggestion for Alice again: %+v", got)
 	}
-	if got = h.matched(middling); got.Person == nil || got.Person.ID != alice || got.Attribution.Confidence == nil || *got.Attribution.Confidence < 0.96 {
-		t.Fatalf("MIDDLE must follow the corrected references (Alice at 20 degrees now): %+v", got)
+	// Alice's samples at 0 and 20 degrees add up to a cumulative Reference at 10 degrees (ADR 0064): MIDDLE, at
+	// 35 degrees, scores cos(25). With the best-sample score of phase 5, her sample at 20 degrees gives cos(15).
+	if got = h.matched(middling); got.Person == nil || got.Person.ID != alice || got.Attribution.Confidence == nil || math.Abs(*got.Attribution.Confidence-math.Cos(25*math.Pi/180)) > 1e-4 {
+		t.Fatalf("MIDDLE must follow Alice's corrected cumulative Reference: %+v", got)
 	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-score-mode", map[string]any{"mode": "best_sample"}, http.StatusOK)
+	if got = h.matched(middling); got.Person == nil || got.Person.ID != alice || got.Attribution.Confidence == nil || math.Abs(*got.Attribution.Confidence-math.Cos(15*math.Pi/180)) > 1e-4 {
+		t.Fatalf("in the best-sample mode MIDDLE follows Alice's closest sample (20 degrees): %+v", got)
+	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-score-mode", map[string]any{"mode": "cumulative"}, http.StatusOK)
 	if h.count(`SELECT count(*) FROM voice_samples WHERE retired_at IS NULL`) != 3 || h.count(`SELECT count(*) FROM voice_samples`) != 4 {
 		t.Fatal("the correction must retire one sample and create one, matching none")
 	}
@@ -282,10 +289,15 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	} {
 		h.adminCall(http.MethodPut, "/api/admin/voice-matching", bad, http.StatusBadRequest)
 	}
-	h.adminCall(http.MethodPut, "/api/admin/voice-matching", thresholds, http.StatusOK)
-	if got = h.matched(near); got.DecisionLevel != "suggestion" {
-		t.Fatalf("a stricter automatic threshold turns NEAR back into a suggestion: %+v", got)
+	// MIDDLE (cos 25 = 0.906 with Alice's cumulative Reference) is automatic at 0.90.
+	if got = h.matched(middling); got.DecisionLevel != "automatic" {
+		t.Fatalf("MIDDLE is automatic at the default thresholds: %+v", got)
 	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.95, "suggestion_threshold": 0.8, "ambiguity_margin": 0.05, "max_candidates": 5}, http.StatusOK)
+	if got = h.matched(middling); got.DecisionLevel != "suggestion" {
+		t.Fatalf("a stricter automatic threshold turns MIDDLE back into a suggestion: %+v", got)
+	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", thresholds, http.StatusOK)
 	if got = h.matched(middling); got.DecisionLevel != "unknown" || got.Person != nil {
 		t.Fatalf("a stricter suggestion threshold turns MIDDLE into unknown: %+v", got)
 	}

@@ -1125,6 +1125,14 @@ type VoiceSample struct {
 	RetiredReason  string             `json:"retired_reason"`
 }
 
+type VoiceScoreMode struct {
+	Version        int32              `json:"version"`
+	Mode           string             `json:"mode"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername pgtype.Text        `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type Worker struct {
 	ID                       string             `json:"id"`
 	Name                     string             `json:"name"`
