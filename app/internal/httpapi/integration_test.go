@@ -1171,6 +1171,8 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/voice-eligibility", nil, "", 200)
 		call(client, "PUT", "/api/admin/voice-eligibility", map[string]any{"comparable_min_seconds": 2, "contributive_min_seconds": 1, "max_clipped_ratio": 0.01}, me.CSRF, 200)
 		call(client, "PUT", "/api/admin/voice-eligibility", map[string]any{"comparable_min_seconds": 1, "contributive_min_seconds": 2, "max_clipped_ratio": 0.01}, me.CSRF, 400)
+		call(client, "GET", "/api/admin/voice-eligibility/preview?durations=1&durations=2", nil, "", 200)
+		call(client, "GET", "/api/admin/voice-eligibility/preview?comparable_min_seconds=1&contributive_min_seconds=2", nil, "", 400)
 		// Account link and voice profile deletion (behavior in the voice profile suite).
 		personPath := "/api/admin/persons/" + strconv64(contractPerson.ID) + "/account"
 		call(client, "GET", "/api/me/person", nil, "", 404)
