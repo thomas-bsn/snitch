@@ -31727,6 +31727,15 @@
               "$ref": "#/components/schemas/BenchmarkChain"
             },
             "description": "Bout en bout : les paires de modèles que représentent les identifiants des résultats."
+          },
+          "scoring": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkScoring"
+              }
+            ],
+            "nullable": true,
+            "description": "Empreinte : mode de score et règle d'éligibilité sous lesquels le run est noté (#397). Null pour les autres étapes."
           }
         },
         "required": [
@@ -31741,7 +31750,72 @@
           "progress",
           "results",
           "chains",
-          "reference_sources"
+          "reference_sources",
+          "scoring"
+        ]
+      },
+      "BenchmarkScoring": {
+        "type": "object",
+        "description": "Comment un benchmark d'empreinte note : la fonction de score de production sous le mode et la règle d'éligibilité actifs au lancement du run. Un run antérieur à leur enregistrement vaut « centroid » (centroïde non pondéré, ancien), sans règle.",
+        "properties": {
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample",
+              "centroid"
+            ]
+          },
+          "score_mode_version": {
+            "type": "integer",
+            "nullable": true
+          },
+          "reference_sample_cap_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Plafond du poids d'un échantillon dans une Référence cumulative."
+          },
+          "eligibility_rule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkEligibilityRule"
+              }
+            ],
+            "nullable": true
+          }
+        },
+        "required": [
+          "score_mode",
+          "score_mode_version",
+          "reference_sample_cap_seconds",
+          "eligibility_rule"
+        ]
+      },
+      "BenchmarkEligibilityRule": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer"
+          },
+          "comparable_min_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "contributive_min_seconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "max_clipped_ratio": {
+            "type": "number",
+            "format": "double"
+          }
+        },
+        "required": [
+          "version",
+          "comparable_min_seconds",
+          "contributive_min_seconds",
+          "max_clipped_ratio"
         ]
       },
       "BenchmarkRunList": {
@@ -31968,6 +32042,10 @@
           },
           "ignored_dimension": {
             "type": "integer"
+          },
+          "ineligible": {
+            "type": "integer",
+            "description": "Empreinte : empreintes écartées par la règle d'éligibilité du run (référence non contributive, ou non comparable en mode meilleur échantillon ; test non comparable)."
           },
           "clips": {
             "type": "integer",

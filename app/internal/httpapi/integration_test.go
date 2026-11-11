@@ -395,6 +395,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAIBenchmarkFingerprints(t, pool)
 	})
+	t.Run("ai benchmark scoring", func(t *testing.T) {
+		reset(t)
+		testBenchmarkScoring(t, pool)
+	})
 	t.Run("ai benchmark transcription", func(t *testing.T) {
 		reset(t)
 		testAIBenchmarkTranscription(t, pool)

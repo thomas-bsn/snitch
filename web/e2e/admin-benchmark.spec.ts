@@ -458,6 +458,8 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
     "raw scores of different models cannot be compared",
   );
   await expect(page.getByRole("status")).toContainText("14 of 18 measured");
+  // A run recorded before the production score mode was stored reads as the legacy centroid (#397).
+  await expect(page.getByText(/^Score:\s*Centroid \(legacy\)/)).toBeVisible();
   const table = page.getByRole("table");
   await expect(table.getByRole("row")).toHaveCount(3);
   // A measure is explained by its "i": on hover and from the keyboard.

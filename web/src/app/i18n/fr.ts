@@ -2113,6 +2113,18 @@ export const fr: Messages = {
       infoLabel: "Définition : {metric}",
       genuine: "genuine",
       impostor: "impostor",
+      scoring: {
+        title: "Score :",
+        modes: {
+          cumulative: "Référence cumulative",
+          best_sample: "Meilleur échantillon",
+          centroid: "Centroïde (ancien)",
+        },
+        current:
+          "{mode} (version {modeVersion}, un échantillon pèse au plus {cap} s), règle d’éligibilité version {ruleVersion} : comparable dès {comparable} s, contributive dès {contributive} s, saturation au plus {clipped}. Noté comme la production : un seuil lu ici vaut pour la production sous ce mode et cette règle.",
+        legacy:
+          "{mode} : moyenne non pondérée des empreintes de référence, retenues par les seuils du pipeline épinglé. Ses seuils ne valent pas pour le score de production actuel.",
+      },
     },
     metrics: {
       cpwer: {
