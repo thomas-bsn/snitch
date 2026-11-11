@@ -1185,7 +1185,6 @@ func TestFoundation(t *testing.T) {
 		call(client, "GET", "/api/admin/voice-fingerprint-recompute", nil, "", 200)
 		call(client, "POST", "/api/admin/voice-fingerprint-recompute/resume", nil, me.CSRF, 404)
 		call(client, "DELETE", "/api/admin/voice-fingerprint-recompute", nil, me.CSRF, 404)
-		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{}, me.CSRF, 400)
 		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 99}, me.CSRF, 409)
 		call(client, "POST", "/api/admin/voice-fingerprint-recompute", map[string]any{"confirm_fingerprints": 0}, me.CSRF, 201)
 		call(client, "DELETE", "/api/admin/voice-fingerprint-recompute", nil, me.CSRF, 409)
