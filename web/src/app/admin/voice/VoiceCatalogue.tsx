@@ -124,6 +124,14 @@ export function VoiceCatalogue({
                       : "voiceWorkspace.openAccess",
                   )}
                 </span>
+                {m.separated_voices && m.sample_rate_hz && (
+                  <span>
+                    {t("voiceWorkspace.separationLimits", {
+                      voices: m.separated_voices,
+                      rate: m.sample_rate_hz / 1000,
+                    })}
+                  </span>
+                )}
               </div>
               <p>
                 {!m.supported
@@ -370,6 +378,22 @@ export function VoiceReferenceDetails({
                   ? mb(model.vram_bytes)
                   : t("voiceWorkspace.unknown"),
               ],
+              ...(model.kind === "separation"
+                ? [
+                    [
+                      t("voiceWorkspace.separatedVoices"),
+                      model.separated_voices ?? t("voiceWorkspace.unknown"),
+                    ],
+                    [
+                      t("voiceWorkspace.sampleRate"),
+                      model.sample_rate_hz
+                        ? t("voiceWorkspace.sampleRateValue", {
+                            rate: model.sample_rate_hz / 1000,
+                          })
+                        : t("voiceWorkspace.unknown"),
+                    ],
+                  ]
+                : []),
             ].map(([key, value]) => (
               <div key={key}>
                 <dt>{key}</dt>

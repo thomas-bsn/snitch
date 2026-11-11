@@ -309,19 +309,6 @@ export function ModelsByWorker({
                   </th>
                   {modelKinds.map((kind) => {
                     const cell = worker.models.find((m) => m.kind === kind);
-                    if (kind === "separation")
-                      return (
-                        <td key={kind}>
-                          <div className="voice-worker-cell">
-                            <span className="text-mute">
-                              {t("voiceWorkspace.adapterPending")}
-                            </span>
-                            <VoiceBadge>
-                              {t("voiceWorkspace.coming")}
-                            </VoiceBadge>
-                          </div>
-                        </td>
-                      );
                     const absent = !cell || cell.state === "not_installed";
                     return (
                       <td key={kind}>
@@ -508,36 +495,39 @@ export function ModelsByWorker({
                                       cell.replacement_phase ===
                                         "preparing"))) && (
                                   <>
-                                    {replacementOptions(cell).length > 0 && (
-                                      <button
-                                        type="button"
-                                        className="voice-btn quiet"
-                                        disabled={busy}
-                                        onClick={() =>
-                                          kind === "fingerprint" &&
-                                          (cell.state === "ready" ||
-                                            cell.replaces_model_id)
-                                            ? onTransition(
-                                                replacementOptions(cell)[0].id,
-                                              )
-                                            : open({
-                                                type: "install",
-                                                worker,
-                                                kind,
-                                                replaces:
-                                                  cell.replaces_model_id ||
-                                                  (cell.state === "ready"
-                                                    ? cell.model_id
-                                                    : undefined),
-                                                modelId:
+                                    {/* A separation model is never switched in place: no job of the library uses it. */}
+                                    {kind !== "separation" &&
+                                      replacementOptions(cell).length > 0 && (
+                                        <button
+                                          type="button"
+                                          className="voice-btn quiet"
+                                          disabled={busy}
+                                          onClick={() =>
+                                            kind === "fingerprint" &&
+                                            (cell.state === "ready" ||
+                                              cell.replaces_model_id)
+                                              ? onTransition(
                                                   replacementOptions(cell)[0]
                                                     .id,
-                                              })
-                                        }
-                                      >
-                                        {t("voiceModels.byWorker.replace")}
-                                      </button>
-                                    )}
+                                                )
+                                              : open({
+                                                  type: "install",
+                                                  worker,
+                                                  kind,
+                                                  replaces:
+                                                    cell.replaces_model_id ||
+                                                    (cell.state === "ready"
+                                                      ? cell.model_id
+                                                      : undefined),
+                                                  modelId:
+                                                    replacementOptions(cell)[0]
+                                                      .id,
+                                                })
+                                          }
+                                        >
+                                          {t("voiceModels.byWorker.replace")}
+                                        </button>
+                                      )}
                                     <button
                                       type="button"
                                       className="voice-btn quiet"
