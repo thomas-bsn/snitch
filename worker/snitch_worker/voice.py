@@ -77,6 +77,11 @@ def fake_diarization(config: dict[str, Any], duration: float | None, stream_inde
     }
 
 
+def turn_interval(turn: Mapping[str, Any]) -> tuple[float, float]:
+    """The (start, end) seconds of a diarization turn."""
+    return float(turn["start"]), float(turn["end"])
+
+
 def fake_embedding(label: str, dimensions: int) -> list[float]:
     digest = hashlib.sha256(f"fake-voice:{label}".encode()).digest()
     raw = [((digest[i % len(digest)] / 255.0) * 2 - 1) + (i // len(digest)) * 0.01 for i in range(dimensions)]
@@ -95,12 +100,12 @@ def fake_fingerprints(config: dict[str, Any], diarization: dict[str, Any], strea
             continue
         label = speaker["label"]
         others = voice_quality.others_speech(speakers, label)
-        net = {turn["index"]: sum(e - s for s, e in voice_quality.subtract((float(turn["start"]), float(turn["end"])), others) if e - s >= MIN_EMBEDDABLE_SECONDS)
+        net = {turn["index"]: sum(e - s for s, e in voice_quality.subtract(turn_interval(turn), others) if e - s >= MIN_EMBEDDABLE_SECONDS)
                for turn in turns}
         overlapped = not any(net.values())
         speaking = sum(t["end"] - t["start"] for t in turns)
         first = min(t["start"] for t in turns)
-        own = [(float(t["start"]), float(t["end"])) for t in turns]
+        own = [turn_interval(t) for t in turns]
         items.append({
             "speaker_label": label,
             "scope": "speaker",
@@ -121,7 +126,7 @@ def fake_fingerprints(config: dict[str, Any], diarization: dict[str, Any], strea
                 "end": turn["end"],
                 "quality": 0.9 if length >= SHORT_TURN_SECONDS else 0.3,
                 "embedding": fake_embedding(f"{label}:{turn['index']}", dimensions),
-                "measures": _measures(net[turn["index"]], voice_quality.overlap_ratio([(float(turn["start"]), float(turn["end"]))], others), overlapped, None, None),
+                "measures": _measures(net[turn["index"]], voice_quality.overlap_ratio([turn_interval(turn)], others), overlapped, None, None),
             })
     return {
         "provider": config["provider"],
@@ -216,12 +221,12 @@ def fingerprints_from_embedder(
     dimensions = 0
     for speaker in speakers:
         others = voice_quality.others_speech(speakers, speaker["label"])
-        own = [(float(t["start"]), float(t["end"])) for t in speaker.get("turns", [])]
-        plans = [(turn, [p for p in voice_quality.subtract((float(turn["start"]), float(turn["end"])), others) if p[1] - p[0] >= MIN_EMBEDDABLE_SECONDS])
+        own = [turn_interval(t) for t in speaker.get("turns", [])]
+        plans = [(turn, [p for p in voice_quality.subtract(turn_interval(turn), others) if p[1] - p[0] >= MIN_EMBEDDABLE_SECONDS])
                  for turn in speaker.get("turns", [])]
         overlapped = not any(pieces for _, pieces in plans)
         if overlapped:  # nothing net is long enough: the whole turns, as before net speech, marked as such
-            plans = [(turn, [(float(turn["start"]), float(turn["end"]))]) for turn in speaker.get("turns", [])
+            plans = [(turn, [turn_interval(turn)]) for turn in speaker.get("turns", [])
                      if turn["end"] - turn["start"] >= MIN_EMBEDDABLE_SECONDS]
         turns: list[dict[str, Any]] = []
         for turn, pieces in plans:
@@ -244,7 +249,7 @@ def fingerprints_from_embedder(
                 "index": turn["index"], "start": turn["start"], "end": turn["end"],
                 "length": sum(weight for _, weight in parts), "pieces": used, "parts": parts,
                 "embedding": parts[0][0] if len(parts) == 1 else _weighted_unit(parts, dimensions),
-                "overlap": voice_quality.overlap_ratio([(float(turn["start"]), float(turn["end"]))], others),
+                "overlap": voice_quality.overlap_ratio([turn_interval(turn)], others),
             })
         if not turns:
             continue
