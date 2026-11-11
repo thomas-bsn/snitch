@@ -51,13 +51,7 @@ func firstSegment(relative string) string {
 	return clean
 }
 
-func videoExtension(path string) bool {
-	switch strings.ToLower(filepath.Ext(path)) {
-	case ".mp4", ".mkv", ".mov", ".avi", ".webm", ".m4v", ".ts":
-		return true
-	}
-	return false
-}
+func videoExtension(path string) bool { return library.IsVideoName(path) }
 func (s *Server) videoRoot(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodPut {
 		var input struct {

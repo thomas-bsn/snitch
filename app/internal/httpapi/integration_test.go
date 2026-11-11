@@ -682,6 +682,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testLibraryIndex(t, pool)
 	})
+	t.Run("root scan", func(t *testing.T) {
+		reset(t)
+		testRootScan(t, pool)
+	})
 	t.Run("person filter", func(t *testing.T) {
 		reset(t)
 		testPersonFilter(t, pool)
@@ -1359,6 +1363,11 @@ func TestFoundation(t *testing.T) {
 		call(client, "POST", "/api/admin/library/index-runs/999999/pause", nil, me.CSRF, 404)
 		call(client, "POST", "/api/admin/library/index-runs/999999/resume", nil, me.CSRF, 404)
 		call(client, "POST", "/api/admin/library/index-runs/999999/cancel", nil, me.CSRF, 404)
+		// Scan of the whole video root (#404): conformity here, behavior in the root scan suite.
+		call(client, "GET", "/api/admin/video-root/scan-runs/preview", nil, "", 409)
+		call(client, "GET", "/api/admin/video-root/scan-runs/current", nil, "", 200)
+		call(client, "POST", "/api/admin/video-root/scan-runs", nil, me.CSRF, 409)
+		call(client, "POST", "/api/admin/video-root/scan-runs/999999/cancel", nil, me.CSRF, 404)
 		call(client, "PUT", "/api/admin/library/folders/privacy", map[string]any{"source_id": createdSource.ID, "folder": "contract-private", "private": false}, me.CSRF, 200)
 		sourcePath := fmt.Sprintf("/api/admin/sources/%d", createdSource.ID)
 		call(client, "GET", sourcePath+"/microphone-track", nil, "", 200)

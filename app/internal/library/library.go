@@ -59,15 +59,18 @@ type Service struct {
 	config Config
 	logger interface{ Warn(string, ...any) }
 
-	mu             sync.Mutex
-	watcher        *fsnotify.Watcher
-	watchCancel    context.CancelFunc
-	ctx            context.Context
-	watched        map[string]int64
-	roots          map[int64]string
-	timers         map[int64]*time.Timer
-	closed         bool
-	locks          sync.Map
+	mu          sync.Mutex
+	watcher     *fsnotify.Watcher
+	watchCancel context.CancelFunc
+	ctx         context.Context
+	watched     map[string]int64
+	roots       map[int64]string
+	timers      map[int64]*time.Timer
+	closed      bool
+	locks       sync.Map
+	// walks holds the scans of the Racine whose walk runs in this process (#404); walkers waits for them on Close.
+	walks          map[int64]bool
+	walkers        sync.WaitGroup
 	OnManagedReady func(context.Context, int64) error
 	// OnIndexed is told about each clip once its indexing is committed. It must not block.
 	OnIndexed func(clipID int64)
@@ -181,7 +184,7 @@ func New(pool *pgxpool.Pool, config Config, logger interface{ Warn(string, ...an
 	if config.Exclude == nil {
 		config.Exclude = []string{".*", "*.tmp", "*.part", "*.partial", "*.crdownload", "*.download"}
 	}
-	return &Service{pool: pool, config: config, logger: logger, watched: map[string]int64{}, roots: map[int64]string{}, timers: map[int64]*time.Timer{}}
+	return &Service{pool: pool, config: config, logger: logger, watched: map[string]int64{}, roots: map[int64]string{}, timers: map[int64]*time.Timer{}, walks: map[int64]bool{}}
 }
 
 func (s *Service) AllowedRoots() []string {
@@ -363,12 +366,15 @@ func (s *Service) Start(ctx context.Context) error {
 	}
 	go s.watchLoop(watchCtx, watcher)
 	go s.reconcileLoop(watchCtx)
+	// A scan of the Racine interrupted by the stop walks again (#404).
+	if err = s.ResumeRootScans(ctx); err != nil && s.logger != nil {
+		s.logger.Warn("resume the scans of the Racine", "error", err)
+	}
 	return nil
 }
 
 func (s *Service) Close() {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.closed = true
 	if s.watchCancel != nil {
 		s.watchCancel()
@@ -380,6 +386,8 @@ func (s *Service) Close() {
 	if s.watcher != nil {
 		_ = s.watcher.Close()
 	}
+	s.mu.Unlock()
+	s.walkers.Wait()
 }
 
 func (s *Service) WatchSource(source Source) {

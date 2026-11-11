@@ -326,7 +326,7 @@ func (s *Server) indexRunView(ctx context.Context, id int64, hidden func(path st
 // currentIndexRun answers the latest run of the Racine, or null when none was ever asked.
 func (s *Server) currentIndexRun(w http.ResponseWriter, r *http.Request) {
 	var id int64
-	err := s.Pool.QueryRow(r.Context(), `SELECT r.id FROM library_index_runs r JOIN clip_sources c ON c.id=r.source_id AND c.managed_root ORDER BY r.id DESC LIMIT 1`).Scan(&id)
+	err := s.Pool.QueryRow(r.Context(), `SELECT r.id FROM library_index_runs r JOIN clip_sources c ON c.id=r.source_id AND c.managed_root WHERE r.mode IN ('cards','full') ORDER BY r.id DESC LIMIT 1`).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {
 		reply(w, http.StatusOK, map[string]any{"run": nil})
 		return
@@ -380,7 +380,8 @@ func (s *Server) changeIndexRun(w http.ResponseWriter, r *http.Request, action s
 	defer tx.Rollback(ctx)
 	var status string
 	var sourceID int64
-	err = tx.QueryRow(ctx, `SELECT status,source_id FROM library_index_runs WHERE id=$1 FOR UPDATE`, id).Scan(&status, &sourceID)
+	// A scan of the Racine (#404) has its own cancellation and no pause.
+	err = tx.QueryRow(ctx, `SELECT status,source_id FROM library_index_runs WHERE id=$1 AND mode IN ('cards','full') FOR UPDATE`, id).Scan(&status, &sourceID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		fail(w, http.StatusNotFound, "index_run_not_found")
 		return

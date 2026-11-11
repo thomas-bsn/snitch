@@ -1662,6 +1662,80 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/video-root/scan-runs/preview": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Estimer le scan de toute la Racine vidéo, sans le lancer (administrateur)
+     * @description Parcourt les dossiers de la Racine (jamais le contenu des vidéos) et compte, sans lister les chemins, les vidéos qui seraient mises en file, celles déjà à jour et ce qui est exclu par motif. Les Dossiers privés sont exclus pour tous les rôles, Super-administrateur compris ; un dossier illisible est compté, pas bloquant.
+     */
+    get: operations["previewRootScan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan-runs/current": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dernier scan de toute la Racine vidéo : progression puis bilan (administrateur) */
+    get: operations["getCurrentRootScan"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan-runs": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Scanner toute la Racine vidéo en arrière-plan (administrateur, action explicite)
+     * @description Répond aussitôt : le parcours du disque et la mise en file avancent en arrière-plan, sans limite de nombre, et reprennent après un redémarrage. Met en file les vidéos non indexées, modifiées, ou indexées mais jamais analysées ; leur analyse suit ensuite les réglages de traitement. Exclut les Dossiers privés (tous rôles), les fichiers et dossiers masqués, les dossiers système et les clips privés. Un clip déjà analysé n'est pas réanalysé. Un seul scan ou une seule indexation en cours par Racine.
+     */
+    post: operations["startRootScan"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/video-root/scan-runs/{id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Annuler le scan : le parcours s'arrête et les vidéos pas encore prises ne sont plus demandées (administrateur) */
+    post: operations["cancelRootScan"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/settings/automatic-analysis": {
     parameters: {
       query?: never;
@@ -5956,6 +6030,64 @@ export interface components {
     };
     IndexRunAnswer: {
       run: components["schemas"]["IndexRun"] | null;
+    };
+    RootScanExcluded: {
+      /** @description Dossiers privés laissés de côté sans être ouverts. */
+      private_folders: number;
+      /** @description Dossiers et vidéos dont le nom commence par un point. */
+      hidden: number;
+      /** @description Dossiers système du NAS (#recycle, @eaDir). */
+      system: number;
+      /** @description Vidéos indexées dont le clip est privé. */
+      private_clips: number;
+    };
+    RootScanPreview: {
+      /** @description Vidéos éligibles rencontrées. */
+      seen: number;
+      /** @description Vidéos qui seraient mises en file : non indexées, modifiées, ou indexées mais jamais analysées. */
+      to_queue: number;
+      /** @description Vidéos indexées dont le clip est déjà analysé : rien à faire. */
+      up_to_date: number;
+      excluded: components["schemas"]["RootScanExcluded"];
+      /** @description Dossiers illisibles, sautés. */
+      unreadable_folders: number;
+      /** @description Les premiers dossiers illisibles, relatifs à la Racine. */
+      unreadable_paths: string[];
+    };
+    RootScan: {
+      /** Format: int64 */
+      id: number;
+      /** @enum {string} */
+      status: "running" | "cancelled" | "completed";
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      finished_at: string | null;
+      /** @description Vrai tant que le disque est parcouru. */
+      walking: boolean;
+      /** @description Vidéos éligibles rencontrées jusqu'ici. */
+      seen: number;
+      /** @description Vidéos mises en file par ce scan. */
+      queued: number;
+      /** @description Vidéos mises en file déjà prises par le scan géré. */
+      done: number;
+      /** @description Vidéos mises en file qui attendent encore. */
+      pending: number;
+      /** @description Vidéos illisibles, disparues ou en erreur. */
+      failed: number;
+      /** @description Vidéos indexées dont le clip est déjà analysé. */
+      up_to_date: number;
+      /** @description Des vidéos attendent et aucun Worker n'est en ligne. */
+      waiting_for_worker: boolean;
+      excluded: components["schemas"]["RootScanExcluded"];
+      /** @description Dossiers illisibles, sautés. */
+      unreadable_folders: number;
+      unreadable_paths: string[];
+      /** @description Les premières vidéos en échec, avec leur code. */
+      failures: components["schemas"]["IndexRunFailure"][];
+    };
+    RootScanAnswer: {
+      run: components["schemas"]["RootScan"] | null;
     };
     PersonInput: {
       display_name: string;
@@ -13152,6 +13284,166 @@ export interface operations {
         };
       };
       /** @description index_run_state : l'indexation est terminée ou annulée */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  previewRootScan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Comptes */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanPreview"];
+        };
+      };
+      /** @description video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getCurrentRootScan: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Le scan le plus récent, ou run null si aucun n'a jamais été demandé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanAnswer"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  startRootScan: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scan enregistré, parcours en cours */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanAnswer"];
+        };
+      };
+      /** @description index_run_active : un scan ou une indexation est déjà en cours ; video_root_unconfigured */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  cancelRootScan: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Scan annulé */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RootScanAnswer"];
+        };
+      };
+      /** @description index_run_not_found */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+      /** @description index_run_state : le scan est terminé ou annulé */
       409: {
         headers: {
           [name: string]: unknown;
