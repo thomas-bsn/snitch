@@ -272,21 +272,32 @@ class ClaimLoopResilienceTests(unittest.TestCase):
         self.assertEqual(failures[0]["error_type"], "IndexError")
 
     def test_failures_back_off_without_a_hot_loop(self):
-        stop = threading.Event()
-        stamps = []
+        class RecordedWaits(threading.Event):
+            """The loop's stop event, recording the waits it asks for instead of sleeping: no clock in the test."""
+
+            def __init__(self):
+                super().__init__()
+                self.waits: list[float] = []
+
+            def wait(self, timeout=None):
+                self.waits.append(timeout)
+                return self.is_set()
+
+        stop = RecordedWaits()
+        calls = []
 
         def failing(*_args, **_kwargs):
-            stamps.append(time.monotonic())
-            if len(stamps) >= 4:
+            calls.append(1)
+            if len(calls) >= 4:
                 stop.set()
             raise httpx.ConnectError("synthetic outage")
 
         with patch.object(runner, "run_once", side_effect=failing), patch.object(runner, "CLAIM_RETRY_CAP", 0.2):
             runner._worker_loop(object(), 1, stop, 0.01, 0.01)
-        gaps = [later - earlier for earlier, later in zip(stamps, stamps[1:])]
-        self.assertGreaterEqual(min(gaps), 0.009)
-        self.assertGreater(gaps[-1], gaps[0], "consecutive failures must wait longer")
-        self.assertLess(max(gaps), 0.5, "the wait is bounded")
+        self.assertEqual(len(stop.waits), 4)
+        self.assertGreaterEqual(min(stop.waits), 0.01, "never a hot loop")
+        self.assertTrue(all(later > earlier for earlier, later in zip(stop.waits, stop.waits[1:])), f"consecutive failures must wait longer: {stop.waits}")
+        self.assertLessEqual(max(stop.waits), 0.2, "the wait is bounded by the cap")
 
     def test_a_claim_loop_that_dies_is_reported_and_restarted(self):
         stop = threading.Event()
