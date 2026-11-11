@@ -1105,6 +1105,7 @@ export const en = {
       examined: "Examined rule ({comparable} / {contributive})",
       duration: "Minimum {value}",
       rejected: "{tooShort} too short, {overlap} overlapped, {clipped} clipped",
+      rejectedBefore: ", {count} rejected before the rule",
       perPerson: "By person, under the examined rule",
       personColumn: "Person",
       presentColumn: "Fingerprints",

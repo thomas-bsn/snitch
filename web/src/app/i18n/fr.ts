@@ -1128,6 +1128,7 @@ export const fr: Messages = {
       duration: "Minimum {value}",
       rejected:
         "{tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées",
+      rejectedBefore: ", {count} rejetées avant la règle",
       perPerson: "Par personne, sous la règle examinée",
       personColumn: "Personne",
       presentColumn: "Empreintes",

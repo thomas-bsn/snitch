@@ -103,8 +103,12 @@ function GroupPreview({
         {t("voiceAdmin.eligibility.rejected", {
           tooShort: o.too_short,
           overlap: o.overlap_only,
-          clipped: o.clipped + o.low_quality,
+          clipped: o.clipped,
         })}
+        {o.low_quality > 0 &&
+          t("voiceAdmin.eligibility.rejectedBefore", {
+            count: o.low_quality,
+          })}
       </td>
       <td className="p-2">{o.persons_with_reference}</td>
     </tr>
