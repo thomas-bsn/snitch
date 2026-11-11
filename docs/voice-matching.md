@@ -16,20 +16,27 @@ Snitch rapproche les empreintes des Locuteurs locaux de la Référence de chaque
 
 ## Quand le rapprochement s'exécute
 
-| Déclencheur | Portée |
-| --- | --- |
-| Validation ou correction d'un Locuteur local (ajout, retrait ou changement d'une référence) | Toute la bibliothèque |
-| Fusion, séparation ou suppression d'une Personne, suppression d'un Profil vocal | Toute la bibliothèque |
-| Suppression d'un clip, ou de la diarisation ou des empreintes d'un clip, qui portait un échantillon validé actif | Toute la bibliothèque |
-| Changement du mode de score (`PUT /api/admin/voice-score-mode`) | Toute la bibliothèque |
-| Résultat d'empreintes d'un clip enregistré | Ce clip |
-| Changement des seuils (`PUT /api/admin/voice-matching`) | Toute la bibliothèque |
-| Changement de la règle d'éligibilité qui modifie l'éligibilité d'au moins une empreinte (`PUT /api/admin/voice-eligibility`) | Toute la bibliothèque |
-| `POST /api/admin/voice-matching/rematch` (administrateur) | Toute la bibliothèque |
+| Déclencheur | Portée | Exécution |
+| --- | --- | --- |
+| Validation ou correction d'un Locuteur local (ajout, retrait ou changement d'une référence) | Toute la bibliothèque | Arrière-plan (demande enregistrée avec la décision) |
+| Nommage d'un groupe de voix, disposition, refus ou annulation d'un refus | Toute la bibliothèque | Arrière-plan |
+| Fusion, séparation ou suppression d'une Personne, suppression d'un Profil vocal | Toute la bibliothèque | Arrière-plan |
+| Suppression d'un clip, ou de la diarisation ou des empreintes d'un clip, qui portait un échantillon validé actif | Toute la bibliothèque | Arrière-plan |
+| Changement du mode de score (`PUT /api/admin/voice-score-mode`) | Toute la bibliothèque | Arrière-plan |
+| Changement des seuils (`PUT /api/admin/voice-matching`) | Toute la bibliothèque | Arrière-plan |
+| Changement de la règle d'éligibilité qui modifie l'éligibilité d'au moins une empreinte (`PUT /api/admin/voice-eligibility`) | Toute la bibliothèque | Arrière-plan |
+| Bascule du modèle d'empreinte (ADR 0044) | Toute la bibliothèque | Arrière-plan (demande enregistrée avec la bascule) |
+| Résultat d'empreintes d'un clip enregistré (requête du Worker) | Ce clip | Arrière-plan (demande ciblée) |
+| Étape « Rapprochement » de l'analyse d'un clip | Ce clip | Immédiate, dans la boucle d'analyse (l'étape attend son succès) |
+| `POST /api/admin/voice-matching/rematch` (administrateur), interrupteur d'automatisation | Toute la bibliothèque | Immédiate : la réponse donne les chiffres du passage |
 
-L'exécution est sérialisée (mutex de processus et verrou consultatif PostgreSQL) et lit l'état validé. Le déclencheur est déjà validé quand le rapprochement démarre : un échec est journalisé sans défaire la validation, et le rapprochement suivant (ou l'explicite) le répare. Seules les lignes dont la Personne, le niveau ou les candidates changent sont réécrites ; un changement de Personne ou de niveau ajoute un événement `match` à l'historique du locuteur (sans auteur, sans donnée vocale).
+**Rapprochement en arrière-plan (#392).** Une décision répond dès qu'elle est enregistrée : elle n'attend plus le rapprochement. Le déclencheur enregistre une demande (`voice_matching_requests`) dans la transaction de la décision quand c'est possible (validation, correction, bascule de modèle), sinon juste après son commit, puis réveille une boucle d'arrière-plan du serveur. Un passage prend toutes les demandes présentes une fois le verrou du rapprochement obtenu et relit le dernier état validé : plusieurs décisions rapprochées, ou prises pendant un passage, font un seul passage suivant. Une demande pour toute la bibliothèque donne un passage complet ; sinon chaque clip demandé est rapproché seul. Une demande n'est supprimée que par le passage qui l'a lue, après son commit : un passage interrompu (arrêt du serveur, échec) laisse ses demandes, reprises au démarrage suivant ou au nouvel essai automatique (toutes les 30 s), sans action de l'utilisateur. `voice_matching_status` garde le passage en cours, la fin, la durée et le nombre de demandes du dernier passage réussi, et le dernier échec.
 
-Le calcul compare chaque cible à chaque Référence (scan exact, sans index) : avec une Référence par Personne, une voix coûte de l'ordre de 66 µs face à 200 Personnes en 256 dimensions (`BenchmarkRankLibrary`, Apple M3 Pro), soit environ 2 s de calcul pour 30 000 voix, lecture des vecteurs en sus. Le mode « meilleur échantillon » compare à chaque échantillon : environ 1 ms par voix pour 4 000 échantillons.
+**Verrous.** Le rapprochement prend un mutex de processus et le verrou consultatif `snitch.voice_matching`. La fusion, la séparation et la suppression d'une Personne, la suppression d'un Profil vocal et la bascule du modèle d'empreinte prennent les mêmes verrous et attendent donc un passage en cours ; une validation ou une correction n'en prend aucun et ne l'attend jamais. Les scores sont calculés avant toute écriture : les lignes d'attribution qu'un passage verrouille ne le sont que pendant ses écritures. Deux validations simultanées n'écrivent que leurs propres lignes et chacune ajoute sa demande : le passage suivant voit les deux.
+
+L'exécution lit l'état validé. Le déclencheur est déjà validé quand le rapprochement démarre : un échec est journalisé sans défaire la validation, et la demande reste jusqu'à un passage réussi. Seules les lignes dont la Personne, le niveau ou les candidates changent sont réécrites ; un changement de Personne ou de niveau ajoute un événement `match` à l'historique du locuteur (sans auteur, sans donnée vocale).
+
+Le calcul compare chaque cible à chaque Référence (scan exact, sans index) : avec une Référence par Personne, une voix coûte de l'ordre de 66 µs face à 200 Personnes en 256 dimensions (`BenchmarkRankLibrary`, Apple M3 Pro), soit environ 2 s de calcul pour 30 000 voix, lecture des vecteurs en sus. Le mode « meilleur échantillon » compare à chaque échantillon : environ 1 ms par voix pour 4 000 échantillons. La durée d'un passage complet mesurée sur une bibliothèque synthétique de 30 000 Locuteurs locaux et 200 Personnes est consignée dans [performance-rapprochement.md](performance-rapprochement.md).
 
 ## Score et Référence cumulative
 
@@ -94,7 +101,8 @@ L'écran **Administration → Voix → Identification et seuils → Paramètres 
 
 - `GET /api/voice-matching` : tout utilisateur connecté (il voit si l'automatisation est active).
 - `PUT /api/admin/voice-matching` : administrateurs ; les quatre seuils sont obligatoires, `auto_enabled` est refusé. `400 invalid_voice_matching` pour des seuils incohérents. Les empreintes déjà stockées sont rapprochées de nouveau.
-- `POST /api/admin/voice-matching/rematch` : administrateurs ; renvoie le résumé (voix examinées par niveau, attributions retirées).
+- `POST /api/admin/voice-matching/rematch` : administrateurs ; exécute tout de suite un passage complet (qui prend aussi les demandes en attente) et renvoie le résumé (voix examinées par niveau, attributions retirées).
+- `GET /api/voice-matching/status` : tout utilisateur connecté ; `pending` (demandes en attente), `running` et `running_since`, `last_finished_at`, `last_duration_ms` et `last_requests` du dernier passage réussi, `last_failed_at` (null quand le dernier passage a réussi). `GET /api/voice-matching/status/events` : le même état en flux `text/event-stream` (sujet `voice_matching` de l'outbox `events`, alimenté par déclencheurs), session revérifiée avant chaque snapshot.
 - `GET` et `PUT /api/admin/voice-eligibility` : administrateurs ; règle d'éligibilité (voir plus haut), avec les dix dernières requalifications (`requalifications`). `GET /api/admin/voice-eligibility/preview` : aperçu chiffré. `400 invalid_voice_eligibility` pour une règle ou une durée hors bornes ou une durée contributive supérieure à la durée comparable.
 - `GET` et `PUT /api/admin/voice-score-mode` : administrateurs ; mode de score actif (`cumulative` ou `best_sample`), version, auteur, date et vingt dernières versions. `400 invalid_voice_score_mode` pour un autre mode.
 - `VoiceFingerprint` (voix d'un clip) et `VoiceTraceFingerprint` (trace vocale) portent `usable` (comparable), `contributive`, `unusable_reason`, `eligibility_rule_version`, `net_speech_seconds` et `net_speech_source`.
@@ -108,8 +116,8 @@ L'écran **Administration → Voix → Identification et seuils → Paramètres 
 
 ## Écrans
 
-La carte « Rapprochement vocal » de l'administration règle les seuils, affiche l'état de l'automatisation (lecture seule) et relance le rapprochement. Dans le panneau des voix d'un clip, une suggestion ou une voix ambiguë liste ses candidates avec leur similarité (« pas une garantie ») et un bouton « Valider comme … » : seul ce clic humain crée un échantillon validé.
+La carte « Rapprochement vocal » de l'administration règle les seuils, affiche l'état de l'automatisation (lecture seule) et relance le rapprochement. Elle indique, comme la liste « À traiter » et l'écran de traitement d'un clip, si un rapprochement est en cours ou l'heure du dernier (« Suggestions à jour · dernier rapprochement à 14:32 »), et un échec repris automatiquement. La liste et l'écran de traitement relisent leurs voix à la fin de chaque passage : la suggestion qui suit une validation y apparaît d'elle-même. Dans le panneau des voix d'un clip, une suggestion ou une voix ambiguë liste ses candidates avec leur similarité (« pas une garantie ») et un bouton « Valider comme … » : seul ce clic humain crée un échantillon validé.
 
 ## Contrat et code
 
-`app/internal/httpapi/voice_matching.go` (`registerVoiceMatchingRoutes`, `rematchVoices`, `loadReferenceSamples`), `voice_score.go` (fonction de score), `voice_score_mode.go`, migrations `00024_voice_matching.sql` et `00146_voice_score_modes.sql`, tests `voice_matching_test.go` (suite « voice matching »), `voice_reference_test.go` (suite « voice reference »), `voice_score_test.go` (unitaires) et `web/e2e/matching.spec.ts` (`SNITCH_E2E_MATCHING=1`). Le client web est dans `web/src/voice/VoiceMatchingCard.tsx` et `SpeakerRow.tsx`.
+`app/internal/httpapi/voice_matching.go` (`registerVoiceMatchingRoutes`, `rematchVoices`, `loadReferenceSamples`), `voice_matching_queue.go` (demandes, boucle d'arrière-plan, `matchingChanged`, `rematchNow`, état), `voice_score.go` (fonction de score), `voice_score_mode.go`, migrations `00024_voice_matching.sql`, `00146_voice_score_modes.sql` et `00147_voice_matching_requests.sql`, tests `voice_matching_test.go` (suite « voice matching »), `voice_reference_test.go` (suite « voice reference »), `voice_matching_background_test.go` (suite « voice matching in the background » ; les autres suites rapprochent dans la requête, `matchingInline`), `voice_matching_perf_test.go` (mesure, `SNITCH_PERF=1`), `voice_score_test.go` (unitaires) et `web/e2e/matching.spec.ts` (`SNITCH_E2E_MATCHING=1`). Le client web est dans `web/src/voice/VoiceMatchingCard.tsx` et `SpeakerRow.tsx`.
