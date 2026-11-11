@@ -458,7 +458,7 @@ func groupValidate(ctx context.Context, tx pgx.Tx, m voiceGroupMember, personID 
 // refreshVoiceGroupLinks rebuilds the proposed proximity links between unknown voices
 // from the stored fingerprints: for every unknown voice, its nearest neighbors (HNSW index
 // of its model/version/dimensions group, database matching) at or above the suggestion threshold
-// of the matching settings. Fingerprints of different models, versions or dimensions are
+// of that group (its applied thresholds, or the provisional ones). Fingerprints of different models, versions or dimensions are
 // never compared. Links are proposals only and written nowhere else.
 func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 	tx, err := s.beginLocked(ctx, lockVoiceGroups)
@@ -467,6 +467,10 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 	}
 	defer tx.Rollback(ctx)
 	settings, err := loadMatchingSettings(ctx, tx)
+	if err != nil {
+		return err
+	}
+	thresholds, err := loadGroupThresholds(ctx, tx)
 	if err != nil {
 		return err
 	}
@@ -507,7 +511,7 @@ CROSS JOIN LATERAL (
   ORDER BY f2.embedding::vector(%[1]d) <=> t.e LIMIT 20) n
 WHERE n.sim>=$3
 GROUP BY 1,2`, g.dimensions)
-		if _, err = tx.Exec(ctx, query, g.model, g.version, settings.SuggestionThreshold); err != nil {
+		if _, err = tx.Exec(ctx, query, g.model, g.version, settings.forGroup(thresholdsOf(thresholds, g)).SuggestionThreshold); err != nil {
 			return err
 		}
 	}

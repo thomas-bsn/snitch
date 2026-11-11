@@ -114,6 +114,12 @@ func testVoiceAutomation(t *testing.T, pool *pgxpool.Pool) {
 	eve := h.fixtureSpeaker(c[6], "REF_EVE", usableAt(135))
 	h.validate(eve, "Eve") // a single clip: reference only, never tested
 
+	// Thresholds belong to the fingerprint group (#393): without applied ones, nothing would be automatic.
+	if r := h.accuracy(); r.Evaluation.TestSamples != 4 || r.Evaluation.EvaluatedAutomatic != 0 || r.Evaluation.Precision != nil {
+		t.Fatalf("a group without applied thresholds attributes nothing automatically: %+v", r.Evaluation)
+	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75)
+
 	r := h.accuracy()
 	e := r.Evaluation
 	if e.ReferenceSamples != 5 || e.TestSamples != 4 || e.ExcludedSamples != 0 || e.EvaluatedAutomatic != 3 || e.Confirmed != 2 || !approx(e.Precision, 2.0/3) || !approx(e.Coverage, 0.75) {

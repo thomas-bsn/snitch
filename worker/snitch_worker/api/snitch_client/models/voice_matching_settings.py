@@ -11,6 +11,8 @@ from ..types import UNSET, Unset
 from typing import cast
 import datetime
 
+if TYPE_CHECKING:
+  from ..models.voice_fingerprint_group import VoiceFingerprintGroup
 
 
 
@@ -37,6 +39,10 @@ class VoiceMatchingSettings:
             auto_changed_at (datetime.datetime | None): Dernier changement de l'interrupteur d'automatisation ; null s'il
                 n'a jamais été modifié.
             updated_at (datetime.datetime):
+            group (None | VoiceFingerprintGroup): Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une
+                installation sans empreinte (valeurs provisoires).
+            thresholds_applied (bool): Le groupe actif a des seuils appliqués par un administrateur. Faux : le groupe ne
+                produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique.
      """
 
     auto_enabled: bool
@@ -48,6 +54,8 @@ class VoiceMatchingSettings:
     min_confirmations: int
     auto_changed_at: datetime.datetime | None
     updated_at: datetime.datetime
+    group: None | VoiceFingerprintGroup
+    thresholds_applied: bool
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -55,6 +63,7 @@ class VoiceMatchingSettings:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.voice_fingerprint_group import VoiceFingerprintGroup # noqa: PLC0415
         auto_enabled = self.auto_enabled
 
         automatic_threshold = self.automatic_threshold
@@ -77,6 +86,14 @@ class VoiceMatchingSettings:
 
         updated_at = self.updated_at.isoformat()
 
+        group: dict[str, Any] | None
+        if isinstance(self.group, VoiceFingerprintGroup):
+            group = self.group.to_dict()
+        else:
+            group = self.group
+
+        thresholds_applied = self.thresholds_applied
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -90,6 +107,8 @@ class VoiceMatchingSettings:
             "min_confirmations": min_confirmations,
             "auto_changed_at": auto_changed_at,
             "updated_at": updated_at,
+            "group": group,
+            "thresholds_applied": thresholds_applied,
         })
 
         return field_dict
@@ -98,6 +117,7 @@ class VoiceMatchingSettings:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.voice_fingerprint_group import VoiceFingerprintGroup # noqa: PLC0415
         d = dict(src_dict)
         auto_enabled = d.pop("auto_enabled")
 
@@ -136,6 +156,26 @@ class VoiceMatchingSettings:
 
 
 
+        def _parse_group(data: object) -> None | VoiceFingerprintGroup:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                group_type_1 = VoiceFingerprintGroup.from_dict(data)
+
+
+
+                return group_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | VoiceFingerprintGroup, data)
+
+        group = _parse_group(d.pop("group"))
+
+
+        thresholds_applied = d.pop("thresholds_applied")
+
         voice_matching_settings = cls(
             auto_enabled=auto_enabled,
             automatic_threshold=automatic_threshold,
@@ -146,6 +186,8 @@ class VoiceMatchingSettings:
             min_confirmations=min_confirmations,
             auto_changed_at=auto_changed_at,
             updated_at=updated_at,
+            group=group,
+            thresholds_applied=thresholds_applied,
         )
 
 

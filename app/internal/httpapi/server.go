@@ -153,6 +153,8 @@ func (s *Server) Start(ctx context.Context) error {
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveIncidents(s.backgroundContext, analysisInterval) }()
 	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.serveFingerprintRecompute(s.backgroundContext, time.Minute) }()
+	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveDiscordAvatars(s.backgroundContext) }()
 	s.backgroundWG.Add(1)
 	go func() {
@@ -399,6 +401,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerPersonRoutes(mux)
 	s.registerVoiceMatchingRoutes(mux)
 	s.registerVoiceEligibilityRoutes(mux)
+	s.registerFingerprintRecomputeRoutes(mux)
 	s.registerVoiceScoreModeRoutes(mux)
 	s.registerVoiceProfileRoutes(mux)
 	s.registerPersonLinkRoutes(mux)

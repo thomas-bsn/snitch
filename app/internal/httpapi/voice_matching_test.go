@@ -264,6 +264,11 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
+	// Thresholds belong to a fingerprint group (#393): without thresholds applied to it, a group only suggests.
+	if got = h.matched(near); got.DecisionLevel != "suggestion" {
+		t.Fatalf("a group without applied thresholds is never automatic: %+v", got)
+	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75)
 	if got = h.matched(near); got.DecisionLevel != "automatic" || got.State != "identified" || got.Person == nil || got.Person.ID != alice {
 		t.Fatalf("a strong match is automatic once the automation is enabled: %+v", got)
 	}
@@ -274,7 +279,7 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	// Thresholds are configured by administrators only, and a change re-examines the
 	// stored fingerprints.
 	peer := h.newUser("peer")
-	thresholds := map[string]any{"automatic_threshold": 0.99, "suggestion_threshold": 0.97, "ambiguity_margin": 0.05, "max_candidates": 5}
+	thresholds := map[string]any{"automatic_threshold": 0.99, "suggestion_threshold": 0.97, "ambiguity_margin": 0.05, "max_candidates": 5, "group": fixtureGroup}
 	h.userCall(peer, http.MethodPut, "/api/admin/voice-matching", thresholds, http.StatusForbidden)
 	h.userCall(peer, http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusForbidden)
 	if body := h.userCall(peer, http.MethodGet, "/api/voice-matching", nil, http.StatusOK); !json.Valid(body) {
@@ -293,7 +298,7 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	if got = h.matched(middling); got.DecisionLevel != "automatic" {
 		t.Fatalf("MIDDLE is automatic at the default thresholds: %+v", got)
 	}
-	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.95, "suggestion_threshold": 0.8, "ambiguity_margin": 0.05, "max_candidates": 5}, http.StatusOK)
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.95, "suggestion_threshold": 0.8, "ambiguity_margin": 0.05, "max_candidates": 5, "group": fixtureGroup}, http.StatusOK)
 	if got = h.matched(middling); got.DecisionLevel != "suggestion" {
 		t.Fatalf("a stricter automatic threshold turns MIDDLE back into a suggestion: %+v", got)
 	}
@@ -304,6 +309,7 @@ func testVoiceMatching(t *testing.T, pool *pgxpool.Pool) {
 	if _, err := pool.Exec(context.Background(), `UPDATE voice_matching_settings SET auto_enabled=false,automatic_threshold=0.90,suggestion_threshold=0.75`); err != nil {
 		t.Fatal(err)
 	}
+	h.applyThresholds(fixtureGroup, 0.90, 0.75)
 	h.adminCall(http.MethodPost, "/api/admin/voice-matching/rematch", nil, http.StatusOK)
 
 	// Fingerprints arriving from the worker are matched against the existing references.

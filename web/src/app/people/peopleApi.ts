@@ -5,6 +5,7 @@ import { useSession } from "../session";
 
 export type Person = components["schemas"]["Person"];
 export type PersonVoice = components["schemas"]["PersonVoice"];
+export type PersonReference = components["schemas"]["PersonReference"];
 export type PersonImpact = components["schemas"]["PersonImpact"];
 export type PersonEvent = components["schemas"]["PersonEvent"];
 export type PersonCorrectionResult =

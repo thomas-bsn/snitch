@@ -86,6 +86,7 @@ from .benchmark_dataset_created_stages_item import BenchmarkDatasetCreatedStages
 from .benchmark_dataset_input import BenchmarkDatasetInput
 from .benchmark_dataset_list import BenchmarkDatasetList
 from .benchmark_dataset_stages_item import BenchmarkDatasetStagesItem
+from .benchmark_eligibility_rule import BenchmarkEligibilityRule
 from .benchmark_job_error import BenchmarkJobError
 from .benchmark_metrics import BenchmarkMetrics
 from .benchmark_model import BenchmarkModel
@@ -104,6 +105,8 @@ from .benchmark_run_input_stage import BenchmarkRunInputStage
 from .benchmark_run_list import BenchmarkRunList
 from .benchmark_run_stage import BenchmarkRunStage
 from .benchmark_run_status import BenchmarkRunStatus
+from .benchmark_scoring import BenchmarkScoring
+from .benchmark_scoring_score_mode import BenchmarkScoringScoreMode
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
@@ -331,9 +334,15 @@ from .person_link_request_status import PersonLinkRequestStatus
 from .person_list import PersonList
 from .person_merge_input import PersonMergeInput
 from .person_ref import PersonRef
+from .person_reference import PersonReference
+from .person_reference_basis import PersonReferenceBasis
+from .person_reference_discard import PersonReferenceDiscard
+from .person_reference_discard_reason import PersonReferenceDiscardReason
+from .person_reference_level import PersonReferenceLevel
 from .person_separation_input import PersonSeparationInput
 from .person_voice import PersonVoice
 from .person_voice_list import PersonVoiceList
+from .person_voice_reference_use import PersonVoiceReferenceUse
 from .poll_worker_restart_response_200 import PollWorkerRestartResponse200
 from .post_worker_install_events_body import PostWorkerInstallEventsBody
 from .post_worker_transcription_config_status_body import PostWorkerTranscriptionConfigStatusBody
@@ -496,6 +505,11 @@ from .voice_automation_event import VoiceAutomationEvent
 from .voice_automation_event_action import VoiceAutomationEventAction
 from .voice_automation_input import VoiceAutomationInput
 from .voice_automation_result import VoiceAutomationResult
+from .voice_calibration import VoiceCalibration
+from .voice_calibration_active_mode import VoiceCalibrationActiveMode
+from .voice_calibration_mode import VoiceCalibrationMode
+from .voice_calibration_mode_mode import VoiceCalibrationModeMode
+from .voice_calibration_mode_withheld import VoiceCalibrationModeWithheld
 from .voice_disposition_input import VoiceDispositionInput
 from .voice_disposition_input_disposition import VoiceDispositionInputDisposition
 from .voice_disposition_view import VoiceDispositionView
@@ -523,6 +537,7 @@ from .voice_engine_registry import VoiceEngineRegistry
 from .voice_engine_release import VoiceEngineRelease
 from .voice_engine_wheel import VoiceEngineWheel
 from .voice_fingerprint import VoiceFingerprint
+from .voice_fingerprint_group import VoiceFingerprintGroup
 from .voice_fingerprint_net_speech_source import VoiceFingerprintNetSpeechSource
 from .voice_fingerprint_scope import VoiceFingerprintScope
 from .voice_fingerprint_unusable_reason import VoiceFingerprintUnusableReason
@@ -536,8 +551,12 @@ from .voice_group_list import VoiceGroupList
 from .voice_group_member import VoiceGroupMember
 from .voice_group_naming import VoiceGroupNaming
 from .voice_group_naming_input import VoiceGroupNamingInput
+from .voice_group_thresholds import VoiceGroupThresholds
+from .voice_group_thresholds_score_mode import VoiceGroupThresholdsScoreMode
+from .voice_group_thresholds_source import VoiceGroupThresholdsSource
 from .voice_history_entry import VoiceHistoryEntry
 from .voice_matching_input import VoiceMatchingInput
+from .voice_matching_input_source import VoiceMatchingInputSource
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_status import VoiceMatchingStatus
 from .voice_matching_summary import VoiceMatchingSummary
@@ -575,11 +594,18 @@ from .voice_pipeline_fake import VoicePipelineFake
 from .voice_pipeline_provider import VoicePipelineProvider
 from .voice_pipeline_state import VoicePipelineState
 from .voice_profile_deletion import VoiceProfileDeletion
+from .voice_recompute_input import VoiceRecomputeInput
+from .voice_recompute_preview import VoiceRecomputePreview
+from .voice_recompute_report import VoiceRecomputeReport
+from .voice_recompute_run import VoiceRecomputeRun
+from .voice_recompute_run_status import VoiceRecomputeRunStatus
+from .voice_recompute_state import VoiceRecomputeState
 from .voice_rediarization_confirmation import VoiceRediarizationConfirmation
 from .voice_rediarization_stake import VoiceRediarizationStake
 from .voice_refusal import VoiceRefusal
 from .voice_refusal_input import VoiceRefusalInput
 from .voice_schedule_input import VoiceScheduleInput
+from .voice_score_bin import VoiceScoreBin
 from .voice_score_mode import VoiceScoreMode
 from .voice_score_mode_input import VoiceScoreModeInput
 from .voice_score_mode_input_mode import VoiceScoreModeInputMode
@@ -588,6 +614,8 @@ from .voice_score_mode_version import VoiceScoreModeVersion
 from .voice_score_mode_version_mode import VoiceScoreModeVersionMode
 from .voice_step import VoiceStep
 from .voice_step_status import VoiceStepStatus
+from .voice_threshold_proposal import VoiceThresholdProposal
+from .voice_threshold_sweep import VoiceThresholdSweep
 from .voice_trace import VoiceTrace
 from .voice_trace_diarization_type_0 import VoiceTraceDiarizationType0
 from .voice_trace_fingerprint import VoiceTraceFingerprint
@@ -807,6 +835,7 @@ __all__ = (
     "BenchmarkDatasetInput",
     "BenchmarkDatasetList",
     "BenchmarkDatasetStagesItem",
+    "BenchmarkEligibilityRule",
     "BenchmarkJobError",
     "BenchmarkMetrics",
     "BenchmarkModel",
@@ -825,6 +854,8 @@ __all__ = (
     "BenchmarkRunList",
     "BenchmarkRunStage",
     "BenchmarkRunStatus",
+    "BenchmarkScoring",
+    "BenchmarkScoringScoreMode",
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
@@ -1052,9 +1083,15 @@ __all__ = (
     "PersonList",
     "PersonMergeInput",
     "PersonRef",
+    "PersonReference",
+    "PersonReferenceBasis",
+    "PersonReferenceDiscard",
+    "PersonReferenceDiscardReason",
+    "PersonReferenceLevel",
     "PersonSeparationInput",
     "PersonVoice",
     "PersonVoiceList",
+    "PersonVoiceReferenceUse",
     "PollWorkerRestartResponse200",
     "PostWorkerInstallEventsBody",
     "PostWorkerTranscriptionConfigStatusBody",
@@ -1217,6 +1254,11 @@ __all__ = (
     "VoiceAutomationEventAction",
     "VoiceAutomationInput",
     "VoiceAutomationResult",
+    "VoiceCalibration",
+    "VoiceCalibrationActiveMode",
+    "VoiceCalibrationMode",
+    "VoiceCalibrationModeMode",
+    "VoiceCalibrationModeWithheld",
     "VoiceDispositionInput",
     "VoiceDispositionInputDisposition",
     "VoiceDispositionView",
@@ -1244,6 +1286,7 @@ __all__ = (
     "VoiceEngineRelease",
     "VoiceEngineWheel",
     "VoiceFingerprint",
+    "VoiceFingerprintGroup",
     "VoiceFingerprintNetSpeechSource",
     "VoiceFingerprintScope",
     "VoiceFingerprintUnusableReason",
@@ -1257,8 +1300,12 @@ __all__ = (
     "VoiceGroupMember",
     "VoiceGroupNaming",
     "VoiceGroupNamingInput",
+    "VoiceGroupThresholds",
+    "VoiceGroupThresholdsScoreMode",
+    "VoiceGroupThresholdsSource",
     "VoiceHistoryEntry",
     "VoiceMatchingInput",
+    "VoiceMatchingInputSource",
     "VoiceMatchingSettings",
     "VoiceMatchingStatus",
     "VoiceMatchingSummary",
@@ -1296,11 +1343,18 @@ __all__ = (
     "VoicePipelineProvider",
     "VoicePipelineState",
     "VoiceProfileDeletion",
+    "VoiceRecomputeInput",
+    "VoiceRecomputePreview",
+    "VoiceRecomputeReport",
+    "VoiceRecomputeRun",
+    "VoiceRecomputeRunStatus",
+    "VoiceRecomputeState",
     "VoiceRediarizationConfirmation",
     "VoiceRediarizationStake",
     "VoiceRefusal",
     "VoiceRefusalInput",
     "VoiceScheduleInput",
+    "VoiceScoreBin",
     "VoiceScoreMode",
     "VoiceScoreModeInput",
     "VoiceScoreModeInputMode",
@@ -1309,6 +1363,8 @@ __all__ = (
     "VoiceScoreModeVersionMode",
     "VoiceStep",
     "VoiceStepStatus",
+    "VoiceThresholdProposal",
+    "VoiceThresholdSweep",
     "VoiceTrace",
     "VoiceTraceDiarizationType0",
     "VoiceTraceFingerprint",

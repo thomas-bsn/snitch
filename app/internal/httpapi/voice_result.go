@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -228,6 +229,9 @@ func (s *Server) completeVoiceJob(w http.ResponseWriter, r *http.Request, id int
 			// New fingerprints are matched against the existing references, in the
 			// database only. A failure never undoes the stored result.
 			s.matchingChanged(r.Context(), job.ClipID)
+			if recompute, err := isRecomputeJob(r.Context(), s.Pool, job.ID); err == nil && recompute {
+				s.stepFingerprintRecompute(r.Context())
+			}
 		} else if strings.HasPrefix(step, "voice.fingerprint.") {
 			// A recomputed reference may complete the essential migration of a fingerprint model change.
 			s.stepFingerprintTransition(r.Context())
@@ -436,11 +440,26 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 	if err = rows.Err(); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `DELETE FROM voice_fingerprints WHERE clip_id=$1 AND benchmark=$3 AND ($3::boolean IS FALSE OR (model=$4 AND model_version=$5)) AND local_speaker_id IN (SELECT id FROM local_speakers WHERE diarization_job_id=$2)`, job.ClipID, diarizationID, benchmark, result.EmbeddingModel, result.EmbeddingModelVersion); err != nil {
+	// A recalculation on the net speech (#395) replaces only the voices its result brings a new speaker fingerprint
+	// for: the old fingerprint of a voice the Worker did not embed again stays in service.
+	recompute, err := isRecomputeJob(ctx, tx, job.ID)
+	if err != nil {
+		return fmt.Errorf("read fingerprint job run: %w", err)
+	}
+	var replaced []int64
+	if recompute {
+		replaced = []int64{}
+		for _, fp := range *result.Fingerprints {
+			if id, known := speakers[fp.SpeakerLabel]; known && fp.Scope == "speaker" {
+				replaced = append(replaced, id)
+			}
+		}
+	}
+	if _, err = tx.Exec(ctx, `DELETE FROM voice_fingerprints WHERE clip_id=$1 AND benchmark=$3 AND ($3::boolean IS FALSE OR (model=$4 AND model_version=$5)) AND local_speaker_id IN (SELECT id FROM local_speakers WHERE diarization_job_id=$2) AND ($6::bigint[] IS NULL OR local_speaker_id=ANY($6))`, job.ClipID, diarizationID, benchmark, result.EmbeddingModel, result.EmbeddingModelVersion, replaced); err != nil {
 		return fmt.Errorf("replace fingerprints: %w", err)
 	}
 	// Same single conversion as the turns: the worker's times start at its stream, the stored ones are clip time.
-	offset, err := jobs.PlanTrackOffset(ctx, tx, job.ID)
+	offset, err := jobs.FingerprintTrackOffset(ctx, tx, job.ID, diarizationID)
 	if err != nil {
 		return fmt.Errorf("read plan track offset: %w", err)
 	}
@@ -448,6 +467,9 @@ func projectFingerprints(ctx context.Context, tx pgx.Tx, job jobs.Job, result fi
 		speakerID, known := speakers[fp.SpeakerLabel]
 		if !known {
 			return jobs.ErrInvalidInput
+		}
+		if replaced != nil && !slices.Contains(replaced, speakerID) {
+			continue
 		}
 		if offset != 0 {
 			start, end := *fp.Start+offset, *fp.End+offset

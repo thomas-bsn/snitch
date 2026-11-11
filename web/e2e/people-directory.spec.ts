@@ -1,5 +1,9 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import {
+  durationText,
+  videoCountText,
+} from "../src/app/people/referenceFigures";
 import { createPersons, linkAccount, personName } from "./people-fixture";
 import {
   ADMIN,
@@ -30,6 +34,43 @@ async function expectNoViolations(page: Page) {
     ),
   ).toEqual([]);
 }
+
+// The number of videos of a card: agreed in number, written for the language, compact from 10,000, the exact
+// number kept for the accessible name and the tooltip. U+202F and U+00A0 are the French spaces.
+test("nombre de vidéos d'une carte aux bornes", () => {
+  const cases: [number, "en" | "fr", string, string][] = [
+    [1, "en", "1 video", "1 video"],
+    [1, "fr", "1 vidéo", "1 vidéo"],
+    [8, "fr", "8 vidéos", "8 vidéos"],
+    [9999, "en", "9,999 videos", "9,999 videos"],
+    [9999, "fr", "9 999 vidéos", "9 999 vidéos"],
+    [12000, "en", "12K videos", "12,000 videos"],
+    [12000, "fr", "12 k vidéos", "12 000 vidéos"],
+  ];
+  for (const [count, language, short, exact] of cases) {
+    expect(videoCountText(count, language), `${count} ${language}`).toEqual({
+      short,
+      exact,
+    });
+  }
+});
+
+// A duration is never rounded down to "0 min": seconds under a minute, minutes and seconds, then hours.
+test("durée lisible de Parole nette", () => {
+  const cases: [number, string][] = [
+    [0, "0 s"],
+    [0.4, "< 1 s"],
+    [12.3, "12 s"],
+    [48, "48 s"],
+    [59.6, "1 min"],
+    [192, "3 min 12 s"],
+    [3900, "1 h 05"],
+    [36000, "10 h 00"],
+  ];
+  for (const [seconds, text] of cases) {
+    expect(durationText(seconds), String(seconds)).toBe(text);
+  }
+});
 
 let page: Page;
 let accountPersonId: number;
@@ -121,9 +162,13 @@ test.describe.serial("liste des personnes", () => {
     const item = list().getByRole("listitem");
     await expect(item).toHaveCount(1);
     await expect(item).toContainText("Account");
-    await expect(item).toContainText("0 video(s)");
-    await expect(item).toContainText("0 min of speech");
+    // The card shows the number of videos, agreed in number, and no speaking time.
+    await expect(item).toContainText("0 videos");
+    await expect(item).not.toContainText("min");
     await expect(item).toContainText("Reference: none");
+    await expect(
+      item.getByTitle("No sample usable by recognition yet"),
+    ).toHaveText("Reference: none");
     // The list holds no action.
     await expect(item.getByRole("button")).toHaveCount(0);
 
@@ -146,6 +191,13 @@ test.describe.serial("liste des personnes", () => {
     // The four figures of the record: no sample, hence no Reference; the linked account by name.
     await expect(record).toContainText("Reference samples0");
     await expect(record).toContainText("Reference qualitynone");
+    // The Reference as recognition uses it, with the same level as the card.
+    const reference = record.getByRole("group", {
+      name: "Reference of Personne 0042",
+    });
+    await expect(reference).toContainText("Samples used0 of 0 validated");
+    await expect(reference).toContainText("Clean speech0 s");
+    await expect(reference).toContainText("Reference: none");
     await expect(record).toContainText(`Linked account: @${MEMBER.username}`);
     // The sheet is a full page: the grid is gone, and a weak Reference is flagged.
     await expect(list()).toHaveCount(0);
@@ -219,7 +271,10 @@ test.describe.serial("liste des personnes", () => {
     await expect(page.getByText("Référence à renforcer")).toBeVisible();
     await page.goto("/people");
     await expect(page.getByText(`Page 1 sur ${PAGES}`)).toBeVisible();
-    await expect(page.getByText("Référence : absente").first()).toBeVisible();
+    await expect(page.getByText("Référence : aucune").first()).toBeVisible();
+    await expect(
+      page.getByText("0 vidéo", { exact: true }).first(),
+    ).toBeVisible();
     await page.goto(`/people/${accountPersonId}`);
     await expectNoViolations(page);
     await page.goto("/people/999999");

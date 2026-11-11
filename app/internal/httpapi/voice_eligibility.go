@@ -48,16 +48,22 @@ WHERE x.id=f.id AND f.net_speech_source IS NULL AND f.measures_version IS NULL A
 // fillNetSpeechSQL would write, so the preview needs no write. A requalification fills first: that branch is
 // then empty and calls no function.
 func eligibilityDecidedSQL(filter string) string {
+	return eligibilityDecidedOverSQL(`NOT f.benchmark`, filter)
+}
+
+// eligibilityDecidedOverSQL is eligibilityDecidedSQL over another population of fingerprints: the fingerprint
+// benchmark (#397) decides its own benchmark fingerprints with it, read-only, under the rule of its run.
+func eligibilityDecidedOverSQL(population, filter string) string {
 	return `measured AS (
   SELECT f.id,f.local_speaker_id,f.clip_id,f.model,f.model_version,f.dimensions,f.usable,f.contributive,f.unusable_reason,f.eligibility_rule_version,
     f.measures_version IS NULL AS original_vector,f.overlapped,f.overlap_ratio,f.clipped_ratio,COALESCE(f.net_speech_seconds,f.duration_seconds) AS net,f.net_speech_source AS net_source
-  FROM voice_fingerprints f WHERE NOT f.benchmark AND NOT (f.net_speech_source IS NULL AND f.measures_version IS NULL) AND (` + filter + `)
+  FROM voice_fingerprints f WHERE ` + population + ` AND NOT (f.net_speech_source IS NULL AND f.measures_version IS NULL) AND (` + filter + `)
   UNION ALL
   SELECT f.id,f.local_speaker_id,f.clip_id,f.model,f.model_version,f.dimensions,f.usable,f.contributive,f.unusable_reason,f.eligibility_rule_version,
     true,g.overlapped,g.overlap_ratio,f.clipped_ratio,LEAST(g.net_speech_seconds,f.duration_seconds),CASE WHEN g.net_speech_seconds IS NULL THEN 'estimated' ELSE 'turns' END
   FROM voice_fingerprints f
   LEFT JOIN LATERAL voice_turns_net_speech(f.local_speaker_id,f.turn_id) g ON f.scope='speaker' OR f.turn_id IS NOT NULL
-  WHERE NOT f.benchmark AND f.net_speech_source IS NULL AND f.measures_version IS NULL AND (` + filter + `)
+  WHERE ` + population + ` AND f.net_speech_source IS NULL AND f.measures_version IS NULL AND (` + filter + `)
 ), reasoned AS (
   SELECT m.*,r.version,r.contributive_min_seconds,
     CASE WHEN m.overlapped THEN 'overlap_only'
