@@ -22,7 +22,7 @@ import threading
 import time
 from typing import Any, Callable, MutableMapping
 
-from snitch_worker import cancellation, log, voice_manifest, voice_models
+from snitch_worker import cancellation, log, voice_manifest, voice_models, voice_quality
 from snitch_worker.voice import (
     MIN_EMBEDDABLE_SECONDS,
     VoiceProviderUnavailable,
@@ -391,7 +391,8 @@ class PyannoteProvider:
 
         started = time.monotonic()
         try:
-            result = fingerprints_from_embedder(config, diarization, embed, stream_index, name, version)
+            # Clipping and level are read from the prepared WAV itself, whatever the embedder decoded.
+            result = fingerprints_from_embedder(config, diarization, embed, stream_index, name, version, voice_quality.wav_levels(audio_path))
         except VoiceProviderUnavailable as exc:
             self._log_fingerprint_failure(exc, exc.reason, trace, diarization, stream_index)
             raise
