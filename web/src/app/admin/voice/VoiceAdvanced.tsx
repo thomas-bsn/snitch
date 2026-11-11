@@ -367,11 +367,14 @@ export function VoiceAdvanced({
             </p>
           )}
           {eligibility.history.length > 1 && (
-            <details>
-              <summary className="cursor-pointer">
+            <div>
+              <p id="adv-eligibility-history" className="font-medium">
                 {t("voiceAdmin.eligibility.history")}
-              </summary>
-              <ul className="list-disc pl-5">
+              </p>
+              <ul
+                aria-labelledby="adv-eligibility-history"
+                className="list-disc pl-5"
+              >
                 {eligibility.history.slice(1).map((v) => (
                   <li key={v.version}>
                     {t("voiceAdmin.eligibility.historyItem", {
@@ -385,7 +388,7 @@ export function VoiceAdvanced({
                   </li>
                 ))}
               </ul>
-            </details>
+            </div>
           )}
         </section>
 
