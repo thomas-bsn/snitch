@@ -61,8 +61,9 @@ type calibrationModeView struct {
 		ToVerify           int     `json:"to_verify"`
 		UnknownAutomatic   int     `json:"unknown_automatic"`
 	} `json:"sweep"`
-	Current  *struct{ Automatic int } `json:"current"`
-	Proposal *struct {
+	Current    *struct{ Automatic int } `json:"current"`
+	Thresholds *thresholdsVersionView   `json:"thresholds"`
+	Proposal   *struct {
 		AutomaticThreshold  float64 `json:"automatic_threshold"`
 		SuggestionThreshold float64 `json:"suggestion_threshold"`
 		AmbiguityMargin     float64 `json:"ambiguity_margin"`
@@ -218,6 +219,64 @@ func testVoiceGroupThresholds(t *testing.T, pool *pgxpool.Pool) {
 		if m.Proposal != nil || m.Withheld != "too_few" || len(m.Sweep) != 20 || len(m.Distribution) != 20 {
 			t.Fatalf("too few tests: no proposal: %+v", m)
 		}
+	}
+}
+
+// Thresholds belong to a group and a score mode: the scores of the two modes have different scales, so
+// thresholds measured or typed for one mode never hold for the other.
+func testVoiceThresholdsPerScoreMode(t *testing.T, pool *pgxpool.Pool) {
+	ctx := context.Background()
+	h := newVoiceHarnessClips(t, pool, 2)
+	h.putEligibility(1, 0.5, 0.05)
+	if _, err := pool.Exec(ctx, `UPDATE voice_matching_settings SET auto_enabled=true,automatic_threshold=0.90,suggestion_threshold=0.75,ambiguity_margin=0.05,max_candidates=5`); err != nil {
+		t.Fatal(err)
+	}
+	reference := h.fixtureSpeaker(h.clipIDs[0], "REF_ALICE", usableAt(0))
+	near := h.fixtureSpeaker(h.clipIDs[1], "NEAR", usableAt(5)) // cosine 0.996 in both modes
+	h.validate(reference, "Alice")
+	h.applyThresholds(fixtureGroup, 0.9, 0.75) // for the active mode, cumulative
+	if got := h.matched(near); got.DecisionLevel != "automatic" {
+		t.Fatalf("thresholds applied for the active mode: %+v", got)
+	}
+
+	// Another score mode has no thresholds yet: the automation of the group is suspended.
+	h.scoreMode(http.MethodPut, map[string]any{"mode": "best_sample"}, http.StatusOK)
+	if got := h.matched(near); got.DecisionLevel != "suggestion" {
+		t.Fatalf("thresholds of the cumulative mode never hold for the best-sample mode: %+v", got)
+	}
+	if v := h.matchingSettings(nil); v.ThresholdsApplied || v.Group == nil {
+		t.Fatalf("the active group has no thresholds for the active mode: %+v", v)
+	}
+	cal := h.calibration().Calibration
+	if cal.Thresholds != nil || len(cal.Modes) != 2 || cal.Modes[0].Thresholds == nil || cal.Modes[0].Thresholds.ScoreMode != "cumulative" || cal.Modes[1].Thresholds != nil {
+		t.Fatalf("each mode shows its own applied thresholds: %+v", cal)
+	}
+
+	// Back to the original mode, its thresholds hold again.
+	h.scoreMode(http.MethodPut, map[string]any{"mode": "cumulative"}, http.StatusOK)
+	if got := h.matched(near); got.DecisionLevel != "automatic" {
+		t.Fatalf("the thresholds of the cumulative mode are back: %+v", got)
+	}
+
+	// Thresholds applied for the mode shown, here the inactive one, leave the active mode alone.
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.999, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5, "group": fixtureGroup, "score_mode": "best_sample"}, http.StatusOK)
+	if got := h.matched(near); got.DecisionLevel != "automatic" {
+		t.Fatalf("thresholds of the best-sample mode never hold for the cumulative mode: %+v", got)
+	}
+	if v := h.matchingSettings(nil); !v.ThresholdsApplied || v.AutomaticThreshold != 0.9 {
+		t.Fatalf("the active mode keeps its thresholds: %+v", v)
+	}
+	h.adminCall(http.MethodPut, "/api/admin/voice-matching", map[string]any{"automatic_threshold": 0.9, "suggestion_threshold": 0.75, "ambiguity_margin": 0.05, "max_candidates": 5, "score_mode": "nearest"}, http.StatusBadRequest)
+	h.scoreMode(http.MethodPut, map[string]any{"mode": "best_sample"}, http.StatusOK)
+	if got := h.matched(near); got.DecisionLevel != "suggestion" {
+		t.Fatalf("the stricter thresholds of the best-sample mode: %+v", got)
+	}
+	cal = h.calibration().Calibration
+	if cal.Thresholds == nil || cal.Thresholds.ScoreMode != "best_sample" || cal.Thresholds.AutomaticThreshold != 0.999 || cal.Modes[0].Thresholds == nil || cal.Modes[0].Thresholds.AutomaticThreshold != 0.9 {
+		t.Fatalf("the thresholds of each mode: %+v", cal)
+	}
+	if len(cal.History) != 2 || cal.History[0].ScoreMode != "best_sample" || cal.History[1].ScoreMode != "cumulative" {
+		t.Fatalf("the history of the group tells the mode of each version: %+v", cal.History)
 	}
 }
 

@@ -30,8 +30,8 @@ class VoiceCalibration:
 
         Attributes:
             group (None | VoiceFingerprintGroup): Groupe actif ; null tant qu'aucune empreinte n'a été produite.
-            thresholds (None | VoiceGroupThresholds): Seuils appliqués au groupe ; null : suggestions seulement, aucune
-                Attribution automatique.
+            thresholds (None | VoiceGroupThresholds): Seuils appliqués au groupe pour le mode de score actif ; null :
+                suggestions seulement, aucune Attribution automatique.
             history (list[VoiceGroupThresholds]): Vingt dernières versions, la plus récente d'abord.
             active_mode (VoiceCalibrationActiveMode):
             min_tests (int):

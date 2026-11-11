@@ -74,7 +74,9 @@ type calibrationMode struct {
 	OtherPersonScores int        `json:"other_person_scores"`
 	Distribution      []scoreBin `json:"distribution"`
 	Sweep             []sweepRow `json:"sweep"`
-	// Current gives the figures at the thresholds applied to the group; nil when none is applied.
+	// Thresholds are the thresholds applied to the group for this mode; nil when none is applied.
+	Thresholds *groupThresholds `json:"thresholds"`
+	// Current gives the figures at the thresholds applied to the group for this mode; nil when none is applied.
 	Current  *sweepRow          `json:"current"`
 	Proposal *thresholdProposal `json:"proposal"`
 	Withheld string             `json:"withheld"`
@@ -240,8 +242,9 @@ func proposedMargin(scores []calibrationScore, current float64) float64 {
 	return math.Min(0.2, math.Max(0.01, math.Ceil(v*100-1e-9)/100))
 }
 
-// voiceCalibration is the calibration part of the measured accuracy: the active fingerprint group, its applied
-// thresholds and their history, and the measure in both score modes side by side.
+// voiceCalibration is the calibration part of the measured accuracy: the active fingerprint group, the
+// thresholds applied to it for the active score mode and the history of its thresholds, and the measure in both
+// score modes side by side, each with the thresholds applied for it.
 type voiceCalibration struct {
 	Group      *fingerprintGroupView `json:"group"`
 	Thresholds *groupThresholds      `json:"thresholds"`
@@ -265,11 +268,38 @@ func (s *Server) calibration(ctx context.Context, settings matchingSettings, spl
 	if out.History, err = groupThresholdHistory(ctx, s.Pool, g); err != nil {
 		return out, err
 	}
-	var applied *groupThresholds
-	if len(out.History) > 0 {
-		applied = &out.History[0]
+	references, tests, err := s.calibrationSamples(ctx, g, split)
+	if err != nil {
+		return out, err
 	}
-	out.Thresholds = applied
+	for _, mode := range []scoreMode{scoreCumulative, scoreBestSample} {
+		m, applied, err := s.calibrateMode(ctx, settings, g, mode, references, tests)
+		if err != nil {
+			return out, err
+		}
+		if mode == settings.ScoreMode {
+			out.Thresholds = applied
+		}
+		out.Modes = append(out.Modes, m)
+	}
+	return out, nil
+}
+
+// calibrateMode measures one score mode of a group with the thresholds applied to it for that mode (or the
+// provisional ones).
+func (s *Server) calibrateMode(ctx context.Context, settings matchingSettings, g matchGroup, mode scoreMode, references []referenceSample, tests []calibrationTest) (calibrationMode, *groupThresholds, error) {
+	applied, err := appliedThresholds(ctx, s.Pool, g, mode)
+	if err != nil {
+		return calibrationMode{}, nil, err
+	}
+	m := calibrate(mode, g.dimensions, references, tests, settings.forGroup(applied), applied != nil)
+	m.Thresholds = applied
+	return m, applied, nil
+}
+
+// calibrationSamples reads, in one group, the reference samples of the split and the comparable vector of each
+// of its tests.
+func (s *Server) calibrationSamples(ctx context.Context, g matchGroup, split accuracySplit) ([]referenceSample, []calibrationTest, error) {
 	refIDs := make([]int64, len(split.references))
 	for i, sample := range split.references {
 		refIDs[i] = sample.id
@@ -282,32 +312,24 @@ func (s *Server) calibration(ctx context.Context, settings matchingSettings, spl
 	}
 	references, err := loadReferenceSamples(ctx, s.Pool, g, refIDs)
 	if err != nil {
-		return out, err
+		return nil, nil, err
 	}
 	rows, err := s.Pool.Query(ctx, `SELECT DISTINCT ON (vs.id) vs.id,f.embedding::real[]
   FROM voice_samples vs JOIN voice_fingerprints f ON f.clip_id=vs.clip_id AND f.local_speaker_id=vs.local_speaker_id
   WHERE vs.id=ANY($1) AND f.usable AND NOT f.benchmark AND f.scope='speaker' AND f.model=$2 AND f.model_version=$3 AND f.dimensions=$4
   ORDER BY vs.id,f.id`, testIDs, g.model, g.version, g.dimensions)
 	if err != nil {
-		return out, err
+		return nil, nil, err
 	}
+	defer rows.Close()
 	var tests []calibrationTest
 	for rows.Next() {
 		var id int64
 		var vector []float32
 		if err = rows.Scan(&id, &vector); err != nil {
-			rows.Close()
-			return out, err
+			return nil, nil, err
 		}
 		tests = append(tests, calibrationTest{Person: truth[id], Vector: vector})
 	}
-	rows.Close()
-	if err = rows.Err(); err != nil {
-		return out, err
-	}
-	effective := settings.forGroup(applied)
-	for _, mode := range []scoreMode{scoreCumulative, scoreBestSample} {
-		out.Modes = append(out.Modes, calibrate(mode, g.dimensions, references, tests, effective, applied != nil))
-	}
-	return out, nil
+	return references, tests, rows.Err()
 }

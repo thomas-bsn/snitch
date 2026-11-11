@@ -6,10 +6,12 @@ import { useI18n } from "../../i18n";
 type Calibration = components["schemas"]["VoiceCalibration"];
 type Mode = components["schemas"]["VoiceCalibrationMode"];
 type Proposal = components["schemas"]["VoiceThresholdProposal"];
+type ScoreMode = Mode["mode"];
 
 /**
  * The calibration of the thresholds of the active fingerprint model (ADR 0064): both score modes side by side.
- * Scores are cosine similarities, shown as such: never as a percentage nor a probability.
+ * Scores are cosine similarities, shown as such: never as a percentage nor a probability. Thresholds belong to a
+ * score mode: a proposal is applied for the mode it was measured in, and only holds while that mode is active.
  */
 export function VoiceCalibration({
   calibration,
@@ -18,7 +20,7 @@ export function VoiceCalibration({
 }: {
   calibration: Calibration;
   busy: boolean;
-  onApply: (proposal: Proposal) => void;
+  onApply: (proposal: Proposal, mode: ScoreMode) => void;
 }) {
   const { t, language } = useI18n();
   const score = (x: number) =>
@@ -26,7 +28,7 @@ export function VoiceCalibration({
       minimumFractionDigits: 2,
       maximumFractionDigits: 3,
     });
-  const modeLabel = (m: Mode["mode"]) =>
+  const modeLabel = (m: ScoreMode) =>
     m === "cumulative"
       ? t("voiceAdmin.score.cumulative")
       : t("voiceAdmin.score.bestSample");
@@ -68,6 +70,15 @@ export function VoiceCalibration({
                   })}
                 </p>
                 <p className="text-sm">
+                  {m.thresholds
+                    ? t("voiceAdmin.calibration.applied", {
+                        suggestion: score(m.thresholds.suggestion_threshold),
+                        automatic: score(m.thresholds.automatic_threshold),
+                        margin: score(m.thresholds.ambiguity_margin),
+                      })
+                    : t("voiceAdmin.calibration.noneApplied")}
+                </p>
+                <p className="text-sm">
                   {m.current
                     ? t("voiceAdmin.calibration.current", {
                         automatic: m.current.automatic,
@@ -94,22 +105,29 @@ export function VoiceCalibration({
                     <p className="text-sm text-mute">
                       {t("voiceAdmin.calibration.rule")}
                     </p>
-                    {active ? (
-                      <div>
-                        <button
-                          type="button"
-                          disabled={busy}
-                          className={buttonClass("primary")}
-                          onClick={() => m.proposal && onApply(m.proposal)}
-                        >
-                          {t("voiceAdmin.calibration.apply")}
-                        </button>
-                      </div>
-                    ) : (
+                    {!active && (
                       <p className="text-sm text-mute">
                         {t("voiceAdmin.calibration.otherMode")}
                       </p>
                     )}
+                    <div>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        className={buttonClass(
+                          active ? "primary" : "secondary",
+                        )}
+                        onClick={() =>
+                          m.proposal && onApply(m.proposal, m.mode)
+                        }
+                      >
+                        {active
+                          ? t("voiceAdmin.calibration.apply")
+                          : t("voiceAdmin.calibration.applyInactive", {
+                              mode: modeLabel(m.mode),
+                            })}
+                      </button>
+                    </div>
                   </div>
                 ) : (
                   <p>

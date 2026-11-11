@@ -41,8 +41,9 @@ class VoiceMatchingSettings:
             updated_at (datetime.datetime):
             group (None | VoiceFingerprintGroup): Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une
                 installation sans empreinte (valeurs provisoires).
-            thresholds_applied (bool): Le groupe actif a des seuils appliqués par un administrateur. Faux : le groupe ne
-                produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique.
+            thresholds_applied (bool): Le groupe actif a des seuils appliqués par un administrateur pour le mode de score
+                actif. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution
+                automatique.
      """
 
     auto_enabled: bool

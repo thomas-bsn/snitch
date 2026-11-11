@@ -13,6 +13,7 @@ from ..models.voice_calibration_mode_withheld import VoiceCalibrationModeWithhel
 from typing import cast
 
 if TYPE_CHECKING:
+  from ..models.voice_group_thresholds import VoiceGroupThresholds
   from ..models.voice_score_bin import VoiceScoreBin
   from ..models.voice_threshold_proposal import VoiceThresholdProposal
   from ..models.voice_threshold_sweep import VoiceThresholdSweep
@@ -37,7 +38,10 @@ class VoiceCalibrationMode:
             other_person_scores (int):
             distribution (list[VoiceScoreBin]):
             sweep (list[VoiceThresholdSweep]): Seuil automatique de 0,05 à 1 par pas de 0,05.
-            current (None | VoiceThresholdSweep): Chiffres aux seuils appliqués au groupe ; null sans seuils appliqués.
+            thresholds (None | VoiceGroupThresholds): Seuils appliqués au groupe pour ce mode ; null : dans ce mode,
+                suggestions seulement.
+            current (None | VoiceThresholdSweep): Chiffres aux seuils appliqués au groupe pour ce mode ; null sans seuils
+                appliqués pour ce mode.
             proposal (None | VoiceThresholdProposal):
             withheld (VoiceCalibrationModeWithheld): Raison de l'absence de proposition : too_few (effectifs trop faibles),
                 no_safe_threshold (aucun seuil ne garde la précision sans reconnaître d'inconnu).
@@ -50,6 +54,7 @@ class VoiceCalibrationMode:
     other_person_scores: int
     distribution: list[VoiceScoreBin]
     sweep: list[VoiceThresholdSweep]
+    thresholds: None | VoiceGroupThresholds
     current: None | VoiceThresholdSweep
     proposal: None | VoiceThresholdProposal
     withheld: VoiceCalibrationModeWithheld
@@ -60,6 +65,7 @@ class VoiceCalibrationMode:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.voice_group_thresholds import VoiceGroupThresholds # noqa: PLC0415
         from ..models.voice_score_bin import VoiceScoreBin # noqa: PLC0415
         from ..models.voice_threshold_proposal import VoiceThresholdProposal # noqa: PLC0415
         from ..models.voice_threshold_sweep import VoiceThresholdSweep # noqa: PLC0415
@@ -87,6 +93,12 @@ class VoiceCalibrationMode:
 
 
 
+        thresholds: dict[str, Any] | None
+        if isinstance(self.thresholds, VoiceGroupThresholds):
+            thresholds = self.thresholds.to_dict()
+        else:
+            thresholds = self.thresholds
+
         current: dict[str, Any] | None
         if isinstance(self.current, VoiceThresholdSweep):
             current = self.current.to_dict()
@@ -112,6 +124,7 @@ class VoiceCalibrationMode:
             "other_person_scores": other_person_scores,
             "distribution": distribution,
             "sweep": sweep,
+            "thresholds": thresholds,
             "current": current,
             "proposal": proposal,
             "withheld": withheld,
@@ -123,6 +136,7 @@ class VoiceCalibrationMode:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.voice_group_thresholds import VoiceGroupThresholds # noqa: PLC0415
         from ..models.voice_score_bin import VoiceScoreBin # noqa: PLC0415
         from ..models.voice_threshold_proposal import VoiceThresholdProposal # noqa: PLC0415
         from ..models.voice_threshold_sweep import VoiceThresholdSweep # noqa: PLC0415
@@ -158,6 +172,24 @@ class VoiceCalibrationMode:
 
 
             sweep.append(sweep_item)
+
+
+        def _parse_thresholds(data: object) -> None | VoiceGroupThresholds:
+            if data is None:
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                thresholds_type_1 = VoiceGroupThresholds.from_dict(data)
+
+
+
+                return thresholds_type_1
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | VoiceGroupThresholds, data)
+
+        thresholds = _parse_thresholds(d.pop("thresholds"))
 
 
         def _parse_current(data: object) -> None | VoiceThresholdSweep:
@@ -209,6 +241,7 @@ class VoiceCalibrationMode:
             other_person_scores=other_person_scores,
             distribution=distribution,
             sweep=sweep,
+            thresholds=thresholds,
             current=current,
             proposal=proposal,
             withheld=withheld,

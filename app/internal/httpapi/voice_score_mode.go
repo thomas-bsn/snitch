@@ -30,6 +30,16 @@ func (s *Server) registerVoiceScoreModeRoutes(mux *http.ServeMux) {
 	mux.Handle("PUT /api/admin/voice-score-mode", s.protected(true, http.HandlerFunc(s.putVoiceScoreMode)))
 }
 
+// activeScoreModeSQL selects the active score mode: the highest version.
+const activeScoreModeSQL = `SELECT mode FROM voice_score_modes ORDER BY version DESC LIMIT 1`
+
+// activeScoreMode reads the active score mode.
+func activeScoreMode(ctx context.Context, q pgQuerier) (scoreMode, error) {
+	var mode scoreMode
+	err := q.QueryRow(ctx, activeScoreModeSQL).Scan(&mode)
+	return mode, err
+}
+
 // loadScoreMode reads the active mode (highest version) and the twenty latest versions.
 func loadScoreMode(ctx context.Context, q pgQuerier) (scoreModeSettings, error) {
 	var out scoreModeSettings

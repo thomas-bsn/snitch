@@ -556,6 +556,7 @@ from .voice_group_thresholds_score_mode import VoiceGroupThresholdsScoreMode
 from .voice_group_thresholds_source import VoiceGroupThresholdsSource
 from .voice_history_entry import VoiceHistoryEntry
 from .voice_matching_input import VoiceMatchingInput
+from .voice_matching_input_score_mode import VoiceMatchingInputScoreMode
 from .voice_matching_input_source import VoiceMatchingInputSource
 from .voice_matching_settings import VoiceMatchingSettings
 from .voice_matching_status import VoiceMatchingStatus
@@ -1305,6 +1306,7 @@ __all__ = (
     "VoiceGroupThresholdsSource",
     "VoiceHistoryEntry",
     "VoiceMatchingInput",
+    "VoiceMatchingInputScoreMode",
     "VoiceMatchingInputSource",
     "VoiceMatchingSettings",
     "VoiceMatchingStatus",

@@ -24,7 +24,8 @@ T = TypeVar("T", bound="VoiceGroupThresholds")
 
 @_attrs_define
 class VoiceGroupThresholds:
-    """ Une version des seuils appliqués à un groupe d'empreintes (ADR 0064). La plus haute version est en vigueur.
+    """ Une version des seuils appliqués à un groupe d'empreintes pour un mode de score (ADR 0064). Les versions sont
+    numérotées par groupe ; la plus haute version d'un mode est en vigueur pour ce mode.
 
         Attributes:
             version (int):
@@ -33,7 +34,7 @@ class VoiceGroupThresholds:
             ambiguity_margin (float):
             source (VoiceGroupThresholdsSource): migration : seuils de l'installation repris pour le groupe actif ;
                 administrator : saisis ; proposal : proposition de la Précision mesurée appliquée par l'administrateur.
-            score_mode (VoiceGroupThresholdsScoreMode): Mode de score actif au moment de l'application.
+            score_mode (VoiceGroupThresholdsScoreMode): Mode de score auquel ces seuils s'appliquent.
             author (None | str): Administrateur ; null pour Snitch (migration).
             created_at (datetime.datetime):
      """

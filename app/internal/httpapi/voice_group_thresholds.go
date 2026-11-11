@@ -9,14 +9,16 @@ import (
 )
 
 // Thresholds of a fingerprint group (ADR 0064, #393). The scale of a cosine score depends on the embedding
-// model: the suggestion threshold, the automatic threshold and the ambiguity margin belong to one (model,
-// model_version, dimensions) group (voice_group_thresholds, append-only, the highest version of a group being
-// its thresholds). Only an administrator applies them (PUT /api/admin/voice-matching), by hand or from the
-// proposal of the measured accuracy; nothing applies them on its own.
+// model and on the score mode: the suggestion threshold, the automatic threshold and the ambiguity margin
+// belong to one (model, model_version, dimensions) group and one score mode (voice_group_thresholds,
+// append-only; the thresholds of a group for a mode are its highest version recorded for that mode, versions
+// being numbered per group). Only an administrator applies them (PUT /api/admin/voice-matching), by hand or
+// from the proposal of the measured accuracy; nothing applies them on its own.
 //
-// A group without applied thresholds only produces suggestions, with the provisional suggestion threshold and
-// margin of voice_matching_settings: after a change of fingerprint model, automatic attribution stays
-// suspended until thresholds are applied to the new group.
+// A group without thresholds applied for the active score mode only produces suggestions, with the provisional
+// suggestion threshold and margin of voice_matching_settings: after a change of fingerprint model or of score
+// mode, automatic attribution stays suspended until thresholds are applied for the new group and mode. Nothing
+// is inherited from another group or another mode.
 
 const lockVoiceGroupThresholds = "snitch.voice_group_thresholds"
 
@@ -46,10 +48,10 @@ func scanGroupThresholds(row pgx.Row, extra ...any) (groupThresholds, error) {
 	return t, err
 }
 
-// loadGroupThresholds returns the applied thresholds of every group that has some.
-func loadGroupThresholds(ctx context.Context, q pgQuerier) (map[matchGroup]groupThresholds, error) {
+// loadGroupThresholds returns the thresholds applied for a score mode to every group that has some.
+func loadGroupThresholds(ctx context.Context, q pgQuerier, mode scoreMode) (map[matchGroup]groupThresholds, error) {
 	rows, err := q.Query(ctx, `SELECT DISTINCT ON (model,model_version,dimensions) `+groupThresholdColumns+`,model,model_version,dimensions
-  FROM voice_group_thresholds ORDER BY model,model_version,dimensions,version DESC`)
+  FROM voice_group_thresholds WHERE score_mode=$1 ORDER BY model,model_version,dimensions,version DESC`, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +68,21 @@ func loadGroupThresholds(ctx context.Context, q pgQuerier) (map[matchGroup]group
 	return out, rows.Err()
 }
 
-// groupThresholdHistory lists the twenty latest versions of one group, the most recent first.
+// appliedThresholds returns the thresholds applied to one group for one score mode, nil when there are none.
+func appliedThresholds(ctx context.Context, q pgQuerier, g matchGroup, mode scoreMode) (*groupThresholds, error) {
+	t, err := scanGroupThresholds(q.QueryRow(ctx, `SELECT `+groupThresholdColumns+` FROM voice_group_thresholds
+  WHERE model=$1 AND model_version=$2 AND dimensions=$3 AND score_mode=$4 ORDER BY version DESC LIMIT 1`, g.model, g.version, g.dimensions, mode))
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		return nil, nil
+	case err != nil:
+		return nil, err
+	}
+	return &t, nil
+}
+
+// groupThresholdHistory lists the twenty latest versions of one group, every mode together, the most recent
+// first.
 func groupThresholdHistory(ctx context.Context, q pgQuerier, g matchGroup) ([]groupThresholds, error) {
 	rows, err := q.Query(ctx, `SELECT `+groupThresholdColumns+` FROM voice_group_thresholds WHERE model=$1 AND model_version=$2 AND dimensions=$3 ORDER BY version DESC LIMIT 20`, g.model, g.version, g.dimensions)
 	if err != nil {
@@ -105,7 +121,8 @@ func thresholdsOf(all map[matchGroup]groupThresholds, g matchGroup) *groupThresh
 }
 
 // effectiveMatchingSettings is the setting every user sees: the automation switch, and the thresholds of the
-// active fingerprint group (or the provisional ones when it has none applied, or when there is no group yet).
+// active fingerprint group for the active score mode (or the provisional ones when it has none applied for that
+// mode, or when there is no group yet).
 func effectiveMatchingSettings(ctx context.Context, q pgQuerier) (matchingSettings, error) {
 	settings, err := loadMatchingSettings(ctx, q)
 	if err != nil {
@@ -115,14 +132,9 @@ func effectiveMatchingSettings(ctx context.Context, q pgQuerier) (matchingSettin
 	if err != nil || !ok {
 		return settings, err
 	}
-	var t *groupThresholds
-	applied, err := scanGroupThresholds(q.QueryRow(ctx, `SELECT `+groupThresholdColumns+` FROM voice_group_thresholds WHERE model=$1 AND model_version=$2 AND dimensions=$3 ORDER BY version DESC LIMIT 1`, g.model, g.version, g.dimensions))
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-	case err != nil:
+	t, err := appliedThresholds(ctx, q, g, settings.ScoreMode)
+	if err != nil {
 		return settings, err
-	default:
-		t = &applied
 	}
 	auto := settings.AutoEnabled
 	settings = settings.forGroup(t)
@@ -131,25 +143,22 @@ func effectiveMatchingSettings(ctx context.Context, q pgQuerier) (matchingSettin
 	return settings, nil
 }
 
-// applyGroupThresholds records new thresholds for one group, as a new version, unless they are the current
-// ones. It reports whether anything changed.
+// applyGroupThresholds records new thresholds for one group and the score mode t.ScoreMode, as a new version of
+// the group, unless they are already the thresholds of that mode. It reports whether anything changed.
 func applyGroupThresholds(ctx context.Context, tx pgx.Tx, g matchGroup, t groupThresholds, author authorRef) (bool, error) {
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock(hashtext($1))`, lockVoiceGroupThresholds); err != nil {
 		return false, err
 	}
-	var version int
-	var suggestion, automatic, margin float64
-	err := tx.QueryRow(ctx, `SELECT version,suggestion_threshold,automatic_threshold,ambiguity_margin FROM voice_group_thresholds WHERE model=$1 AND model_version=$2 AND dimensions=$3 ORDER BY version DESC LIMIT 1`, g.model, g.version, g.dimensions).Scan(&version, &suggestion, &automatic, &margin)
-	switch {
-	case errors.Is(err, pgx.ErrNoRows):
-	case err != nil:
+	current, err := appliedThresholds(ctx, tx, g, t.ScoreMode)
+	if err != nil {
 		return false, err
-	case suggestion == t.SuggestionThreshold && automatic == t.AutomaticThreshold && margin == t.AmbiguityMargin:
+	}
+	if current != nil && current.SuggestionThreshold == t.SuggestionThreshold && current.AutomaticThreshold == t.AutomaticThreshold && current.AmbiguityMargin == t.AmbiguityMargin {
 		return false, nil
 	}
 	_, err = tx.Exec(ctx, `INSERT INTO voice_group_thresholds(model,model_version,dimensions,version,suggestion_threshold,automatic_threshold,ambiguity_margin,source,score_mode,author_id,author_username)
-VALUES($1,$2,$3,$4,$5,$6,$7,$8,(SELECT mode FROM voice_score_modes ORDER BY version DESC LIMIT 1),$9,$10)`,
-		g.model, g.version, g.dimensions, version+1, t.SuggestionThreshold, t.AutomaticThreshold, t.AmbiguityMargin, t.Source, author.ID, author.Username)
+VALUES($1,$2,$3,(SELECT COALESCE(max(version),0)+1 FROM voice_group_thresholds WHERE model=$1 AND model_version=$2 AND dimensions=$3),$4,$5,$6,$7,$8,$9,$10)`,
+		g.model, g.version, g.dimensions, t.SuggestionThreshold, t.AutomaticThreshold, t.AmbiguityMargin, t.Source, t.ScoreMode, author.ID, author.Username)
 	return err == nil, err
 }
 

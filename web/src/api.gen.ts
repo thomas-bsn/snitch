@@ -6725,7 +6725,7 @@ export interface components {
       updated_at: string;
       /** @description Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une installation sans empreinte (valeurs provisoires). */
       group: components["schemas"]["VoiceFingerprintGroup"] | null;
-      /** @description Le groupe actif a des seuils appliqués par un administrateur. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique. */
+      /** @description Le groupe actif a des seuils appliqués par un administrateur pour le mode de score actif. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique. */
       thresholds_applied: boolean;
     };
     VoiceMatchingInput: {
@@ -6740,6 +6740,11 @@ export interface components {
        * @enum {string}
        */
       source?: "administrator" | "proposal";
+      /**
+       * @description Mode de score pour lequel les seuils sont appliqués ; mode actif par défaut. Les seuils d'un mode ne valent jamais pour l'autre.
+       * @enum {string}
+       */
+      score_mode?: "cumulative" | "best_sample";
     };
     VoiceMatchingSummary: {
       evaluated: number;
@@ -9368,7 +9373,7 @@ export interface components {
       model_version: string;
       dimensions: number;
     };
-    /** @description Une version des seuils appliqués à un groupe d'empreintes (ADR 0064). La plus haute version est en vigueur. */
+    /** @description Une version des seuils appliqués à un groupe d'empreintes pour un mode de score (ADR 0064). Les versions sont numérotées par groupe ; la plus haute version d'un mode est en vigueur pour ce mode. */
     VoiceGroupThresholds: {
       version: number;
       suggestion_threshold: number;
@@ -9380,7 +9385,7 @@ export interface components {
        */
       source: "migration" | "administrator" | "proposal";
       /**
-       * @description Mode de score actif au moment de l'application.
+       * @description Mode de score auquel ces seuils s'appliquent.
        * @enum {string}
        */
       score_mode: "cumulative" | "best_sample";
@@ -9434,7 +9439,9 @@ export interface components {
       distribution: components["schemas"]["VoiceScoreBin"][];
       /** @description Seuil automatique de 0,05 à 1 par pas de 0,05. */
       sweep: components["schemas"]["VoiceThresholdSweep"][];
-      /** @description Chiffres aux seuils appliqués au groupe ; null sans seuils appliqués. */
+      /** @description Seuils appliqués au groupe pour ce mode ; null : dans ce mode, suggestions seulement. */
+      thresholds: components["schemas"]["VoiceGroupThresholds"] | null;
+      /** @description Chiffres aux seuils appliqués au groupe pour ce mode ; null sans seuils appliqués pour ce mode. */
       current: components["schemas"]["VoiceThresholdSweep"] | null;
       proposal: components["schemas"]["VoiceThresholdProposal"] | null;
       /**
@@ -9447,7 +9454,7 @@ export interface components {
     VoiceCalibration: {
       /** @description Groupe actif ; null tant qu'aucune empreinte n'a été produite. */
       group: components["schemas"]["VoiceFingerprintGroup"] | null;
-      /** @description Seuils appliqués au groupe ; null : suggestions seulement, aucune Attribution automatique. */
+      /** @description Seuils appliqués au groupe pour le mode de score actif ; null : suggestions seulement, aucune Attribution automatique. */
       thresholds: components["schemas"]["VoiceGroupThresholds"] | null;
       /** @description Vingt dernières versions, la plus récente d'abord. */
       history: components["schemas"]["VoiceGroupThresholds"][];

@@ -1202,14 +1202,15 @@ export const fr: Messages = {
         "Seuils du modèle d’empreinte {model} · {version} · {dimensions} dimensions",
       noGroup:
         "Aucun modèle d’empreinte n’a encore produit d’empreinte : ces valeurs sont provisoires. Un modèle s’en sert pour ses suggestions tant que des seuils ne lui sont pas appliqués.",
-      applied: "Seuils version {version}, {source}, par {author} le {date}.",
-      none: "Aucun seuil appliqué à ce modèle : il ne produit que des suggestions, jamais d’attribution automatique. Appliquez des seuils après la mesure ci-dessous.",
+      applied:
+        "Seuils version {version} pour le mode {mode}, {source}, par {author} le {date}.",
+      none: "Aucun seuil appliqué à ce modèle pour le mode de score actif : il ne produit que des suggestions, jamais d’attribution automatique. Appliquez des seuils après la mesure ci-dessous.",
       migration: "repris de l’installation",
       administrator: "saisis",
       proposal: "issus de la proposition de la mesure",
       history: "Seuils précédents de ce modèle",
       historyItem:
-        "Version {version} : automatique {automatic}, suggestion {suggestion}, marge {margin} · {source} · {author} · {date}",
+        "Version {version} ({mode}) : automatique {automatic}, suggestion {suggestion}, marge {margin} · {source} · {author} · {date}",
       scoreNote:
         "Un score est une similarité cosinus entre −1 et 1 dont l’échelle dépend du modèle d’empreinte : ce n’est pas une probabilité.",
     },
@@ -1232,7 +1233,12 @@ export const fr: Messages = {
       unknownColumn: "Inconnus reconnus à tort",
       current:
         "Aux seuils appliqués : {automatic} automatiques, {errors} erreurs, {toVerify} à vérifier ; {unknown} inconnus simulés sur {tests} reconnus à tort.",
-      noCurrent: "Aucun seuil appliqué : aucune attribution automatique.",
+      noCurrent:
+        "Aucun seuil appliqué pour ce mode : pas de chiffres aux seuils appliqués.",
+      applied:
+        "Appliqués pour ce mode : suggestion {suggestion}, automatique {automatic}, marge {margin}.",
+      noneApplied:
+        "Aucun seuil appliqué pour ce mode : dans ce mode, le modèle ne fait que des suggestions.",
       proposal:
         "Proposition : suggestion {suggestion}, automatique {automatic}, marge {margin}. Sur la mesure : {automaticCount} automatiques, {errors} erreurs, {toVerify} à vérifier, {unknown} inconnus reconnus à tort.",
       rule: "Seuil automatique : le plus bas qui garde la précision minimale des critères d’activation sans reconnaître aucun inconnu simulé. Suggestion : 95 % des scores même personne au-dessus. Marge : couvre 95 % des confusions mesurées.",
@@ -1241,12 +1247,13 @@ export const fr: Messages = {
       noSafe:
         "Aucun seuil ne garde la précision minimale sans reconnaître d’inconnu simulé : pas de proposition.",
       apply: "Appliquer cette proposition au modèle",
+      applyInactive: "Appliquer cette proposition au mode {mode}",
       otherMode:
-        "Proposition du mode non actif : changez d’abord le mode de score pour l’appliquer.",
+        "Mode non actif : les seuils appliqués pour lui ne prennent effet que lorsqu’il devient le mode de score actif.",
     },
     matching: "Rapprochement vocal",
     matchingHint:
-      "Seuls les échantillons validés par un humain servent de références. Les seuils appartiennent à un modèle d’empreinte et ne changent que par l’action d’un administrateur.",
+      "Seuls les échantillons validés par un humain servent de références. Les seuils appartiennent à un modèle d’empreinte et à un mode de score, et ne changent que par l’action d’un administrateur.",
     autoThreshold: "Seuil d’attribution automatique",
     suggestionThreshold: "Seuil de suggestion",
     margin: "Marge d’ambiguïté",

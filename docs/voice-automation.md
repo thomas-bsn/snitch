@@ -32,12 +32,13 @@ Le rapport porte aussi `calibration` (ADR 0064, #393) : la mesure ci-dessus, rej
 | Distribution | scores de chaque test contre la Référence de sa Personne (« même Personne ») et contre celles des autres (« autre Personne »), en vingt classes de 0,05 (un score négatif compte dans la première) |
 | Balayage | pour un seuil automatique de 0,05 à 1 par pas de 0,05 (seuil de suggestion abaissé à ce seuil s'il le dépasse, marge du groupe) : attributions automatiques, erreurs, voix laissées à vérifier, inconnus reconnus à tort |
 | Inconnus simulés | chaque test rejoué **sans la Référence de sa Personne**, comme une voix que personne n'a validée : une attribution automatique est une fausse reconnaissance. Mesuré sans annotation supplémentaire |
-| Aux seuils appliqués (`current`) | les mêmes chiffres aux seuils du groupe ; absent sans seuils appliqués |
+| Seuils du mode (`thresholds`) | seuils appliqués au groupe pour ce mode ; absent sans seuils appliqués pour ce mode |
+| Aux seuils appliqués (`current`) | les mêmes chiffres aux seuils du groupe pour ce mode ; absent sans seuils appliqués pour ce mode |
 | Proposition | seuil automatique : le plus bas, au centième, à partir duquel (et au-dessus) la précision des attributions automatiques reste au moins égale au critère `precision_threshold` et **aucun** inconnu simulé n'est reconnu ; seuil de suggestion : le 5ᵉ centile des scores « même Personne », arrondi au centième inférieur et au plus égal au seuil automatique ; marge : couvre 95 % des confusions mesurées (tests dont la Personne est devancée par une autre), arrondie au centième supérieur, entre 0,01 et 0,2, inchangée sans confusion |
 
 **Effectifs trop faibles.** En dessous de 20 tests ou de 3 Personnes ayant une Référence et au moins un test (`min_tests`, `min_persons`), le rapport le dit (`withheld = too_few`) au lieu de proposer ; `no_safe_threshold` si aucun seuil ne tient le critère sans fausse reconnaissance.
 
-**Rien n'est appliqué automatiquement.** La proposition s'applique par `PUT /api/admin/voice-matching` avec `source = proposal`, action explicite et tracée de l'administrateur ; l'écran ne propose ce bouton que pour le mode de score actif. Le rapport montre aussi les seuils appliqués du groupe et leurs vingt dernières versions.
+**Rien n'est appliqué automatiquement.** La proposition s'applique par `PUT /api/admin/voice-matching` avec `source = proposal` et le `score_mode` mesuré, action explicite et tracée de l'administrateur ; l'écran propose ce bouton pour chaque mode, les seuils d'un mode non actif ne prenant effet que lorsqu'il devient actif. Le rapport montre aussi les seuils appliqués du groupe pour le mode actif (`thresholds`) et les vingt dernières versions du groupe, tous modes confondus.
 
 **Un score n'est pas une probabilité** : c'est une similarité cosinus entre −1 et 1 dont l'échelle dépend du modèle d'empreinte. L'écran l'affiche comme un nombre, jamais en pourcentage.
 

@@ -646,6 +646,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceGroupThresholds(t, pool)
 	})
+	t.Run("voice thresholds per score mode", func(t *testing.T) {
+		reset(t)
+		testVoiceThresholdsPerScoreMode(t, pool)
+	})
 	t.Run("voice calibration", func(t *testing.T) {
 		reset(t)
 		testVoiceCalibration(t, pool)

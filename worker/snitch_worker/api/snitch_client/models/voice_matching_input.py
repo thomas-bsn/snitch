@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.voice_matching_input_score_mode import VoiceMatchingInputScoreMode
 from ..models.voice_matching_input_source import VoiceMatchingInputSource
 from ..types import UNSET, Unset
 from typing import cast
@@ -34,6 +35,8 @@ class VoiceMatchingInput:
             group (VoiceFingerprintGroup | Unset): Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes
                 d'un même groupe sont comparées.
             source (VoiceMatchingInputSource | Unset): Origine tracée des seuils appliqués ; administrator par défaut.
+            score_mode (VoiceMatchingInputScoreMode | Unset): Mode de score pour lequel les seuils sont appliqués ; mode
+                actif par défaut. Les seuils d'un mode ne valent jamais pour l'autre.
      """
 
     automatic_threshold: float
@@ -42,6 +45,7 @@ class VoiceMatchingInput:
     max_candidates: int
     group: VoiceFingerprintGroup | Unset = UNSET
     source: VoiceMatchingInputSource | Unset = UNSET
+    score_mode: VoiceMatchingInputScoreMode | Unset = UNSET
 
 
 
@@ -66,6 +70,11 @@ class VoiceMatchingInput:
             source = self.source.value
 
 
+        score_mode: str | Unset = UNSET
+        if not isinstance(self.score_mode, Unset):
+            score_mode = self.score_mode.value
+
+
 
         field_dict: dict[str, Any] = {}
 
@@ -79,6 +88,8 @@ class VoiceMatchingInput:
             field_dict["group"] = group
         if source is not UNSET:
             field_dict["source"] = source
+        if score_mode is not UNSET:
+            field_dict["score_mode"] = score_mode
 
         return field_dict
 
@@ -116,6 +127,16 @@ class VoiceMatchingInput:
 
 
 
+        _score_mode = d.pop("score_mode", UNSET)
+        score_mode: VoiceMatchingInputScoreMode | Unset
+        if isinstance(_score_mode,  Unset):
+            score_mode = UNSET
+        else:
+            score_mode = VoiceMatchingInputScoreMode(_score_mode)
+
+
+
+
         voice_matching_input = cls(
             automatic_threshold=automatic_threshold,
             suggestion_threshold=suggestion_threshold,
@@ -123,6 +144,7 @@ class VoiceMatchingInput:
             max_candidates=max_candidates,
             group=group,
             source=source,
+            score_mode=score_mode,
         )
 
         return voice_matching_input

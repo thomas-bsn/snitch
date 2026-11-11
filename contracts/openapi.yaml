@@ -25930,7 +25930,7 @@
           },
           "thresholds_applied": {
             "type": "boolean",
-            "description": "Le groupe actif a des seuils appliqués par un administrateur. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique."
+            "description": "Le groupe actif a des seuils appliqués par un administrateur pour le mode de score actif. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique."
           }
         }
       },
@@ -25975,6 +25975,14 @@
               "proposal"
             ],
             "description": "Origine tracée des seuils appliqués ; administrator par défaut."
+          },
+          "score_mode": {
+            "type": "string",
+            "enum": [
+              "cumulative",
+              "best_sample"
+            ],
+            "description": "Mode de score pour lequel les seuils sont appliqués ; mode actif par défaut. Les seuils d'un mode ne valent jamais pour l'autre."
           }
         }
       },
@@ -34192,7 +34200,7 @@
       },
       "VoiceGroupThresholds": {
         "type": "object",
-        "description": "Une version des seuils appliqués à un groupe d'empreintes (ADR 0064). La plus haute version est en vigueur.",
+        "description": "Une version des seuils appliqués à un groupe d'empreintes pour un mode de score (ADR 0064). Les versions sont numérotées par groupe ; la plus haute version d'un mode est en vigueur pour ce mode.",
         "required": [
           "version",
           "suggestion_threshold",
@@ -34238,7 +34246,7 @@
               "cumulative",
               "best_sample"
             ],
-            "description": "Mode de score actif au moment de l'application."
+            "description": "Mode de score auquel ces seuils s'appliquent."
           },
           "author": {
             "type": "string",
@@ -34354,6 +34362,7 @@
           "other_person_scores",
           "distribution",
           "sweep",
+          "thresholds",
           "current",
           "proposal",
           "withheld"
@@ -34393,6 +34402,15 @@
             },
             "description": "Seuil automatique de 0,05 à 1 par pas de 0,05."
           },
+          "thresholds": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VoiceGroupThresholds"
+              }
+            ],
+            "nullable": true,
+            "description": "Seuils appliqués au groupe pour ce mode ; null : dans ce mode, suggestions seulement."
+          },
           "current": {
             "allOf": [
               {
@@ -34400,7 +34418,7 @@
               }
             ],
             "nullable": true,
-            "description": "Chiffres aux seuils appliqués au groupe ; null sans seuils appliqués."
+            "description": "Chiffres aux seuils appliqués au groupe pour ce mode ; null sans seuils appliqués pour ce mode."
           },
           "proposal": {
             "allOf": [
@@ -34450,7 +34468,7 @@
               }
             ],
             "nullable": true,
-            "description": "Seuils appliqués au groupe ; null : suggestions seulement, aucune Attribution automatique."
+            "description": "Seuils appliqués au groupe pour le mode de score actif ; null : suggestions seulement, aucune Attribution automatique."
           },
           "history": {
             "type": "array",

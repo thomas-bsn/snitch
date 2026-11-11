@@ -1179,14 +1179,15 @@ export const en = {
         "Thresholds of the fingerprint model {model} · {version} · {dimensions} dimensions",
       noGroup:
         "No fingerprint model has produced a fingerprint yet: these values are provisional. A model uses them for its suggestions until thresholds are applied to it.",
-      applied: "Thresholds version {version}, {source}, by {author} on {date}.",
-      none: "No thresholds applied to this model: it only produces suggestions, never an automatic attribution. Apply thresholds after the measurement below.",
+      applied:
+        "Thresholds version {version} for the {mode} mode, {source}, by {author} on {date}.",
+      none: "No thresholds applied to this model for the active score mode: it only produces suggestions, never an automatic attribution. Apply thresholds after the measurement below.",
       migration: "taken over from the installation",
       administrator: "typed in",
       proposal: "from the measurement's proposal",
       history: "Earlier thresholds of this model",
       historyItem:
-        "Version {version}: automatic {automatic}, suggestion {suggestion}, margin {margin} · {source} · {author} · {date}",
+        "Version {version} ({mode}): automatic {automatic}, suggestion {suggestion}, margin {margin} · {source} · {author} · {date}",
       scoreNote:
         "A score is a cosine similarity between −1 and 1 whose scale depends on the fingerprint model: it is not a probability.",
     },
@@ -1209,7 +1210,12 @@ export const en = {
       unknownColumn: "Unknowns wrongly recognised",
       current:
         "At the applied thresholds: {automatic} automatic, {errors} errors, {toVerify} to verify; {unknown} of {tests} simulated unknowns wrongly recognised.",
-      noCurrent: "No thresholds applied: no automatic attribution.",
+      noCurrent:
+        "No thresholds applied for this mode: no figures at applied thresholds.",
+      applied:
+        "Applied for this mode: suggestion {suggestion}, automatic {automatic}, margin {margin}.",
+      noneApplied:
+        "No thresholds applied for this mode: in this mode the model only suggests.",
       proposal:
         "Proposal: suggestion {suggestion}, automatic {automatic}, margin {margin}. On the measurement: {automaticCount} automatic, {errors} errors, {toVerify} to verify, {unknown} unknowns wrongly recognised.",
       rule: "Automatic threshold: the lowest that keeps the minimum precision of the activation criteria without recognising any simulated unknown. Suggestion: 95% of same-person scores above it. Margin: covers 95% of the measured confusions.",
@@ -1218,12 +1224,13 @@ export const en = {
       noSafe:
         "No threshold keeps the minimum precision without recognising a simulated unknown: no proposal.",
       apply: "Apply this proposal to the model",
+      applyInactive: "Apply this proposal for the {mode} mode",
       otherMode:
-        "Proposal of the inactive mode: switch the score mode first to apply it.",
+        "Inactive mode: thresholds applied for it only take effect once it is the active score mode.",
     },
     matching: "Voice matching",
     matchingHint:
-      "Only human-validated samples are references. Thresholds belong to a fingerprint model and are only changed by an administrator.",
+      "Only human-validated samples are references. Thresholds belong to a fingerprint model and a score mode, and are only changed by an administrator.",
     autoThreshold: "Automatic attribution threshold",
     suggestionThreshold: "Suggestion threshold",
     margin: "Ambiguity margin",

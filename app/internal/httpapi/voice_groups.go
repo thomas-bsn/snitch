@@ -470,7 +470,7 @@ func (s *Server) refreshVoiceGroupLinks(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	thresholds, err := loadGroupThresholds(ctx, tx)
+	thresholds, err := loadGroupThresholds(ctx, tx, settings.ScoreMode)
 	if err != nil {
 		return err
 	}

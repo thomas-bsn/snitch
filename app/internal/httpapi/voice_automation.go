@@ -201,7 +201,7 @@ ORDER BY vs.person_id,vs.clip_id,vs.id`)
 	}
 
 	split.references, split.tests = references, tests
-	thresholds, err := loadGroupThresholds(ctx, s.Pool)
+	thresholds, err := loadGroupThresholds(ctx, s.Pool, settings.ScoreMode)
 	if err != nil {
 		return eval, nil, split, err
 	}
@@ -345,9 +345,9 @@ func (s *Server) testScores(ctx context.Context, references, tests []accuracySam
 }
 
 // libraryFigures counts the stored attributions. A suggestion "would be automatic once enabled" when its score
-// reaches the automatic threshold applied to its fingerprint group; a group without applied thresholds never
-// attributes automatically, so its suggestions stay suggestions.
-func (s *Server) libraryFigures(ctx context.Context) (accuracyLibrary, error) {
+// reaches the automatic threshold applied to its fingerprint group for the active score mode; a group without
+// thresholds for that mode never attributes automatically, so its suggestions stay suggestions.
+func (s *Server) libraryFigures(ctx context.Context, mode scoreMode) (accuracyLibrary, error) {
 	var l accuracyLibrary
 	err := s.Pool.QueryRow(ctx, `SELECT
   count(*) FILTER (WHERE ls.kind='diarized'),
@@ -360,10 +360,10 @@ FROM local_speakers ls
 LEFT JOIN speaker_attributions v ON v.local_speaker_id=ls.id AND v.validation_state='validated'
 LEFT JOIN speaker_attributions m ON m.local_speaker_id=ls.id AND m.validation_state='unvalidated' AND m.origin=$1
 LEFT JOIN LATERAL (SELECT t.automatic_threshold FROM voice_group_thresholds t
-  WHERE t.model=m.match_model AND t.model_version=m.match_model_version
+  WHERE t.model=m.match_model AND t.model_version=m.match_model_version AND t.score_mode=$2
     AND t.dimensions IN (SELECT f.dimensions FROM voice_fingerprints f WHERE f.local_speaker_id=ls.id AND f.model=m.match_model AND f.model_version=m.match_model_version AND NOT f.benchmark AND f.scope='speaker')
   ORDER BY t.version DESC LIMIT 1) gt ON true
-WHERE ls.kind='microphone' OR (ls.kind='diarized' AND `+notIgnoredVoice+`)`, matchingOrigin).Scan(&l.SpeakersTotal, &l.Validated, &l.Automatic, &l.Suggestion, &l.Ambiguous, &l.MicrophoneAssigned)
+WHERE ls.kind='microphone' OR (ls.kind='diarized' AND `+notIgnoredVoice+`)`, matchingOrigin, mode).Scan(&l.SpeakersTotal, &l.Validated, &l.Automatic, &l.Suggestion, &l.Ambiguous, &l.MicrophoneAssigned)
 	if err != nil {
 		return l, err
 	}
@@ -419,7 +419,7 @@ func (s *Server) buildAccuracy(ctx context.Context) (voiceAccuracy, error) {
 	if report.Calibration, err = s.calibration(ctx, settings, split); err != nil {
 		return report, err
 	}
-	if report.Library, err = s.libraryFigures(ctx); err != nil {
+	if report.Library, err = s.libraryFigures(ctx, settings.ScoreMode); err != nil {
 		return report, err
 	}
 	report.Criteria = criteriaOf(report.Evaluation, settings)

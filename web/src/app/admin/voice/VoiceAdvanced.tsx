@@ -145,6 +145,7 @@ export function VoiceAdvanced({
       "automatic_threshold" | "suggestion_threshold" | "ambiguity_margin"
     >,
     source: "administrator" | "proposal" = "administrator",
+    scoreMode?: ScoreModeName,
   ) =>
     api.PUT("/api/admin/voice-matching", {
       params: { header: headers },
@@ -154,6 +155,7 @@ export function VoiceAdvanced({
         ambiguity_margin: values.ambiguity_margin,
         max_candidates: m.max_candidates,
         ...(group ? { group, source } : {}),
+        ...(scoreMode ? { score_mode: scoreMode } : {}),
       },
     });
   const saveMatching = (e: FormEvent) => {
@@ -163,7 +165,11 @@ export function VoiceAdvanced({
       () => setMatch(undefined),
     );
   };
+  // Thresholds in force for the active score mode; the history lists every other version, of both modes.
   const thresholds = accuracy.calibration.thresholds;
+  const earlierThresholds = accuracy.calibration.history.filter(
+    (v) => v.version !== thresholds?.version,
+  );
   const sourceLabel = (v: Thresholds) => t(`voiceAdmin.thresholds.${v.source}`);
   const saveScoreMode = (e: FormEvent) => {
     e.preventDefault();
@@ -276,6 +282,7 @@ export function VoiceAdvanced({
               {thresholds
                 ? t("voiceAdmin.thresholds.applied", {
                     version: thresholds.version,
+                    mode: modeLabel(thresholds.score_mode),
                     source: sourceLabel(thresholds),
                     author:
                       thresholds.author ?? t("voiceAdmin.eligibility.snitch"),
@@ -364,7 +371,7 @@ export function VoiceAdvanced({
               </button>
             </div>
           </form>
-          {accuracy.calibration.history.length > 1 && (
+          {earlierThresholds.length > 0 && (
             <div>
               <p id="adv-thresholds-history" className="font-medium">
                 {t("voiceAdmin.thresholds.history")}
@@ -373,10 +380,11 @@ export function VoiceAdvanced({
                 aria-labelledby="adv-thresholds-history"
                 className="list-disc pl-5"
               >
-                {accuracy.calibration.history.slice(1).map((v) => (
+                {earlierThresholds.map((v) => (
                   <li key={v.version}>
                     {t("voiceAdmin.thresholds.historyItem", {
                       version: v.version,
+                      mode: modeLabel(v.score_mode),
                       automatic: v.automatic_threshold,
                       suggestion: v.suggestion_threshold,
                       margin: v.ambiguity_margin,
@@ -738,9 +746,9 @@ export function VoiceAdvanced({
           <VoiceCalibration
             calibration={accuracy.calibration}
             busy={busy}
-            onApply={(p) =>
+            onApply={(p, scoreMode) =>
               void run(
-                () => putThresholds(p, "proposal"),
+                () => putThresholds(p, "proposal", scoreMode),
                 () => setMatch(undefined),
               )
             }

@@ -65,8 +65,8 @@ type matchingSettings struct {
 	// Group is the active fingerprint group whose thresholds these are (effectiveMatchingSettings); nil when
 	// there is none, the thresholds then being the provisional ones.
 	Group *fingerprintGroupView `json:"group"`
-	// ThresholdsApplied tells whether the group has thresholds applied by an administrator. Without them it only
-	// produces suggestions (voice_group_thresholds.go).
+	// ThresholdsApplied tells whether the group has thresholds applied by an administrator for the active score
+	// mode. Without them it only produces suggestions (voice_group_thresholds.go).
 	ThresholdsApplied bool `json:"thresholds_applied"`
 }
 
@@ -109,8 +109,9 @@ func (s *Server) getVoiceMatching(w http.ResponseWriter, r *http.Request) {
 	reply(w, http.StatusOK, v)
 }
 
-// putVoiceMatching applies thresholds: to the given fingerprint group, or to the active one, as a new traced
-// version of its thresholds (voice_group_thresholds.go). Without any group (blank installation) they are the
+// putVoiceMatching applies thresholds: to the given fingerprint group, or to the active one, for the given score
+// mode, or the active one, as a new traced version of its thresholds (voice_group_thresholds.go). Without any
+// group (blank installation) they are the
 // provisional values a group uses for its suggestions until thresholds are applied to it. The number of
 // candidates is global. The automation switch is deliberately not part of this input: its activation is a
 // separate administrator decision (automation switch).
@@ -122,6 +123,7 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		MaxCandidates       *int                  `json:"max_candidates"`
 		Group               *fingerprintGroupView `json:"group"`
 		Source              *string               `json:"source"`
+		ScoreMode           *scoreMode            `json:"score_mode"`
 	}
 	if !decode(w, r, &input) {
 		return
@@ -130,7 +132,8 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		*input.SuggestionThreshold < 0 || *input.SuggestionThreshold > *input.AutomaticThreshold || *input.AutomaticThreshold > 1 ||
 		*input.AmbiguityMargin < 0 || *input.AmbiguityMargin > 1 || *input.MaxCandidates < 2 || *input.MaxCandidates > 20 ||
 		(input.Source != nil && *input.Source != thresholdsFromAdministrator && *input.Source != thresholdsFromProposal) ||
-		(input.Group != nil && (input.Group.Model == "" || input.Group.ModelVersion == "" || input.Group.Dimensions < 1)) {
+		(input.Group != nil && (input.Group.Model == "" || input.Group.ModelVersion == "" || input.Group.Dimensions < 1)) ||
+		(input.ScoreMode != nil && !input.ScoreMode.valid()) {
 		fail(w, http.StatusBadRequest, "invalid_voice_matching")
 		return
 	}
@@ -158,11 +161,17 @@ func (s *Server) putVoiceMatching(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if found {
-		source := thresholdsFromAdministrator
+		t := groupThresholds{SuggestionThreshold: *input.SuggestionThreshold, AutomaticThreshold: *input.AutomaticThreshold, AmbiguityMargin: *input.AmbiguityMargin, Source: thresholdsFromAdministrator}
 		if input.Source != nil {
-			source = *input.Source
+			t.Source = *input.Source
 		}
-		_, err = applyGroupThresholds(ctx, tx, group, groupThresholds{SuggestionThreshold: *input.SuggestionThreshold, AutomaticThreshold: *input.AutomaticThreshold, AmbiguityMargin: *input.AmbiguityMargin, Source: source}, author)
+		if input.ScoreMode != nil {
+			t.ScoreMode = *input.ScoreMode
+		} else if t.ScoreMode, err = activeScoreMode(ctx, tx); err != nil {
+			s.internal(w, err)
+			return
+		}
+		_, err = applyGroupThresholds(ctx, tx, group, t, author)
 		if err == nil {
 			_, err = tx.Exec(ctx, `UPDATE voice_matching_settings SET max_candidates=$1,updated_by=$2,updated_at=now() WHERE id=true`, *input.MaxCandidates, author.ID)
 		}
@@ -287,7 +296,7 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 	if err != nil {
 		return stats, err
 	}
-	thresholds, err := loadGroupThresholds(ctx, tx)
+	thresholds, err := loadGroupThresholds(ctx, tx, settings.ScoreMode)
 	if err != nil {
 		return stats, err
 	}
