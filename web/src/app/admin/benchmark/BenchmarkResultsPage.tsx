@@ -7,6 +7,7 @@ import { buttonClass } from "../../components/buttons";
 import { StatusPill } from "../../components/StatusPill";
 import { useDocumentTitle } from "../../components/useDocumentTitle";
 import { useI18n } from "../../i18n";
+import { useNumberFormats } from "../../useNumberFormats";
 import type { MessageKey } from "../../i18n/messages";
 import {
   EXECUTABLE_STAGES,
@@ -593,10 +594,7 @@ function ScoringSummary({ scoring }: { scoring: NonNullable<Run["scoring"]> }) {
     `benchmark.results.scoring.modes.${scoring.score_mode}` as MessageKey,
   );
   const rule = scoring.eligibility_rule;
-  const seconds = (value?: number | null) =>
-    new Intl.NumberFormat(language, { maximumFractionDigits: 2 }).format(
-      value ?? 0,
-    );
+  const { seconds } = useNumberFormats();
   return (
     <p className="text-sm">
       <strong>{t("benchmark.results.scoring.title")}</strong>{" "}
@@ -604,7 +602,7 @@ function ScoringSummary({ scoring }: { scoring: NonNullable<Run["scoring"]> }) {
         ? t("benchmark.results.scoring.current", {
             mode,
             modeVersion: scoring.score_mode_version ?? "–",
-            cap: seconds(scoring.reference_sample_cap_seconds),
+            cap: seconds(scoring.reference_sample_cap_seconds ?? 0),
             ruleVersion: rule.version,
             comparable: seconds(rule.comparable_min_seconds),
             contributive: seconds(rule.contributive_min_seconds),

@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from "react";
 import type { components } from "../../../api.gen";
 import { buttonClass } from "../../components/buttons";
+import { Disclosure } from "../../components/Disclosure";
 import { useI18n } from "../../i18n";
+import { useNumberFormats } from "../../useNumberFormats";
 
 type Calibration = components["schemas"]["VoiceCalibration"];
 type Mode = components["schemas"]["VoiceCalibrationMode"];
@@ -23,11 +24,7 @@ export function VoiceCalibration({
   onApply: (proposal: Proposal, mode: ScoreMode) => void;
 }) {
   const { t, language } = useI18n();
-  const score = (x: number) =>
-    x.toLocaleString(language, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 3,
-    });
+  const { score } = useNumberFormats();
   // A rate of simulated unknowns wrongly recognised is a share of tests, unlike a score.
   const rate = (x: number | null) =>
     x === null
@@ -248,34 +245,5 @@ export function VoiceCalibration({
         </div>
       )}
     </section>
-  );
-}
-
-/** A folded block opened by a button (not a details element: the advanced settings already use one). */
-function Disclosure({
-  id,
-  label,
-  children,
-}: {
-  id: string;
-  label: string;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <div>
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={id}
-        onClick={() => setOpen(!open)}
-        className="min-h-11 py-2 text-left underline-offset-2 hover:underline"
-      >
-        <span aria-hidden="true">{open ? "▾" : "▸"}</span> {label}
-      </button>
-      <div id={id} hidden={!open}>
-        {children}
-      </div>
-    </div>
   );
 }

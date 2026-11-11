@@ -8,7 +8,7 @@ import {
 import { useEffect, useState } from "react";
 import { useI18n } from "../i18n";
 import type { PersonReference } from "./peopleApi";
-import { videoCountText } from "./referenceFigures";
+import { useNumberFormats } from "../useNumberFormats";
 
 /** Two letters from the first words of the name: the avatar when there is no photo. */
 export function initials(name: string): string {
@@ -89,8 +89,7 @@ export function ReferenceBadge({ reference }: { reference: PersonReference }) {
  * name and the tooltip.
  */
 export function VideoCount({ count }: { count: number }) {
-  const { language } = useI18n();
-  const { short, exact } = videoCountText(count, language);
+  const { short, exact } = useNumberFormats().videoCount(count);
   return (
     <span
       title={exact}

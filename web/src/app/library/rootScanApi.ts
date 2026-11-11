@@ -1,22 +1,9 @@
 import type { components } from "../../api.gen";
-import { api, errorCode, mutation } from "../api/client";
-import type { Result } from "../api/loaded";
+import { api, mutation } from "../api/client";
+import { failure, guard } from "../api/loaded";
 
 export type RootScan = components["schemas"]["RootScan"];
 export type RootScanPreview = components["schemas"]["RootScanPreview"];
-
-const failure = (error: unknown): { ok: false; code: string } => ({
-  ok: false,
-  code: errorCode(error) ?? "unknown",
-});
-
-async function guard<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
-  try {
-    return await call();
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
 
 /** What a scan of the whole Racine would queue and leave out, without the paths (#404). */
 export const previewRootScan = () =>

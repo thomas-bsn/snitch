@@ -14,6 +14,7 @@ import { api, errorCode, mutation } from "../api/client";
 import { ErrorAlert } from "../components/Alert";
 import { buttonClass } from "../components/buttons";
 import { useI18n } from "../i18n";
+import { useNumberFormats } from "../useNumberFormats";
 import { ExcerptPlayer } from "../people/ExcerptPlayer";
 import { useFailureText } from "../people/failureText";
 import { Avatar } from "../people/PersonParts";
@@ -85,13 +86,8 @@ export function VoiceDecision({
   clipName: string;
   onChanged: () => void;
 }) {
-  const { t, language } = useI18n();
-  // A score is a cosine similarity, shown as a number: never a percentage nor a probability.
-  const score = (x: number) =>
-    x.toLocaleString(language, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 3,
-    });
+  const { t } = useI18n();
+  const { score } = useNumberFormats();
   const failureText = useFailureText();
   const { session } = useSession();
   const header = mutation(session?.csrf_token);

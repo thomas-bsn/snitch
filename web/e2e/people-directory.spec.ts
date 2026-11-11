@@ -1,9 +1,13 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { en } from "../src/app/i18n/en";
+import { fr } from "../src/app/i18n/fr";
 import {
-  durationText,
-  videoCountText,
-} from "../src/app/people/referenceFigures";
+  translate,
+  type MessageKey,
+  type Params,
+} from "../src/app/i18n/messages";
+import { durationText, videoCountText } from "../src/app/numberFormats";
 import { createPersons, linkAccount, personName } from "./people-fixture";
 import {
   ADMIN,
@@ -48,7 +52,9 @@ test("nombre de vidéos d'une carte aux bornes", () => {
     [12000, "fr", "12 k vidéos", "12 000 vidéos"],
   ];
   for (const [count, language, short, exact] of cases) {
-    expect(videoCountText(count, language), `${count} ${language}`).toEqual({
+    const t = (key: MessageKey, params?: Params) =>
+      translate(language === "en" ? en : fr, key, params);
+    expect(videoCountText(count, language, t), `${count} ${language}`).toEqual({
       short,
       exact,
     });
@@ -167,7 +173,7 @@ test.describe.serial("liste des personnes", () => {
     await expect(item).not.toContainText("min");
     await expect(item).toContainText("Reference: none");
     await expect(
-      item.getByTitle("No sample usable by recognition yet"),
+      item.getByTitle("No sample enters the Reference yet"),
     ).toHaveText("Reference: none");
     // The list holds no action.
     await expect(item.getByRole("button")).toHaveCount(0);

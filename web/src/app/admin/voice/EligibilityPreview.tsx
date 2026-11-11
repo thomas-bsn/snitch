@@ -1,6 +1,7 @@
 import type { components } from "../../../api.gen";
 import { buttonClass } from "../../components/buttons";
 import { useI18n } from "../../i18n";
+import { useNumberFormats } from "../../useNumberFormats";
 
 type Preview = components["schemas"]["VoiceEligibilityPreview"];
 type Group = components["schemas"]["VoiceEligibilityGroupPreview"];
@@ -34,7 +35,7 @@ export function EligibilityPreview({
   onRequalify: () => void;
 }) {
   const { t } = useI18n();
-  const seconds = useSeconds();
+  const { seconds } = useNumberFormats();
   return (
     <div className="flex flex-col gap-4 rounded-lg border border-line p-3">
       <p id="adv-eligibility-preview" className="font-medium">
@@ -68,12 +69,6 @@ export function EligibilityPreview({
   );
 }
 
-function useSeconds() {
-  const { language } = useI18n();
-  const format = new Intl.NumberFormat(language, { maximumFractionDigits: 2 });
-  return (value: number) => `${format.format(value)} s`;
-}
-
 function GroupPreview({
   group,
   personsWithSamples,
@@ -82,7 +77,7 @@ function GroupPreview({
   personsWithSamples: number;
 }) {
   const { t } = useI18n();
-  const seconds = useSeconds();
+  const { seconds } = useNumberFormats();
   const name = `${group.model} ${group.model_version} (${group.dimensions})`;
   const delta = (gained: number, lost: number) =>
     [gained > 0 ? ` +${gained}` : "", lost > 0 ? ` −${lost}` : ""].join("");

@@ -1086,7 +1086,7 @@ export const fr: Messages = {
         "À partir de cette durée, une voix est rapprochée seule des références.",
       contributiveMin: "Parole nette d’une empreinte contributive (secondes)",
       contributiveHint:
-        "À partir de cette durée, une voix validée peut renforcer la référence de sa personne. Au plus la durée comparable.",
+        "À partir de cette durée, une voix validée est contributive : elle peut entrer dans la Référence de sa Personne. Au plus la durée comparable.",
       maxClipped: "Part maximale d’échantillons écrêtés",
       maxClippedHint:
         "Au-delà, un son saturé fait rejeter l’empreinte (0,01 = 1 %).",
@@ -2209,7 +2209,7 @@ export const fr: Messages = {
           centroid: "Centroïde (ancien)",
         },
         current:
-          "{mode} (version {modeVersion}, un échantillon pèse au plus {cap} s), règle d’éligibilité version {ruleVersion} : comparable dès {comparable} s, contributive dès {contributive} s, saturation au plus {clipped}. Noté comme la production : un seuil lu ici vaut pour la production sous ce mode et cette règle.",
+          "{mode} (version {modeVersion}, un échantillon pèse au plus {cap}), règle d’éligibilité version {ruleVersion} : comparable dès {comparable}, contributive dès {contributive}, saturation au plus {clipped}. Noté comme la production : un seuil lu ici vaut pour la production sous ce mode et cette règle.",
         legacy:
           "{mode} : moyenne non pondérée des empreintes de référence, retenues par les seuils du pipeline épinglé. Ses seuils ne valent pas pour le score de production actuel.",
       },
@@ -3866,7 +3866,7 @@ export const fr: Messages = {
       heardState: "validée",
       referenceWarningTitle: "Référence à renforcer",
       referenceWarningNone:
-        "Aucune voix validée de {name} n’est encore utilisable par la reconnaissance : Snitch ne sait pas reconnaître cette voix. Confirmez d’autres voix, assez longues et non couvertes par une autre voix, pour constituer une Référence.",
+        "Aucune voix validée de {name} n’entre encore dans sa Référence : Snitch ne sait pas reconnaître cette voix. Confirmez d’autres voix, assez longues et non couvertes par une autre voix, pour constituer une Référence.",
       referenceWarningWeak:
         "{basis}. La reconnaissance de {name} peut être peu fiable : confirmez d’autres voix, sur d’autres vidéos, pour renforcer la Référence.",
     },
@@ -3876,7 +3876,7 @@ export const fr: Messages = {
       weak: "faible",
       none: "aucune",
       basis: {
-        no_sample: "Aucun échantillon utilisable par la reconnaissance",
+        no_sample: "Aucun échantillon n’entre encore dans la Référence",
         single_clip: "Construite sur une seule vidéo",
         few_references:
           "Construite sur plusieurs vidéos ; trop peu de Références pour la comparer",

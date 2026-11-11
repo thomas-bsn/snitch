@@ -1065,7 +1065,7 @@ export const en = {
         "From this duration, a voice is matched on its own against the references.",
       contributiveMin: "Net speech for a contributive fingerprint (seconds)",
       contributiveHint:
-        "From this duration, a validated voice can strengthen its person's reference. At most the comparable duration.",
+        "From this duration, a validated voice is contributive: it can enter the Reference of its Person. At most the comparable duration.",
       maxClipped: "Maximum share of clipped samples",
       maxClippedHint:
         "Above it, saturated audio rejects the fingerprint (0.01 = 1%).",
@@ -2164,7 +2164,7 @@ export const en = {
           centroid: "Centroid (legacy)",
         },
         current:
-          "{mode} (version {modeVersion}, one sample weighs at most {cap} s), eligibility rule version {ruleVersion}: comparable from {comparable} s, contributive from {contributive} s, at most {clipped} clipped. Scored like production: a threshold read here holds for production under this mode and rule.",
+          "{mode} (version {modeVersion}, one sample weighs at most {cap}), eligibility rule version {ruleVersion}: comparable from {comparable}, contributive from {contributive}, at most {clipped} clipped. Scored like production: a threshold read here holds for production under this mode and rule.",
         legacy:
           "{mode}: the unweighted mean of the reference fingerprints, kept by the thresholds of the pinned pipeline. Its thresholds do not hold for the current production score.",
       },
@@ -3797,7 +3797,7 @@ export const en = {
       heardState: "validated",
       referenceWarningTitle: "Reference to strengthen",
       referenceWarningNone:
-        "No validated voice of {name} can be used by recognition yet: Snitch cannot recognize this voice. Confirm more voices, long enough and not covered by another voice, to build a Reference.",
+        "No validated voice of {name} enters their Reference yet: Snitch cannot recognize this voice. Confirm more voices, long enough and not covered by another voice, to build a Reference.",
       referenceWarningWeak:
         "{basis}. Recognition of {name} may be unreliable: confirm more voices, on other videos, to strengthen the Reference.",
     },
@@ -3807,7 +3807,7 @@ export const en = {
       weak: "weak",
       none: "none",
       basis: {
-        no_sample: "No sample usable by recognition yet",
+        no_sample: "No sample enters the Reference yet",
         single_clip: "Built on a single video",
         few_references:
           "Built on several videos; too few References to compare it with",

@@ -8,7 +8,7 @@ import { useI18n } from "../i18n";
 import { useFailureText } from "./failureText";
 import { PersonActions } from "./PersonActions";
 import { Avatar, ReferenceBadge, shortDate } from "./PersonParts";
-import { durationText } from "./referenceFigures";
+import { useNumberFormats } from "../useNumberFormats";
 import { PersonVideos, PersonVoices } from "./PersonVoices";
 import {
   fetchPerson,
@@ -48,6 +48,7 @@ function ReferencePanel({
   reference: PersonReference;
 }) {
   const { t, language } = useI18n();
+  const { duration } = useNumberFormats();
   const plural = (count: number) =>
     new Intl.PluralRules(language).select(count) === "one" ? "one" : "other";
   const rows: [string, string][] = [
@@ -59,7 +60,7 @@ function ReferencePanel({
       }),
     ],
     [t("people.reference.clips"), String(reference.clips)],
-    [t("people.reference.speech"), durationText(reference.net_speech_seconds)],
+    [t("people.reference.speech"), duration(reference.net_speech_seconds)],
   ];
   return (
     <section
@@ -130,6 +131,7 @@ export function PersonRecord({
   onDeleted: (message: string) => void;
 }) {
   const { t, language } = useI18n();
+  const { duration } = useNumberFormats();
   const failureText = useFailureText();
   const headingId = useId();
   const valid = /^[1-9]\d{0,14}$/.test(id);
@@ -215,7 +217,7 @@ export function PersonRecord({
     [t("people.persons.tiles.videos"), String(person.clip_count), false],
     [
       t("people.persons.tiles.speech"),
-      durationText(person.speaking_seconds),
+      duration(person.speaking_seconds),
       false,
     ],
     [

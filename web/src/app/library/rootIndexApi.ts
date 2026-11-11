@@ -1,23 +1,10 @@
 import type { components } from "../../api.gen";
-import { api, errorCode, mutation } from "../api/client";
-import type { Result } from "../api/loaded";
+import { api, mutation } from "../api/client";
+import { failure, guard } from "../api/loaded";
 
 export type IndexRun = components["schemas"]["IndexRun"];
 export type IndexRunPreview = components["schemas"]["IndexRunPreview"];
 export type IndexMode = "cards" | "full";
-
-const failure = (error: unknown): { ok: false; code: string } => ({
-  ok: false,
-  code: errorCode(error) ?? "unknown",
-});
-
-async function guard<T>(call: () => Promise<Result<T>>): Promise<Result<T>> {
-  try {
-    return await call();
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
 
 /** What an indexation of the whole Racine would do, without starting it. */
 export const previewIndexRun = () =>
