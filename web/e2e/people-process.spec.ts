@@ -128,9 +128,9 @@ test.describe.serial("personnes : écran de traitement d'un clip", () => {
     await expect(card.getByRole("heading", { level: 2 })).toHaveText(
       "SPEAKER_01",
     );
-    // The second voice now looks like the first: a suggestion with its proximity, read again
+    // The second voice now looks like the first: a suggestion with its score, read again
     // once the matching that follows the decision in the background has ended.
-    await expect(card).toContainText("% proximity");
+    await expect(card).toContainText(/score -?\d\.\d{2}/);
     await expect(screen.getByTestId("matching-status")).toContainText(
       "Suggestions up to date · last matching at",
     );
@@ -198,8 +198,8 @@ test.describe.serial("personnes : écran de traitement d'un clip", () => {
         .getByRole("listitem"),
     ).toHaveCount(2);
 
-    // The closest people come with their proximity, never as a confirmation.
-    await expect(card).toContainText("% proximity");
+    // The closest people come with their score (a number, never a percentage), never as a confirmation.
+    await expect(card).toContainText(/score -?\d\.\d{2}/);
     await expect(
       card
         .getByRole("button", { name: /^It is Référence Synthétique/ })

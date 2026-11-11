@@ -691,9 +691,9 @@ test.describe.serial("personnes et vérification", () => {
         )![1],
       );
 
-    // The closest people come with their proximity, never as a confirmation.
+    // The closest people come with their score (a number, never a percentage), never as a confirmation.
     const candidates = current.getByRole("list", { name: "Closest people" });
-    await expect(candidates).toContainText("% proximity");
+    await expect(candidates).toContainText(/score -?\d\.\d{2}/);
     await expect(
       candidates.getByRole("button", { name: /^It is Référence Synthétique/ }),
     ).not.toHaveCount(0);
