@@ -164,6 +164,22 @@ class InstallTests(unittest.TestCase):
                 self.assertEqual(snitch.acks, [{"accepted": False, "cause_code": "invalid_order"}])
                 self.assertEqual((h.downloads, h.calls, snitch.reports), ([], [], []))
 
+    def test_a_disk_too_small_for_the_model_is_refused_before_any_download(self):
+        h, snitch = Harness(self), Snitch([order(size_bytes=318_987_701)])
+        h.executor._free_bytes = lambda path: 100_000_000
+        h.sync(snitch)
+        self.assertEqual(snitch.states(), [("failed", "disk_full")])
+        self.assertEqual((h.downloads, h.calls), ([], []))
+
+    def test_an_engine_that_does_not_fit_the_machine_fails_the_order_before_any_download(self):
+        h, snitch = Harness(self), Snitch([order()])
+        with mock.patch.object(engine_runtime, "install", side_effect=engine_runtime.RuntimeFailed("insufficient_ram")):
+            model_orders.sync_orders(snitch, h.executor)
+            h.executor.wait()
+        self.assertEqual(snitch.states(), [("failed", "runtime_incompatible")])
+        self.assertEqual(h.downloads, [])
+        self.assertFalse(voice_models.is_ready(h.env, REPO, REVISION))
+
     def test_a_restart_repeats_the_outcome_without_a_second_download(self):
         h, snitch = Harness(self), Snitch([order()])
         h.sync(snitch)
