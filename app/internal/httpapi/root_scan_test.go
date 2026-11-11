@@ -107,6 +107,29 @@ func testRootScan(t *testing.T, pool *pgxpool.Pool) {
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM source_files WHERE source_id=$1 AND scan_requested AND index_run_id=$2`, sourceID, run.ID).Scan(&requested); err != nil || requested != count {
 			t.Fatalf("requested %d of %d: %v", requested, count, err)
 		}
+		// The queue the screen polls is bounded by the server, with the total of the Racine.
+		var listed struct {
+			Items []struct {
+				RelativePath string `json:"relative_path"`
+			} `json:"items"`
+			Total int `json:"total"`
+		}
+		filesPath := "/api/admin/sources/" + itoa(sourceID) + "/files"
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, filesPath+"?limit=200", nil, http.StatusOK), &listed); err != nil {
+			t.Fatal(err)
+		}
+		if len(listed.Items) != 200 || listed.Total != count || listed.Items[0].RelativePath != files[0] {
+			t.Fatalf("a bounded queue: %d items of %d, first %+v", len(listed.Items), listed.Total, listed.Items[:1])
+		}
+		if err := json.Unmarshal(h.adminCall(http.MethodGet, filesPath, nil, http.StatusOK), &listed); err != nil {
+			t.Fatal(err)
+		}
+		if len(listed.Items) != 1000 || listed.Total != count {
+			t.Fatalf("without a limit the list is still bounded: %d items of %d", len(listed.Items), listed.Total)
+		}
+		for _, bad := range []string{"0", "1001", "many"} {
+			h.adminCall(http.MethodGet, filesPath+"?limit="+bad, nil, http.StatusBadRequest)
+		}
 		// One scan at a time per Racine, shared with the indexation of the Racine.
 		h.adminCall(http.MethodPost, "/api/admin/video-root/scan-runs", nil, http.StatusConflict)
 		h.adminCall(http.MethodPost, "/api/admin/library/index-runs", map[string]string{"mode": "cards"}, http.StatusConflict)

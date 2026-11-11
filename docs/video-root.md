@@ -56,7 +56,7 @@ Un sous-dossier sélectionné inclut ses sous-dossiers. Rien n'est analysé avan
 - un dossier illisible est sauté et compté (les premiers sont nommés), sans arrêter le reste ;
 - l'écran montre la progression (vidéos trouvées, puis prises en charge) et le bilan ; **Annuler le scan** arrête le parcours et ne demande plus les vidéos pas encore prises. Un seul scan ou une seule Indexation de la Racine est actif à la fois ; relancer ne crée aucun doublon.
 
-La file affiche les fichiers demandés (les 200 premiers) avec leur état :
+La file affiche les fichiers demandés (les 200 premiers, bornés par le serveur : `GET /api/admin/sources/{id}/files?limit=200` renvoie au plus `limit` fichiers, 1 000 par défaut et au plus, avec le total de la source) avec leur état :
 
 - **Indexé** : le fichier est prêt et plus rien n'attend ;
 - **En attente d'un Worker** : la demande est enregistrée, mais aucun Worker n'est connecté ;

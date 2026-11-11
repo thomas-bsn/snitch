@@ -28,7 +28,7 @@ type Queued = {
   scan_requested?: boolean;
 };
 
-/** The queue lists this many files at most: a scan of the whole Racine can request thousands. */
+/** The queue lists this many files at most, bounded by the server: a scan of the whole Racine can request thousands. */
 const QUEUE_SHOWN = 200;
 
 async function request(
@@ -68,6 +68,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
   const [preview, setPreview] = useState<string[] | null>(null);
   const [previewSelection, setPreviewSelection] = useState<string[]>([]);
   const [queue, setQueue] = useState<Queued[]>([]);
+  const [queueTotal, setQueueTotal] = useState(0);
   const [rootScan, setRootScan] = useState<RootScan | null>(null);
   const [rootPreview, setRootPreview] = useState<RootScanPreview | null>(null);
   const [folder, setFolder] = useState("");
@@ -98,15 +99,17 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
       );
       setEntries(browsing.items);
       const files = await request(
-        `/api/admin/sources/${data.root.id}/files`,
+        `/api/admin/sources/${data.root.id}/files?limit=${QUEUE_SHOWN}`,
         csrf,
       );
       setQueue(files.items);
+      setQueueTotal(files.total);
       const current = await fetchCurrentRootScan();
       if (current.ok) setRootScan(current.value);
     } else {
       setEntries([]);
       setQueue([]);
+      setQueueTotal(0);
       setRootScan(null);
     }
   }, [csrf, directory]);
@@ -485,7 +488,7 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                     {t("videoStorage.queueTitle")}
                   </h3>
                   <ul className="max-h-72 overflow-auto divide-y divide-line text-sm">
-                    {queue.slice(0, QUEUE_SHOWN).map((item) => (
+                    {queue.map((item) => (
                       <li
                         key={item.relative_path}
                         className="flex flex-wrap justify-between gap-2 py-2"
@@ -502,10 +505,10 @@ export function VideoStorage({ settings = false }: { settings?: boolean }) {
                       </li>
                     ))}
                   </ul>
-                  {queue.length > QUEUE_SHOWN && (
+                  {queueTotal > queue.length && (
                     <p className="text-sm text-mute">
                       {t("videoStorage.queueMore", {
-                        count: queue.length - QUEUE_SHOWN,
+                        count: queueTotal - queue.length,
                       })}
                     </p>
                   )}

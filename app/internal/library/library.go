@@ -307,8 +307,23 @@ func (s *Service) DisableSource(ctx context.Context, id int64) error {
 	return nil
 }
 
-func (s *Service) ListFiles(ctx context.Context, sourceID int64) ([]File, error) {
-	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.capture_time,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path`, sourceID)
+// MaxListedFiles bounds one listing of the files of a source: a scan of the whole Racine can index tens of
+// thousands of them, and the screens that list them poll.
+const MaxListedFiles = 1000
+
+// ListFiles lists the first files of a source in path order, at most limit (1 to MaxListedFiles), with the
+// number of files of the source.
+func (s *Service) ListFiles(ctx context.Context, sourceID int64, limit int) ([]File, int, error) {
+	var total int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM source_files WHERE source_id=$1`, sourceID).Scan(&total); err != nil {
+		return nil, 0, err
+	}
+	files, err := s.listFiles(ctx, sourceID, min(max(limit, 1), MaxListedFiles))
+	return files, total, err
+}
+
+func (s *Service) listFiles(ctx context.Context, sourceID int64, limit int) ([]File, error) {
+	rows, err := s.pool.Query(ctx, `SELECT sf.relative_path,sf.status,sf.clip_id,COALESCE(sf.error_code,''),sf.scan_requested,sf.size_bytes,sf.modified_at,c.discovered_at,c.capture_time,COALESCE(c.capture_time_origin='filename',true),c.duration_seconds,COALESCE(c.format_name,''),COALESCE(c.video_codec,''),COALESCE(c.audio_codec,''),COALESCE(c.tracks,'[]'::jsonb) FROM source_files sf LEFT JOIN clips c ON c.id=sf.clip_id WHERE sf.source_id=$1 ORDER BY sf.relative_path LIMIT $2`, sourceID, limit)
 	if err != nil {
 		return nil, err
 	}

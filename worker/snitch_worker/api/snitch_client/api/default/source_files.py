@@ -10,23 +10,33 @@ from ... import errors
 
 from ...models.error import Error
 from ...models.source_files import SourceFiles
+from ...types import UNSET, Unset
 from typing import cast
 
 
 
 def _get_kwargs(
     id: int,
+    *,
+    limit: int | Unset = UNSET,
 
 ) -> dict[str, Any]:
 
 
 
 
+    params: dict[str, Any] = {}
+
+    params["limit"] = limit
+
+
+    params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
 
     _kwargs: dict[str, Any] = {
         "method": "get",
         "url": "/api/admin/sources/{id}/files".format(id=quote(str(id), safe=""),),
+        "params": params,
     }
 
 
@@ -63,11 +73,13 @@ def sync_detailed(
     id: int,
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = UNSET,
 
 ) -> Response[Error | SourceFiles]:
     """
     Args:
         id (int):
+        limit (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -80,6 +92,7 @@ def sync_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+limit=limit,
 
     )
 
@@ -93,11 +106,13 @@ def sync(
     id: int,
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = UNSET,
 
 ) -> Error | SourceFiles | None:
     """
     Args:
         id (int):
+        limit (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -111,6 +126,7 @@ def sync(
     return sync_detailed(
         id=id,
 client=client,
+limit=limit,
 
     ).parsed
 
@@ -118,11 +134,13 @@ async def asyncio_detailed(
     id: int,
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = UNSET,
 
 ) -> Response[Error | SourceFiles]:
     """
     Args:
         id (int):
+        limit (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -135,6 +153,7 @@ async def asyncio_detailed(
 
     kwargs = _get_kwargs(
         id=id,
+limit=limit,
 
     )
 
@@ -148,11 +167,13 @@ async def asyncio(
     id: int,
     *,
     client: AuthenticatedClient | Client,
+    limit: int | Unset = UNSET,
 
 ) -> Error | SourceFiles | None:
     """
     Args:
         id (int):
+        limit (int | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -166,5 +187,6 @@ async def asyncio(
     return (await asyncio_detailed(
         id=id,
 client=client,
+limit=limit,
 
     )).parsed

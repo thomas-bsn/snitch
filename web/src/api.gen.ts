@@ -7229,7 +7229,10 @@ export interface components {
       items: components["schemas"]["Source"][];
     };
     SourceFiles: {
+      /** @description Premiers fichiers de la source dans l'ordre des chemins, au plus limit. */
       items: components["schemas"]["SourceFile"][];
+      /** @description Nombre de fichiers de la source. */
+      total: number;
     };
     SourceFile: {
       name: string;
@@ -13241,7 +13244,10 @@ export interface operations {
   };
   sourceFiles: {
     parameters: {
-      query?: never;
+      query?: {
+        /** @description Nombre maximal de fichiers renvoyés, dans l'ordre des chemins ; 1000 par défaut et au plus. Hors bornes : 400 invalid_pagination. */
+        limit?: number;
+      };
       header?: never;
       path: {
         id: number;

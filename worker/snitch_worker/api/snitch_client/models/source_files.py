@@ -25,10 +25,12 @@ T = TypeVar("T", bound="SourceFiles")
 class SourceFiles:
     """
         Attributes:
-            items (list[SourceFile]):
+            items (list[SourceFile]): Premiers fichiers de la source dans l'ordre des chemins, au plus limit.
+            total (int): Nombre de fichiers de la source.
      """
 
     items: list[SourceFile]
+    total: int
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -44,11 +46,14 @@ class SourceFiles:
 
 
 
+        total = self.total
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
             "items": items,
+            "total": total,
         })
 
         return field_dict
@@ -69,8 +74,11 @@ class SourceFiles:
             items.append(items_item)
 
 
+        total = d.pop("total")
+
         source_files = cls(
             items=items,
+            total=total,
         )
 
 

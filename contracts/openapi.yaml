@@ -5669,6 +5669,17 @@
               "format": "int64",
               "minimum": 1
             }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "description": "Nombre maximal de fichiers renvoyés, dans l'ordre des chemins ; 1000 par défaut et au plus. Hors bornes : 400 invalid_pagination.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000
+            }
           }
         ],
         "responses": {
@@ -27452,14 +27463,21 @@
       "SourceFiles": {
         "type": "object",
         "required": [
-          "items"
+          "items",
+          "total"
         ],
         "properties": {
           "items": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/SourceFile"
-            }
+            },
+            "description": "Premiers fichiers de la source dans l'ordre des chemins, au plus limit."
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Nombre de fichiers de la source."
           }
         }
       },
