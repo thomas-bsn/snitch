@@ -1029,10 +1029,31 @@ export const en = {
     fake: "Synthetic provider (tests)",
     model: "Diarization model",
     modelVersion: "Model version",
-    minDuration: "Minimum fingerprint duration (seconds)",
-    minQuality: "Minimum quality",
     fakeSpeakers: "Synthetic speakers",
-    savePipeline: "Save and version",
+    eligibility: {
+      comparableMin: "Net speech for a comparable fingerprint (seconds)",
+      comparableHint:
+        "From this duration, a voice is matched on its own against the references.",
+      contributiveMin: "Net speech for a contributive fingerprint (seconds)",
+      contributiveHint:
+        "From this duration, a validated voice can strengthen its person's reference. At most the comparable duration.",
+      maxClipped: "Maximum share of clipped samples",
+      maxClippedHint:
+        "Above it, saturated audio rejects the fingerprint (0.01 = 1%).",
+      provisional:
+        "Rule {version}: provisional values set by Snitch, to be confirmed by an administrator.",
+      rule: "Rule {version}, set by {author} on {date}.",
+      summary:
+        "Voice fingerprints: {comparable} comparable, {contributive} contributive only, {tooShort} too short, {overlap} overlapped, {clipped} clipped, {lowQuality} rejected before the rule.",
+      stale:
+        "{count} fingerprints are still decided by an earlier rule. Saving the rule requalifies them.",
+      save: "Save and requalify",
+      requalified: "{count} fingerprints changed eligibility.",
+      history: "Earlier versions of the rule",
+      historyItem:
+        "Rule {version}: comparable {comparable} s, contributive {contributive} s, clipped at most {clipped} · {author} · {date}",
+      snitch: "Snitch",
+    },
     matching: "Voice matching",
     matchingHint:
       "Only human-validated samples are references. Thresholds must be evaluated.",
@@ -1103,7 +1124,7 @@ export const en = {
     candidatesHint: "Number of people proposed for a voice.",
     fingerprintSettings: "Voice fingerprints",
     fingerprintHint:
-      "Short or poor-quality extracts do not produce a fingerprint. Saving creates a new pipeline version.",
+      "Snitch decides which fingerprints are used from their net speech, the speech no other voice covers. Saving the rule requalifies every stored fingerprint, without analysing anything again, then matches the voices again.",
     automationSettings: "Automation criteria",
     precisionHint: "Measured precision required before activation is proposed.",
     confirmationsHint: "Human confirmations required before activation.",

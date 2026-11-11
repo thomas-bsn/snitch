@@ -8,18 +8,18 @@ import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
 import { useSession } from "../../session";
 
-type Pipeline = components["schemas"]["VoicePipeline"];
+type Eligibility = components["schemas"]["VoiceEligibility"];
+type EligibilityInput = components["schemas"]["VoiceEligibilityInput"];
 type Matching = components["schemas"]["VoiceMatchingSettings"];
 type Accuracy = components["schemas"]["VoiceAccuracy"];
 
-// The values the installation starts with: a reset goes back to them.
+// The values the installation starts with: a reset goes back to them. The eligibility rule's come from the
+// server (its provisional version).
 const DEFAULTS = {
   automatic_threshold: 0.9,
   suggestion_threshold: 0.75,
   ambiguity_margin: 0.05,
   max_candidates: 5,
-  min_fingerprint_seconds: 1,
-  min_quality: 0.5,
   precision_threshold: 0.95,
   min_confirmations: 50,
 };
@@ -29,12 +29,12 @@ const pct = (x: number | null, none: string) =>
 
 /** The thresholds, folded away: nothing here is needed to use the screen. */
 export function VoiceAdvanced({
-  pipeline,
+  eligibility,
   matching,
   accuracy,
   onChanged,
 }: {
-  pipeline: Pipeline;
+  eligibility: Eligibility;
   matching: Matching;
   accuracy: Accuracy;
   onChanged: () => void;
@@ -42,7 +42,8 @@ export function VoiceAdvanced({
   const { t, error } = useI18n();
   const { session } = useSession();
   const headers = mutation(session?.csrf_token);
-  const [fp, setFp] = useState<Partial<Pipeline>>();
+  const [rule, setRule] = useState<Partial<EligibilityInput>>();
+  const [requalified, setRequalified] = useState<number>();
   const [match, setMatch] = useState<Partial<Matching>>();
   const [precision, setPrecision] = useState<string>();
   const [confirmations, setConfirmations] = useState<string>();
@@ -52,7 +53,12 @@ export function VoiceAdvanced({
   const [resetting, setResetting] = useState(false);
   const [summary, setSummary] =
     useState<components["schemas"]["VoiceMatchingSummary"]>();
-  const pipe = { ...pipeline, ...fp };
+  const current: EligibilityInput = {
+    comparable_min_seconds: eligibility.rule.comparable_min_seconds,
+    contributive_min_seconds: eligibility.rule.contributive_min_seconds,
+    max_clipped_ratio: eligibility.rule.max_clipped_ratio,
+  };
+  const r = { ...current, ...rule };
   const m = { ...matching, ...match };
   const none = t("voiceAdmin.notMeasured");
   async function run(
@@ -77,15 +83,19 @@ export function VoiceAdvanced({
       setResetting(false);
     }
   }
-  const savePipeline = (e: FormEvent) => {
+  const putRule = async (body: EligibilityInput) => {
+    const result = await api.PUT("/api/admin/voice-eligibility", {
+      params: { header: headers },
+      body,
+    });
+    if (result.data) setRequalified(result.data.requalified);
+    return result;
+  };
+  const saveRule = (e: FormEvent) => {
     e.preventDefault();
     void run(
-      () =>
-        api.PUT("/api/admin/voice-pipeline", {
-          params: { header: headers },
-          body: pipe,
-        }),
-      () => setFp(undefined),
+      () => putRule(r),
+      () => setRule(undefined),
     );
   };
   const saveMatching = (e: FormEvent) => {
@@ -141,23 +151,17 @@ export function VoiceAdvanced({
           DEFAULTS.min_confirmations,
         );
         if (b.error) return b;
+        const d = eligibility.defaults;
         if (
-          pipeline.min_fingerprint_seconds ===
-            DEFAULTS.min_fingerprint_seconds &&
-          pipeline.min_quality === DEFAULTS.min_quality
+          d.comparable_min_seconds === current.comparable_min_seconds &&
+          d.contributive_min_seconds === current.contributive_min_seconds &&
+          d.max_clipped_ratio === current.max_clipped_ratio
         )
           return b;
-        return api.PUT("/api/admin/voice-pipeline", {
-          params: { header: headers },
-          body: {
-            ...pipeline,
-            min_fingerprint_seconds: DEFAULTS.min_fingerprint_seconds,
-            min_quality: DEFAULTS.min_quality,
-          },
-        });
+        return putRule(d);
       },
       () => {
-        setFp(undefined);
+        setRule(undefined);
         setMatch(undefined);
         setPrecision(undefined);
         setConfirmations(undefined);
@@ -280,38 +284,109 @@ export function VoiceAdvanced({
             {t("voiceScreen.fingerprintSettings")}
           </h4>
           <p className="text-mute">{t("voiceScreen.fingerprintHint")}</p>
-          <form
-            onSubmit={savePipeline}
-            className="flex max-w-xl flex-col gap-3"
-          >
+          <p>
+            {eligibility.rule.provisional
+              ? t("voiceAdmin.eligibility.provisional", {
+                  version: eligibility.rule.version,
+                })
+              : t("voiceAdmin.eligibility.rule", {
+                  version: eligibility.rule.version,
+                  author: eligibility.rule.author ?? "",
+                  date: new Date(eligibility.rule.created_at).toLocaleString(),
+                })}
+          </p>
+          <p>
+            {t("voiceAdmin.eligibility.summary", {
+              comparable: eligibility.summary.comparable,
+              contributive: eligibility.summary.contributive_only,
+              tooShort: eligibility.summary.too_short,
+              overlap: eligibility.summary.overlap_only,
+              clipped: eligibility.summary.clipped,
+              lowQuality: eligibility.summary.low_quality,
+            })}
+          </p>
+          {eligibility.summary.stale > 0 && (
+            <p className="text-mute">
+              {t("voiceAdmin.eligibility.stale", {
+                count: eligibility.summary.stale,
+              })}
+            </p>
+          )}
+          <form onSubmit={saveRule} className="flex max-w-xl flex-col gap-3">
             <Field
-              label={t("voiceAdmin.minDuration")}
+              label={t("voiceAdmin.eligibility.comparableMin")}
+              hint={t("voiceAdmin.eligibility.comparableHint")}
               type="number"
-              min={0.1}
+              min={0.5}
               max={60}
               step={0.1}
-              value={pipe.min_fingerprint_seconds}
+              value={r.comparable_min_seconds}
               onChange={(e) =>
-                setFp({ ...fp, min_fingerprint_seconds: num(e.target.value) })
+                setRule({
+                  ...rule,
+                  comparable_min_seconds: num(e.target.value),
+                })
               }
             />
             <Field
-              label={t("voiceAdmin.minQuality")}
+              label={t("voiceAdmin.eligibility.contributiveMin")}
+              hint={t("voiceAdmin.eligibility.contributiveHint")}
+              type="number"
+              min={0.5}
+              max={60}
+              step={0.1}
+              value={r.contributive_min_seconds}
+              onChange={(e) =>
+                setRule({
+                  ...rule,
+                  contributive_min_seconds: num(e.target.value),
+                })
+              }
+            />
+            <Field
+              label={t("voiceAdmin.eligibility.maxClipped")}
+              hint={t("voiceAdmin.eligibility.maxClippedHint")}
               type="number"
               min={0}
               max={1}
-              step={0.05}
-              value={pipe.min_quality}
+              step="any"
+              value={r.max_clipped_ratio}
               onChange={(e) =>
-                setFp({ ...fp, min_quality: num(e.target.value) })
+                setRule({ ...rule, max_clipped_ratio: num(e.target.value) })
               }
             />
             <div>
               <button disabled={busy} className={buttonClass("primary")}>
-                {t("voiceAdmin.savePipeline")}
+                {t("voiceAdmin.eligibility.save")}
               </button>
             </div>
           </form>
+          {requalified !== undefined && (
+            <p role="status">
+              {t("voiceAdmin.eligibility.requalified", { count: requalified })}
+            </p>
+          )}
+          {eligibility.history.length > 1 && (
+            <details>
+              <summary className="cursor-pointer">
+                {t("voiceAdmin.eligibility.history")}
+              </summary>
+              <ul className="list-disc pl-5">
+                {eligibility.history.slice(1).map((v) => (
+                  <li key={v.version}>
+                    {t("voiceAdmin.eligibility.historyItem", {
+                      version: v.version,
+                      comparable: v.comparable_min_seconds,
+                      contributive: v.contributive_min_seconds,
+                      clipped: v.max_clipped_ratio,
+                      author: v.author ?? t("voiceAdmin.eligibility.snitch"),
+                      date: new Date(v.created_at).toLocaleString(),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
         </section>
 
         <section

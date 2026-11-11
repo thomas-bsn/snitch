@@ -1049,10 +1049,31 @@ export const fr: Messages = {
     fake: "Fournisseur factice (tests)",
     model: "Modèle de diarisation",
     modelVersion: "Version du modèle",
-    minDuration: "Durée minimale d’une empreinte (secondes)",
-    minQuality: "Qualité minimale",
     fakeSpeakers: "Locuteurs factices",
-    savePipeline: "Enregistrer et versionner",
+    eligibility: {
+      comparableMin: "Parole nette d’une empreinte comparable (secondes)",
+      comparableHint:
+        "À partir de cette durée, une voix est rapprochée seule des références.",
+      contributiveMin: "Parole nette d’une empreinte contributive (secondes)",
+      contributiveHint:
+        "À partir de cette durée, une voix validée peut renforcer la référence de sa personne. Au plus la durée comparable.",
+      maxClipped: "Part maximale d’échantillons écrêtés",
+      maxClippedHint:
+        "Au-delà, un son saturé fait rejeter l’empreinte (0,01 = 1 %).",
+      provisional:
+        "Règle {version} : valeurs provisoires fixées par Snitch, à confirmer par un administrateur.",
+      rule: "Règle {version}, fixée par {author} le {date}.",
+      summary:
+        "Empreintes vocales : {comparable} comparables, {contributive} seulement contributives, {tooShort} trop courtes, {overlap} chevauchées, {clipped} écrêtées, {lowQuality} rejetées avant la règle.",
+      stale:
+        "{count} empreintes relèvent encore d’une règle antérieure. Enregistrer la règle les requalifie.",
+      save: "Enregistrer et requalifier",
+      requalified: "{count} empreintes ont changé d’éligibilité.",
+      history: "Versions précédentes de la règle",
+      historyItem:
+        "Règle {version} : comparable {comparable} s, contributive {contributive} s, écrêtage au plus {clipped} · {author} · {date}",
+      snitch: "Snitch",
+    },
     matching: "Rapprochement vocal",
     matchingHint:
       "Seuls les échantillons validés par un humain servent de références. Les seuils restent à évaluer.",
@@ -1124,7 +1145,7 @@ export const fr: Messages = {
     candidatesHint: "Nombre de personnes proposées pour une voix.",
     fingerprintSettings: "Empreintes vocales",
     fingerprintHint:
-      "Les extraits trop courts ou de mauvaise qualité ne produisent pas d’empreinte. Enregistrer crée une nouvelle version du pipeline.",
+      "Snitch décide des empreintes utilisées d’après leur Parole nette, la parole qu’aucune autre voix ne recouvre. Enregistrer la règle requalifie toutes les empreintes déjà stockées, sans rien réanalyser, puis rapproche de nouveau les voix.",
     automationSettings: "Critères d’automatisation",
     precisionHint:
       "Précision mesurée requise avant que l’activation soit proposée.",

@@ -61,6 +61,23 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
     .click();
   await expect(page.getByText("Settings saved.")).toBeVisible();
 
+  // The fingerprint eligibility rule starts provisional; a saved change is a traced version.
+  const fingerprints = page.getByRole("region", {
+    name: "Voice fingerprints",
+    exact: true,
+  });
+  await expect(fingerprints).toContainText("provisional values set by Snitch");
+  await fingerprints
+    .getByLabel("Net speech for a comparable fingerprint (seconds)")
+    .fill("1.5");
+  await fingerprints
+    .getByRole("button", { name: "Save and requalify" })
+    .click();
+  await expect(fingerprints.getByRole("status")).toContainText(
+    "fingerprints changed eligibility",
+  );
+  await expect(fingerprints).toContainText("Rule 2, set by");
+
   // Enabling needs an explicit confirmation, and a second one when the criteria are unmet.
   await toggle.click();
   const dialog = page.getByRole("alertdialog");
@@ -88,6 +105,11 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
     .getByRole("button", { name: "Reset", exact: true })
     .click();
   await expect(matching.getByLabel("Suggestion threshold")).toHaveValue("0.75");
+  await expect(
+    fingerprints.getByLabel(
+      "Net speech for a comparable fingerprint (seconds)",
+    ),
+  ).toHaveValue("2");
 
   await expectNoViolations(page);
   await context.close();

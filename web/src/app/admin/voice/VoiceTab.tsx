@@ -7,11 +7,11 @@ import { VoiceWorkspace } from "./VoiceWorkspace";
 
 async function load() {
   try {
-    const [overview, models, pipeline, matching, accuracy, workers] =
+    const [overview, models, eligibility, matching, accuracy, workers] =
       await Promise.all([
         api.GET("/api/admin/voice-overview"),
         api.GET("/api/admin/voice-models"),
-        api.GET("/api/admin/voice-pipeline"),
+        api.GET("/api/admin/voice-eligibility"),
         api.GET("/api/voice-matching"),
         api.GET("/api/admin/voice-accuracy"),
         api.GET("/api/admin/voice-models/workers"),
@@ -19,7 +19,7 @@ async function load() {
     if (
       overview.data &&
       models.data &&
-      pipeline.data &&
+      eligibility.data &&
       matching.data &&
       accuracy.data &&
       workers.data
@@ -29,7 +29,7 @@ async function load() {
         value: {
           overview: overview.data,
           models: models.data,
-          pipeline: pipeline.data,
+          eligibility: eligibility.data,
           matching: matching.data,
           accuracy: accuracy.data,
           workers: workers.data,
@@ -41,7 +41,7 @@ async function load() {
         errorCode(
           overview.error ??
             models.error ??
-            pipeline.error ??
+            eligibility.error ??
             matching.error ??
             accuracy.error ??
             workers.error,
@@ -77,14 +77,14 @@ export function VoiceTab() {
     return <p role="status">{t("app.loading")}</p>;
   if (state.status === "failed")
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
-  const { overview, models, pipeline, matching, accuracy, workers } =
+  const { overview, models, eligibility, matching, accuracy, workers } =
     state.value;
   return (
     <VoiceWorkspace
       catalogue={models}
       workers={workers.workers}
       overview={overview}
-      pipeline={pipeline.config}
+      eligibility={eligibility}
       matching={matching}
       accuracy={accuracy}
       onChanged={reload}
