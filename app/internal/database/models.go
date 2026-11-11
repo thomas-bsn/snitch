@@ -1118,6 +1118,8 @@ type VoiceModelCatalog struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	Family              string             `json:"family"`
+	SeparatedVoices     int32              `json:"separated_voices"`
+	SampleRateHz        int32              `json:"sample_rate_hz"`
 }
 
 type VoicePipelineActive struct {

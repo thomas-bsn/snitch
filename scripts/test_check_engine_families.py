@@ -10,7 +10,11 @@ class EngineFamilyParityTests(unittest.TestCase):
     def test_the_go_table_is_read_with_its_kinds_and_active_kinds(self):
         families, signed = check.parse_go(check.go_source())
         self.assertEqual(families["nemo"]["kinds"], ["diarization", "fingerprint"])
-        self.assertEqual(families["speechbrain"]["active"], ["fingerprint"])
+        self.assertEqual(families["speechbrain"]["active"], ["fingerprint", "separation"])
+        # A family that installs for a kind no adapter runs lists its active kinds apart.
+        inactive = check.go_source().replace('Kinds:  []string{"fingerprint", "separation"},',
+                                             'Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"},')
+        self.assertEqual(check.parse_go(inactive)[0]["speechbrain"]["active"], ["fingerprint"])
         self.assertEqual(families["wespeaker"]["distribution"], "wespeakerruntime")
         self.assertEqual(signed, {"nemo-titanet", "speechbrain-ecapa"})
 
@@ -23,8 +27,9 @@ class EngineFamilyParityTests(unittest.TestCase):
     def test_a_changed_value_is_reported(self):
         source = check.go_source().replace('Distribution: "speechbrain"', 'Distribution: "speechbrain-other"')
         self.assertTrue(any("speechbrain" in d and "distribution" in d for d in check.differences(source, check.worker_tables())))
-        source = check.go_source().replace('Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"}',
-                                           'Kinds: []string{"fingerprint", "separation"}')
+        source = check.go_source().replace('Kinds:  []string{"fingerprint", "separation"},',
+                                           'Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"},')
+        self.assertNotEqual(source, check.go_source())
         self.assertTrue(any("active" in d for d in check.differences(source, check.worker_tables())))
 
     def test_a_signed_only_adapter_changed_on_one_side_is_reported(self):

@@ -491,6 +491,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testVoiceModelOnDemandFamilies(t, pool)
 	})
+	t.Run("voice separation model", func(t *testing.T) {
+		reset(t)
+		testVoiceSeparationModel(t, pool)
+	})
 	t.Run("voice engine families and plan", func(t *testing.T) {
 		reset(t)
 		testVoiceEngineFamiliesAndPlan(t, pool)

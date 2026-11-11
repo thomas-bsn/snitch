@@ -11,14 +11,15 @@ import (
 // Approved adapters, in the order that decides when several fit the same repository (first match wins, so the
 // answer is deterministic and does not depend on tag order or on the user):
 //
-//  1. nemo-titanet / speechbrain-ecapa - fingerprint, with explicit family tags.
+//  1. nemo-titanet / speechbrain-ecapa - fingerprint, with explicit family tags; speechbrain-sepformer -
+//     separation, for the SepFormer repositories whose limits are documented (separationModels).
 //  2. nemo - diarization, for repositories declaring NeMo or a *.nemo artifact.
 //  3. pyannote - diarization and fingerprint, with a pyannote library/tag.
 //
 // Metadata proposes an adapter; only its successful local inference proves readiness.
 //
 // Transformers is in the target matrix but has no Worker adapter yet: a repository that only fits it stays
-// unsupported until an adapter is implemented and tested. Separation has no adapter before #268.
+// unsupported until an adapter is implemented and tested. Separation runs on the SepFormer adapter only (#401).
 // A repository that carries remote code (custom_code tag, auto_map) is never supported: it would execute
 // code of the repository.
 type hfAdapter struct {
@@ -33,6 +34,10 @@ var hfAdapters = []hfAdapter{
 	}},
 	{"speechbrain-ecapa", []string{"fingerprint"}, func(m hfMetadata) bool {
 		return (m.LibraryName == "speechbrain" || slices.Contains(m.Tags, "speechbrain")) && declaresECAPA(m.Tags)
+	}},
+	{sepformerEngine, []string{"separation"}, func(m hfMetadata) bool {
+		return (m.LibraryName == "speechbrain" || slices.Contains(m.Tags, "speechbrain")) &&
+			slices.ContainsFunc(m.Tags, func(tag string) bool { return strings.EqualFold(strings.TrimSpace(tag), "sepformer") })
 	}},
 	{"nemo", []string{"diarization"}, func(m hfMetadata) bool {
 		if m.LibraryName == "nemo" || slices.Contains(m.Tags, "nemo") {
@@ -53,6 +58,24 @@ var hfAdapters = []hfAdapter{
 	{"wespeaker", []string{"fingerprint"}, func(m hfMetadata) bool {
 		return m.LibraryName == "wespeaker" || slices.Contains(m.Tags, "wespeaker")
 	}},
+}
+
+const sepformerEngine = "speechbrain-sepformer"
+
+// separationLimits are what a separation model can do, as its original documentation states it: it always
+// returns Voices sources, whatever the audio holds, and works at SampleRateHz.
+type separationLimits struct {
+	Voices       int
+	SampleRateHz int
+}
+
+// separationModels are the separation references Snitch supports, with the limits read from their model card
+// and their hyperparams file (ADR 0065 names the source of each fact). The limits are shown in the catalogue,
+// so a SepFormer repository that is not here is refused instead of being listed with guessed limits: adding a
+// variant is a line here, after reading its documentation.
+var separationModels = map[string]separationLimits{
+	"speechbrain/sepformer-whamr16k": {Voices: 2, SampleRateHz: 16000},
+	"speechbrain/sepformer-wsj03mix": {Voices: 3, SampleRateHz: 8000},
 }
 
 // declaresECAPA reads the ECAPA-TDNN family tag whichever way a repository spells it: "ecapa-tdnn" as one tag, or
@@ -116,9 +139,14 @@ func assessHF(m hfMetadata) hfAssessment {
 	switch {
 	case a.Engine == "":
 		a.UnsupportedReason = "no approved adapter can load this repository"
+	case a.Engine == sepformerEngine:
+		if _, documented := separationModels[m.ID]; !documented {
+			a.CompatibleKinds = nil
+			a.UnsupportedReason = "the limits of this separation model are not documented in Snitch"
+		}
 	case a.ProposedKind == "separation":
 		a.CompatibleKinds = nil
-		a.UnsupportedReason = "no approved adapter runs separation yet"
+		a.UnsupportedReason = "the " + a.Engine + " adapter cannot run a separation model"
 	}
 	return a
 }
@@ -128,8 +156,6 @@ func (a hfAssessment) supports(kind string) (bool, string) {
 	switch {
 	case a.UnsupportedReason != "":
 		return false, a.UnsupportedReason
-	case kind == "separation":
-		return false, "no approved adapter runs separation yet"
 	case !slices.Contains(a.CompatibleKinds, kind):
 		return false, "the " + a.Engine + " adapter cannot run a " + kind + " model"
 	}

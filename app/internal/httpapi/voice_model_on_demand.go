@@ -73,8 +73,8 @@ type enginePreview struct {
 	Version        string `json:"version,omitempty"`
 	Kind           string `json:"kind,omitempty"`
 	State          string `json:"state,omitempty"`
-	// Active is false when the family installs for this kind but no adapter runs it (SpeechBrain separation): the
-	// engine is ordered with the model and the model stays unavailable.
+	// Active is false when the family installs for this kind but no adapter runs it: the engine is ordered with
+	// the model and the model stays unavailable.
 	Active           bool  `json:"active"`
 	DiskBytes        int64 `json:"disk_bytes"`
 	EstimatedSeconds int64 `json:"estimated_seconds"`

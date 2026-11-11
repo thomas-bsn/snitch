@@ -22964,7 +22964,17 @@
           },
           "supported": {
             "type": "boolean",
-            "description": "Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation)."
+            "description": "Faux quand aucun adaptateur approuvé ne sait l'exécuter."
+          },
+          "separated_voices": {
+            "type": "integer",
+            "minimum": 2,
+            "description": "Modèle de séparation : nombre de voix qu'il sépare, d'après sa documentation d'origine. Il rend toujours ce nombre de sources, quel que soit l'audio. Absent pour un autre type ou une référence sans adaptateur."
+          },
+          "sample_rate_hz": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Modèle de séparation : fréquence d'échantillonnage à laquelle il travaille, en hertz, d'après sa documentation d'origine. Absent pour un autre type ou une référence sans adaptateur."
           },
           "unsupported_reason": {
             "type": "string"

@@ -35,7 +35,7 @@ class VoiceModel:
             label (str):
             vram_bytes (int): Mémoire GPU nécessaire, 0 si inconnue.
             enabled (bool): Une référence désactivée ne peut plus être choisie ; son historique reste lisible.
-            supported (bool): Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation).
+            supported (bool): Faux quand aucun adaptateur approuvé ne sait l'exécuter.
             unsupported_reason (str):
             engine (str):
             repo (str):
@@ -49,6 +49,11 @@ class VoiceModel:
             candidate (bool):
             installed (bool): Au moins un Worker a le modèle prêt.
             workers (list[VoiceModelWorkerState]):
+            separated_voices (int | Unset): Modèle de séparation : nombre de voix qu'il sépare, d'après sa documentation
+                d'origine. Il rend toujours ce nombre de sources, quel que soit l'audio. Absent pour un autre type ou une
+                référence sans adaptateur.
+            sample_rate_hz (int | Unset): Modèle de séparation : fréquence d'échantillonnage à laquelle il travaille, en
+                hertz, d'après sa documentation d'origine. Absent pour un autre type ou une référence sans adaptateur.
             family (str | Unset): Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur
                 embarqué ou un adaptateur signé.
      """
@@ -73,6 +78,8 @@ class VoiceModel:
     candidate: bool
     installed: bool
     workers: list[VoiceModelWorkerState]
+    separated_voices: int | Unset = UNSET
+    sample_rate_hz: int | Unset = UNSET
     family: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -128,6 +135,10 @@ class VoiceModel:
 
 
 
+        separated_voices = self.separated_voices
+
+        sample_rate_hz = self.sample_rate_hz
+
         family = self.family
 
 
@@ -155,6 +166,10 @@ class VoiceModel:
             "installed": installed,
             "workers": workers,
         })
+        if separated_voices is not UNSET:
+            field_dict["separated_voices"] = separated_voices
+        if sample_rate_hz is not UNSET:
+            field_dict["sample_rate_hz"] = sample_rate_hz
         if family is not UNSET:
             field_dict["family"] = family
 
@@ -223,6 +238,10 @@ class VoiceModel:
             workers.append(workers_item)
 
 
+        separated_voices = d.pop("separated_voices", UNSET)
+
+        sample_rate_hz = d.pop("sample_rate_hz", UNSET)
+
         family = d.pop("family", UNSET)
 
         voice_model = cls(
@@ -246,6 +265,8 @@ class VoiceModel:
             candidate=candidate,
             installed=installed,
             workers=workers,
+            separated_voices=separated_voices,
+            sample_rate_hz=sample_rate_hz,
             family=family,
         )
 

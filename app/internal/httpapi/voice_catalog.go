@@ -30,13 +30,16 @@ type voiceCatalogEntry struct {
 	// Family names the on-demand engine family the model asks for (ADR 0056); empty for the embedded and the
 	// signed adapters. Engine stays the adapter that loads the weights.
 	Family string
+	// SeparatedVoices and SampleRateHz are the limits of a separation model (ADR 0065); 0 for another type.
+	SeparatedVoices int
+	SampleRateHz    int
 }
 
-const voiceCatalogColumns = `id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason,family`
+const voiceCatalogColumns = `id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason,family,separated_voices,sample_rate_hz`
 
 func scanVoiceCatalogEntry(row pgx.Row) (voiceCatalogEntry, error) {
 	var e voiceCatalogEntry
-	err := row.Scan(&e.ID, &e.Kind, &e.Engine, &e.Repo, &e.Revision, &e.Label, &e.License, &e.Gated, &e.MaxSpeakers, &e.SizeBytes, &e.VRAMBytes, &e.SupportsNumSpeakers, &e.Enabled, &e.Supported, &e.UnsupportedReason, &e.Family)
+	err := row.Scan(&e.ID, &e.Kind, &e.Engine, &e.Repo, &e.Revision, &e.Label, &e.License, &e.Gated, &e.MaxSpeakers, &e.SizeBytes, &e.VRAMBytes, &e.SupportsNumSpeakers, &e.Enabled, &e.Supported, &e.UnsupportedReason, &e.Family, &e.SeparatedVoices, &e.SampleRateHz)
 	return e, err
 }
 

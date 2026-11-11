@@ -5745,8 +5745,12 @@ export interface components {
       vram_bytes: number;
       /** @description Une référence désactivée ne peut plus être choisie ; son historique reste lisible. */
       enabled: boolean;
-      /** @description Faux quand aucun adaptateur approuvé ne sait l'exécuter (toujours le cas de la séparation). */
+      /** @description Faux quand aucun adaptateur approuvé ne sait l'exécuter. */
       supported: boolean;
+      /** @description Modèle de séparation : nombre de voix qu'il sépare, d'après sa documentation d'origine. Il rend toujours ce nombre de sources, quel que soit l'audio. Absent pour un autre type ou une référence sans adaptateur. */
+      separated_voices?: number;
+      /** @description Modèle de séparation : fréquence d'échantillonnage à laquelle il travaille, en hertz, d'après sa documentation d'origine. Absent pour un autre type ou une référence sans adaptateur. */
+      sample_rate_hz?: number;
       unsupported_reason: string;
       engine: string;
       /** @description Famille d'engine à la demande dont le modèle a besoin (ADR 0056) ; absente pour un moteur embarqué ou un adaptateur signé. */

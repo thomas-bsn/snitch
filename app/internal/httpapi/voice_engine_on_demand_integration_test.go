@@ -154,7 +154,7 @@ func testVoiceEngineOnDemandSpeechBrain(t *testing.T, pool *pgxpool.Pool) {
 	if e, ok := h.entry(fixture, r.Order.Digest); !ok || e.State != "requested" {
 		t.Fatalf("inventory: %+v %v", e, ok)
 	}
-	// The engine installs and becomes ready exactly like any other; nothing activates a separation model.
+	// The engine installs and becomes ready exactly like any other; an engine alone installs no model.
 	h.report(r.Order.OrderID, r.Order.Digest, "installing", "", http.StatusNoContent)
 	h.report(r.Order.OrderID, r.Order.Digest, "verifying", "", http.StatusNoContent)
 	h.report(r.Order.OrderID, r.Order.Digest, "ready", "", http.StatusNoContent)

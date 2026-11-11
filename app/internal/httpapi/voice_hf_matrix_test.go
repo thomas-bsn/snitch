@@ -64,8 +64,17 @@ func TestAdapterMatrix(t *testing.T) {
 			"diarization", "", nil, "remote code"},
 		{"auto_map remote code", `{"id":"acme/am",` + sha + `,"library_name":"nemo","tags":["nemo"],"config":{"auto_map":{"AutoModel":"x.Y"}}}`,
 			"", "", nil, "remote code"},
-		{"separation has no adapter yet", `{"id":"acme/sep",` + sha + `,"library_name":"pyannote-audio","tags":["pyannote-audio","audio-source-separation"]}`,
+		{"an adapter of another type does not separate", `{"id":"acme/sep",` + sha + `,"library_name":"pyannote-audio","tags":["pyannote-audio","audio-source-separation"]}`,
 			"separation", "pyannote", nil, "separation"},
+		// The tags of the model card of speechbrain/sepformer-whamr16k, one of the two documented candidates.
+		{"documented SepFormer", `{"id":"speechbrain/sepformer-whamr16k",` + sha + `,"library_name":"speechbrain","tags":["speechbrain","audio-to-audio","audio-source-separation","Source Separation","Speech Separation","WHAM!","SepFormer","Transformer","pytorch","en"]}`,
+			"separation", "speechbrain-sepformer", []string{"separation"}, ""},
+		{"SepFormer whose limits are not documented", `{"id":"acme/sepformer-other",` + sha + `,"library_name":"speechbrain","tags":["speechbrain","SepFormer","audio-source-separation"]}`,
+			"separation", "speechbrain-sepformer", nil, "limits"},
+		{"SepFormer with remote code", `{"id":"speechbrain/sepformer-whamr16k",` + sha + `,"library_name":"speechbrain","tags":["speechbrain","SepFormer","audio-source-separation","custom_code"]}`,
+			"separation", "", nil, "remote code"},
+		{"another SpeechBrain separation architecture", `{"id":"acme/convtasnet",` + sha + `,"library_name":"speechbrain","tags":["speechbrain","audio-source-separation"]}`,
+			"separation", "", nil, "no approved adapter"},
 		// Both approved adapters match: the order of the matrix decides (nemo, then pyannote), never the user.
 		{"several adapters", `{"id":"acme/both",` + sha + `,"library_name":"nemo","tags":["nemo","pyannote-audio","speaker-diarization"],"siblings":[{"rfilename":"m.nemo"}]}`,
 			"diarization", "nemo", []string{"diarization"}, ""},
@@ -91,5 +100,33 @@ func TestAssessmentForKind(t *testing.T) {
 		if ok, reason := a.supports(kind); ok || reason == "" {
 			t.Errorf("%s must be unsupported with a reason: %v %q", kind, ok, reason)
 		}
+	}
+	// A documented separation model is a separation model and nothing else.
+	sep := assessHF(metaOf(t, `{"id":"speechbrain/sepformer-wsj03mix",`+sha+`,"library_name":"speechbrain","tags":["speechbrain","SepFormer"]}`))
+	if ok, reason := sep.supports("separation"); !ok || reason != "" {
+		t.Fatalf("%v %q", ok, reason)
+	}
+	if ok, reason := sep.supports("fingerprint"); ok || reason == "" {
+		t.Fatalf("a separation model is not a fingerprint model: %v %q", ok, reason)
+	}
+}
+
+// The limits shown in the catalogue are the ones of the documentation (ADR 0065), and every supported
+// separation reference has both.
+func TestSeparationModelsDeclareTheirLimits(t *testing.T) {
+	want := map[string]separationLimits{
+		"speechbrain/sepformer-whamr16k": {Voices: 2, SampleRateHz: 16000},
+		"speechbrain/sepformer-wsj03mix": {Voices: 3, SampleRateHz: 8000},
+	}
+	if len(separationModels) != len(want) {
+		t.Fatalf("supported separation models: %v", separationModels)
+	}
+	for repo, limits := range want {
+		if separationModels[repo] != limits {
+			t.Errorf("%s: %+v, want %+v", repo, separationModels[repo], limits)
+		}
+	}
+	if catalogFamily(sepformerEngine, "separation") != "speechbrain" || !engineFamilies["speechbrain"].runs("separation") {
+		t.Fatal("the SepFormer adapter runs on the SpeechBrain family")
 	}
 }
