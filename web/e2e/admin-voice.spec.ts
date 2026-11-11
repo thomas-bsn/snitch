@@ -77,6 +77,23 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
     "fingerprints changed eligibility",
   );
   await expect(fingerprints).toContainText("Rule 2, set by");
+  await expect(fingerprints).toContainText("Last requalification: rule 2");
+
+  // The figures are previewed without effect, then the examined rule is applied and reported.
+  await fingerprints
+    .getByLabel("Net speech for a contributive fingerprint (seconds)")
+    .fill("0.8");
+  await fingerprints
+    .getByRole("button", { name: "Preview the figures" })
+    .click();
+  await expect(fingerprints).toContainText("Nothing has changed yet.");
+  await expect(fingerprints).toContainText("Rule 2, set by");
+  await fingerprints
+    .getByRole("button", { name: "Requalify with this rule" })
+    .click();
+  await expect(fingerprints).toContainText("Rule 3, set by");
+  await expect(fingerprints).toContainText("Last requalification: rule 3");
+  await expect(fingerprints).toContainText("Before:");
 
   // Enabling needs an explicit confirmation, and a second one when the criteria are unmet.
   await toggle.click();
