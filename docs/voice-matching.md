@@ -7,10 +7,10 @@ Snitch rapproche les empreintes des Locuteurs locaux de la Référence de chaque
 - **Références.** La Référence d'une Personne est construite uniquement à partir de ses Échantillons vocaux validés actifs (`voice_samples.retired_at IS NULL`), tant que son Profil vocal n'est pas supprimé. Le rapprochement n'écrit jamais dans `voice_samples` : une attribution automatique n'entre jamais dans une Référence (ADR 0008, ADR 0064).
 - **Comparabilité.** Seules les empreintes comparables (`usable`, décidé par la [règle d'éligibilité](#éligibilité-des-empreintes)) de portée `speaker` sont comparées, et uniquement à l'intérieur d'un même triplet `(model, model_version, dimensions)`. Un groupe sans aucune référence n'est pas évalué : ses attributions automatiques sont retirées plutôt que laissées périmées.
 - **Score** (ADR 0064, [ci-dessous](#score-et-référence-cumulative)). Par défaut, la similarité cosinus entre l'empreinte du Locuteur local et la Référence cumulative de la Personne ; en mode « meilleur échantillon », la meilleure similarité avec l'un de ses échantillons comparables.
-- **Décision**, à partir des seuils (voir plus bas) :
+- **Décision**, à partir des seuils du groupe d'empreintes ([seuils par groupe](#seuils-par-groupe-dempreintes)) :
   - aucune Personne au-dessus du seuil de suggestion : `unknown` ;
   - au moins deux Personnes à moins de la marge d'ambiguïté de la meilleure : `ambiguous`, sans Personne, avec ses candidates (jamais de fusion de deux voix proches sans validation humaine) ;
-  - meilleure similarité au moins égale au seuil automatique : `automatic` si l'automatisation est activée, sinon `suggestion` ;
+  - meilleure similarité au moins égale au seuil automatique : `automatic` si l'automatisation est activée **et** que le groupe a des seuils appliqués, sinon `suggestion` ;
   - sinon `suggestion`.
 - **Humain d'abord.** Un Locuteur local validé n'est jamais rapproché (sa ligne machine éventuelle est retirée). Les lignes machine d'une autre origine que `matching` (par exemple la piste micro, ticket 34) ne sont pas écrasées.
 
@@ -57,13 +57,21 @@ La médiane porte sur toutes les Personnes du groupe, quels que soient le lecteu
 
 | Champ | Défaut | Rôle |
 | --- | --- | --- |
-| `auto_enabled` | `false` | Interrupteur de l'automatisation. Tant qu'il est faux, aucune attribution n'est `automatic` : seulement des suggestions. Sa modification par l'administrateur est livrée avec le ticket d'activation ; l'API actuelle ne l'expose qu'en lecture. |
-| `automatic_threshold` | 0,90 | Similarité minimale d'une attribution automatique. |
-| `suggestion_threshold` | 0,75 | Similarité minimale d'une suggestion (au plus égale au seuil automatique). |
-| `ambiguity_margin` | 0,05 | Écart sous lequel deux Personnes sont jugées aussi proches. |
-| `max_candidates` | 5 | Nombre maximal de candidates conservées (2 à 20). |
+| `auto_enabled` | `false` | Interrupteur de l'automatisation (voir [Précision mesurée](voice-automation.md)). Tant qu'il est faux, aucune attribution n'est `automatic` : seulement des suggestions. |
+| `automatic_threshold` | 0,90 | Valeur provisoire, jamais utilisée pour décider : reprise par la migration pour le groupe actif. |
+| `suggestion_threshold` | 0,75 | Valeur provisoire : seuil de suggestion d'un groupe sans seuils appliqués (au plus égal au seuil automatique). |
+| `ambiguity_margin` | 0,05 | Valeur provisoire : marge d'un groupe sans seuils appliqués. |
+| `max_candidates` | 5 | Nombre maximal de candidates conservées (2 à 20), pour tous les groupes. |
 
-Les valeurs initiales ne sont pas des choix définitifs ; elles attendent le benchmark de la phase 7.
+## Seuils par groupe d'empreintes
+
+L'échelle d'un score cosinus dépend du modèle d'empreinte (ADR 0064, #393). Le seuil de suggestion, le seuil automatique et la marge d'ambiguïté appartiennent donc à un groupe `(model, model_version, dimensions)` : table `voice_group_thresholds` (migration `00148`), en ajout seul, la version la plus haute d'un groupe étant en vigueur, avec l'origine (`migration`, `administrator`, `proposal`), le mode de score actif au moment de l'application, l'auteur (instantané, `NULL` pour Snitch) et la date.
+
+- **Groupe sans seuils appliqués** : il ne produit que des suggestions, avec le seuil de suggestion et la marge provisoires ; aucune Attribution automatique, même interrupteur activé. Après un Changement du modèle d'empreinte (ADR 0044), le nouveau groupe démarre ainsi : l'automatisation reste suspendue jusqu'à ce qu'un administrateur lui applique des seuils, de préférence après la [calibration](voice-automation.md#calibration-des-seuils). Un groupe n'hérite jamais des seuils d'un autre.
+- **Appliquer** est une action explicite de l'administrateur (`PUT /api/admin/voice-matching`) ; rien n'est appliqué automatiquement, pas même la proposition de la mesure. Réappliquer les mêmes valeurs ne crée pas de version.
+- **Migration** : les seuils de l'installation (`voice_matching_settings`) sont repris, version 1 d'origine `migration`, pour le seul groupe actif ; une installation sans empreinte n'en reçoit aucun.
+- **Groupe actif** (`activeFingerprintGroup`, `voice_active_group.go`) : le groupe des dernières empreintes de production comparables du modèle d'empreinte actif ; si ce modèle n'en a aucune, le groupe ayant le plus d'empreintes `speaker` de production (modèles hors catalogue : installations anciennes, Workers synthétiques). Aucun groupe sans empreinte.
+- Les liens entre voix inconnues (`refreshVoiceGroupLinks`) suivent le seuil de suggestion de leur groupe.
 
 ## Éligibilité des empreintes
 
@@ -114,8 +122,8 @@ L'écran **Administration → Voix → Identification et seuils → Paramètres 
 
 ## API
 
-- `GET /api/voice-matching` : tout utilisateur connecté (il voit si l'automatisation est active).
-- `PUT /api/admin/voice-matching` : administrateurs ; les quatre seuils sont obligatoires, `auto_enabled` est refusé. `400 invalid_voice_matching` pour des seuils incohérents. Les empreintes déjà stockées sont rapprochées de nouveau.
+- `GET /api/voice-matching` : tout utilisateur connecté (il voit si l'automatisation est active). Les seuils renvoyés sont ceux du groupe actif (`group`), ou les provisoires ; `thresholds_applied` dit si le groupe a des seuils appliqués.
+- `PUT /api/admin/voice-matching` : administrateurs ; les quatre valeurs sont obligatoires, `auto_enabled` est refusé. Les seuils vont au groupe `group` s'il est donné, sinon au groupe actif (nouvelle version tracée, `source` `administrator` par défaut ou `proposal`) ; sans aucun groupe, ils deviennent les valeurs provisoires. `400 invalid_voice_matching` pour des seuils incohérents, `409 voice_group_unknown` pour un groupe sans empreinte de production. Les empreintes déjà stockées sont rapprochées de nouveau.
 - `POST /api/admin/voice-matching/rematch` : administrateurs ; renvoie le résumé (voix examinées par niveau, attributions retirées).
 - `GET` et `PUT /api/admin/voice-eligibility` : administrateurs ; règle d'éligibilité (voir plus haut), avec les dix dernières requalifications (`requalifications`). `GET /api/admin/voice-eligibility/preview` : aperçu chiffré. `/api/admin/voice-fingerprint-recompute` (`GET`, `POST`, `DELETE`, `/preview`, `/resume`) : recalcul sur la Parole nette (voir plus haut). `400 invalid_voice_eligibility` pour une règle ou une durée hors bornes ou une durée contributive supérieure à la durée comparable.
 - `GET` et `PUT /api/admin/voice-score-mode` : administrateurs ; mode de score actif (`cumulative` ou `best_sample`), version, auteur, date et vingt dernières versions. `400 invalid_voice_score_mode` pour un autre mode.
@@ -130,7 +138,7 @@ L'écran **Administration → Voix → Identification et seuils → Paramètres 
 
 ## Écrans
 
-La carte « Rapprochement vocal » de l'administration règle les seuils, affiche l'état de l'automatisation (lecture seule) et relance le rapprochement. Dans le panneau des voix d'un clip, une suggestion ou une voix ambiguë liste ses candidates avec leur similarité (« pas une garantie ») et un bouton « Valider comme … » : seul ce clic humain crée un échantillon validé.
+La carte « Rapprochement vocal » de l'administration affiche le modèle d'empreinte actif, ses seuils appliqués (version, origine, auteur, date) ou leur absence, l'historique, applique de nouveaux seuils à ce modèle et relance le rapprochement. L'en-tête signale une attribution automatique suspendue faute de seuils. Dans le panneau des voix d'un clip, une suggestion ou une voix ambiguë liste ses candidates avec leur similarité (« pas une garantie ») et un bouton « Valider comme … » : seul ce clic humain crée un échantillon validé.
 
 ## Contrat et code
 
