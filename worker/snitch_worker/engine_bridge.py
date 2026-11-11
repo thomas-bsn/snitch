@@ -68,7 +68,7 @@ class SpeakerProvider(PyannoteProvider):
 
 def _separation(request: dict[str, Any]) -> dict[str, Any]:
     """Separation of the SpeechBrain family (#401, ADR 0065): the test inference of an install order, or the
-    separation of one window of an audio file for an explicit caller. No production step comes here."""
+    separation of windows of one audio file for an explicit caller, with one load of the model. No production step comes here."""
     from snitch_worker import voice_selftest, voice_sepformer
     from snitch_worker.voice_ecapa import UnsupportedVariant
 
@@ -77,10 +77,11 @@ def _separation(request: dict[str, Any]) -> dict[str, Any]:
         raise UnsupportedVariant("kind_not_supported")
     separator = voice_sepformer.load(request["path"], voice_sepformer.resolve_device(os.environ))
     if request["operation"] == "verify":
-        voice_selftest.separate_synthetic(lambda audio, output: voice_sepformer.separate_file(separator, audio, output),
+        voice_selftest.separate_synthetic(lambda audio, output: voice_sepformer.separate_file(separator, audio, output)[0],
                                           separator.num_sources, separator.sample_rate)
         return {}
-    return voice_sepformer.separate_file(separator, request["audio"], request["output_dir"], request.get("start"), request.get("end"))
+    windows = [(start, end) for start, end in request["windows"]]
+    return {"windows": voice_sepformer.separate_file(separator, request["audio"], request["output_dir"], windows)}
 
 
 def execute(request: dict[str, Any]) -> dict[str, Any]:

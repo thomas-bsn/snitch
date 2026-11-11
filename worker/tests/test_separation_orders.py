@@ -109,11 +109,13 @@ class Harness:
             self.executor.wait()
 
     def separation(self, request):
-        return {"sample_rate": 16000, "start": request["start"] or 0.0, "end": request["end"] or 2.0, "gain": 1.0,
-                "sources": [{"index": i, "path": os.path.join(request["output_dir"], f"source-{i}.wav"), "samples": 32000} for i in range(2)]}
+        return {"windows": [{"sample_rate": 16000, "start": start or 0.0, "end": end or 2.0, "gain": 1.0,
+                             "sources": [{"index": i, "path": os.path.join(request["output_dir"], f"window-{w}-source-{i}.wav"), "samples": 32000} for i in range(2)]}
+                            for w, (start, end) in enumerate(request["windows"])]}
 
     def separate(self, **changes):
-        arguments = {"repo": REPO, "revision": REVISION, "audio": "/clip.wav", "output_dir": os.path.join(self.directory.name, "out")}
+        arguments = {"repo": REPO, "revision": REVISION, "audio": "/clip.wav", "output_dir": os.path.join(self.directory.name, "out"),
+                     "windows": [(None, None)]}
         arguments.update(changes)
         a, b, c = self.patched()
         with a, b, c:
@@ -198,11 +200,11 @@ class SeparateTests(unittest.TestCase):
         h.calls.clear()
         return h
 
-    def test_a_ready_model_separates_the_window_asked_in_its_own_environment(self):
+    def test_a_ready_model_separates_every_window_asked_in_one_call_of_its_own_environment(self):
         h = self.ready()
-        result = h.separate(start=1.5, end=4.0)
-        self.assertEqual(h.calls, [("infer", "separation", h.model)])
-        self.assertEqual((result["sample_rate"], result["start"], result["end"], len(result["sources"])), (16000, 1.5, 4.0, 2))
+        results = h.separate(windows=[(1.5, 4.0), (6.0, 7.5), (None, None)])
+        self.assertEqual(h.calls, [("infer", "separation", h.model)])  # one inference process for the three windows
+        self.assertEqual([(r["start"], r["end"], len(r["sources"])) for r in results], [(1.5, 4.0, 2), (6.0, 7.5, 2), (0.0, 2.0, 2)])
         self.assertEqual(h.downloads, [(REPO, REVISION)])  # the order's download, nothing more
 
     def test_an_absent_model_is_an_explicit_state_and_downloads_nothing(self):
@@ -240,8 +242,10 @@ class SeparateTests(unittest.TestCase):
 
     def test_an_answer_that_is_not_the_sources_of_the_output_directory_fails(self):
         h = self.ready()
-        for answer in ({"sample_rate": 16000, "sources": []}, {"sources": [{"index": 0, "path": "/etc/passwd", "samples": 1}], "sample_rate": 16000},
-                       {"sample_rate": "16000", "sources": [{"index": 0, "path": os.path.join(h.directory.name, "out", "source-0.wav"), "samples": 1}]}):
+        good = h.separation({"output_dir": os.path.join(h.directory.name, "out"), "windows": [(None, None)]})
+        for answer in ({"windows": [{"sample_rate": 16000, "sources": []}]}, {"windows": [{"sources": [{"index": 0, "path": "/etc/passwd", "samples": 1}], "sample_rate": 16000}]},
+                       {"windows": [{"sample_rate": "16000", "sources": [{"index": 0, "path": os.path.join(h.directory.name, "out", "source-0.wav"), "samples": 1}]}]},
+                       {"windows": good["windows"] * 2}, {"windows": []}, {"sample_rate": 16000, "sources": good["windows"][0]["sources"]}):
             with self.subTest(answer=answer):
                 h.separation = lambda request, answer=answer: answer
                 with self.assertRaises(VoiceProviderUnavailable) as caught:
@@ -250,7 +254,8 @@ class SeparateTests(unittest.TestCase):
 
     def test_an_invalid_reference_or_window_is_refused_before_anything_runs(self):
         h = self.ready()
-        for changes in ({"repo": "../escape"}, {"revision": "main"}, {"start": 3.0, "end": 1.0}, {"start": -1.0}, {"start": float("nan")}):
+        for changes in ({"repo": "../escape"}, {"revision": "main"}, {"windows": [(0.0, 1.0), (3.0, 1.0)]}, {"windows": [(-1.0, None)]},
+                        {"windows": [(float("nan"), None)]}, {"windows": []}, {"windows": [(1.0,)]}, {"windows": (0.0, 1.0)}):
             with self.subTest(changes=changes), self.assertRaises(VoiceProviderUnavailable):
                 h.separate(**changes)
         self.assertEqual(h.calls, [])

@@ -212,13 +212,16 @@ def load(directory: str, device: str) -> Separator:
     return Separator(architecture["sample_rate"], sources, separate)
 
 
-def separate_file(separator: Separator, audio_path: str, output_dir: str, start: float | None = None, end: float | None = None) -> dict[str, Any]:
-    """Separate one window of an audio file and write each source as a mono 16-bit WAV in ``output_dir``.
+def separate_file(separator: Separator, audio_path: str, output_dir: str,
+                  windows: list[tuple[float | None, float | None]] | None = None) -> list[dict[str, Any]]:
+    """Separate windows of an audio file and write each source as a mono 16-bit WAV in ``output_dir``.
 
-    The file is decoded, mixed down to mono and resampled to the rate of the model. ``start`` and ``end`` are
-    seconds in the file (the whole file by default); the window is cut to the file and refused when empty, too
-    short or longer than MAX_WINDOW_SECONDS. The sources keep their relative levels: one common gain is applied,
-    and only when a sample would clip. Returns the rate, the window really separated and one entry per source."""
+    The file is decoded, mixed down to mono and resampled to the rate of the model once, then every window is cut
+    from it. A window is ``(start, end)`` in seconds of the file, ``None`` for its edge (the whole file by default);
+    it is cut to the file and refused when empty, too short or longer than MAX_WINDOW_SECONDS. Every window is
+    checked before any is separated. The sources keep their relative levels: one common gain per window, applied
+    only when a sample would clip. Returns, in the order asked, the window really separated and one entry per source
+    (``window-<w>-source-<i>.wav``)."""
     import torch  # noqa: PLC0415
     import torchaudio  # noqa: PLC0415
 
@@ -236,28 +239,34 @@ def separate_file(separator: Separator, audio_path: str, output_dir: str, start:
         waveform = torchaudio.functional.resample(waveform, rate, separator.sample_rate)
     rate = separator.sample_rate
     total = int(waveform.shape[-1])
-    first = 0 if start is None else max(0, int(round(float(start) * rate)))
-    last = total if end is None else min(total, int(round(float(end) * rate)))
-    if last <= first:
-        raise UnsupportedAudio("window_empty")
-    if last - first < MIN_WINDOW_SECONDS * rate:
-        raise UnsupportedAudio("window_too_short")
-    if last - first > MAX_WINDOW_SECONDS * rate:
-        raise UnsupportedAudio("window_too_long")
-    sources = separator.separate(waveform[:, first:last]).detach().cpu()
-    if tuple(sources.shape) != (separator.num_sources, last - first) or not bool(torch.isfinite(sources).all()):
-        raise VoiceProviderUnavailable("inference_failed")
-    peak = float(sources.abs().max())
-    gain = 1.0 if peak <= 1.0 else 1.0 / peak
-    pcm = (sources * gain * 32767.0).round().clamp(-32768, 32767).to(torch.int16)
+    spans = []
+    for start, end in windows or [(None, None)]:
+        first = 0 if start is None else max(0, int(round(float(start) * rate)))
+        last = total if end is None else min(total, int(round(float(end) * rate)))
+        if last <= first:
+            raise UnsupportedAudio("window_empty")
+        if last - first < MIN_WINDOW_SECONDS * rate:
+            raise UnsupportedAudio("window_too_short")
+        if last - first > MAX_WINDOW_SECONDS * rate:
+            raise UnsupportedAudio("window_too_long")
+        spans.append((first, last))
     os.makedirs(output_dir, exist_ok=True)
-    written = []
-    for index in range(separator.num_sources):
-        path = os.path.join(output_dir, f"source-{index}.wav")
-        with wave.open(path, "wb") as out:
-            out.setnchannels(1)
-            out.setsampwidth(2)
-            out.setframerate(rate)
-            out.writeframes(pcm[index].numpy().tobytes())
-        written.append({"index": index, "path": path, "samples": last - first})
-    return {"sample_rate": rate, "start": first / rate, "end": last / rate, "gain": gain, "sources": written}
+    results = []
+    for number, (first, last) in enumerate(spans):
+        sources = separator.separate(waveform[:, first:last]).detach().cpu()
+        if tuple(sources.shape) != (separator.num_sources, last - first) or not bool(torch.isfinite(sources).all()):
+            raise VoiceProviderUnavailable("inference_failed")
+        peak = float(sources.abs().max())
+        gain = 1.0 if peak <= 1.0 else 1.0 / peak
+        pcm = (sources * gain * 32767.0).round().clamp(-32768, 32767).to(torch.int16)
+        written = []
+        for index in range(separator.num_sources):
+            path = os.path.join(output_dir, f"window-{number}-source-{index}.wav")
+            with wave.open(path, "wb") as out:
+                out.setnchannels(1)
+                out.setsampwidth(2)
+                out.setframerate(rate)
+                out.writeframes(pcm[index].numpy().tobytes())
+            written.append({"index": index, "path": path, "samples": last - first})
+        results.append({"sample_rate": rate, "start": first / rate, "end": last / rate, "gain": gain, "sources": written})
+    return results

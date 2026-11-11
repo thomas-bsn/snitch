@@ -219,7 +219,7 @@ class BridgeTests(unittest.TestCase):
     def test_the_test_inference_loads_the_model_and_separates_a_synthetic_mixture(self):
         proofs = []
         with patch.object(voice_sepformer, "load", return_value=self.separator) as load, \
-                patch.object(voice_sepformer, "separate_file", return_value={"sample_rate": 16000, "sources": []}) as separate, \
+                patch.object(voice_sepformer, "separate_file", return_value=[{"sample_rate": 16000, "sources": []}]) as separate, \
                 patch.object(voice_selftest, "separate_synthetic", side_effect=lambda run, sources, rate: proofs.append((run("/mix.wav", "/out"), sources, rate))):
             self.assertEqual(engine_bridge.execute(self.request("verify")), {})
         load.assert_called_once_with("/model", "cpu")
@@ -231,18 +231,20 @@ class BridgeTests(unittest.TestCase):
             incoming, outgoing = Path(directory) / "in.json", Path(directory) / "out.json"
             incoming.write_text(json.dumps(self.request("verify")))
             # A model that answers a single source for two voices does not pass the proof.
-            one = lambda separator, audio, output: {"sample_rate": 16000, "sources": [{"index": 0, "path": audio, "samples": 32000}]}  # noqa: E731
+            one = lambda separator, audio, output: [{"sample_rate": 16000, "sources": [{"index": 0, "path": audio, "samples": 32000}]}]  # noqa: E731
             with patch.object(voice_sepformer, "load", return_value=self.separator), patch.object(voice_sepformer, "separate_file", side_effect=one), \
                     patch.object(sys, "argv", ["engine_bridge", str(incoming), str(outgoing)]):
                 engine_bridge.main()
             self.assertEqual(json.loads(outgoing.read_text()), {"error": "inference_failed"})
 
-    def test_a_separation_call_returns_the_sources_of_the_window_asked(self):
-        answer = {"sample_rate": 16000, "start": 1.0, "end": 4.0, "gain": 1.0, "sources": [{"index": 0, "path": "/out/source-0.wav", "samples": 48000}]}
-        with patch.object(voice_sepformer, "load", return_value=self.separator), patch.object(voice_sepformer, "separate_file", return_value=answer) as separate:
-            result = engine_bridge.execute(self.request("infer", audio="/clip.wav", output_dir="/out", start=1.0, end=4.0))
-        self.assertEqual(result, answer)
-        separate.assert_called_once_with(self.separator, "/clip.wav", "/out", 1.0, 4.0)
+    def test_several_windows_take_one_load_of_the_model_and_one_pass_over_the_file(self):
+        answer = [{"sample_rate": 16000, "start": s, "end": e, "gain": 1.0, "sources": []} for s, e in ((1.0, 4.0), (6.0, 8.0), (9.0, 9.5))]
+        with patch.object(voice_sepformer, "load", return_value=self.separator) as load, \
+                patch.object(voice_sepformer, "separate_file", return_value=answer) as separate:
+            result = engine_bridge.execute(self.request("infer", audio="/clip.wav", output_dir="/out", windows=[[1.0, 4.0], [6.0, 8.0], [9.0, 9.5]]))
+        self.assertEqual(result, {"windows": answer})
+        load.assert_called_once_with("/model", "cpu")
+        separate.assert_called_once_with(self.separator, "/clip.wav", "/out", [(1.0, 4.0), (6.0, 8.0), (9.0, 9.5)])
 
     def test_only_the_speechbrain_family_runs_separation(self):
         request = self.request("verify")
@@ -300,23 +302,28 @@ class RealLibraryTests(unittest.TestCase):
 
     def test_the_test_inference_separates_a_synthetic_mixture_file(self):
         separator = voice_sepformer.load(str(self.dir), "cpu")
-        voice_selftest.separate_synthetic(lambda audio, out: voice_sepformer.separate_file(separator, audio, out),
+        voice_selftest.separate_synthetic(lambda audio, out: voice_sepformer.separate_file(separator, audio, out)[0],
                                           separator.num_sources, separator.sample_rate)
 
-    def test_a_window_of_a_44_1_khz_stereo_file_is_written_at_the_rate_of_the_model(self):
+    def test_windows_of_a_44_1_khz_stereo_file_are_cut_from_one_decoding_at_the_rate_of_the_model(self):
+        import torchaudio
         separator = voice_sepformer.load(str(self.dir), "cpu")
         with tempfile.TemporaryDirectory() as directory:
             audio = os.path.join(directory, "mix.wav")
             voice_selftest.write_synthetic_mixture(audio, seconds=3.0, rate=44100, channels=2)
-            result = voice_sepformer.separate_file(separator, audio, directory, start=0.5, end=2.0)
-            self.assertEqual((result["sample_rate"], result["start"], result["end"], len(result["sources"])), (16000, 0.5, 2.0, 2))
-            for index, source in enumerate(result["sources"]):
-                self.assertEqual((source["index"], source["samples"]), (index, 24000))
-                with wave.open(source["path"]) as stored:
-                    self.assertEqual((stored.getframerate(), stored.getnchannels(), stored.getnframes()), (16000, 1, 24000))
+            decode = torchaudio.load
+            with patch.object(torchaudio, "load", side_effect=decode) as load:
+                results = voice_sepformer.separate_file(separator, audio, directory, [(0.5, 2.0), (2.0, None)])
+            load.assert_called_once()
+            self.assertEqual([(r["sample_rate"], r["start"], r["end"], len(r["sources"])) for r in results], [(16000, 0.5, 2.0, 2), (16000, 2.0, 3.0, 2)])
+            for window, samples in ((0, 24000), (1, 16000)):
+                for index, source in enumerate(results[window]["sources"]):
+                    self.assertEqual((source["index"], source["samples"], os.path.basename(source["path"])), (index, samples, f"window-{window}-source-{index}.wav"))
+                    with wave.open(source["path"]) as stored:
+                        self.assertEqual((stored.getframerate(), stored.getnchannels(), stored.getnframes()), (16000, 1, samples))
             for start, end, detail in ((2.0, 2.0, "window_empty"), (5.0, 6.0, "window_empty"), (0.0, 0.01, "window_too_short")):
                 with self.assertRaises(VoiceProviderUnavailable) as caught:
-                    voice_sepformer.separate_file(separator, audio, directory, start=start, end=end)
+                    voice_sepformer.separate_file(separator, audio, directory, [(0.0, 1.0), (start, end)])
                 self.assertEqual((caught.exception.reason, caught.exception.detail), ("inference_failed", detail))
 
 
