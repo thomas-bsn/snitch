@@ -7,19 +7,28 @@ import { VoiceWorkspace } from "./VoiceWorkspace";
 
 async function load() {
   try {
-    const [overview, models, eligibility, matching, accuracy, workers] =
-      await Promise.all([
-        api.GET("/api/admin/voice-overview"),
-        api.GET("/api/admin/voice-models"),
-        api.GET("/api/admin/voice-eligibility"),
-        api.GET("/api/voice-matching"),
-        api.GET("/api/admin/voice-accuracy"),
-        api.GET("/api/admin/voice-models/workers"),
-      ]);
+    const [
+      overview,
+      models,
+      eligibility,
+      scoreMode,
+      matching,
+      accuracy,
+      workers,
+    ] = await Promise.all([
+      api.GET("/api/admin/voice-overview"),
+      api.GET("/api/admin/voice-models"),
+      api.GET("/api/admin/voice-eligibility"),
+      api.GET("/api/admin/voice-score-mode"),
+      api.GET("/api/voice-matching"),
+      api.GET("/api/admin/voice-accuracy"),
+      api.GET("/api/admin/voice-models/workers"),
+    ]);
     if (
       overview.data &&
       models.data &&
       eligibility.data &&
+      scoreMode.data &&
       matching.data &&
       accuracy.data &&
       workers.data
@@ -30,6 +39,7 @@ async function load() {
           overview: overview.data,
           models: models.data,
           eligibility: eligibility.data,
+          scoreMode: scoreMode.data,
           matching: matching.data,
           accuracy: accuracy.data,
           workers: workers.data,
@@ -42,6 +52,7 @@ async function load() {
           overview.error ??
             models.error ??
             eligibility.error ??
+            scoreMode.error ??
             matching.error ??
             accuracy.error ??
             workers.error,
@@ -77,14 +88,22 @@ export function VoiceTab() {
     return <p role="status">{t("app.loading")}</p>;
   if (state.status === "failed")
     return <ErrorAlert>{error(state.code)}</ErrorAlert>;
-  const { overview, models, eligibility, matching, accuracy, workers } =
-    state.value;
+  const {
+    overview,
+    models,
+    eligibility,
+    scoreMode,
+    matching,
+    accuracy,
+    workers,
+  } = state.value;
   return (
     <VoiceWorkspace
       catalogue={models}
       workers={workers.workers}
       overview={overview}
       eligibility={eligibility}
+      scoreMode={scoreMode}
       matching={matching}
       accuracy={accuracy}
       onChanged={reload}

@@ -1,12 +1,12 @@
 # Rapprochement vocal en base (phase 5, ticket 35)
 
-Snitch rapproche les empreintes des Locuteurs locaux des références des Personnes et propose ou attribue une Personne avec un niveau de décision. Le calcul s'exécute entièrement dans PostgreSQL (pgvector) : ni worker, ni PC, ni vidéo. Les tests utilisent des empreintes synthétiques déterministes (vecteurs dans un plan : la similarité cosinus est le cosinus de l'angle).
+Snitch rapproche les empreintes des Locuteurs locaux de la Référence de chaque Personne et propose ou attribue une Personne avec un niveau de décision. Le calcul part des vecteurs stockés dans PostgreSQL : ni worker, ni PC, ni vidéo. Les tests utilisent des empreintes synthétiques déterministes (vecteurs dans un plan : la similarité cosinus est le cosinus de l'angle).
 
 ## Principes
 
-- **Références.** Les références d'une Personne sont uniquement ses Échantillons vocaux validés actifs (`voice_samples.retired_at IS NULL`). Le rapprochement n'écrit jamais dans `voice_samples` : une attribution automatique ne devient jamais référence (ADR 0008).
+- **Références.** La Référence d'une Personne est construite uniquement à partir de ses Échantillons vocaux validés actifs (`voice_samples.retired_at IS NULL`), tant que son Profil vocal n'est pas supprimé. Le rapprochement n'écrit jamais dans `voice_samples` : une attribution automatique n'entre jamais dans une Référence (ADR 0008, ADR 0064).
 - **Comparabilité.** Seules les empreintes comparables (`usable`, décidé par la [règle d'éligibilité](#éligibilité-des-empreintes)) de portée `speaker` sont comparées, et uniquement à l'intérieur d'un même triplet `(model, model_version, dimensions)`. Un groupe sans aucune référence n'est pas évalué : ses attributions automatiques sont retirées plutôt que laissées périmées.
-- **Score.** Pour chaque Personne, la similarité cosinus maximale entre l'empreinte du Locuteur local et les empreintes de ses références.
+- **Score** (ADR 0064, [ci-dessous](#score-et-référence-cumulative)). Par défaut, la similarité cosinus entre l'empreinte du Locuteur local et la Référence cumulative de la Personne ; en mode « meilleur échantillon », la meilleure similarité avec l'un de ses échantillons comparables.
 - **Décision**, à partir des seuils (voir plus bas) :
   - aucune Personne au-dessus du seuil de suggestion : `unknown` ;
   - au moins deux Personnes à moins de la marge d'ambiguïté de la meilleure : `ambiguous`, sans Personne, avec ses candidates (jamais de fusion de deux voix proches sans validation humaine) ;
@@ -19,6 +19,9 @@ Snitch rapproche les empreintes des Locuteurs locaux des références des Person
 | Déclencheur | Portée |
 | --- | --- |
 | Validation ou correction d'un Locuteur local (ajout, retrait ou changement d'une référence) | Toute la bibliothèque |
+| Fusion, séparation ou suppression d'une Personne, suppression d'un Profil vocal | Toute la bibliothèque |
+| Suppression d'un clip, ou de la diarisation ou des empreintes d'un clip, qui portait un échantillon validé actif | Toute la bibliothèque |
+| Changement du mode de score (`PUT /api/admin/voice-score-mode`) | Toute la bibliothèque |
 | Résultat d'empreintes d'un clip enregistré | Ce clip |
 | Changement des seuils (`PUT /api/admin/voice-matching`) | Toute la bibliothèque |
 | Changement de la règle d'éligibilité qui modifie l'éligibilité d'au moins une empreinte (`PUT /api/admin/voice-eligibility`) | Toute la bibliothèque |
@@ -26,7 +29,18 @@ Snitch rapproche les empreintes des Locuteurs locaux des références des Person
 
 L'exécution est sérialisée (mutex de processus et verrou consultatif PostgreSQL) et lit l'état validé. Le déclencheur est déjà validé quand le rapprochement démarre : un échec est journalisé sans défaire la validation, et le rapprochement suivant (ou l'explicite) le répare. Seules les lignes dont la Personne, le niveau ou les candidates changent sont réécrites ; un changement de Personne ou de niveau ajoute un événement `match` à l'historique du locuteur (sans auteur, sans donnée vocale).
 
-Limite assumée de cette phase : le calcul compare toutes les cibles à toutes les références (scan exact). Il convient aux volumes de la phase 5 ; un calcul incrémental et la mesure sur la bibliothèque réelle relèvent de la phase 7.
+Le calcul compare chaque cible à chaque Référence (scan exact, sans index) : avec une Référence par Personne, une voix coûte de l'ordre de 66 µs face à 200 Personnes en 256 dimensions (`BenchmarkRankLibrary`, Apple M3 Pro), soit environ 2 s de calcul pour 30 000 voix, lecture des vecteurs en sus. Le mode « meilleur échantillon » compare à chaque échantillon : environ 1 ms par voix pour 4 000 échantillons.
+
+## Score et Référence cumulative
+
+Une seule fonction de score (`app/internal/httpapi/voice_score.go`) sert le rapprochement, la Précision mesurée et, à terme, le benchmark d'empreinte : un seuil lu dans l'un vaut pour les autres.
+
+- **Référence cumulative** (mode `cumulative`, par défaut). Pour un groupe `(model, model_version, dimensions)`, la moyenne des vecteurs normalisés des échantillons validés actifs dont l'empreinte de Locuteur local est *contributive*, pondérée par leur Parole nette (`net_speech_seconds`, à défaut la durée de l'empreinte) plafonnée à 10 s par échantillon. Plusieurs extraits brefs reconnaissent ainsi une voix qu'aucun ne reconnaît seul. Le score est le cosinus avec cette Référence.
+- **Meilleur échantillon** (mode `best_sample`, le score de la phase 5). Chaque échantillon dont l'empreinte est *comparable* est une référence à part ; le score d'une Personne est la meilleure similarité avec l'un d'eux. Les échantillons seulement contributifs n'y entrent pas.
+
+La Référence n'est pas stockée : elle est dérivée des échantillons à chaque rapprochement. Tout ce qui change les échantillons (validation, correction, fusion, séparation, suppression d'un Profil vocal, d'un clip ou de ses empreintes, requalification) est donc pris en compte par le rapprochement suivant, que ces actions déclenchent. Deux groupes ne sont jamais mélangés ; après un Changement du modèle d'empreinte (ADR 0044), les Références du nouveau groupe sont celles de ses empreintes, et la transition recalcule toutes les empreintes contributives des échantillons validés (pas seulement les comparables).
+
+**Mode de score versionné** (`voice_score_modes`, historique en ajout seul, la version la plus haute est active). La version 1, posée par Snitch, est `cumulative`. `PUT /api/admin/voice-score-mode` enregistre une nouvelle version avec son auteur si le mode change (rien sinon) puis rapproche de nouveau toute la bibliothèque. L'écran **Paramètres avancés → Score d'une voix** le règle et affiche l'historique ; la réinitialisation revient au mode cumulatif.
 
 ## Réglages (`voice_matching_settings`, une ligne)
 
@@ -76,6 +90,7 @@ L'écran **Administration → Voix → Identification et seuils → Paramètres 
 - `PUT /api/admin/voice-matching` : administrateurs ; les quatre seuils sont obligatoires, `auto_enabled` est refusé. `400 invalid_voice_matching` pour des seuils incohérents. Les empreintes déjà stockées sont rapprochées de nouveau.
 - `POST /api/admin/voice-matching/rematch` : administrateurs ; renvoie le résumé (voix examinées par niveau, attributions retirées).
 - `GET` et `PUT /api/admin/voice-eligibility` : administrateurs ; règle d'éligibilité (voir plus haut). `400 invalid_voice_eligibility` pour une règle hors bornes ou une durée contributive supérieure à la durée comparable.
+- `GET` et `PUT /api/admin/voice-score-mode` : administrateurs ; mode de score actif (`cumulative` ou `best_sample`), version, auteur, date et vingt dernières versions. `400 invalid_voice_score_mode` pour un autre mode.
 - `VoiceFingerprint` (voix d'un clip) et `VoiceTraceFingerprint` (trace vocale) portent `usable` (comparable), `contributive`, `unusable_reason`, `eligibility_rule_version`, `net_speech_seconds` et `net_speech_source`.
 - `Attribution.candidates` : Personnes entre lesquelles le rapprochement hésite (ambiguë : celles dans la marge ; suggestion ou automatique : les meilleures alternatives) avec rang et score ; vide pour une validation humaine. L'historique d'un locuteur peut contenir l'action `match`.
 
@@ -83,7 +98,7 @@ L'écran **Administration → Voix → Identification et seuils → Paramètres 
 
 - `speaker_attribution_candidates(attribution_id, person_id, rank, score)` : candidates, supprimées avec l'attribution ou la Personne.
 - `speaker_attributions.match_model` et `match_model_version` : modèle d'empreinte à l'origine d'une attribution automatique ; `origin = 'matching'`.
-- Un index HNSW partiel par `(model, model_version, dimensions)` est créé à la première comparaison d'un groupe (`voice_fingerprints_hnsw_<hash>`). Les empreintes de modèles ou de dimensions différents ne partagent jamais un index. Le rapprochement actuel compare à l'ensemble réduit des références ; l'index sert les recherches de plus proches voisins sur toutes les empreintes (groupes de voix inconnues, ticket suivant).
+- Un index HNSW partiel par `(model, model_version, dimensions)` est créé à la première comparaison d'un groupe (`voice_fingerprints_hnsw_<hash>`). Les empreintes de modèles ou de dimensions différents ne partagent jamais un index. Le rapprochement compare à l'ensemble réduit des Références sans index ; l'index sert les recherches de plus proches voisins sur toutes les empreintes (groupes de voix inconnues).
 
 ## Écrans
 
@@ -91,4 +106,4 @@ La carte « Rapprochement vocal » de l'administration règle les seuils, affich
 
 ## Contrat et code
 
-`app/internal/httpapi/voice_matching.go` (`registerVoiceMatchingRoutes`, `rematchVoices`), migration `00024_voice_matching.sql`, tests `voice_matching_test.go` (suite « voice matching ») et `web/e2e/matching.spec.ts` (`SNITCH_E2E_MATCHING=1`). Le client web est dans `web/src/voice/VoiceMatchingCard.tsx` et `SpeakerRow.tsx`.
+`app/internal/httpapi/voice_matching.go` (`registerVoiceMatchingRoutes`, `rematchVoices`, `loadReferenceSamples`), `voice_score.go` (fonction de score), `voice_score_mode.go`, migrations `00024_voice_matching.sql` et `00146_voice_score_modes.sql`, tests `voice_matching_test.go` (suite « voice matching »), `voice_reference_test.go` (suite « voice reference »), `voice_score_test.go` (unitaires) et `web/e2e/matching.spec.ts` (`SNITCH_E2E_MATCHING=1`). Le client web est dans `web/src/voice/VoiceMatchingCard.tsx` et `SpeakerRow.tsx`.

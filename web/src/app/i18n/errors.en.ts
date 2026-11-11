@@ -266,6 +266,8 @@ export const errorsEn = {
   invalid_voice_matching: "These matching settings are not valid.",
   invalid_voice_eligibility:
     "This eligibility rule is not valid: durations between 0.5 and 60 seconds, the contributive one at most the comparable one, and a clipped share between 0 and 1.",
+  invalid_voice_score_mode:
+    "This score mode is not valid: choose the cumulative Reference or the best sample.",
   invalid_voice_pipeline: "These voice processing settings are not valid.",
   invalid_voice_result: "This voice result is not valid.",
   invalid_worker: "This worker is not valid.",

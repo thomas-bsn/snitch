@@ -1104,6 +1104,22 @@ export const fr: Messages = {
         "Règle {version} : comparable {comparable} s, contributive {contributive} s, écrêtage au plus {clipped} · {author} · {date}",
       snitch: "Snitch",
     },
+    score: {
+      title: "Score d’une voix",
+      hint: "La façon de comparer une voix aux échantillons validés d’une personne. Le changer rapproche de nouveau toutes les voix enregistrées.",
+      legend: "Mode de score",
+      cumulative: "Référence cumulative (par défaut)",
+      cumulativeHint:
+        "Les échantillons validés d’une personne se cumulent, pondérés par leur parole nette : plusieurs extraits brefs reconnaissent une voix qu’aucun ne reconnaît seul.",
+      bestSample: "Meilleur échantillon",
+      bestSampleHint:
+        "Chaque échantillon comparable est comparé seul et le plus proche compte. Les échantillons brefs sont écartés.",
+      defaultMode: "Mode {version} : mode par défaut de Snitch.",
+      current: "Mode {version}, choisi par {author} le {date}.",
+      save: "Enregistrer le mode de score",
+      history: "Modes de score précédents",
+      historyItem: "Mode {version} : {mode} · {author} · {date}",
+    },
     matching: "Rapprochement vocal",
     matchingHint:
       "Seuls les échantillons validés par un humain servent de références. Les seuils restent à évaluer.",

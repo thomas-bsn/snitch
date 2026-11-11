@@ -78,6 +78,19 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
   );
   await expect(fingerprints).toContainText("Rule 2, set by");
 
+  // The score is the cumulative Reference by default; another mode is a traced version.
+  const score = page.getByRole("region", { name: "Score of a voice" });
+  await expect(score).toContainText("Mode 1: Snitch's default.");
+  await expect(
+    score.getByRole("radio", { name: /^Cumulative reference/ }),
+  ).toBeChecked();
+  await score.getByRole("radio", { name: /^Best sample/ }).check();
+  await score.getByRole("button", { name: "Save the score mode" }).click();
+  await expect(score).toContainText("Mode 2, chosen by");
+  await expect(score).toContainText(
+    "Mode 1: Cumulative reference (default) · Snitch",
+  );
+
   // Enabling needs an explicit confirmation, and a second one when the criteria are unmet.
   await toggle.click();
   const dialog = page.getByRole("alertdialog");
@@ -110,6 +123,10 @@ test("un administrateur règle le rapprochement et l'automatisation vocale", asy
       "Net speech for a comparable fingerprint (seconds)",
     ),
   ).toHaveValue("2");
+  await expect(
+    score.getByRole("radio", { name: /^Cumulative reference/ }),
+  ).toBeChecked();
+  await expect(score).toContainText("Mode 3, chosen by");
 
   await expectNoViolations(page);
   await context.close();
