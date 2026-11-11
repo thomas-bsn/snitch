@@ -264,6 +264,8 @@ export const errorsEn = {
   invalid_voice_automation: "These automation settings are not valid.",
   invalid_voice_criteria: "These criteria are not valid.",
   invalid_voice_matching: "These matching settings are not valid.",
+  voice_group_unknown:
+    "No fingerprint of this model is in service: the fingerprint model may have changed. Reload the page.",
   invalid_voice_eligibility:
     "This eligibility rule is not valid: durations between 0.5 and 60 seconds, the contributive one at most the comparable one, and a clipped share between 0 and 1.",
   invalid_voice_score_mode:

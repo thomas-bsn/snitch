@@ -3055,7 +3055,7 @@ export interface paths {
       cookie?: never;
     };
     get?: never;
-    /** @description Administrateurs uniquement. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
+    /** @description Administrateurs uniquement. Applique les seuils au groupe d'empreintes donné (group) ou, à défaut, au groupe actif : nouvelle version tracée (auteur, date, origine), rien si les valeurs sont déjà celles du groupe. Sans aucun groupe (installation vierge), enregistre les valeurs provisoires. 409 voice_group_unknown si le groupe n'a aucune empreinte de production. Le nombre de candidats est global. L'interrupteur d'automatisation n'est pas modifiable ici (décision d'activation séparée). Un changement de seuil réexamine les empreintes existantes, sans worker ni vidéo. */
     put: operations["updateVoiceMatching"];
     post?: never;
     delete?: never;
@@ -6622,6 +6622,10 @@ export interface components {
       auto_changed_at: string | null;
       /** Format: date-time */
       updated_at: string;
+      /** @description Groupe d'empreintes actif dont ces seuils sont ceux ; null sur une installation sans empreinte (valeurs provisoires). */
+      group: components["schemas"]["VoiceFingerprintGroup"] | null;
+      /** @description Le groupe actif a des seuils appliqués par un administrateur. Faux : le groupe ne produit que des suggestions, avec les seuils provisoires, et aucune Attribution automatique. */
+      thresholds_applied: boolean;
     };
     VoiceMatchingInput: {
       automatic_threshold: number;
@@ -6629,6 +6633,12 @@ export interface components {
       suggestion_threshold: number;
       ambiguity_margin: number;
       max_candidates: number;
+      group?: components["schemas"]["VoiceFingerprintGroup"];
+      /**
+       * @description Origine tracée des seuils appliqués ; administrator par défaut.
+       * @enum {string}
+       */
+      source?: "administrator" | "proposal";
     };
     VoiceMatchingSummary: {
       evaluated: number;
@@ -6712,6 +6722,7 @@ export interface components {
       /** Format: date-time */
       measured_at: string;
       auto_enabled: boolean;
+      /** @description Seuil automatique du groupe d'empreintes actif (ou provisoire). */
       automatic_threshold: number;
       precision_threshold: number;
       min_confirmations: number;
@@ -6727,6 +6738,7 @@ export interface components {
       activation_proposed: boolean;
       /** @description Historique des activations et désactivations, du plus récent au plus ancien. */
       events: components["schemas"]["VoiceAutomationEvent"][];
+      calibration: components["schemas"]["VoiceCalibration"];
     };
     /** @description Exactement un de person_id ou new_person_name. */
     AttributionInput: {
@@ -9081,6 +9093,101 @@ export interface components {
       created_at: string;
       /** @description Vingt dernières versions, la plus récente d'abord. */
       history: components["schemas"]["VoiceScoreModeVersion"][];
+    };
+    /** @description Groupe d'empreintes (modèle, version, dimensions) : seules les empreintes d'un même groupe sont comparées. */
+    VoiceFingerprintGroup: {
+      model: string;
+      model_version: string;
+      dimensions: number;
+    };
+    /** @description Une version des seuils appliqués à un groupe d'empreintes (ADR 0064). La plus haute version est en vigueur. */
+    VoiceGroupThresholds: {
+      version: number;
+      suggestion_threshold: number;
+      automatic_threshold: number;
+      ambiguity_margin: number;
+      /**
+       * @description migration : seuils de l'installation repris pour le groupe actif ; administrator : saisis ; proposal : proposition de la Précision mesurée appliquée par l'administrateur.
+       * @enum {string}
+       */
+      source: "migration" | "administrator" | "proposal";
+      /**
+       * @description Mode de score actif au moment de l'application.
+       * @enum {string}
+       */
+      score_mode: "cumulative" | "best_sample";
+      /** @description Administrateur ; null pour Snitch (migration). */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description Classe de score de largeur 0,05 ; un score négatif est compté dans la première classe, un score de 1 dans la dernière. Un score est une similarité cosinus, jamais une probabilité. */
+    VoiceScoreBin: {
+      from: number;
+      to: number;
+      /** @description Scores d'un test contre la Référence de sa propre Personne. */
+      same_person: number;
+      /** @description Scores d'un test contre la Référence d'une autre Personne. */
+      other_person: number;
+    };
+    /** @description Décision rejouée sur les tests à un jeu de seuils. */
+    VoiceThresholdSweep: {
+      automatic_threshold: number;
+      /** @description Seuil de suggestion utilisé : celui du groupe, abaissé au seuil automatique s'il le dépasse. */
+      suggestion_threshold: number;
+      ambiguity_margin: number;
+      /** @description Tests attribués automatiquement. */
+      automatic: number;
+      /** @description Attributions automatiques désignant une autre Personne que celle validée. */
+      errors: number;
+      /** @description Tests laissés à vérifier (suggestion, ambiguïté ou inconnu). */
+      to_verify: number;
+      /** @description Inconnus simulés (tests rejoués sans la Référence de leur Personne) reconnus à tort automatiquement. */
+      unknown_automatic: number;
+    };
+    /** @description Proposition de seuils : jamais appliquée sans action de l'administrateur. */
+    VoiceThresholdProposal: {
+      suggestion_threshold: number;
+      /** @description Plus bas seuil, au centième, à partir duquel la mesure garde la précision minimale des critères d'activation et ne reconnaît aucun inconnu simulé. */
+      automatic_threshold: number;
+      ambiguity_margin: number;
+      figures: components["schemas"]["VoiceThresholdSweep"];
+    };
+    /** @description Mesure d'un mode de score sur le groupe actif. */
+    VoiceCalibrationMode: {
+      /** @enum {string} */
+      mode: "cumulative" | "best_sample";
+      /** @description Tests ayant une empreinte comparable dans le groupe ; chacun est aussi rejoué comme inconnu simulé. */
+      tests: number;
+      /** @description Personnes ayant une Référence dans ce mode et au moins un test. */
+      persons: number;
+      same_person_scores: number;
+      other_person_scores: number;
+      distribution: components["schemas"]["VoiceScoreBin"][];
+      /** @description Seuil automatique de 0,05 à 1 par pas de 0,05. */
+      sweep: components["schemas"]["VoiceThresholdSweep"][];
+      /** @description Chiffres aux seuils appliqués au groupe ; null sans seuils appliqués. */
+      current: components["schemas"]["VoiceThresholdSweep"] | null;
+      proposal: components["schemas"]["VoiceThresholdProposal"] | null;
+      /**
+       * @description Raison de l'absence de proposition : too_few (effectifs trop faibles), no_safe_threshold (aucun seuil ne garde la précision sans reconnaître d'inconnu).
+       * @enum {string}
+       */
+      withheld: "" | "too_few" | "no_safe_threshold";
+    };
+    /** @description Calibration des seuils du groupe d'empreintes actif (ADR 0064), les deux modes de score côte à côte. */
+    VoiceCalibration: {
+      /** @description Groupe actif ; null tant qu'aucune empreinte n'a été produite. */
+      group: components["schemas"]["VoiceFingerprintGroup"] | null;
+      /** @description Seuils appliqués au groupe ; null : suggestions seulement, aucune Attribution automatique. */
+      thresholds: components["schemas"]["VoiceGroupThresholds"] | null;
+      /** @description Vingt dernières versions, la plus récente d'abord. */
+      history: components["schemas"]["VoiceGroupThresholds"][];
+      /** @enum {string} */
+      active_mode: "cumulative" | "best_sample";
+      min_tests: number;
+      min_persons: number;
+      modes: components["schemas"]["VoiceCalibrationMode"][];
     };
   };
   responses: never;
@@ -17606,7 +17713,7 @@ export interface operations {
       };
     };
     responses: {
-      /** @description Seuils enregistrés ; les empreintes déjà stockées sont rapprochées de nouveau */
+      /** @description Seuils appliqués ; les empreintes déjà stockées sont rapprochées de nouveau */
       200: {
         headers: {
           [name: string]: unknown;

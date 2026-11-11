@@ -1165,9 +1165,57 @@ export const fr: Messages = {
       history: "Modes de score précédents",
       historyItem: "Mode {version} : {mode} · {author} · {date}",
     },
+    thresholds: {
+      group:
+        "Seuils du modèle d’empreinte {model} · {version} · {dimensions} dimensions",
+      noGroup:
+        "Aucun modèle d’empreinte n’a encore produit d’empreinte : ces valeurs sont provisoires. Un modèle s’en sert pour ses suggestions tant que des seuils ne lui sont pas appliqués.",
+      applied: "Seuils version {version}, {source}, par {author} le {date}.",
+      none: "Aucun seuil appliqué à ce modèle : il ne produit que des suggestions, jamais d’attribution automatique. Appliquez des seuils après la mesure ci-dessous.",
+      migration: "repris de l’installation",
+      administrator: "saisis",
+      proposal: "issus de la proposition de la mesure",
+      apply: "Appliquer à ce modèle d’empreinte",
+      history: "Seuils précédents de ce modèle",
+      historyItem:
+        "Version {version} : automatique {automatic}, suggestion {suggestion}, marge {margin} · {source} · {author} · {date}",
+      scoreNote:
+        "Un score est une similarité cosinus entre −1 et 1 dont l’échelle dépend du modèle d’empreinte : ce n’est pas une probabilité.",
+    },
+    calibration: {
+      title: "Calibration des seuils",
+      hint: "Rejoue le rapprochement sur les échantillons validés du modèle actif, références et tests sur des clips distincts. Chaque test est aussi rejoué sans la Référence de sa personne, comme une voix inconnue : il doit être refusé. Rien n’est appliqué sans votre action.",
+      noGroup: "Aucune empreinte : rien à mesurer.",
+      activeMode: "{mode} (mode actif)",
+      figures:
+        "{tests} tests, {persons} personnes mesurées ; {same} scores même personne, {other} scores autre personne.",
+      distribution: "Distribution des scores",
+      scoreColumn: "Score",
+      sameColumn: "Même personne",
+      otherColumn: "Autre personne",
+      sweep: "Balayage du seuil automatique",
+      thresholdColumn: "Seuil automatique",
+      automaticColumn: "Automatiques",
+      errorsColumn: "Erreurs",
+      toVerifyColumn: "À vérifier",
+      unknownColumn: "Inconnus reconnus à tort",
+      current:
+        "Aux seuils appliqués : {automatic} automatiques, {errors} erreurs, {toVerify} à vérifier ; {unknown} inconnus simulés sur {tests} reconnus à tort.",
+      noCurrent: "Aucun seuil appliqué : aucune attribution automatique.",
+      proposal:
+        "Proposition : suggestion {suggestion}, automatique {automatic}, marge {margin}. Sur la mesure : {automaticCount} automatiques, {errors} erreurs, {toVerify} à vérifier, {unknown} inconnus reconnus à tort.",
+      rule: "Seuil automatique : le plus bas qui garde la précision minimale des critères d’activation sans reconnaître aucun inconnu simulé. Suggestion : 95 % des scores même personne au-dessus. Marge : couvre 95 % des confusions mesurées.",
+      tooFew:
+        "Effectifs trop faibles pour proposer des seuils : {tests} tests et {persons} personnes, il en faut au moins {minTests} et {minPersons}.",
+      noSafe:
+        "Aucun seuil ne garde la précision minimale sans reconnaître d’inconnu simulé : pas de proposition.",
+      apply: "Appliquer cette proposition au modèle",
+      otherMode:
+        "Proposition du mode non actif : changez d’abord le mode de score pour l’appliquer.",
+    },
     matching: "Rapprochement vocal",
     matchingHint:
-      "Seuls les échantillons validés par un humain servent de références. Les seuils restent à évaluer.",
+      "Seuls les échantillons validés par un humain servent de références. Les seuils appartiennent à un modèle d’empreinte et ne changent que par l’action d’un administrateur.",
     autoThreshold: "Seuil d’attribution automatique",
     suggestionThreshold: "Seuil de suggestion",
     margin: "Marge d’ambiguïté",
@@ -1213,6 +1261,8 @@ export const fr: Messages = {
     measured: "Précision mesurée",
     autoHint:
       "Jamais activée d’elle-même : vous seul·e l’activez, après confirmation. Les validations humaines ne sont jamais écrasées.",
+    autoSuspended:
+      "L’attribution automatique est suspendue pour le modèle d’empreinte actif : aucun seuil ne lui a été appliqué, il ne produit que des suggestions. Mesurez et appliquez ses seuils dans les réglages avancés.",
     enableTitle: "Activer l’attribution automatique ?",
     enableText:
       "Les voix reconnues avec assez de confiance seront attribuées sans vous demander. Vous pouvez la désactiver à tout moment.",

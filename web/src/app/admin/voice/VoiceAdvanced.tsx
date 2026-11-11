@@ -11,6 +11,7 @@ import {
   EligibilityPreview,
   RequalificationReport,
 } from "./EligibilityPreview";
+import { VoiceCalibration } from "./VoiceCalibration";
 
 type Eligibility = components["schemas"]["VoiceEligibility"];
 type EligibilityInput = components["schemas"]["VoiceEligibilityInput"];
@@ -19,6 +20,7 @@ type Matching = components["schemas"]["VoiceMatchingSettings"];
 type ScoreMode = components["schemas"]["VoiceScoreMode"];
 type ScoreModeName = ScoreMode["mode"];
 type Accuracy = components["schemas"]["VoiceAccuracy"];
+type Thresholds = components["schemas"]["VoiceGroupThresholds"];
 
 // The values the installation starts with: a reset goes back to them. The eligibility rule's come from the
 // server (its provisional version).
@@ -133,22 +135,32 @@ export function VoiceAdvanced({
       () => setRule(undefined),
     );
   };
+  // Thresholds go to the fingerprint group the screen shows: if the model changed meanwhile, the server refuses.
+  const group = matching.group ?? undefined;
+  const putThresholds = (
+    values: Pick<
+      Matching,
+      "automatic_threshold" | "suggestion_threshold" | "ambiguity_margin"
+    >,
+    source: "administrator" | "proposal" = "administrator",
+  ) =>
+    api.PUT("/api/admin/voice-matching", {
+      params: { header: headers },
+      body: {
+        ...values,
+        max_candidates: m.max_candidates,
+        ...(group ? { group, source } : {}),
+      },
+    });
   const saveMatching = (e: FormEvent) => {
     e.preventDefault();
     void run(
-      () =>
-        api.PUT("/api/admin/voice-matching", {
-          params: { header: headers },
-          body: {
-            automatic_threshold: m.automatic_threshold,
-            suggestion_threshold: m.suggestion_threshold,
-            ambiguity_margin: m.ambiguity_margin,
-            max_candidates: m.max_candidates,
-          },
-        }),
+      () => putThresholds(m),
       () => setMatch(undefined),
     );
   };
+  const thresholds = accuracy.calibration.thresholds;
+  const sourceLabel = (v: Thresholds) => t(`voiceAdmin.thresholds.${v.source}`);
   const saveScoreMode = (e: FormEvent) => {
     e.preventDefault();
     void run(
@@ -193,6 +205,7 @@ export function VoiceAdvanced({
             suggestion_threshold: DEFAULTS.suggestion_threshold,
             ambiguity_margin: DEFAULTS.ambiguity_margin,
             max_candidates: DEFAULTS.max_candidates,
+            ...(group ? { group } : {}),
           },
         });
         if (a.error) return a;
@@ -244,6 +257,31 @@ export function VoiceAdvanced({
             {t("voiceAdmin.matching")}
           </h4>
           <p className="text-mute">{t("voiceAdmin.matchingHint")}</p>
+          <p className="font-medium">
+            {group
+              ? t("voiceAdmin.thresholds.group", {
+                  model: group.model,
+                  version: group.model_version,
+                  dimensions: group.dimensions,
+                })
+              : t("voiceAdmin.thresholds.noGroup")}
+          </p>
+          {group && (
+            <p>
+              {thresholds
+                ? t("voiceAdmin.thresholds.applied", {
+                    version: thresholds.version,
+                    source: sourceLabel(thresholds),
+                    author:
+                      thresholds.author ?? t("voiceAdmin.eligibility.snitch"),
+                    date: new Date(thresholds.created_at).toLocaleString(),
+                  })
+                : t("voiceAdmin.thresholds.none")}
+            </p>
+          )}
+          <p className="text-sm text-mute">
+            {t("voiceAdmin.thresholds.scoreNote")}
+          </p>
           <form
             onSubmit={saveMatching}
             className="flex max-w-xl flex-col gap-3"
@@ -300,7 +338,9 @@ export function VoiceAdvanced({
             />
             <div className="flex flex-wrap gap-2">
               <button disabled={busy} className={buttonClass("primary")}>
-                {t("voiceAdmin.saveThresholds")}
+                {group
+                  ? t("voiceAdmin.thresholds.apply")
+                  : t("voiceAdmin.saveThresholds")}
               </button>
               <button
                 type="button"
@@ -321,6 +361,31 @@ export function VoiceAdvanced({
               </button>
             </div>
           </form>
+          {accuracy.calibration.history.length > 1 && (
+            <div>
+              <p id="adv-thresholds-history" className="font-medium">
+                {t("voiceAdmin.thresholds.history")}
+              </p>
+              <ul
+                aria-labelledby="adv-thresholds-history"
+                className="list-disc pl-5"
+              >
+                {accuracy.calibration.history.slice(1).map((v) => (
+                  <li key={v.version}>
+                    {t("voiceAdmin.thresholds.historyItem", {
+                      version: v.version,
+                      automatic: v.automatic_threshold,
+                      suggestion: v.suggestion_threshold,
+                      margin: v.ambiguity_margin,
+                      source: sourceLabel(v),
+                      author: v.author ?? t("voiceAdmin.eligibility.snitch"),
+                      date: new Date(v.created_at).toLocaleString(),
+                    })}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
           {summary && (
             <p role="status">
               {t("voiceAdmin.rematched", {
@@ -666,6 +731,16 @@ export function VoiceAdvanced({
               </button>
             </div>
           </form>
+          <VoiceCalibration
+            calibration={accuracy.calibration}
+            busy={busy}
+            onApply={(p) =>
+              void run(
+                () => putThresholds(p, "proposal"),
+                () => setMatch(undefined),
+              )
+            }
+          />
           {accuracy.events.length > 0 && (
             <ul className="list-disc pl-5">
               {accuracy.events.map((event, i) => (

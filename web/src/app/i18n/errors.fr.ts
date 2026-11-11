@@ -279,6 +279,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Ces réglages d’automatisation ne sont pas valides.",
   invalid_voice_criteria: "Ces critères ne sont pas valides.",
   invalid_voice_matching: "Ces réglages de rapprochement ne sont pas valides.",
+  voice_group_unknown:
+    "Aucune empreinte de ce modèle n’est en service : le modèle d’empreinte a peut-être changé. Recharger la page.",
   invalid_voice_eligibility:
     "Cette règle d’éligibilité n’est pas valide : durées entre 0,5 et 60 secondes, durée contributive au plus égale à la durée comparable, part écrêtée entre 0 et 1.",
   invalid_voice_score_mode:
