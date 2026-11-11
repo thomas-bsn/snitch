@@ -300,7 +300,7 @@ func (s *Server) rematchLocked(ctx context.Context, clipID int64) (matchStats, e
 		}
 		targets = append(targets, found...)
 	}
-	phase("scored_ms")
+	phase("ranked_ms")
 	existing, err := loadExistingMatches(ctx, tx, scope)
 	if err != nil {
 		return stats, err
