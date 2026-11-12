@@ -1536,6 +1536,12 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", memberPath+"/sessions", nil, me.CSRF, 200)
 		call(client, "POST", memberPath+"/password", nil, me.CSRF, 200)
 		call(client, "POST", "/api/admin/users/99999/approve", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/users/99999/refuse", nil, me.CSRF, 404)
+		// The Discord webhook (behavior in the notification webhook suite): never configured here, so nothing is posted.
+		call(client, "GET", "/api/admin/notification-webhook", nil, "", 200)
+		call(client, "POST", "/api/admin/notification-webhook/test", nil, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/notification-webhook", map[string]any{"url": "https://discord.com/api/webhooks/111122223333444455/SyntheticContractToken_0123456789abcdef", "enabled": false, "categories": []string{"access_requests"}}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/notification-webhook", nil, me.CSRF, 204)
 		call(client, "POST", "/api/auth/logout", nil, me.CSRF, 200)
 		call(client, "GET", "/api/auth/me", nil, "", 401)
 		call(client, "POST", "/api/auth/login", creds, "", 200)
