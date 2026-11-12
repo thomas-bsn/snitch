@@ -426,8 +426,11 @@ func webhookLine(kind string, count int) (string, string) {
 		return "Un Worker est hors ligne.", "/admin/workers"
 	case "job_blocked":
 		return fmt.Sprintf("Des traitements sont bloqués en attente d'une action (%d).", count), "/admin/workers"
+	case "job_failed", "provider_unavailable", "model_missing":
+		return fmt.Sprintf("Un traitement a échoué (%d).", count), "/queue"
 	}
-	return fmt.Sprintf("Un traitement a échoué (%d).", count), "/queue"
+	// A kind added to notification_category() without its summary here: say only that something happened.
+	return "Une notification attend dans Snitch.", "/notifications"
 }
 
 func webhookMessage(origin string, kinds []string, counts []int) string {
@@ -535,24 +538,31 @@ RETURNING d.id,n.kind,n.pending_count`, webhookBatch, webhookLease.Microseconds(
 		switch result.outcome {
 		case webhookSent:
 			_, err = tx.Exec(ctx, `UPDATE notification_deliveries SET status='sent',sent_at=now(),last_error='' WHERE id=ANY($1)`, ids)
-		case webhookRateLimited, webhookTransient:
-			wait := base.Microseconds()
-			if result.outcome == webhookRateLimited {
-				wait = result.retryAfter.Microseconds()
+		case webhookRateLimited:
+			// Discord asked to wait: not a failed attempt. The whole queue waits, or the next batch would hit the
+			// same limit at once.
+			if _, err = tx.Exec(ctx, `UPDATE notification_deliveries SET attempts=attempts-1,last_error=$2 WHERE id=ANY($1)`, ids, result.code); err != nil {
+				return err
 			}
-			// Exponential backoff from the base (or Discord's own wait), bounded; failed after the last attempt.
+			_, err = tx.Exec(ctx, `UPDATE notification_deliveries SET next_attempt_at=GREATEST(next_attempt_at,now()+$1*interval '1 microsecond') WHERE status='pending'`, result.retryAfter.Microseconds())
+		case webhookTransient:
+			// Exponential backoff from the base, bounded; failed after the last attempt.
 			_, err = tx.Exec(ctx, `UPDATE notification_deliveries SET last_error=$2,status=CASE WHEN attempts>=$3 THEN 'failed' ELSE 'pending' END,
-next_attempt_at=now()+LEAST(CASE WHEN $5 THEN $4 ELSE $4*power(2,attempts-1) END,$6)*interval '1 microsecond' WHERE id=ANY($1)`, ids, result.code, webhookMaxAttempts, wait, result.outcome == webhookRateLimited, webhookMaxRetryWait.Microseconds())
+next_attempt_at=now()+LEAST($4*power(2,attempts-1),$5)*interval '1 microsecond' WHERE id=ANY($1)`, ids, result.code, webhookMaxAttempts, base.Microseconds(), webhookMaxRetryWait.Microseconds())
 		case webhookRejected:
 			// The webhook is gone (deleted on Discord's side) or wrong: stop instead of failing forever.
 			if _, err = tx.Exec(ctx, `UPDATE notification_deliveries SET status='failed',last_error=$2 WHERE id=ANY($1)`, ids, result.code); err != nil {
 				return err
 			}
-			if _, err = tx.Exec(ctx, `UPDATE notification_webhook SET enabled=false,updated_at=now() WHERE id AND enabled`); err != nil {
+			tag, err := tx.Exec(ctx, `UPDATE notification_webhook SET enabled=false,updated_at=now() WHERE id AND enabled`)
+			if err != nil {
 				return err
 			}
-			if err = auditWebhook(ctx, tx, "auto_disabled", nil); err != nil {
-				return err
+			// Audited once: another batch may have disabled it already.
+			if tag.RowsAffected() == 1 {
+				if err = auditWebhook(ctx, tx, "auto_disabled", nil); err != nil {
+					return err
+				}
 			}
 			_, err = tx.Exec(ctx, skipStaleDeliveries)
 		default:

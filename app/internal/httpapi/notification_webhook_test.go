@@ -180,8 +180,22 @@ func testNotificationWebhook(t *testing.T, pool *pgxpool.Pool) {
 	if v := current(); v.LastStatus != "failed" || v.LastError != "http_500" || v.Pending != 1 {
 		t.Fatalf("the failure is shown: %+v", v)
 	}
+	if _, err := pool.Exec(ctx, `INSERT INTO notifications(kind,cause,pending_count) VALUES('worker_unavailable','synthetic-waiting',1)`); err != nil {
+		t.Fatal(err)
+	}
 	discord.script(false, 429)
 	deliver()
+	// Not an attempt, and the whole queue waits as long as Discord asks, not only the limited batch.
+	var waiting int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM notification_deliveries WHERE status='pending' AND next_attempt_at>now()+interval '2 seconds'`).Scan(&waiting); err != nil || waiting != 2 {
+		t.Fatalf("the queue waits for Discord: %d %v", waiting, err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM notifications WHERE cause='synthetic-waiting'`); err != nil {
+		t.Fatal(err)
+	}
+	if status, attempts, code := deliveries(); status != "pending" || attempts != 2 || code != "rate_limited" {
+		t.Fatalf("a rate limit is not a failed attempt: %s %d %s", status, attempts, code)
+	}
 	var wait int64
 	if err := pool.QueryRow(ctx, `SELECT (EXTRACT(EPOCH FROM next_attempt_at-now())*1000)::bigint FROM notification_deliveries ORDER BY id DESC LIMIT 1`).Scan(&wait); err != nil {
 		t.Fatal(err)
