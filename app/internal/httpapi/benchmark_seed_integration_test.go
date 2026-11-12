@@ -100,7 +100,8 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 	// A finished end-to-end run: two chains sharing a diarization model, the second one with the more accurate
 	// transcription. The ids of the results (c1, c2) stand for the pairs stored with the run.
 	var e2e int64
-	chains := `{"chains":[{"id":"c1","diarization_model_id":"pyannote-community-1","transcription_model":"seed-asr-a"},{"id":"c2","diarization_model_id":"pyannote-community-1","transcription_model":"seed-asr-b"}]}`
+	// The second one separates its Chevauchements (#403), measured on too few clips to conclude.
+	chains := `{"chains":[{"id":"c1","diarization_model_id":"pyannote-community-1","transcription_model":"seed-asr-a"},{"id":"c2","diarization_model_id":"pyannote-community-1","transcription_model":"seed-asr-b","separation_model_id":"seed-sep"}]}`
 	if err := pool.QueryRow(ctx, `INSERT INTO benchmark_runs(dataset_id,dataset_name,stage,status,model_ids,params,author_name,finished_at) VALUES($1,'Corpus de démonstration','e2e','completed','{c1,c2}',$2::jsonb,'seed',now()) RETURNING id`, dataset, chains).Scan(&e2e); err != nil {
 		t.Fatal(err)
 	}
@@ -112,6 +113,18 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 		($1,'c1','pyannote/speaker-diarization-community-1 + seed-asr-a','',0,'complete',3,3,175,$2::jsonb),
 		($1,'c2','pyannote/speaker-diarization-community-1 + seed-asr-b','',0,'complete',3,3,220,$3::jsonb)`,
 		e2e, attributed(0.19, 0.12), attributed(0.105, 0.081))
+	rates := func(cpwer, wer float64) string {
+		return `{"clips":3,"reference_words":100,"cp_word_errors":` + strconv.Itoa(int(cpwer*100)) + `,"word_errors":` + strconv.Itoa(int(wer*100)) + `,"cpwer":` + seedNum(cpwer) + `,"wer":` + seedNum(wer) + `}`
+	}
+	exec(`UPDATE benchmark_results SET metrics=metrics||jsonb_build_object('separation',$2::jsonb) WHERE run_id=$1 AND model_id='c2'`, e2e,
+		`{"tracks":3,"zones":4,"speakers_without_words_before":2,"speakers_without_words_after":1,"sources":8,"sources_without_speaker":3,"words_added":12,"words_added_absent_from_reference":5,"words_duplicated_between_sources":2,"min_clips":10,"without_separation":`+
+			rates(0.3, 0.2)+`,"with_separation":`+rates(0.25, 0.22)+`}`)
+	// The separation model's cost, reported by its Worker for its one task.
+	var job int64
+	if err := pool.QueryRow(ctx, `INSERT INTO jobs(clip_id,step,input_version,status,result) VALUES($1,'benchmark.separation.0','bs-d1-t2','done','{"inference_seconds":12.5,"gpu_peak_bytes":2100000000}') RETURNING id`, clip).Scan(&job); err != nil {
+		t.Fatal(err)
+	}
+	exec(`INSERT INTO benchmark_run_jobs(run_id,job_id,model_id) VALUES($1,$2,'seed-sep')`, e2e, job)
 	// One Worker with the community diarization model ready, so the browser can compose chains and start a run.
 	exec(`INSERT INTO workers(id,name,token_hash,max_concurrency,reported_concurrency,last_seen_at) VALUES('wk_seedbenchmarkworker0001','Seed benchmark worker',decode(repeat('ef',32),'hex'),1,1,now())`)
 	exec(`INSERT INTO worker_voice_models(worker_id,model_id,state) VALUES('wk_seedbenchmarkworker0001','pyannote-community-1','ready')`)

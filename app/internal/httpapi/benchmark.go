@@ -112,17 +112,25 @@ type benchmarkJobError struct {
 }
 
 type benchmarkResultView struct {
-	ModelID        string          `json:"model_id"`
-	Model          string          `json:"model"`
-	ModelVersion   string          `json:"model_version"`
-	Dimensions     int             `json:"dimensions"`
-	State          string          `json:"state"`
-	ItemsTotal     int             `json:"items_total"`
-	ItemsScored    int             `json:"items_scored"`
-	ElapsedSeconds *float64        `json:"elapsed_seconds"`
-	Metrics        json.RawMessage `json:"metrics"`
-	// RAM and VRAM are not reported by the Worker for a job yet: the field says so instead of showing zero.
-	Resources *struct{} `json:"resources"`
+	ModelID        string           `json:"model_id"`
+	Model          string           `json:"model"`
+	ModelVersion   string           `json:"model_version"`
+	Dimensions     int              `json:"dimensions"`
+	State          string           `json:"state"`
+	ItemsTotal     int              `json:"items_total"`
+	ItemsScored    int              `json:"items_scored"`
+	ElapsedSeconds *float64         `json:"elapsed_seconds"`
+	Metrics        json.RawMessage  `json:"metrics"`
+	Resources      []modelResources `json:"resources"`
+}
+
+// modelResources is the cost a Worker reported for the done tasks of one model of a run (#403). A value is null as
+// soon as one task did not report it (an older Worker, no CUDA, an external transcription): never a made-up zero.
+type modelResources struct {
+	ModelID          string   `json:"model_id"`
+	Tasks            int      `json:"tasks"`
+	InferenceSeconds *float64 `json:"inference_seconds"`
+	GPUPeakBytes     *int64   `json:"gpu_peak_bytes"`
 }
 
 const benchmarkRunColumns = `id,dataset_id,dataset_name,stage,status,model_ids,author_name,created_at,finished_at`
@@ -253,7 +261,47 @@ func (s *Server) loadBenchmarkRun(ctx context.Context, id int64, detail bool) (b
 		}
 		v.Results = append(v.Results, x)
 	}
-	return v, res.Err()
+	if err = res.Err(); err != nil {
+		return v, err
+	}
+	res.Close()
+	costs := map[string]modelResources{}
+	// A value outside a sane range reads as not reported, never as an error of the whole run view.
+	cr, err := s.Pool.Query(ctx, `SELECT rj.model_id,count(*),
+		CASE WHEN bool_and(CASE WHEN jsonb_typeof(j.result->'inference_seconds')='number' THEN (j.result->>'inference_seconds')::float8 BETWEEN 0 AND 1e7 ELSE false END)
+			THEN sum(CASE WHEN jsonb_typeof(j.result->'inference_seconds')='number' THEN (j.result->>'inference_seconds')::float8 END) END,
+		CASE WHEN bool_and(CASE WHEN jsonb_typeof(j.result->'gpu_peak_bytes')='number' THEN (j.result->>'gpu_peak_bytes')::float8 BETWEEN 0 AND 1e15 ELSE false END)
+			THEN max(CASE WHEN jsonb_typeof(j.result->'gpu_peak_bytes')='number' THEN (j.result->>'gpu_peak_bytes')::float8 END)::bigint END
+		FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 AND j.status='done' AND j.result IS NOT NULL GROUP BY 1`, id)
+	if err != nil {
+		return v, err
+	}
+	defer cr.Close()
+	for cr.Next() {
+		var c modelResources
+		if err = cr.Scan(&c.ModelID, &c.Tasks, &c.InferenceSeconds, &c.GPUPeakBytes); err != nil {
+			return v, err
+		}
+		costs[c.ModelID] = c
+	}
+	if err = cr.Err(); err != nil {
+		return v, err
+	}
+	for i, x := range v.Results {
+		models := []string{x.ModelID}
+		for _, c := range v.Chains {
+			if c.ID == x.ModelID {
+				models = []string{c.DiarizationModelID, c.TranscriptionModel, c.SeparationModelID}
+			}
+		}
+		v.Results[i].Resources = []modelResources{}
+		for _, m := range models {
+			if c, ok := costs[m]; ok {
+				v.Results[i].Resources = append(v.Results[i].Resources, c)
+			}
+		}
+	}
+	return v, nil
 }
 
 func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {

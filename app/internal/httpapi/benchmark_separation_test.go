@@ -33,6 +33,10 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 			h.count(`SELECT count(*) FROM transcript_revisions`), h.count(`SELECT count(*) FROM embedding_tasks`), h.count(`SELECT count(*) FROM jobs WHERE step NOT LIKE 'benchmark.%'`))
 	}
 	before := library()
+	// The certified clip contains a Chevauchement: Bob starts before Alice ends.
+	if _, err := pool.Exec(ctx, `UPDATE benchmark_reference_turns SET start_seconds=4 WHERE dataset_id=$1 AND start_seconds=5`, datasetID); err != nil {
+		t.Fatal(err)
+	}
 
 	upstream := func() {
 		t.Helper()
@@ -43,17 +47,25 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 			}
 			switch job.Step {
 			case "benchmark.transcription.9":
-				h.complete(job, map[string]any{"provider": "fixture", "model": "asr-x", "version": "v", "language": "fr", "audio_stream_index": 9, "segments": []map[string]any{
-					{"start": 0.0, "end": 5.0, "text": "bonjour", "words": []map[string]any{{"start": 0.5, "end": 1.0, "word": "bonjour"}}}}}, http.StatusOK)
+				// Bob's "salut alice" is lost under Alice; "oui" falls in a turn of S1 only, between two words of S0. A
+				// Worker reporting its cost (inference time, no GPU for an external transcription).
+				word := func(start, end float64, w string) map[string]any {
+					return map[string]any{"start": start, "end": end, "word": w}
+				}
+				h.complete(job, map[string]any{"provider": "fixture", "model": "asr-x", "version": "v", "language": "fr", "audio_stream_index": 9, "inference_seconds": 1.5, "segments": []map[string]any{
+					{"start": 0.0, "end": 15.0, "text": "bonjour tout le monde oui on commence", "words": []map[string]any{
+						word(0.5, 1, "bonjour"), word(1.5, 2, "tout"), word(2, 2.5, "le"), word(3, 3.5, "monde"), word(4.55, 4.75, "oui"), word(10.5, 11, "on"), word(11, 12, "commence")}}}}, http.StatusOK)
 			case "benchmark.diarization.9":
+				// An old Worker: no cost reported.
 				h.complete(job, map[string]any{"speakers": []map[string]any{
-					{"label": "S0", "turns": []map[string]any{{"start": 0.0, "end": 5.0}}},
-					{"label": "S1", "turns": []map[string]any{{"start": 3.0, "end": 8.0}}}}}, http.StatusOK)
+					{"label": "S0", "turns": []map[string]any{{"start": 0.0, "end": 4.5}, {"start": 4.8, "end": 15.0}}},
+					{"label": "S1", "turns": []map[string]any{{"start": 4.0, "end": 10.0}}}}}, http.StatusOK)
 			default:
 				t.Fatalf("no separation before the chain's own tasks are done, got %s", job.Step)
 			}
 		}
 	}
+	var resources json.RawMessage
 	detail := func(id int64) (status string, metrics json.RawMessage) {
 		var v struct {
 			Status string `json:"status"`
@@ -61,7 +73,8 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 				SeparationModelID string `json:"separation_model_id"`
 			} `json:"chains"`
 			Results []struct {
-				Metrics json.RawMessage `json:"metrics"`
+				Metrics   json.RawMessage `json:"metrics"`
+				Resources json.RawMessage `json:"resources"`
 			} `json:"results"`
 		}
 		if err := json.Unmarshal(h.adminCall(http.MethodGet, fmt.Sprintf("%s/%d", runs, id), nil, http.StatusOK), &v); err != nil {
@@ -71,7 +84,7 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 			t.Fatalf("the chain keeps its separation model: %+v", v.Chains)
 		}
 		if len(v.Results) == 1 {
-			metrics = v.Results[0].Metrics
+			metrics, resources = v.Results[0].Metrics, v.Results[0].Resources
 		}
 		return v.Status, metrics
 	}
@@ -105,10 +118,15 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 			} `json:"diarization"`
 		} `json:"voice"`
 		Separation struct {
-			Model           string  `json:"model"`
-			Revision        string  `json:"revision"`
-			AmbiguityMargin float64 `json:"ambiguity_margin"`
-			Segments        []struct {
+			Model           string   `json:"model"`
+			Revision        string   `json:"revision"`
+			AmbiguityMargin float64  `json:"ambiguity_margin"`
+			SilentSpeakers  []string `json:"silent_speakers"`
+			WordSpans       []struct {
+				Speaker    string
+				Start, End float64
+			} `json:"word_spans"`
+			Segments []struct {
 				Words []struct{ Word string } `json:"words"`
 			} `json:"segments"`
 		} `json:"separation"`
@@ -118,30 +136,77 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 	}
 	if input.TranscriptionModel != "asr-x" || input.Separation.Model != "fixture/sep" || input.Separation.Revision == "" || input.Separation.AmbiguityMargin <= 0 ||
 		len(input.Separation.Segments) != 1 || input.Separation.Segments[0].Words[0].Word != "bonjour" ||
-		len(input.Voice.Diarization.Speakers) != 2 || input.Voice.Diarization.Speakers[1].Turns[0].Start != 3 {
+		len(input.Voice.Diarization.Speakers) != 2 || input.Voice.Diarization.Speakers[1].Turns[0].Start != 4 {
 		t.Fatalf("the task reads its chain's transcript and turns: %+v", input)
 	}
-	h.complete(job, map[string]any{"audio_stream_index": 7, "zones": []any{}, "sources": []any{}, "added": []any{}}, http.StatusBadRequest) // another track
-	h.complete(job, map[string]any{"audio_stream_index": 9,
-		"silent_speakers": []string{"S1"},
-		"zones":           []map[string]any{{"start": 3.0, "end": 5.0, "silent_speakers": []string{"S1"}}},
-		"sources":         []map[string]any{{"zone": 0, "index": 0, "speaker": "S1", "words": []map[string]any{{"start": 3.5, "end": 4.0, "word": "salut"}}}, {"zone": 0, "index": 1, "speaker": nil, "words": []any{}}},
-		"added":           []map[string]any{{"zone": 0, "source": 0, "speaker": "S1", "start": 3.5, "end": 4.0, "word": "salut"}}}, http.StatusOK)
-	status, metrics := detail(run.ID)
-	var m struct {
-		CPWER      *float64        `json:"cpwer"`
-		Separation json.RawMessage `json:"separation"`
+	// Parity with production (#403): S1 covers "oui" most, but a single word between two words of S0 is S0's under the
+	// word rule (segmentparts), so S1 is without words; a rule of the Worker's own gave "oui" to S1.
+	if fmt.Sprint(input.Separation.SilentSpeakers) != "[S1]" {
+		t.Fatalf("the speakers without words follow the production rule: %v", input.Separation.SilentSpeakers)
 	}
-	if err := json.Unmarshal(metrics, &m); err != nil {
+	// The same rule gives the Worker the times of each speaker's words, to merge a source zone by zone: S0 holds all 7.
+	if spans := input.Separation.WordSpans; len(spans) != 7 || spans[0].Speaker != "S0" || spans[4].Speaker != "S0" || spans[4].Start != 4.55 || spans[6].End != 12 {
+		t.Fatalf("the word spans follow the production rule: %+v", spans)
+	}
+	h.complete(job, map[string]any{"audio_stream_index": 7, "zones": []any{}, "sources": []any{}, "added": []any{}}, http.StatusBadRequest) // another track
+	word := func(start, end float64, w string) map[string]any {
+		return map[string]any{"start": start, "end": end, "word": w}
+	}
+	added := func(start, end float64, w string) map[string]any {
+		return map[string]any{"zone": 0, "source": 0, "speaker": "S1", "start": start, "end": end, "word": w}
+	}
+	// S1 gets Bob's words back and one word of nobody; the other source repeats "salut" at the same time.
+	h.complete(job, map[string]any{"audio_stream_index": 9, "inference_seconds": 2.5, "gpu_peak_bytes": 1000,
+		"silent_speakers": []string{"S1"},
+		"zones":           []map[string]any{{"start": 4.8, "end": 10.0, "silent_speakers": []string{"S1"}}},
+		"sources": []map[string]any{
+			{"zone": 0, "index": 0, "speaker": "S1", "words": []map[string]any{word(5.5, 6, "salut"), word(6, 6.5, "alice"), word(7, 7.5, "bravo")}},
+			{"zone": 0, "index": 1, "speaker": nil, "words": []map[string]any{word(5.6, 6, "salut"), word(8, 8.5, "monde")}}},
+		"added": []map[string]any{added(5.5, 6, "salut"), added(6, 6.5, "alice"), added(7, 7.5, "bravo")}}, http.StatusOK)
+	status, metrics := detail(run.ID)
+	var sep struct {
+		CPWER      *float64                   `json:"cpwer"`
+		Separation map[string]json.RawMessage `json:"separation"`
+	}
+	if err := json.Unmarshal(metrics, &sep); err != nil {
 		t.Fatal(err)
 	}
-	if status != "completed" || m.CPWER == nil || m.Separation == nil {
-		t.Fatalf("the run settles with its separation counts: %s %s", status, metrics)
+	if status != "completed" || sep.CPWER == nil || sep.Separation == nil {
+		t.Fatalf("the run settles with its separation measures: %s %s", status, metrics)
 	}
-	var raw map[string]map[string]int
-	_ = json.Unmarshal(metrics, &raw)
-	if got := fmt.Sprint(raw["separation"]); got != "map[sources:2 sources_without_speaker:1 speakers_without_words_after:0 speakers_without_words_before:1 tracks:1 words_added:1 zones:1]" {
-		t.Fatalf("raw separation counts: %s", got)
+	counts := map[string]string{}
+	for k, v := range sep.Separation {
+		counts[k] = string(v)
+	}
+	rates := func(key string) string {
+		var r struct {
+			Clips          int      `json:"clips"`
+			ReferenceWords int      `json:"reference_words"`
+			CPWordErrors   int      `json:"cp_word_errors"`
+			WordErrors     int      `json:"word_errors"`
+			CPWER          *float64 `json:"cpwer"`
+			WER            *float64 `json:"wer"`
+		}
+		if json.Unmarshal(sep.Separation[key], &r) != nil || r.CPWER == nil || r.WER == nil {
+			return "unreadable: " + string(sep.Separation[key])
+		}
+		return fmt.Sprintf("clips=%d ref=%d cp=%d w=%d cpwer=%v wer=%v", r.Clips, r.ReferenceWords, r.CPWordErrors, r.WordErrors, *r.CPWER, *r.WER)
+	}
+	// Without: Bob's two words lost and "oui" added (cpWER 3/8); with: Bob's words back, "bravo" added (2/8).
+	if got := rates("without_separation"); got != "clips=1 ref=8 cp=3 w=2 cpwer=0.375 wer=0.25" {
+		t.Fatalf("without separation: %s", got)
+	}
+	if got := rates("with_separation"); got != "clips=1 ref=8 cp=2 w=2 cpwer=0.25 wer=0.25" {
+		t.Fatalf("with separation, on the same clips: %s", got)
+	}
+	delete(counts, "without_separation")
+	delete(counts, "with_separation")
+	if got := fmt.Sprint(counts); got != "map[min_clips:10 sources:2 sources_without_speaker:1 speakers_without_words_after:0 speakers_without_words_before:1 tracks:1 words_added:3 words_added_absent_from_reference:1 words_duplicated_between_sources:1 zones:1]" {
+		t.Fatalf("separation counts: %s", got)
+	}
+	// Cost per model of the chain: an old Worker reported nothing (absent, not zero); no GPU for the transcription.
+	if got := string(resources); got != `[{"model_id":"bench-diar-a","tasks":1,"inference_seconds":null,"gpu_peak_bytes":null},{"model_id":"asr-x","tasks":1,"inference_seconds":1.5,"gpu_peak_bytes":null},{"model_id":"bench-sep","tasks":1,"inference_seconds":2.5,"gpu_peak_bytes":1000}]` {
+		t.Fatalf("resources per model: %s", got)
 	}
 	if after := library(); after != before {
 		t.Fatalf("a run with separation writes nothing to the library: %s then %s", before, after)

@@ -2186,7 +2186,29 @@ export const fr: Messages = {
       bestMark: "▲ meilleure valeur de la colonne.",
       note: "Chaque modèle a son propre seuil : les scores bruts de modèles différents ne se comparent pas. Ces chiffres décrivent ce corpus, pas une garantie.",
       tableNote:
-        "Les faux positifs et faux négatifs sont pris au seuil EER propre au modèle ; une mauvaise Personne acceptée compte pour les deux. Le temps écoulé inclut l’attente en file. La RAM et la VRAM ne sont pas remontées par le Worker.",
+        "Les faux positifs et faux négatifs sont pris au seuil EER propre au modèle ; une mauvaise Personne acceptée compte pour les deux. Le temps écoulé inclut l’attente en file ; la durée des tâches et la mémoire GPU de chaque modèle sont dans « Coût par modèle ».",
+      voiceSeparation: {
+        title: "Séparation des voix",
+        lead: "Sur les clips certifiés dont la référence contient un Chevauchement, la même chaîne sans puis avec les mots que la séparation ajoute.",
+        tooFew:
+          "Effectifs trop faibles pour conclure : {clips} clips avec Chevauchement mesurés, il en faut au moins {min}.",
+        verdict:
+          "La séparation rend des paroles à {recovered} Locuteurs locaux sur {silent} restés sans paroles ; cpWER {before} → {after}, au prix de {added} mots ajoutés dont {absent} absents de la référence.",
+        measure: "Mesure",
+        without: "Sans séparation",
+        with: "Avec séparation",
+        silent: "Locuteurs locaux sans paroles",
+        counts:
+          "{clips} clips, {zones} zones séparées. Mots ajoutés : {added}, dont {absent} absents de la référence. Mots dupliqués entre deux sources : {duplicated}. Sources restées sans locuteur : {unattributed} sur {sources}.",
+      },
+      costs: {
+        title: "Coût par modèle",
+        tasks: "Tâches",
+        inference: "Durée de la tâche",
+        gpu: "Pic mémoire GPU",
+        absent: "non remonté",
+        note: "Remontés par le Worker pour ses tâches terminées de ce run : durée cumulée des tâches (hors téléchargement et préparation de l’audio ; pour une séparation, la transcription et l’empreinte des sources comprises) et pic de mémoire GPU allouée par PyTorch. « Non remonté » : un Worker plus ancien, une machine sans CUDA, ou une transcription faite par le service externe.",
+      },
       eerChart: "Taux d’égale erreur (plus bas = meilleur)",
       separation: "Séparation des scores moyens",
       separationLead:

@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/jobs"
+	"snitch/internal/segmentparts"
 )
 
 // benchmarkChain is a diarization model and a transcription model measured together (ADR 0060). Its tasks are those
@@ -27,7 +28,7 @@ type e2eMetrics struct {
 	cpwerMetrics
 	DER *float64 `json:"der"`
 	// Separation is present for a chain with a separation model only.
-	Separation *separationCounts `json:"separation,omitempty"`
+	Separation *separationMetrics `json:"separation,omitempty"`
 }
 
 // computeE2EResult measures a chain on the clips and tracks where both of its models finished: the transcript
@@ -116,7 +117,8 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 
 	// The separation results of the chain, by the input version naming its two tasks of a clip and track.
 	var separations map[string][]byte
-	var separated separationCounts
+	var separated separationMetrics
+	var withoutClips, withClips []attributedClip
 	if chain.SeparationModelID != "" {
 		separations = map[string][]byte{}
 		sr, err := q.Query(ctx, `SELECT j.input_version,j.result FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id
@@ -148,21 +150,11 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 			continue
 		}
 		var tr struct {
-			Version  string `json:"version"`
-			Segments []struct {
-				Start float64 `json:"start"`
-				End   float64 `json:"end"`
-				Text  string  `json:"text"`
-			} `json:"segments"`
+			Version  string                  `json:"version"`
+			Segments []jobs.BenchmarkSegment `json:"segments"`
 		}
 		var di struct {
-			Speakers []struct {
-				Label string `json:"label"`
-				Turns []struct {
-					Start float64 `json:"start"`
-					End   float64 `json:"end"`
-				} `json:"turns"`
-			} `json:"speakers"`
+			Speakers []jobs.BenchmarkSpeaker `json:"speakers"`
 		}
 		if json.Unmarshal(rawT, &tr) != nil || json.Unmarshal(rawD, &di) != nil {
 			continue // a result that cannot be read is a task that did not measure
@@ -180,12 +172,12 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 				hypTurns = append(hypTurns, speakerTurn{t.Start, t.End, sp.Label})
 			}
 		}
-		if separations != nil {
-			if raw, ok := separations[jobs.SeparationInputVersion(jobIDs[jobs.BenchmarkDiarizationPrefix][key], jobIDs[jobs.BenchmarkTranscriptionPrefix][key])]; ok {
-				separated.add(raw)
-			}
+		hypothesis := attributeSegments(segments, hypTurns)
+		raw, ok := separations[jobs.SeparationInputVersion(jobIDs[jobs.BenchmarkDiarizationPrefix][key], jobIDs[jobs.BenchmarkTranscriptionPrefix][key])]
+		if ok && hasOverlap(refTurns[key]) {
+			separateTrack(&separated, &withoutClips, &withClips, raw, di.Speakers, tr.Segments, refSegments[key])
 		}
-		clips = append(clips, attributedClip{reference: refSegments[key], hypothesis: attributeSegments(segments, hypTurns)})
+		clips = append(clips, attributedClip{reference: refSegments[key], hypothesis: hypothesis})
 		turnClips = append(turnClips, clipTurns{refTurns[key], hypTurns})
 	}
 	res.version = version
@@ -205,12 +197,72 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 	}
 	metrics := e2eMetrics{cpwerMetrics: evaluateCPWER(clips), DER: evaluateDiarization(turnClips).DER}
 	if separations != nil {
+		separated.MinClips = separationMinClips
+		separated.WithoutSeparation, separated.WithSeparation = evaluateCPWER(withoutClips), evaluateCPWER(withClips)
 		metrics.Separation = &separated
 	}
 	if res.metrics, err = json.Marshal(metrics); err != nil {
 		return res, err
 	}
 	return res, nil
+}
+
+// hasOverlap tells whether two speakers of the reference speak at once on the track: a Chevauchement.
+func hasOverlap(turns []speakerTurn) bool {
+	for i, a := range turns {
+		for _, b := range turns[i+1:] {
+			if a.speaker != b.speaker && min(a.end, b.end) > max(a.start, b.start) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// separateTrack measures the separation result of one track with a Chevauchement. Both hypotheses are read word by
+// word, each word given its voice by the word rule of production (segmentparts, ADR 0065), the rule that also lists the
+// speakers without words, so the words added fall in their place in time; the one with separation adds them under the
+// speaker they were given. The speakers without words are counted the same way on both: the voices of the turns that
+// hold no word of the transcript (before, what segmentparts.Silent gives the task; after, on the merged transcript).
+func separateTrack(m *separationMetrics, without, with *[]attributedClip, raw []byte, speakers []jobs.BenchmarkSpeaker, segments []jobs.BenchmarkSegment, reference []speakerText) {
+	added, ok := m.add(raw, reference)
+	if !ok {
+		return
+	}
+	turns, parts := jobs.BenchmarkTrack(speakers, segments)
+	var words []speakerText
+	for i, s := range parts {
+		given := segmentparts.Attribute(segmentparts.RuleWord, s.Span, s.Words, turns)
+		if len(s.Words) == 0 {
+			words = append(words, speakerText{s.Span.Start, s.Span.End, given[0].Speaker, segments[i].Text})
+		}
+		for _, p := range given {
+			for _, w := range segments[i].Words[p.First : p.First+p.Count] {
+				words = append(words, speakerText{w.Start, w.End, p.Speaker, w.Word})
+			}
+		}
+	}
+	merged := slices.Clone(words)
+	for _, a := range added {
+		merged = append(merged, speakerText{a.Start, a.End, a.Speaker, a.Word})
+	}
+	m.SpeakersWithoutWordsBefore += withoutWords(turns, words)
+	m.SpeakersWithoutWordsAfter += withoutWords(turns, merged)
+	*without = append(*without, attributedClip{reference, words})
+	*with = append(*with, attributedClip{reference, merged})
+}
+
+// withoutWords counts the voices of turns that hold no word of texts. An added word keeps the voice the separation gave
+// it: read by the word rule, a word of a Chevauchement would go to whichever voice comes first in a tie.
+func withoutWords(turns []segmentparts.Turn[string], texts []speakerText) int {
+	silent := map[string]bool{}
+	for _, t := range turns {
+		silent[t.Speaker] = true
+	}
+	for _, t := range texts {
+		delete(silent, t.speaker)
+	}
+	return len(silent)
 }
 
 // scheduleSeparationTasks schedules, for each chain with a separation model, one separation task per clip and track
@@ -272,17 +324,27 @@ func (s *Server) scheduleSeparationTasks(ctx context.Context, tx pgx.Tx, runID i
 	return scheduled, nil
 }
 
-// separationCounts are the raw counts of a chain's separation tasks (#402), summed over its measured tracks: the
-// targeted zones, the Local speakers without any word on their track before and after the merge, the separated
-// sources, those left without a speaker, and the words added.
-type separationCounts struct {
-	Tracks                     int `json:"tracks"`
-	Zones                      int `json:"zones"`
-	SpeakersWithoutWordsBefore int `json:"speakers_without_words_before"`
-	SpeakersWithoutWordsAfter  int `json:"speakers_without_words_after"`
-	Sources                    int `json:"sources"`
-	SourcesWithoutSpeaker      int `json:"sources_without_speaker"`
-	WordsAdded                 int `json:"words_added"`
+// separationMinClips is the number of clips with a Chevauchement under which the report does not conclude (#403).
+const separationMinClips = 10
+
+// separationMetrics measure a chain's separation (#402, #403) on the certified tracks whose reference contains a
+// Chevauchement and whose separation task is done: the targeted zones, the Local speakers without any word on their
+// track before and after the merge (production word rule), the separated sources, those left without a speaker, the
+// words added, those absent from the reference and those repeated between two sources, and the cpWER and WER of
+// the same tracks without and with the words added.
+type separationMetrics struct {
+	Tracks                        int          `json:"tracks"`
+	Zones                         int          `json:"zones"`
+	SpeakersWithoutWordsBefore    int          `json:"speakers_without_words_before"`
+	SpeakersWithoutWordsAfter     int          `json:"speakers_without_words_after"`
+	Sources                       int          `json:"sources"`
+	SourcesWithoutSpeaker         int          `json:"sources_without_speaker"`
+	WordsAdded                    int          `json:"words_added"`
+	WordsAddedAbsentFromReference int          `json:"words_added_absent_from_reference"`
+	WordsDuplicatedBetweenSources int          `json:"words_duplicated_between_sources"`
+	MinClips                      int          `json:"min_clips"`
+	WithoutSeparation             cpwerMetrics `json:"without_separation"`
+	WithSeparation                cpwerMetrics `json:"with_separation"`
 }
 
 // separationResult is what a separation task stores: the Local speakers without words on the track, its zones,
@@ -294,11 +356,14 @@ type separationResult struct {
 		Start float64 `json:"start"`
 		End   float64 `json:"end"`
 	} `json:"zones"`
-	Sources []struct {
-		Zone    int     `json:"zone"`
-		Speaker *string `json:"speaker"`
-	} `json:"sources"`
-	Added []addedWord `json:"added"`
+	Sources []separatedSource `json:"sources"`
+	Added   []addedWord       `json:"added"`
+}
+
+type separatedSource struct {
+	Zone    int         `json:"zone"`
+	Speaker *string     `json:"speaker"`
+	Words   []addedWord `json:"words"` // only their times and text
 }
 
 type addedWord struct {
@@ -309,26 +374,52 @@ type addedWord struct {
 	Word    string  `json:"word"`
 }
 
-func (c *separationCounts) add(raw []byte) {
+// add counts the separation result of one track, given its reference segments, and returns the words it adds; false
+// when the result cannot be read.
+func (c *separationMetrics) add(raw []byte, reference []speakerText) ([]addedWord, bool) {
 	var r separationResult
 	if json.Unmarshal(raw, &r) != nil {
-		return
+		return nil, false
 	}
 	c.Tracks++
 	c.Zones += len(r.Zones)
 	c.Sources += len(r.Sources)
 	c.WordsAdded += len(r.Added)
-	for _, s := range r.Sources {
+	same := func(a, b addedWord) bool {
+		return min(a.End, b.End) > max(a.Start, b.Start) && slices.Equal(normalizeWords(a.Word), normalizeWords(b.Word))
+	}
+	for i, s := range r.Sources {
 		if s.Speaker == nil {
 			c.SourcesWithoutSpeaker++
 		}
-	}
-	c.SpeakersWithoutWordsBefore += len(r.SilentSpeakers)
-	for _, speaker := range r.SilentSpeakers {
-		if !slices.ContainsFunc(r.Added, func(a addedWord) bool { return a.Speaker == speaker }) {
-			c.SpeakersWithoutWordsAfter++
+		// A word an earlier source of the zone also says at the same time: one voice leaking into two sources.
+		for _, w := range s.Words {
+			if slices.ContainsFunc(r.Sources[:i], func(o separatedSource) bool {
+				return o.Zone == s.Zone && slices.ContainsFunc(o.Words, func(x addedWord) bool { return same(w, x) })
+			}) {
+				c.WordsDuplicatedBetweenSources++
+			}
 		}
 	}
+	for _, a := range r.Added {
+		// Absent: not among the words of the reference segments over its zone.
+		var said []string
+		if a.Zone >= 0 && a.Zone < len(r.Zones) {
+			z := r.Zones[a.Zone]
+			for _, s := range reference {
+				if min(s.end, z.End) > max(s.start, z.Start) {
+					said = append(said, normalizeWords(s.text)...)
+				}
+			}
+		}
+		for _, w := range normalizeWords(a.Word) {
+			if !slices.Contains(said, w) {
+				c.WordsAddedAbsentFromReference++
+				break
+			}
+		}
+	}
+	return r.Added, true
 }
 
 // validSeparationResult checks a separation result of the track of its step: times, words and speakers well formed.

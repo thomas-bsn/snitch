@@ -8713,8 +8713,23 @@ export interface components {
       /** Format: double */
       elapsed_seconds?: number | null;
       metrics: components["schemas"]["BenchmarkMetrics"];
-      /** @description RAM/VRAM : non remontés par le Worker, toujours null pour l'instant. */
-      resources?: Record<string, never> | null;
+      /** @description Coût mesuré par le Worker, par modèle du résultat (les deux ou trois d'une chaîne de bout en bout), sur ses tâches terminées du run (#403). */
+      resources?: components["schemas"]["BenchmarkModelResources"][];
+    };
+    BenchmarkModelResources: {
+      model_id: string;
+      /** @description Tâches terminées du modèle dans le run. */
+      tasks: number;
+      /**
+       * Format: double
+       * @description Durée cumulée des tâches sur le Worker, téléchargement et préparation de l'audio exclus : l'inférence du modèle et, pour une séparation, la transcription et l'empreinte des sources ; null si une tâche ne l'a pas remontée (Worker ancien), jamais zéro par défaut.
+       */
+      inference_seconds: number | null;
+      /**
+       * Format: int64
+       * @description Pic de mémoire GPU allouée par PyTorch sur ces tâches ; null sans CUDA, pour la transcription (service externe) ou si une tâche ne l'a pas remonté.
+       */
+      gpu_peak_bytes: number | null;
     };
     BenchmarkRun: {
       /** Format: int64 */
@@ -8881,6 +8896,37 @@ export interface components {
       cp_word_errors?: number;
       reference_speakers?: number;
       model_speakers?: number;
+      separation?: components["schemas"]["BenchmarkSeparationMetrics"];
+    };
+    /** @description Bout en bout, chaîne avec un modèle de séparation (#402, #403) : comptes des tâches de séparation, et cpWER et WER sans et avec séparation sur les mêmes clips, ceux dont la référence contient un Chevauchement. */
+    BenchmarkSeparationMetrics: {
+      tracks: number;
+      zones: number;
+      /** @description Locuteurs locaux sans aucun mot sur leur piste, règle d'attribution au mot de la production. */
+      speakers_without_words_before: number;
+      /** @description Les mêmes, restés sans mot ajouté. */
+      speakers_without_words_after: number;
+      sources: number;
+      sources_without_speaker: number;
+      words_added: number;
+      /** @description Mots ajoutés absents des segments de référence qui recouvrent leur zone. */
+      words_added_absent_from_reference: number;
+      /** @description Mots d'une source répétés, au même moment, dans une autre source de la même zone. */
+      words_duplicated_between_sources: number;
+      /** @description En dessous de ce nombre de clips avec Chevauchement, le rapport ne conclut pas. */
+      min_clips: number;
+      without_separation: components["schemas"]["BenchmarkWordRates"];
+      with_separation: components["schemas"]["BenchmarkWordRates"];
+    };
+    BenchmarkWordRates: {
+      clips: number;
+      reference_words: number;
+      cp_word_errors: number;
+      word_errors: number;
+      /** Format: double */
+      cpwer: number | null;
+      /** Format: double */
+      wer: number | null;
     };
     BenchmarkChain: {
       id: string;
@@ -9556,6 +9602,14 @@ export interface components {
     };
     /** @description Tâche benchmark.separation.N (#402) : le modèle de séparation demandé et la transcription de la chaîne, dans le repère de la piste. Les tours sont dans voice.diarization, le modèle de transcription dans transcription_model. */
     WorkerSeparationInput: {
+      /** @description Étiquettes des Locuteurs locaux de la piste sans aucun mot sous la règle d'attribution au mot de la production (#403) : le Worker n'a pas de règle propre. */
+      silent_speakers: string[];
+      /** @description Temps des mots de chaque Locuteur local sous la même règle (#403) : le Worker n'ajoute les mots d'une source qu'à un Locuteur local sans mot dans la zone. */
+      word_spans: {
+        speaker: string;
+        start: number;
+        end: number;
+      }[];
       model: string;
       revision: string;
       /** @description Écart minimal de ressemblance entre les deux meilleurs Locuteurs locaux pour attribuer une Source séparée. */

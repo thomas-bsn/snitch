@@ -42,6 +42,20 @@ func TestAWordAloneBetweenTwoWordsOfAnotherVoiceMakesNoPart(t *testing.T) {
 	check(t, got, part("A", 0, 3))
 }
 
+func TestAVoiceHoldingOnlyAnIsolatedWordIsSilent(t *testing.T) {
+	// B covers the middle word most, but a single word between two words of A is A's: B has no word (#403). C has a
+	// segment without word times, which is still speech.
+	turns := []Turn[string]{{"A", 0, 3}, {"B", 1, 2}, {"B", 1, 2}, {"C", 5, 6}}
+	segments := []Segment{{Span{0, 3}, words(0, 1, 1, 2, 2, 3)}, {Span{5, 6}, nil}}
+	if got := Silent(RuleWord, segments, turns); !reflect.DeepEqual(got, []string{"B"}) {
+		t.Fatalf("silent voices: %v", got)
+	}
+	// The same rule gives each voice the times of its words: what a separation task merges against (#403).
+	if got := Spans(RuleWord, segments, turns); !reflect.DeepEqual(got, map[string][]Span{"A": words(0, 1, 1, 2, 2, 3), "C": {{5, 6}}}) {
+		t.Fatalf("word spans: %v", got)
+	}
+}
+
 func TestAWordAloneAtTheEdgeOfTheSegmentKeepsItsVoice(t *testing.T) {
 	turns := []Turn[string]{{"A", 0, 2}, {"B", 2, 3}}
 	got := Attribute(RuleWord, Span{0, 3}, words(0, 1, 1, 2, 2, 3), turns)

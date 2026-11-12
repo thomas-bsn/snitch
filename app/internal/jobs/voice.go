@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"snitch/internal/segmentparts"
 )
 
 // ErrStaleResult marks a voice result computed against a diarization that has
@@ -210,8 +211,55 @@ FROM jobs j JOIN voice_model_catalog c ON c.id=j.requested_model_id, jobs d, job
 	if input.Voice, err = json.Marshal(payload); err != nil {
 		return err
 	}
-	input.Separation, err = json.Marshal(map[string]any{"model": repo, "revision": revision, "ambiguity_margin": margin, "segments": json.RawMessage(segments)})
+	// The speakers without words, and the times of each one's words, come from the production attribution rule, so the
+	// Worker has no rule of its own (#403).
+	var decoded []BenchmarkSegment
+	if err = json.Unmarshal(segments, &decoded); err != nil {
+		return fmt.Errorf("decode chain transcription: %w", err)
+	}
+	turns, parts := BenchmarkTrack(speakers, decoded)
+	byVoice := segmentparts.Spans(segmentparts.RuleWord, parts, turns)
+	spans := []map[string]any{}
+	for _, sp := range speakers {
+		for _, w := range byVoice[sp.Label] {
+			spans = append(spans, map[string]any{"speaker": sp.Label, "start": w.Start, "end": w.End})
+		}
+	}
+	input.Separation, err = json.Marshal(map[string]any{"model": repo, "revision": revision, "ambiguity_margin": margin, "segments": json.RawMessage(segments),
+		"silent_speakers": segmentparts.Silent(segmentparts.RuleWord, parts, turns), "word_spans": spans})
 	return err
+}
+
+// BenchmarkSegment is a segment of the result of a benchmark transcription task, with its timed words.
+type BenchmarkSegment struct {
+	Start float64 `json:"start"`
+	End   float64 `json:"end"`
+	Text  string  `json:"text"`
+	Words []struct {
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+		Word  string  `json:"word"`
+	} `json:"words"`
+}
+
+// BenchmarkTrack reads a chain's diarization speakers and transcription segments of one track as the turns and
+// segments of the production attribution rule (segmentparts, ADR 0065).
+func BenchmarkTrack(speakers []BenchmarkSpeaker, segments []BenchmarkSegment) ([]segmentparts.Turn[string], []segmentparts.Segment) {
+	var turns []segmentparts.Turn[string]
+	for _, sp := range speakers {
+		for _, t := range sp.Turns {
+			turns = append(turns, segmentparts.Turn[string]{Speaker: sp.Label, Start: t.Start, End: t.End})
+		}
+	}
+	parts := make([]segmentparts.Segment, 0, len(segments))
+	for _, s := range segments {
+		words := make([]segmentparts.Word, 0, len(s.Words))
+		for _, w := range s.Words {
+			words = append(words, segmentparts.Word{Start: w.Start, End: w.End})
+		}
+		parts = append(parts, segmentparts.Segment{Span: segmentparts.Span{Start: s.Start, End: s.End}, Words: words})
+	}
+	return turns, parts
 }
 
 // benchmarkDiarizationInput gives a diarization benchmark task the production pipeline configuration with the
