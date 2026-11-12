@@ -265,6 +265,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		Chains    []struct {
 			DiarizationModelID string `json:"diarization_model_id"`
 			TranscriptionModel string `json:"transcription_model"`
+			SeparationModelID  string `json:"separation_model_id"`
 		} `json:"chains"`
 	}
 	if !decode(w, r, &input) {
@@ -277,16 +278,16 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusBadRequest, "invalid_request")
 			return
 		}
-		pairs := map[[2]string]bool{}
+		pairs := map[[3]string]bool{}
 		for i, c := range input.Chains {
-			key := [2]string{c.DiarizationModelID, c.TranscriptionModel}
+			key := [3]string{c.DiarizationModelID, c.TranscriptionModel, c.SeparationModelID}
 			if pairs[key] {
 				fail(w, http.StatusBadRequest, "invalid_request")
 				return
 			}
 			pairs[key] = true
 			id := fmt.Sprintf("c%d", i+1)
-			chains = append(chains, benchmarkChain{id, c.DiarizationModelID, c.TranscriptionModel})
+			chains = append(chains, benchmarkChain{id, c.DiarizationModelID, c.TranscriptionModel, c.SeparationModelID})
 			input.ModelIDs = append(input.ModelIDs, id)
 		}
 	}
@@ -323,6 +324,20 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 		if valid != len(distinct) {
 			fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
 			return
+		}
+		for _, c := range chains {
+			if c.SeparationModelID == "" {
+				continue
+			}
+			var separation bool
+			if err := s.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_model_catalog WHERE id=$1 AND kind='separation' AND enabled AND supported)`, c.SeparationModelID).Scan(&separation); err != nil {
+				s.internal(w, err)
+				return
+			}
+			if !separation {
+				fail(w, http.StatusUnprocessableEntity, "benchmark_model_invalid")
+				return
+			}
 		}
 	} else if input.Stage == "transcription" {
 		// A transcription model is a name of the external service: the Worker finds out if it exists (ADR 0058).
@@ -553,6 +568,16 @@ func (s *Server) settleBenchmarkRun(ctx context.Context, runID int64) error {
 	}
 	if active > 0 {
 		return nil
+	}
+	if stage == "e2e" {
+		// A chain with a separation model has a second round: its separation tasks, once the others are over.
+		scheduled, err := s.scheduleSeparationTasks(ctx, tx, runID, paramsRaw)
+		if err != nil {
+			return err
+		}
+		if scheduled {
+			return tx.Commit(ctx)
+		}
 	}
 	// A fingerprint run is scored under the mode and rule recorded when it started. One started before they were
 	// recorded is scored under those active now, which it records first: what is shown is what was used.

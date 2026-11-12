@@ -37,6 +37,9 @@ func (s *Service) checkRequestedModel(ctx context.Context, step, modelID string)
 	switch {
 	case strings.HasPrefix(step, BenchmarkDiarizationPrefix):
 		wanted = "diarization"
+	case strings.HasPrefix(step, BenchmarkSeparationPrefix):
+		// The only work a separation model may do: no step of the library separates (ADR 0066).
+		wanted = "separation"
 	case !strings.HasPrefix(step, "voice.fingerprint."):
 		return ErrInvalidInput
 	}
@@ -95,3 +98,7 @@ func ValidTranscriptionModelName(name string) bool { return checkTranscriptionMo
 
 // BenchmarkDiarizationPrefix is the step of a diarization benchmark job (ADR 0059), never "voice.diarization.".
 const BenchmarkDiarizationPrefix = "benchmark.diarization."
+
+// BenchmarkSeparationPrefix is the step of the separation task of an end-to-end chain (#402). Its input version
+// "bs-d<diarization job>-t<transcription job>" names the two tasks of the chain whose results it reads.
+const BenchmarkSeparationPrefix = "benchmark.separation."

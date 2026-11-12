@@ -15,7 +15,7 @@ import (
 // claimBenchmarkTask leases the next benchmark task of either stage.
 func (h *voiceHarness) claimBenchmarkTask() (claimedJob, bool) {
 	h.t.Helper()
-	h.workerCall(http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 2, "supported_steps": []string{"benchmark.diarization.*", "benchmark.transcription.*"}}, "", http.StatusOK)
+	h.workerCall(http.MethodPost, "/api/worker/pulse", map[string]any{"capacity": 2, "supported_steps": []string{"benchmark.diarization.*", "benchmark.transcription.*", "benchmark.separation.*"}}, "", http.StatusOK)
 	var a struct {
 		Job        *claimedJob `json:"job"`
 		LeaseToken string      `json:"lease_token"`
@@ -30,7 +30,8 @@ func (h *voiceHarness) claimBenchmarkTask() (claimedJob, bool) {
 	return *a.Job, true
 }
 
-func testAIBenchmarkEndToEnd(t *testing.T, pool *pgxpool.Pool) {
+// e2eCorpus builds a corpus whose one clip, transcribed, has Alice and Bob speaking in turn with their voices validated.
+func e2eCorpus(t *testing.T, pool *pgxpool.Pool) (*voiceHarness, int64, int64) {
 	ctx := context.Background()
 	h := newVoiceHarnessClips(t, pool, 1)
 	clip := h.clipIDs[0]
@@ -60,7 +61,7 @@ func testAIBenchmarkEndToEnd(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatal(err)
 	}
 
-	datasets, runs := "/api/admin/benchmarks/datasets", "/api/admin/benchmarks/runs"
+	datasets := "/api/admin/benchmarks/datasets"
 	var created struct {
 		ID     int64    `json:"id"`
 		Stages []string `json:"stages"`
@@ -71,6 +72,14 @@ func testAIBenchmarkEndToEnd(t *testing.T, pool *pgxpool.Pool) {
 	if fmt.Sprint(created.Stages) != "[transcription diarization e2e]" {
 		t.Fatalf("a certified, transcribed clip with validated voices measures the three stages, got %v", created.Stages)
 	}
+	return h, clip, created.ID
+}
+
+func testAIBenchmarkEndToEnd(t *testing.T, pool *pgxpool.Pool) {
+	ctx := context.Background()
+	h, clip, datasetID := e2eCorpus(t, pool)
+	runs := "/api/admin/benchmarks/runs"
+	created := struct{ ID int64 }{datasetID}
 	// Each reference segment keeps who spoke it.
 	var speakers int
 	if err := pool.QueryRow(ctx, `SELECT count(DISTINCT speaker) FROM benchmark_reference_segments WHERE dataset_id=$1 AND speaker IS NOT NULL`, created.ID).Scan(&speakers); err != nil || speakers != 2 {
