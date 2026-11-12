@@ -72,13 +72,15 @@ SET net_speech_seconds = LEAST(g.net_speech_seconds, f.duration_seconds), overla
 FROM voice_fingerprints x
 LEFT JOIN LATERAL voice_turns_net_speech(x.local_speaker_id, x.turn_id) g ON x.scope = 'speaker' OR x.turn_id IS NOT NULL
 WHERE x.id = f.id AND f.net_speech_source IS NULL AND f.measures_version IS NULL AND NOT f.benchmark;
+-- The new reasons are allowed before an overlapped fingerprint is marked with one of them.
+ALTER TABLE voice_fingerprints DROP CONSTRAINT voice_fingerprints_unusable_reason_check;
+ALTER TABLE voice_fingerprints
+    ADD CONSTRAINT voice_fingerprints_unusable_reason_check CHECK (unusable_reason IN ('', 'too_short', 'low_quality', 'overlap_only', 'clipped'));
 -- An overlapped fingerprint is never eligible, whatever the rule.
 UPDATE voice_fingerprints SET usable = false, unusable_reason = 'overlap_only' WHERE overlapped;
 UPDATE voice_fingerprints SET contributive = usable;
 ALTER TABLE voice_fingerprints ALTER COLUMN contributive SET NOT NULL;
-ALTER TABLE voice_fingerprints DROP CONSTRAINT voice_fingerprints_unusable_reason_check;
 ALTER TABLE voice_fingerprints
-    ADD CONSTRAINT voice_fingerprints_unusable_reason_check CHECK (unusable_reason IN ('', 'too_short', 'low_quality', 'overlap_only', 'clipped')),
     ADD CONSTRAINT voice_fingerprints_comparable_contributes CHECK (NOT usable OR contributive),
     ADD CONSTRAINT voice_fingerprints_contributive_reason CHECK (NOT contributive OR unusable_reason IN ('', 'too_short')),
     ADD CONSTRAINT voice_fingerprints_overlapped_never_contributes CHECK (NOT (contributive AND overlapped IS TRUE));
