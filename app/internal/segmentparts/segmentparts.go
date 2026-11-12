@@ -60,6 +60,45 @@ func Attribute[S comparable](rule Rule, segment Span, words []Word, turns []Turn
 	return []Part[S]{{Speaker: speaker, Known: known, First: 0, Count: len(words)}}
 }
 
+// Segment is a segment of a track with the times of its words.
+type Segment struct {
+	Span  Span
+	Words []Word
+}
+
+// Spans gives each voice the times of the words of the segments it is given under rule, in segment order. A segment
+// without word times is speech of the voice it is given to, over the whole segment.
+func Spans[S comparable](rule Rule, segments []Segment, turns []Turn[S]) map[S][]Span {
+	spans := map[S][]Span{}
+	for _, s := range segments {
+		for _, p := range Attribute(rule, s.Span, s.Words, turns) {
+			switch {
+			case !p.Known:
+			case len(s.Words) == 0:
+				spans[p.Speaker] = append(spans[p.Speaker], s.Span)
+			default:
+				spans[p.Speaker] = append(spans[p.Speaker], s.Words[p.First:p.First+p.Count]...)
+			}
+		}
+	}
+	return spans
+}
+
+// Silent lists, in the order of turns, the voices given no word of the segments under rule (Spans): the Local
+// speakers "without words" of a track (#403).
+func Silent[S comparable](rule Rule, segments []Segment, turns []Turn[S]) []S {
+	spans := Spans(rule, segments, turns)
+	seen := map[S]bool{}
+	out := []S{}
+	for _, t := range turns {
+		if len(spans[t.Speaker]) == 0 && !seen[t.Speaker] {
+			seen[t.Speaker] = true // listed once
+			out = append(out, t.Speaker)
+		}
+	}
+	return out
+}
+
 // dominant is the voice sharing the most time with span. Among equals, previous wins when given, else the first
 // voice in turns.
 func dominant[S comparable](span Span, turns []Turn[S], previous *S) (winner S, found bool) {
