@@ -1,4 +1,4 @@
-# 0065 — Adaptateur de séparation des voix : SepFormer sur la famille SpeechBrain
+# 0066 — Adaptateur de séparation des voix : SepFormer sur la famille SpeechBrain
 
 Date : 2026-11-11. Statut : proposé, à relire par l'utilisateur. Spec : [paroles simultanées](../specs/paroles-simultanees.md), section 2 ; ticket #401. Révise l'[ADR 0038](0038-modeles-locaux-pilotes-par-snitch.md), l'[ADR 0055](0055-runtimes-vocaux-approuves.md) et l'[ADR 0056](0056-engines-a-la-demande.md) sur un point : la séparation n'est plus « sans adaptateur ». Leurs autres règles s'appliquent sans exception.
 
@@ -47,7 +47,7 @@ Faits relevés le 2026-11-11 sur Hugging Face : métadonnées de l'API (`/api/mo
 
 ## Conséquences
 
-- La contrainte de la migration 00097 est levée (migration 00150) et remplacée par l'exigence des limites. Les deux candidats sont inscrits au catalogue ; rien n'est installé sans ordre. Une référence de séparation déjà ajoutée pour l'un de ces dépôts devient ce candidat.
+- La contrainte de la migration 00097 est levée (migration 00151) et remplacée par l'exigence des limites. Les deux candidats sont inscrits au catalogue ; rien n'est installé sans ordre. Une référence de séparation déjà ajoutée pour l'un de ces dépôts devient ce candidat.
 - La clause de dispatch (`RuntimeReadyClause`) ne rejette plus la séparation : un modèle prêt, lié à son engine prêt, est éligible pour un travail qui le demande. Aucun travail de production n'existe pour ce type.
 - Un seul modèle de séparation par Worker (règle commune). Le remplacement sur place reste refusé pour ce type : on retire, puis on installe.
 - Une fenêtre de plus de 60 s est refusée, jamais tronquée : le réseau tient toute la fenêtre en mémoire. Un manque de mémoire GPU pendant l'inférence remonte comme `gpu_out_of_memory`.

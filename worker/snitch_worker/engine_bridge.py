@@ -67,7 +67,7 @@ class SpeakerProvider(PyannoteProvider):
 
 
 def _separation(request: dict[str, Any]) -> dict[str, Any]:
-    """Separation of the SpeechBrain family (#401, ADR 0065): the test inference of an install order, or the
+    """Separation of the SpeechBrain family (#401, ADR 0066): the test inference of an install order, or the
     separation of windows of one audio file for an explicit caller, with one load of the model. No production step comes here."""
     from snitch_worker import voice_selftest, voice_sepformer
     from snitch_worker.voice_ecapa import UnsupportedVariant

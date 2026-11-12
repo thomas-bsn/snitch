@@ -39,7 +39,7 @@ _SHA = re.compile(r"^[0-9a-f]{64}$")
 _LOCK = threading.RLock()
 _REQUIRED = {"schema", "engine", "version", "adapter_version", "python", "platform", "cuda", "license", "kind", "architecture", "disk_bytes", "vram_bytes", "wheels"}
 _OPTIONAL = {"ram_bytes", "capabilities", "input_contract", "output_contract", "cpu_fallback"}
-# Source separation is not a capability of a signed release: it only runs on the on-demand SpeechBrain family (ADR 0065).
+# Source separation is not a capability of a signed release: it only runs on the on-demand SpeechBrain family (ADR 0066).
 _CAPABILITIES = {"diarization", "fingerprint"}
 _CONTRACT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 LOG_TAIL_BYTES = 1500  # the end of a failed step's stderr that reaches the Worker log (scrubbed by log.py)

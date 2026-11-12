@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// testVoiceSeparationModel covers #401 (ADR 0065): a separation model of the catalogue is installed on a Worker by
+// testVoiceSeparationModel covers #401 (ADR 0066): a separation model of the catalogue is installed on a Worker by
 // an explicit order only, after the resource checks of ADR 0055, with the engine of its family; it is ready only
 // when the Worker reports a successful test inference, a failure shows a stable cause, and a model that is not
 // there is an explicit state. Being ready opens no production job: the analysis of a clip never separates.

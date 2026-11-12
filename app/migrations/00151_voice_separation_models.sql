@@ -1,5 +1,5 @@
 -- +goose Up
--- A separation model can now be supported (#401, ADR 0065): the SpeechBrain family has a separation adapter.
+-- A separation model can now be supported (#401, ADR 0066): the SpeechBrain family has a separation adapter.
 -- Migration 00097 forbade it while none existed. The rule becomes: a supported separation model declares its
 -- limits, the number of voices it separates and the sample rate it works at, read from its original documentation.
 -- +goose StatementBegin
@@ -25,7 +25,7 @@ ALTER TABLE voice_model_catalog DROP CONSTRAINT voice_model_catalog_engine_check
 ALTER TABLE voice_model_catalog ADD CONSTRAINT voice_model_catalog_engine_check
     CHECK (engine IN ('','pyannote','nemo','silero-jit','nemo-titanet','speechbrain-ecapa','wespeaker','speechbrain-sepformer'));
 
--- The two candidates of ADR 0065, pinned to the commit whose model card and hyperparams were read. Nothing is
+-- The two candidates of ADR 0066, pinned to the commit whose model card and hyperparams were read. Nothing is
 -- installed by this: a model reaches a Worker on an explicit order only. A reference an owner had already added
 -- for the same repository (unsupported until now) becomes that candidate.
 INSERT INTO voice_model_catalog (id, kind, engine, repo, revision, label, license, gated, size_bytes, family, separated_voices, sample_rate_hz) VALUES

@@ -39,7 +39,7 @@ func testVoiceCatalogInDatabase(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("the migrated active fingerprint model is %q, want %q", overview.ActiveModels.Fingerprint, wespeaker.Repo)
 	}
 
-	// Separation (#401, ADR 0065): the two candidates are in the catalogue with the limits of their documentation,
+	// Separation (#401, ADR 0066): the two candidates are in the catalogue with the limits of their documentation,
 	// visible through the API, and nothing is installed by their presence.
 	whamr := models.model(t, "speechbrain-sepformer-whamr16k")
 	if whamr.Kind != "separation" || whamr.Engine != "speechbrain-sepformer" || whamr.Family != "speechbrain" || !whamr.Supported || !whamr.Enabled ||

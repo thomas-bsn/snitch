@@ -111,7 +111,7 @@ func TestAssessmentForKind(t *testing.T) {
 	}
 }
 
-// The limits shown in the catalogue are the ones of the documentation (ADR 0065), and every supported
+// The limits shown in the catalogue are the ones of the documentation (ADR 0066), and every supported
 // separation reference has both.
 func TestSeparationModelsDeclareTheirLimits(t *testing.T) {
 	want := map[string]separationLimits{

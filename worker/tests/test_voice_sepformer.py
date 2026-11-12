@@ -1,4 +1,4 @@
-"""SepFormer separation adapter of the on-demand SpeechBrain engine (#401, ADR 0065).
+"""SepFormer separation adapter of the on-demand SpeechBrain engine (#401, ADR 0066).
 
 The safeguards of the family apply: no repository code, the hyperparams YAML is data (never HyperPyYAML), every
 checkpoint is scanned and read with weights_only, nothing is fetched. torch and SpeechBrain are replaced by fakes;

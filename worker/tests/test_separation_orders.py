@@ -1,4 +1,4 @@
-"""A separation model on the Worker (#401, ADR 0065): it is installed by an explicit order only, it is ready only
+"""A separation model on the Worker (#401, ADR 0066): it is installed by an explicit order only, it is ready only
 after a test inference on a synthetic mixture, a failure carries a stable cause, and separating audio with a model
 that is absent or not ready is an explicit state that downloads nothing. The engine and the inference subprocess
 are replaced by fakes: no torch, no SpeechBrain, no network, no weights. Synthetic values only."""

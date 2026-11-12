@@ -30,7 +30,7 @@ type voiceCatalogEntry struct {
 	// Family names the on-demand engine family the model asks for (ADR 0056); empty for the embedded and the
 	// signed adapters. Engine stays the adapter that loads the weights.
 	Family string
-	// SeparatedVoices and SampleRateHz are the limits of a separation model (ADR 0065); 0 for another type.
+	// SeparatedVoices and SampleRateHz are the limits of a separation model (ADR 0066); 0 for another type.
 	SeparatedVoices int
 	SampleRateHz    int
 }

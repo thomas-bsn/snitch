@@ -42,7 +42,7 @@ Le changement d’empreinte appelle les API de l’ADR 0044 : aperçu d’impact
 confirmation du nombre de références, préparation explicite des Workers,
 progression, reprise et annulation avant bascule. Le serveur conserve la décision
 de recalculer et de basculer ; aucun état de traitement n’est simulé par le front.
-La séparation s’installe comme les autres types (ADR 0065) : sa case offre
+La séparation s’installe comme les autres types (ADR 0066) : sa case offre
 l’installation, les états, la cause d’échec et le nouvel essai, sans remplacement
 sur place. Le catalogue affiche les limites du modèle (voix séparées, fréquence).
 Un modèle prêt reste en réserve : aucun travail de la bibliothèque ne sépare.

@@ -59,7 +59,7 @@ var engineFamilies = map[string]engineFamily{
 		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
 	},
 	// SpeechBrain: a generic adapter runs ECAPA-TDNN fingerprints, another one SepFormer separation (#401, ADR
-	// 0065). The engine name differs from the signed "speechbrain-ecapa" release (two identities).
+	// 0066). The engine name differs from the signed "speechbrain-ecapa" release (two identities).
 	"speechbrain": {
 		Key: "speechbrain", Engine: "speechbrain", Distribution: "speechbrain", DefaultVer: "1.0.3",
 		Kinds:  []string{"fingerprint", "separation"},

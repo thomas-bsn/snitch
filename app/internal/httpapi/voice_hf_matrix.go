@@ -70,7 +70,7 @@ type separationLimits struct {
 }
 
 // separationModels are the separation references Snitch supports, with the limits read from their model card
-// and their hyperparams file (ADR 0065 names the source of each fact). The limits are shown in the catalogue,
+// and their hyperparams file (ADR 0066 names the source of each fact). The limits are shown in the catalogue,
 // so a SepFormer repository that is not here is refused instead of being listed with guessed limits: adding a
 // variant is a line here, after reading its documentation.
 var separationModels = map[string]separationLimits{

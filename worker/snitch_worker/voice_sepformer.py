@@ -1,4 +1,4 @@
-"""SepFormer voice separation of the on-demand SpeechBrain engine (#401, ADR 0065), loaded without executing model code.
+"""SepFormer voice separation of the on-demand SpeechBrain engine (#401, ADR 0066), loaded without executing model code.
 
 A separation model isolates the voices of a mixture: one audio in, N sources out, N being what the model was
 trained for. Nothing here belongs to the analysis of a clip: the adapter is called by the test inference of an

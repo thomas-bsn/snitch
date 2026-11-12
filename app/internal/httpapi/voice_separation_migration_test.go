@@ -14,7 +14,7 @@ import (
 )
 
 // separationMigration is the version of the migration that lets a separation model be supported (#401).
-const separationMigration = 150
+const separationMigration = 151
 
 // A catalogue that already listed separation references as unsupported (the only state possible before) keeps
 // them: the candidate repository becomes the supported candidate with its limits, any other reference stays

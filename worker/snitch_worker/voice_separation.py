@@ -1,4 +1,4 @@
-"""Separate the voices of an audio window with a separation model this Worker holds ready (#401, ADR 0065).
+"""Separate the voices of an audio window with a separation model this Worker holds ready (#401, ADR 0066).
 
 This is the one entry point of a caller: audio in, the sources of the model out. It is independent of how the model
 was installed and proven (``model_orders``, ``voice_models``), and nothing in the analysis of a clip calls it:
