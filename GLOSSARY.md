@@ -79,7 +79,10 @@ _Avoid_ : Piste séparée (qui désigne une vraie piste audio du clip), extrait.
 
 **Voix inconnue** : Une voix sans validation humaine ni attribution automatique ; une suggestion ou une voix ambiguë reste inconnue tant qu'un utilisateur n'a pas tranché. Une voix ignorée ou une voix Random n'est pas une voix inconnue.
 
-**Couverture d'un Locuteur local** : Ce que la transcription retient d'un Locuteur local détecté : des paroles lui sont attribuées, il parle sous des paroles attribuées à d'autres Locuteurs locaux, ou aucune parole ne recouvre ses tours. Un Locuteur local détecté sans parole attribuée reste visible.
+**Part d'un segment** : Des mots consécutifs d'un segment dits par un même Locuteur local. Un segment où plusieurs voix se répondent se lit en plusieurs parts ; il n'est pas redécoupé, et une Correction s'applique toujours au segment entier (ADR 0065).
+_Avoid_ : Sous-segment, tour (qui désigne la parole détectée par la diarisation, pas des mots).
+
+**Couverture d'un Locuteur local** : Ce que la transcription retient d'un Locuteur local détecté : des paroles lui sont attribuées, il parle sous des paroles attribuées à d'autres Locuteurs locaux, ou aucune parole ne recouvre ses tours. Elle suit les parts : une voix à qui des mots d'un segment reviennent n'y parle pas sous les paroles des autres. Un Locuteur local détecté sans parole attribuée reste visible.
 
 **Provenance d'une voix** : La piste audio réelle sur laquelle un Locuteur local a été détecté. Deux pistes ne partagent jamais un Locuteur local, et fusionner des textes ne fusionne ni voix, ni Personnes, ni Échantillons vocaux validés (ADR 0052).
 
