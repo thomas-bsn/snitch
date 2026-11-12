@@ -43,5 +43,6 @@ export const ADMIN_TABS: AdminTab[] = [
       { path: "person-links", label: "admin.subTabs.personLinks" },
     ],
   },
+  { path: "notifications", label: "admin.tabs.notifications" },
   { path: "exports", label: "admin.tabs.exports" },
 ];

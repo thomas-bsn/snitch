@@ -70,6 +70,13 @@ export const errorsEn = {
   invalid_discord_bot_token: "Discord refused this bot token.",
   discord_bot_not_configured: "The Discord bot is not connected.",
   discord_sync_running: "A synchronization is already running.",
+  invalid_discord_webhook:
+    "Paste the address of a Discord webhook (https://discord.com/api/webhooks/…).",
+  discord_webhook_required: "Add a webhook address before enabling it.",
+  invalid_webhook_category: "This notification category does not exist.",
+  discord_webhook_not_configured: "No Discord webhook is configured.",
+  discord_webhook_rejected:
+    "Discord refused this webhook: it was deleted or the address is wrong.",
   discord_rate_limited: "Discord is limiting requests. Try again in a moment.",
   avatar_sync_too_soon:
     "The picture was just refreshed. Try again in a moment.",

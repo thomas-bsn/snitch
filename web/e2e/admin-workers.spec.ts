@@ -168,6 +168,7 @@ test.describe.serial("administration et Workers", () => {
       "Benchmark",
       "Semantic index",
       "Users and access",
+      "Notifications",
       "Exports",
     ]);
     await expect(tabs.getByRole("link", { name: "Workers" })).toHaveAttribute(

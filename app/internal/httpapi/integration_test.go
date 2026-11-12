@@ -211,6 +211,8 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testFolderRequests(t, pool)
 	})
+	t.Run("account requests", func(t *testing.T) { reset(t); testAccountRequests(t, pool) })
+	t.Run("notification webhook", func(t *testing.T) { reset(t); testNotificationWebhook(t, pool) })
 	t.Run("clip library", func(t *testing.T) {
 		reset(t)
 		testClipLibrary(t, pool)
@@ -1534,6 +1536,12 @@ func TestFoundation(t *testing.T) {
 		call(client, "DELETE", memberPath+"/sessions", nil, me.CSRF, 200)
 		call(client, "POST", memberPath+"/password", nil, me.CSRF, 200)
 		call(client, "POST", "/api/admin/users/99999/approve", nil, me.CSRF, 404)
+		call(client, "POST", "/api/admin/users/99999/refuse", nil, me.CSRF, 404)
+		// The Discord webhook (behavior in the notification webhook suite): never configured here, so nothing is posted.
+		call(client, "GET", "/api/admin/notification-webhook", nil, "", 200)
+		call(client, "POST", "/api/admin/notification-webhook/test", nil, me.CSRF, 409)
+		call(client, "PUT", "/api/admin/notification-webhook", map[string]any{"url": "https://discord.com/api/webhooks/111122223333444455/SyntheticContractToken_0123456789abcdef", "enabled": false, "categories": []string{"access_requests"}}, me.CSRF, 200)
+		call(client, "DELETE", "/api/admin/notification-webhook", nil, me.CSRF, 204)
 		call(client, "POST", "/api/auth/logout", nil, me.CSRF, 200)
 		call(client, "GET", "/api/auth/me", nil, "", 401)
 		call(client, "POST", "/api/auth/login", creds, "", 200)
@@ -1903,7 +1911,7 @@ func TestFoundation(t *testing.T) {
 					config.StabilityWindow = 10 * time.Millisecond
 					config.ReconcileInterval = 100 * time.Millisecond
 				}
-				if suite == "admin-benchmark.spec.ts" || suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-audio-selection.spec.ts" || suite == "clip-voices.spec.ts" || suite == "clip-audio-activation.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
+				if suite == "admin-benchmark.spec.ts" || suite == "clip-analysis.spec.ts" || suite == "clip-stepper-live.spec.ts" || suite == "clip-audio-selection.spec.ts" || suite == "clip-voices.spec.ts" || suite == "clip-audio-activation.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "people.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" || suite == "account-requests.spec.ts" {
 					config.UploadRoot = t.TempDir()
 					config.ProbePath = browserProbeFixture(t, suite)
 					config.UploadMaxBytes = 1 << 20
@@ -1980,10 +1988,16 @@ func TestFoundation(t *testing.T) {
 					}
 				}
 				s := New(pool, config, slog.New(slog.NewJSONHandler(io.Discard, nil)))
+				if suite == "account-requests.spec.ts" {
+					// Discord simulated: every webhook call is accepted, without leaving the machine.
+					s.webhookTransport = roundTripFunc(func(*http.Request) (*http.Response, error) {
+						return &http.Response{StatusCode: http.StatusNoContent, Body: http.NoBody, Header: http.Header{}}, nil
+					})
+				}
 				if suite == "admin-voice-add.spec.ts" {
 					s.hf = syntheticHuggingFace(t)
 				}
-				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "clip-audio-activation.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" {
+				if suite == "clip-analysis.spec.ts" || suite == "clip-voices.spec.ts" || suite == "clip-audio-activation.spec.ts" || suite == "admin-queue-analysis.spec.ts" || suite == "admin-queue-board.spec.ts" || suite == "admin-queue-timeline.spec.ts" || suite == "clip-corrections.spec.ts" || suite == "admin-queue-folders.spec.ts" || suite == "admin-folders.spec.ts" || suite == "people.spec.ts" || suite == "import.spec.ts" || suite == "library.spec.ts" || suite == "search-screen.spec.ts" || suite == "admin-transcription.spec.ts" || suite == "account-settings.spec.ts" || suite == "shell-accessibility.spec.ts" || suite == "people-groups.spec.ts" || suite == "segment-reindex.spec.ts" || suite == "search-corrections.spec.ts" || suite == "segment-export.spec.ts" || suite == "segment-replace-corrections.spec.ts" || suite == "video-storage.spec.ts" || suite == "voice-rediarization.spec.ts" || suite == "voice-profile.spec.ts" || suite == "notifications.spec.ts" || suite == "admin-workers-live.spec.ts" || suite == "library-explorer.spec.ts" || suite == "import-server.spec.ts" || suite == "people-groups-disposition.spec.ts" || suite == "people-tabs.spec.ts" || suite == "people-to-process.spec.ts" || suite == "people-process.spec.ts" || suite == "ui-compare.spec.ts" || suite == "account-requests.spec.ts" {
 					if e = s.Start(ctx); e != nil {
 						t.Fatal(e)
 					}

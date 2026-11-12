@@ -4418,6 +4418,59 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/users/{id}/refuse": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Administrateurs uniquement, session, origine et CSRF requis. Refuse une demande d'accès (#283) : le compte membre en attente est retiré et anonymisé, son nom redevient libre et sa notification est résolue. 400 invalid_id si identifiant invalide, 404 not_pending si absent, approuvé ou compte d'administrateur. */
+    post: operations["refuseUser"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/notification-webhook": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs. Réglages du webhook Discord des notifications (#283, ADR 0067) : l'adresse n'est jamais renvoyée (configured et hint seulement), avec le statut de la dernière livraison, les livraisons récentes et le journal des changements. */
+    get: operations["getNotificationWebhook"];
+    /** @description Réservé au Super-administrateur. Enregistre les réglages ; url absente conserve l'adresse enregistrée, une nouvelle la remplace (rotation). Seule une adresse https d'exécution de webhook Discord est acceptée (400 invalid_discord_webhook) ; activer sans adresse renvoie 400 discord_webhook_required ; catégorie inconnue 400 invalid_webhook_category. Les livraisons en attente que les nouveaux réglages n'autorisent plus sont abandonnées. */
+    put: operations["putNotificationWebhook"];
+    post?: never;
+    /** @description Réservé au Super-administrateur. Oublie l'adresse, désactive le webhook et abandonne les livraisons en attente. */
+    delete: operations["deleteNotificationWebhook"];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/admin/notification-webhook/test": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** @description Réservé au Super-administrateur. Envoie maintenant un message de test et enregistre le résultat comme dernière livraison. 409 discord_webhook_not_configured, 400 discord_webhook_rejected (webhook supprimé ou invalide), 429 discord_rate_limited, 502 discord_unavailable. */
+    post: operations["testNotificationWebhook"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -6663,7 +6716,7 @@ export interface components {
       /** Format: int64 */
       id: number;
       /**
-       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip.
+       * @description Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip. Demande d'accès (#283) : une notification par inscription en attente, pour les administrateurs uniquement, résolue à l'approbation ou au refus.
        * @enum {string}
        */
       kind:
@@ -6674,7 +6727,8 @@ export interface components {
         | "job_failed"
         | "job_blocked"
         | "technical_incident"
-        | "folder_request_decided";
+        | "folder_request_decided"
+        | "account_request";
       /**
        * @description Partagé : une action résolue l'est pour tous.
        * @enum {string}
@@ -6711,6 +6765,18 @@ export interface components {
        * @enum {string}
        */
       folder_outcome?: "" | "approved" | "refused";
+      /**
+       * Format: int64
+       * @description Demande d'accès : compte demandé, null sinon.
+       */
+      account_id?: number | null;
+      /** @description Demande d'accès : nom du compte demandé, effacé si le compte est retiré. */
+      account_name?: string;
+      /**
+       * @description Demande d'accès : décision, vide tant qu'elle est en attente.
+       * @enum {string}
+       */
+      account_outcome?: "" | "approved" | "refused";
     };
     NotificationList: {
       items: components["schemas"]["Notification"][];
@@ -9625,6 +9691,92 @@ export interface components {
           end: number;
           word: string;
         }[];
+      }[];
+    };
+    NotificationWebhookInput: {
+      /** @description Adresse https://discord.com/api/webhooks/<id>/<jeton>. Absente : l'adresse enregistrée est conservée. */
+      url?: string;
+      enabled: boolean;
+      /** @description Catégories relayées : access_requests (demandes d'accès), human_actions (voix à vérifier), worker_offline (Worker hors ligne), job_failures (traitement en échec, service ou modèle indisponible), job_blocked (traitement bloqué). Une décision sur une demande de dossier n'est jamais relayée. */
+      categories: (
+        | "access_requests"
+        | "human_actions"
+        | "worker_offline"
+        | "job_failures"
+        | "job_blocked"
+      )[];
+    };
+    NotificationWebhook: {
+      /** @description Une adresse est enregistrée (chiffrée) et lisible avec la clé maître actuelle. */
+      configured: boolean;
+      enabled: boolean;
+      categories: (
+        | "access_requests"
+        | "human_actions"
+        | "worker_offline"
+        | "job_failures"
+        | "job_blocked"
+      )[];
+      /** @description Quatre derniers chiffres de l'identifiant du webhook, jamais le jeton. */
+      hint: string;
+      /** @enum {string} */
+      last_status: "never" | "sent" | "failed" | "rate_limited";
+      /** @description Code normalisé (timeout, network, rate_limited, webhook_rejected, http_<statut>), jamais l'erreur brute. */
+      last_error: string;
+      /** Format: date-time */
+      last_attempt_at: string | null;
+      /** Format: date-time */
+      last_success_at: string | null;
+      /** @description Livraisons en attente ou en nouvel essai. */
+      pending: number;
+      /** @description Livraisons abandonnées sur les sept derniers jours. */
+      failed: number;
+      /** @description Vingt dernières livraisons. */
+      deliveries: {
+        /** Format: int64 */
+        id: number;
+        /** @enum {string} */
+        category:
+          | "access_requests"
+          | "human_actions"
+          | "worker_offline"
+          | "job_failures"
+          | "job_blocked";
+        /** @enum {string} */
+        status: "pending" | "sent" | "failed" | "skipped";
+        attempts: number;
+        last_error: string;
+        /** Format: date-time */
+        created_at: string;
+        /** Format: date-time */
+        next_attempt_at: string;
+        /** Format: date-time */
+        sent_at: string | null;
+      }[];
+      /** @description Vingt derniers changements, immuables ; l'adresse n'y figure jamais. */
+      audit: {
+        /**
+         * @description auto_disabled : Discord a répondu que le webhook n'existe plus ; aucun auteur.
+         * @enum {string}
+         */
+        action:
+          | "created"
+          | "rotated"
+          | "updated"
+          | "deleted"
+          | "tested"
+          | "auto_disabled";
+        enabled: boolean;
+        categories: (
+          | "access_requests"
+          | "human_actions"
+          | "worker_offline"
+          | "job_failures"
+          | "job_blocked"
+        )[];
+        actor_username: string;
+        /** Format: date-time */
+        created_at: string;
       }[];
     };
   };
@@ -21838,6 +21990,171 @@ export interface operations {
         };
       };
       /** @description Erreur (400 unsupported_engine_family ou invalid_voice_model, 401 session required, 403 permission, 404 worker_not_found) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  refuseUser: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path: {
+        id: number;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Status"];
+        };
+      };
+      /** @description Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getNotificationWebhook: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationWebhook"];
+        };
+      };
+      /** @description Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  putNotificationWebhook: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["NotificationWebhookInput"];
+      };
+    };
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationWebhook"];
+        };
+      };
+      /** @description Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  deleteNotificationWebhook: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Webhook supprimé */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider) */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  testNotificationWebhook: {
+    parameters: {
+      query?: never;
+      header: {
+        /** @description Must equal the address of the request itself (scheme and host) */
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Success */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NotificationWebhook"];
+        };
+      };
+      /** @description Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider) */
       default: {
         headers: {
           [name: string]: unknown;

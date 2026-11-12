@@ -195,6 +195,10 @@ _Avoid_ : Modification de la transcription, édition.
 
 **Inscription en attente** : Une demande d'accès qui nécessite l'approbation d'un administrateur avant connexion.
 
+**Demande d'accès** : L'Inscription en attente vue par les administrateurs : elle leur est notifiée dès sa création, puis approuvée ou refusée. Refuser retire le compte demandé.
+
+**Webhook de notifications** : Le salon Discord où Snitch relaie un résumé expurgé de certaines notifications. Il ne donne aucun accès à Snitch ; seul le Super-administrateur le configure.
+
 **Bibliothèque** : L'ensemble des clips connus de Snitch, y compris ceux dont l'original est introuvable.
 
 **Cause d'échec** : La raison, exprimée dans un vocabulaire fermé et stable, pour laquelle une étape de traitement n'a pas abouti. Elle est accompagnée de l'étape, de l'heure et de l'action de reprise conseillée. Seul un Administrateur la voit ; les autres utilisateurs voient seulement l'état du clip.

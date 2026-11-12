@@ -24,7 +24,8 @@ const kindSpeakerReview = "needs_speaker_review"
 // a recipient who lost access to the clip no longer sees its notifications, history included.
 // An incident is administrators' business; the owner of the clip concerned keeps a generic view.
 // A clip in a private folder (#93) hides its notifications from administrators who cannot open it.
-const notificationVisible = `(CASE WHEN n.kind='needs_speaker_review' THEN clip_readable(c.id,c.owner_id,c.visibility,$1,$2) WHEN n.kind='folder_request_decided' THEN true ELSE (c.owner_id=$1 OR ($2 AND (c.id IS NULL OR clip_readable(c.id,c.owner_id,c.visibility,$1,$2)))) END)`
+// A Demande d'accès (#283) is administrators' business only: a demoted recipient no longer sees it.
+const notificationVisible = `(CASE WHEN n.kind='needs_speaker_review' THEN clip_readable(c.id,c.owner_id,c.visibility,$1,$2) WHEN n.kind='folder_request_decided' THEN true WHEN n.kind='account_request' THEN $2 ELSE (c.owner_id=$1 OR ($2 AND (c.id IS NULL OR clip_readable(c.id,c.owner_id,c.visibility,$1,$2)))) END)`
 
 // pendingVoicesSQL counts the voices of clip $1 that still need a decision: unknown or
 // ambiguous, neither validated nor automatically attributed (the Verification list).
@@ -142,6 +143,10 @@ type notificationView struct {
 	// Folder decision (ADR 0033): the folder's root-relative path and the outcome, for its requester only.
 	FolderPath    string `json:"folder_path"`
 	FolderOutcome string `json:"folder_outcome"`
+	// Demande d'accès (#283): the requested account and the decision, administrators only.
+	AccountID      *int64 `json:"account_id"`
+	AccountName    string `json:"account_name"`
+	AccountOutcome string `json:"account_outcome"`
 }
 
 func (s *Server) listNotifications(w http.ResponseWriter, r *http.Request) {
@@ -206,7 +211,7 @@ func notificationFilterSQL(filter string) string {
 	case "actions":
 		return `n.state='active'`
 	case "errors":
-		return `n.kind NOT IN ('needs_speaker_review','folder_request_decided')`
+		return `n.kind NOT IN ('needs_speaker_review','folder_request_decided','account_request')`
 	}
 	return `true`
 }
@@ -224,7 +229,7 @@ type notificationListView struct {
 func (s *Server) notificationList(ctx context.Context, userID int64, admin bool, page notificationPage) (notificationListView, error) {
 	where := `x.user_id=$1 AND x.deleted_at IS NULL AND ` + notificationVisible + ` AND ($3='all' OR n.state=$3) AND ` + notificationFilterSQL(page.Filter)
 	out := notificationListView{Items: []notificationView{}}
-	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.display_title,c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code,n.folder_path,n.folder_outcome
+	rows, err := s.Pool.Query(ctx, `SELECT n.id,n.kind,n.state,n.clip_id,COALESCE(c.display_title,c.original_name,''),n.pending_count,x.read_at IS NOT NULL,n.created_at,n.updated_at,n.resolved_at,n.job_id,n.step,n.error_code,n.folder_path,n.folder_outcome,n.account_id,n.account_name,n.account_outcome
 FROM notification_recipients x JOIN notifications n ON n.id=x.notification_id LEFT JOIN clips c ON c.id=n.clip_id
 WHERE `+where+`
 ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4 OFFSET $5`, userID, admin, page.State, page.Limit, page.Offset)
@@ -234,10 +239,10 @@ ORDER BY (n.state='active') DESC,n.updated_at DESC,n.id DESC LIMIT $4 OFFSET $5`
 	defer rows.Close()
 	for rows.Next() {
 		var v notificationView
-		if err = rows.Scan(&v.ID, &v.Kind, &v.State, &v.ClipID, &v.ClipName, &v.PendingCount, &v.Read, &v.CreatedAt, &v.UpdatedAt, &v.ResolvedAt, &v.JobID, &v.Step, &v.ErrorCode, &v.FolderPath, &v.FolderOutcome); err != nil {
+		if err = rows.Scan(&v.ID, &v.Kind, &v.State, &v.ClipID, &v.ClipName, &v.PendingCount, &v.Read, &v.CreatedAt, &v.UpdatedAt, &v.ResolvedAt, &v.JobID, &v.Step, &v.ErrorCode, &v.FolderPath, &v.FolderOutcome, &v.AccountID, &v.AccountName, &v.AccountOutcome); err != nil {
 			return out, err
 		}
-		if v.Kind != kindSpeakerReview && v.Kind != kindFolderRequestDecided && !admin {
+		if v.Kind != kindSpeakerReview && v.Kind != kindFolderRequestDecided && v.Kind != kindAccountRequest && !admin {
 			// A safe generic message: no cause, step, job or counts.
 			v.Kind, v.Generic, v.JobID, v.Step, v.ErrorCode, v.PendingCount = kindTechnicalIncident, true, nil, "", "", 0
 		}
