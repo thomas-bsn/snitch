@@ -13,6 +13,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.benchmark_separation_metrics import BenchmarkSeparationMetrics
+  from ..models.benchmark_word_rates import BenchmarkWordRates
 
 
 
@@ -67,7 +68,9 @@ class BenchmarkMetrics:
             missed_speech_rate (float | None | Unset):
             false_alarm_rate (float | None | Unset):
             confusion_rate (float | None | Unset):
-            cpwer (float | None | Unset): Bout en bout : WER avec attribution des locuteurs (cpWER).
+            cpwer (float | None | Unset): Bout en bout : WER avec attribution des locuteurs (cpWER), règle d'attribution par
+                segment (ADR 0065).
+            word_rule (BenchmarkWordRates | Unset):
             cp_word_errors (int | Unset):
             reference_speakers (int | Unset):
             model_speakers (int | Unset):
@@ -112,6 +115,7 @@ class BenchmarkMetrics:
     false_alarm_rate: float | None | Unset = UNSET
     confusion_rate: float | None | Unset = UNSET
     cpwer: float | None | Unset = UNSET
+    word_rule: BenchmarkWordRates | Unset = UNSET
     cp_word_errors: int | Unset = UNSET
     reference_speakers: int | Unset = UNSET
     model_speakers: int | Unset = UNSET
@@ -124,6 +128,7 @@ class BenchmarkMetrics:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.benchmark_separation_metrics import BenchmarkSeparationMetrics # noqa: PLC0415
+        from ..models.benchmark_word_rates import BenchmarkWordRates # noqa: PLC0415
         references = self.references
 
         tests = self.tests
@@ -252,6 +257,10 @@ class BenchmarkMetrics:
         else:
             cpwer = self.cpwer
 
+        word_rule: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.word_rule, Unset):
+            word_rule = self.word_rule.to_dict()
+
         cp_word_errors = self.cp_word_errors
 
         reference_speakers = self.reference_speakers
@@ -339,6 +348,8 @@ class BenchmarkMetrics:
             field_dict["confusion_rate"] = confusion_rate
         if cpwer is not UNSET:
             field_dict["cpwer"] = cpwer
+        if word_rule is not UNSET:
+            field_dict["word_rule"] = word_rule
         if cp_word_errors is not UNSET:
             field_dict["cp_word_errors"] = cp_word_errors
         if reference_speakers is not UNSET:
@@ -355,6 +366,7 @@ class BenchmarkMetrics:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.benchmark_separation_metrics import BenchmarkSeparationMetrics # noqa: PLC0415
+        from ..models.benchmark_word_rates import BenchmarkWordRates # noqa: PLC0415
         d = dict(src_dict)
         references = d.pop("references", UNSET)
 
@@ -540,6 +552,16 @@ class BenchmarkMetrics:
         cpwer = _parse_cpwer(d.pop("cpwer", UNSET))
 
 
+        _word_rule = d.pop("word_rule", UNSET)
+        word_rule: BenchmarkWordRates | Unset
+        if isinstance(_word_rule,  Unset):
+            word_rule = UNSET
+        else:
+            word_rule = BenchmarkWordRates.from_dict(_word_rule)
+
+
+
+
         cp_word_errors = d.pop("cp_word_errors", UNSET)
 
         reference_speakers = d.pop("reference_speakers", UNSET)
@@ -593,6 +615,7 @@ class BenchmarkMetrics:
             false_alarm_rate=false_alarm_rate,
             confusion_rate=confusion_rate,
             cpwer=cpwer,
+            word_rule=word_rule,
             cp_word_errors=cp_word_errors,
             reference_speakers=reference_speakers,
             model_speakers=model_speakers,

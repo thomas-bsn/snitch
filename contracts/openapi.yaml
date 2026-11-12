@@ -32757,7 +32757,15 @@
             "type": "number",
             "format": "double",
             "nullable": true,
-            "description": "Bout en bout : WER avec attribution des locuteurs (cpWER)."
+            "description": "Bout en bout : WER avec attribution des locuteurs (cpWER), règle d'attribution par segment (ADR 0065)."
+          },
+          "word_rule": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BenchmarkWordRates"
+              }
+            ],
+            "description": "Bout en bout : cpWER et WER des mêmes sorties avec la règle d'attribution au mot (ADR 0065, #400). Absent des runs mesurés avant."
           },
           "cp_word_errors": {
             "type": "integer"

@@ -8890,9 +8890,11 @@ export interface components {
       confusion_rate?: number | null;
       /**
        * Format: double
-       * @description Bout en bout : WER avec attribution des locuteurs (cpWER).
+       * @description Bout en bout : WER avec attribution des locuteurs (cpWER), règle d'attribution par segment (ADR 0065).
        */
       cpwer?: number | null;
+      /** @description Bout en bout : cpWER et WER des mêmes sorties avec la règle d'attribution au mot (ADR 0065, #400). Absent des runs mesurés avant. */
+      word_rule?: components["schemas"]["BenchmarkWordRates"];
       cp_word_errors?: number;
       reference_speakers?: number;
       model_speakers?: number;
