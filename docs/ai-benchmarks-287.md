@@ -28,12 +28,21 @@ Chaînes de deux modèles (diarisation + transcription) composées à partir des
 
 Une chaîne peut porter un modèle de séparation du catalogue (`separation_model_id`, API seulement pour l'instant ; le compositeur de l'écran ne le propose pas encore). Quand ses tâches de diarisation et de transcription d'une piste sont terminées, la lecture du run planifie une tâche `benchmark.separation.N` qui demande ce modèle ; le run n'est clos qu'après elle. Le Worker :
 
-- ne sépare que les Chevauchements (tours de la chaîne) où parle un Locuteur local sans aucun mot sur la piste, avec 1 s de contexte, en un seul appel au modèle ; une piste sans tel Chevauchement n'appelle jamais le modèle ;
+- ne sépare que les Chevauchements (tours de la chaîne) où parle un Locuteur local sans aucun mot sur la piste, avec 1 s de contexte, en un seul appel au modèle ; une piste sans tel Chevauchement n'appelle jamais le modèle. Ces locuteurs sont listés par Snitch dans l'entrée de la tâche (`silent_speakers`), avec la règle d'attribution au mot de la production (`segmentparts`, ADR 0065, lissage du mot isolé compris) : le Worker n'a pas de règle propre. La même règle lui donne les temps des mots de chaque Locuteur local (`word_spans`) ;
 - transcrit chaque Source séparée avec le modèle de transcription de la chaîne, dans le temps de la piste (début réellement séparé de la fenêtre + temps dans la source) ;
 - rapproche chaque source des Locuteurs locaux de la piste par cosinus avec leur empreinte de Parole nette (modèle d'empreinte actif), calculée pour la tâche et jamais conservée ; sous l'écart `ambiguity_margin` des réglages de rapprochement entre les deux meilleurs, la source reste sans locuteur ;
-- garde la transcription d'origine telle quelle et liste les mots ajoutés : ceux, dans la zone, d'une source donnée à un Locuteur local qui n'y avait aucun mot.
+- garde la transcription d'origine telle quelle et liste les mots ajoutés : ceux, dans la zone, d'une source donnée à un Locuteur local qui n'a aucun mot dans cette zone, qu'il en ait ailleurs sur la piste ou non.
 
-Le résultat de la tâche (`silent_speakers`, `zones`, `sources`, `added`) est seulement stocké. Le résultat de la chaîne ajoute aux métriques un bloc `separation` de comptes bruts (pistes, zones, Locuteurs locaux sans mots avant et après, sources, sources sans locuteur, mots ajoutés) ; les mesures comparées et le rapport viennent avec #403. Un manque de mémoire GPU fait échouer la tâche avec `gpu_out_of_memory`, sans nouvelle tentative ; la chaîne reste mesurée sans séparation.
+Le résultat de la tâche (`silent_speakers`, `zones`, `sources`, `added`) est seulement stocké. Un manque de mémoire GPU fait échouer la tâche avec `gpu_out_of_memory`, sans nouvelle tentative ; la chaîne reste mesurée sans séparation.
+
+**Mesures (#403).** Le bloc `metrics.separation` du résultat d'une chaîne porte sur les pistes certifiées dont la référence contient un Chevauchement (deux locuteurs de référence qui parlent en même temps) et dont la tâche de séparation est terminée :
+
+- cpWER et WER sans puis avec séparation, sur ces mêmes pistes. Les deux hypothèses sont lues mot par mot (chaque mot reçoit le locuteur de la règle au mot de la production, celle qui liste les Locuteurs locaux sans paroles), pour que les mots ajoutés tombent à leur place dans le temps ; celle avec séparation y ajoute les mots de `added` sous le locuteur reçu. Ces chiffres ne se comparent donc pas au cpWER de la ligne de la chaîne, mesuré sur tous les clips et par segment ;
+- Locuteurs locaux sans paroles avant (même calcul Go que l'entrée de la tâche) et après (le même décompte sur la transcription fusionnée : les locuteurs des tours qui n'y ont aucun mot, un mot ajouté gardant le locuteur reçu) ;
+- mots ajoutés, dont ceux absents des segments de référence qui recouvrent leur zone ; mots dupliqués entre deux sources (même mot, au même moment, dans une source antérieure de la même zone) ; sources restées sans locuteur ;
+- `min_clips` (10) : en dessous, l'écran dit que l'effectif est trop faible au lieu de conclure.
+
+**Coût par modèle (#403).** Le Worker ajoute au résultat de ses tâches `benchmark.*` la durée de la tâche (`inference_seconds`, téléchargement et préparation de l'audio exclus ; pour une séparation, la transcription et l'empreinte des sources comprises, ce n'est donc pas la seule inférence du modèle) et, sous CUDA, le pic de mémoire GPU allouée par PyTorch (`gpu_peak_bytes`, `torch.cuda.max_memory_allocated`), le plus haut entre le processus du Worker (remis à zéro au début de la tâche) et les sous-processus d'engine où tournent SepFormer et les modèles à la demande, chacun mesurant le sien ; la transcription, faite par le service externe, n'a pas de pic GPU. `BenchmarkResult.resources` les agrège par modèle du résultat (les deux ou trois modèles d'une chaîne) à la lecture du run : durée cumulée, pic maximal. Une valeur est nulle dès qu'une tâche ne l'a pas remontée (Worker plus ancien, pas de CUDA), jamais zéro ; l'écran affiche « non remonté ». Le biais de la référence de production (ADR 0057) reste annoncé au-dessus des résultats.
 
 ## Activation d'un modèle mesuré (tranche 8)
 
@@ -52,5 +61,5 @@ Le benchmark d'empreinte n'a plus son propre score (centroïde non pondéré des
 ## Restant
 
 - Découverte des modèles de transcription par les Workers (aujourd'hui l'administrateur les nomme).
-- Un seul run actif à la fois ; RAM et VRAM non remontées par le Worker.
+- Un seul run actif à la fois ; la RAM n'est pas remontée par le Worker, ni la durée et la mémoire GPU des tâches d'empreinte (étapes `voice.fingerprint.*`).
 - Tests navigateur : les modèles « prêts sur un Worker » ne sont jamais réellement prêts dans les fixtures.
