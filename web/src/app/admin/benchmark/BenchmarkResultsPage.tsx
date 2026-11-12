@@ -26,6 +26,7 @@ import { dateTime, decimal, elapsed, percent } from "./format";
 import { InfoTip } from "./InfoTip";
 import { columnsOf, primaryOf, type Column } from "./stageMetrics";
 import { ActivationDialog, type ActivationStage } from "./ActivationDialog";
+import { ModelCosts, SeparationReport } from "./SeparationReport";
 
 const card = "flex flex-col gap-3 rounded-xl border border-line bg-surface p-4";
 /** Static class names, so the stylesheet keeps them: a series is always drawn with a label too. */
@@ -45,12 +46,15 @@ function resultLabel(
     run.stage === "e2e"
       ? run.chains.find((c) => c.id === x.model_id)
       : undefined;
-  return chain
-    ? chainLabel(
-        labelOf(models, chain.diarization_model_id),
-        chain.transcription_model,
-      )
-    : labelOf(models, x.model_id, x.model);
+  if (!chain) return labelOf(models, x.model_id, x.model);
+  const pair = chainLabel(
+    labelOf(models, chain.diarization_model_id),
+    chain.transcription_model,
+  );
+  // A chain with separation is told from the same pair without it.
+  return chain.separation_model_id
+    ? `${pair} + ${labelOf(models, chain.separation_model_id)}`
+    : pair;
 }
 
 function RunState({ status }: { status: Run["status"] }) {
@@ -513,6 +517,12 @@ function RunDetail({ id }: { id: number }) {
               {t("benchmark.results.chartText")}
             </p>
           </section>
+
+          <SeparationReport results={data.results} label={label} />
+          <ModelCosts
+            results={data.results}
+            label={(id) => labelOf(catalogue, id)}
+          />
 
           {data.stage === "fingerprint" && (
             <section aria-labelledby="separation-title" className={card}>

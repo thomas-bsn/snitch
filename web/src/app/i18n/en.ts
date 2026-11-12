@@ -2141,7 +2141,29 @@ export const en = {
       bestMark: "▲ best value of the column.",
       note: "Each model has its own threshold: raw scores of different models cannot be compared. These figures describe this corpus, not a guarantee.",
       tableNote:
-        "False positives and false negatives are taken at the model's own EER threshold; a wrong Person accepted counts as both. Elapsed time includes the queue wait. RAM and VRAM are not reported by the Worker.",
+        "False positives and false negatives are taken at the model's own EER threshold; a wrong Person accepted counts as both. Elapsed time includes the queue wait; each model's task duration and GPU memory are under “Cost per model”.",
+      voiceSeparation: {
+        title: "Voice separation",
+        lead: "On the certified clips whose reference contains an overlap, the same chain without and then with the words separation adds.",
+        tooFew:
+          "Too few to conclude: {clips} clips with an overlap measured, at least {min} are needed.",
+        verdict:
+          "Separation gives words back to {recovered} of {silent} local speakers left without words; cpWER {before} → {after}, at the cost of {added} added words, {absent} of them absent from the reference.",
+        measure: "Measure",
+        without: "Without separation",
+        with: "With separation",
+        silent: "Local speakers without words",
+        counts:
+          "{clips} clips, {zones} separated zones. Words added: {added}, {absent} of them absent from the reference. Words duplicated between two sources: {duplicated}. Sources left without a speaker: {unattributed} of {sources}.",
+      },
+      costs: {
+        title: "Cost per model",
+        tasks: "Tasks",
+        inference: "Task duration",
+        gpu: "GPU memory peak",
+        absent: "not reported",
+        note: "Reported by the Worker for its finished tasks of this run: total task duration (download and audio preparation excluded; for a separation, the transcription and fingerprints of the sources included) and peak GPU memory allocated by PyTorch. “Not reported”: an older Worker, a machine without CUDA, or a transcription done by the external service.",
+      },
       eerChart: "Equal error rate (lower is better)",
       separation: "Separation of the mean scores",
       separationLead:

@@ -559,7 +559,7 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await expect(
     page.getByText("the production model has an advantage"),
   ).toBeVisible();
-  const cpTable = page.getByRole("table");
+  const cpTable = page.getByRole("table").first();
   await expect(cpTable.getByRole("columnheader").nth(1)).toContainText("cpWER");
   await expect(cpTable.getByRole("row")).toHaveCount(3);
   const first = cpTable.getByRole("row").nth(1);
@@ -579,6 +579,23 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await cp.hover();
   await expect(page.getByRole("tooltip")).toContainText("wrong speaker");
   await page.mouse.move(0, 0);
+
+  // The chain with separation: the same clips without and with it, too few of them to conclude, and the cost of each
+  // model, a value its Worker did not report reading as such (#403).
+  const separation = page.getByRole("region", { name: "Voice separation" });
+  await expect(separation).toContainText("seed-asr-b + seed-sep");
+  await expect(separation.getByRole("note")).toContainText(
+    "Too few to conclude: 3 clips with an overlap measured, at least 10 are needed.",
+  );
+  const rows = separation.getByRole("row");
+  await expect(rows.nth(1)).toContainText("cpWER30.0%25.0%");
+  await expect(rows.nth(3)).toContainText("Local speakers without words21");
+  await expect(separation).toContainText(
+    "Words added: 12, 5 of them absent from the reference. Words duplicated between two sources: 2. Sources left without a speaker: 3 of 8.",
+  );
+  const costs = page.getByRole("region", { name: "Cost per model" });
+  await expect(costs.getByRole("row").nth(1)).toContainText("seed-sep1");
+  await expect(costs.getByRole("row").nth(1)).toContainText("2,100 MB");
   await expectNoViolations(page);
 });
 
