@@ -88,6 +88,38 @@ function SpeakerCorrection({
   ) : null;
 }
 
+/** The speaker of a segment or of one of its parts, with how settled it is. */
+function SpeakerChip({
+  speaker,
+}: {
+  speaker: Parameters<typeof speakerState>[0] &
+    Pick<TranscriptSegment, "local_speaker_person_name">;
+}) {
+  const { t } = useI18n();
+  const state = speakerState(speaker);
+  if (!state) return null;
+  const name =
+    speaker.local_speaker_person_name ??
+    speaker.local_speaker_label ??
+    t("clip.transcript.unknownSpeaker");
+  return (
+    <div className="mb-1 flex flex-wrap items-center gap-2">
+      <span
+        className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
+          state === "suggestion"
+            ? "border border-dashed border-accent text-accent-ink"
+            : speaker.local_speaker_person_name
+              ? "bg-accent-soft text-accent-ink"
+              : "bg-side text-mute"
+        }`}
+      >
+        {state === "suggestion" ? `${name} ?` : name}
+      </span>
+      <span className="sr-only">{t(SPEAKER_LOOKS[state].label)}</span>
+    </div>
+  );
+}
+
 function Segment({
   segment,
   active,
@@ -110,12 +142,7 @@ function Segment({
   const { t } = useI18n();
   const formatDate = useFormatDate();
   const time = formatTimecode(segment.start);
-  const state = speakerState(segment);
-  const look = state ? SPEAKER_LOOKS[state] : null;
-  const name =
-    segment.local_speaker_person_name ??
-    segment.local_speaker_label ??
-    t("clip.transcript.unknownSpeaker");
+  const parts = segment.parts ?? [];
   return (
     <li
       aria-current={active ? "true" : undefined}
@@ -130,23 +157,26 @@ function Segment({
         {time}
       </button>
       <div className="min-w-0 flex-1">
-        {look && (
-          <div className="mb-1 flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex w-fit rounded-full px-2 py-0.5 text-xs font-medium ${
-                state === "suggestion"
-                  ? "border border-dashed border-accent text-accent-ink"
-                  : segment.local_speaker_person_name
-                    ? "bg-accent-soft text-accent-ink"
-                    : "bg-side text-mute"
-              }`}
-            >
-              {state === "suggestion" ? `${name} ?` : name}
-            </span>
-            <span className="sr-only">{t(look.label)}</span>
-          </div>
+        {parts.length > 1 ? (
+          <ol
+            aria-label={t("clip.transcript.partsLabel")}
+            className="m-0 flex list-none flex-col gap-2 p-0"
+          >
+            {parts.map((part, position) => (
+              <li key={position}>
+                <SpeakerChip speaker={part} />
+                <p className="m-0 leading-relaxed">
+                  {part.words.map((word) => word.word.trim()).join(" ")}
+                </p>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <>
+            <SpeakerChip speaker={segment} />
+            <p className="m-0 leading-relaxed">{segment.text}</p>
+          </>
         )}
-        <p className="m-0 leading-relaxed">{segment.text}</p>
         {segment.corrected && (
           <p className="mt-1 text-xs text-mute">
             {t("segmentEdit.original", { text: segment.original_text ?? "" })}

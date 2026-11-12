@@ -1476,6 +1476,10 @@ export const en = {
     reason: "Reason (optional)",
     speaker: "Speaker",
     inferred: "Speaker inferred from turns",
+    speakerParts:
+      "This segment is read as {count} parts: the correction applies to the whole segment, which becomes a single part.",
+    textParts:
+      "This segment is read as {count} parts: a corrected text keeps a single part, with the voice that speaks the most.",
     saveText: "Save text",
     saveSpeaker: "Save speaker",
     cancel: "Cancel",
@@ -3225,6 +3229,7 @@ export const en = {
     transcript: {
       empty: "This clip has no transcript yet.",
       listLabel: "Transcript segments",
+      partsLabel: "Parts of the segment",
       play: "Play from {time}",
       textCorrected: "Text corrected by {author}",
       textCorrectedAnon: "Text corrected",

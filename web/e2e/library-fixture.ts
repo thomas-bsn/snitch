@@ -83,7 +83,12 @@ const PEAKS = Array.from({ length: 400 }, (_, index) =>
 
 export async function transcribeAndDiarize(
   clipId: number,
-  options: { secondFingerprintEnd?: number; peaks?: boolean } = {},
+  options: {
+    secondFingerprintEnd?: number;
+    peaks?: boolean;
+    /** The first segment runs on past 2.2 s with a word of SPEAKER_01: two parts. */
+    sharedSegment?: boolean;
+  } = {},
 ) {
   const { api, post, put } = await adminApi();
   await put(`/api/admin/clips/${clipId}/audio-track`, {
@@ -121,12 +126,32 @@ export async function transcribeAndDiarize(
         language: "fr",
         audio_stream_index: 2,
         ...(options.peaks ? { peaks: PEAKS } : {}),
-        segments: SEGMENTS.map((segment) => ({
-          ...segment,
-          words: [
-            { word: segment.text, start: segment.start, end: segment.end },
-          ],
-        })),
+        segments: SEGMENTS.map((segment, index) =>
+          options.sharedSegment && index === 0
+            ? {
+                start: segment.start,
+                end: 2.45,
+                text: `${segment.text} Salut`,
+                words: [
+                  {
+                    word: segment.text,
+                    start: segment.start,
+                    end: segment.end,
+                  },
+                  { word: "Salut", start: 2.25, end: 2.45 },
+                ],
+              }
+            : {
+                ...segment,
+                words: [
+                  {
+                    word: segment.text,
+                    start: segment.start,
+                    end: segment.end,
+                  },
+                ],
+              },
+        ),
       },
     },
     transcription.lease_token,
