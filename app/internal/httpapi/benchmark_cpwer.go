@@ -1,13 +1,25 @@
 package httpapi
 
-import "sort"
+import (
+	"sort"
+	"strings"
+
+	"snitch/internal/segmentparts"
+)
 
 // Speaker-attributed word error rate of the end-to-end benchmark (#287, ADR 0060), the cpWER of the CHiME
 // campaigns: the words of each speaker are concatenated, the speakers of the model are matched to those of the
 // reference by the assignment with the fewest word errors, and the errors are divided by the reference words. A
 // right text given to the wrong speaker, a speaker split in two or two merged all count as errors.
 
+// timedText is a transcript segment, with its words when the model timed them.
 type timedText struct {
+	start, end float64
+	text       string
+	words      []timedWord
+}
+
+type timedWord struct {
 	start, end float64
 	text       string
 }
@@ -29,28 +41,33 @@ type cpwerMetrics struct {
 	ModelSpeakers     int      `json:"model_speakers"`
 }
 
-// attributeSegments gives each timed text the speaker whose turns overlap it the most; none, "" (unassigned).
-func attributeSegments(segments []timedText, turns []speakerTurn) []speakerText {
+// attributeSegments gives the text of each segment to the voices production gives it under rule (ADR 0065), through
+// the one attribution function: the whole segment to one voice, or each run of its words to its voice when the
+// rule splits it. "" when no voice speaks over the segment.
+func attributeSegments(rule segmentparts.Rule, segments []timedText, turns []speakerTurn) []speakerText {
+	ruleTurns := make([]segmentparts.Turn[string], len(turns))
+	for i, t := range turns {
+		ruleTurns[i] = segmentparts.Turn[string]{Speaker: t.speaker, Start: t.start, End: t.end}
+	}
 	out := make([]speakerText, 0, len(segments))
 	for _, seg := range segments {
-		overlap := map[string]float64{}
-		for _, t := range turns {
-			if o := min(seg.end, t.end) - max(seg.start, t.start); o > 0 {
-				overlap[t.speaker] += o
+		times := make([]segmentparts.Word, len(seg.words))
+		for i, w := range seg.words {
+			times[i] = segmentparts.Word{Start: w.start, End: w.end}
+		}
+		parts := segmentparts.Attribute(rule, segmentparts.Span{Start: seg.start, End: seg.end}, times, ruleTurns)
+		if len(parts) == 1 {
+			out = append(out, speakerText{seg.start, seg.end, parts[0].Speaker, seg.text})
+			continue
+		}
+		for _, p := range parts {
+			run := seg.words[p.First : p.First+p.Count]
+			texts := make([]string, len(run))
+			for i, w := range run {
+				texts[i] = w.text
 			}
+			out = append(out, speakerText{run[0].start, run[len(run)-1].end, p.Speaker, strings.Join(texts, " ")})
 		}
-		best, most := "", 0.0
-		names := make([]string, 0, len(overlap))
-		for name := range overlap {
-			names = append(names, name)
-		}
-		sort.Strings(names) // a tie goes to the first name: the result does not depend on map order
-		for _, name := range names {
-			if overlap[name] > most {
-				best, most = name, overlap[name]
-			}
-		}
-		out = append(out, speakerText{seg.start, seg.end, best, seg.text})
 	}
 	return out
 }

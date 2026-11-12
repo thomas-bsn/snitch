@@ -116,9 +116,13 @@ func testAIBenchmarkEndToEnd(t *testing.T, pool *pgxpool.Pool) {
 		}
 		switch job.Step {
 		case "benchmark.transcription.9":
+			// Bob's answer falls in Alice's segment: only the word rule gives it back to him.
+			word := func(start, end float64, text string) map[string]any {
+				return map[string]any{"start": start, "end": end, "word": text}
+			}
 			h.complete(job, map[string]any{"provider": "fixture", "model": "asr-x", "version": "v", "language": "fr", "audio_stream_index": 9, "segments": []map[string]any{
-				{"start": 0.0, "end": 5.0, "text": "Bonjour tout le monde", "words": []any{}},
-				{"start": 5.0, "end": 10.0, "text": "salut Alice", "words": []any{}},
+				{"start": 0.0, "end": 10.0, "text": "Bonjour tout le monde salut Alice", "words": []any{
+					word(0, 1, "Bonjour"), word(1, 2, "tout"), word(2, 3, "le"), word(3, 4, "monde"), word(5, 7, "salut"), word(7, 9, "Alice")}},
 				{"start": 10.0, "end": 15.0, "text": "on commence", "words": []any{}}}}, http.StatusOK)
 		case "benchmark.diarization.9":
 			var input struct {
@@ -162,22 +166,30 @@ func testAIBenchmarkEndToEnd(t *testing.T, pool *pgxpool.Pool) {
 	if detail.Status != "completed" || len(detail.Results) != 2 || len(detail.Chains) != 2 || detail.Chains[0].DiarizationModelID != "bench-diar-a" {
 		t.Fatalf("the run settles with its two chains: %+v", detail)
 	}
-	rates := map[string]struct{ cpwer, wer, der float64 }{}
+	rates := map[string]struct{ cpwer, wordCPWER, wer, der float64 }{}
 	for _, res := range detail.Results {
 		var m struct {
-			CPWER *float64 `json:"cpwer"`
-			WER   *float64 `json:"wer"`
-			DER   *float64 `json:"der"`
+			CPWER    *float64 `json:"cpwer"`
+			WER      *float64 `json:"wer"`
+			DER      *float64 `json:"der"`
+			WordRule struct {
+				CPWER *float64 `json:"cpwer"`
+			} `json:"word_rule"`
 		}
 		_ = json.Unmarshal(res.Metrics, &m)
-		if m.CPWER == nil || m.WER == nil || m.DER == nil || res.State != "complete" {
-			t.Fatalf("a chain has its three rates: %+v %s", res, res.Metrics)
+		if m.CPWER == nil || m.WER == nil || m.DER == nil || m.WordRule.CPWER == nil || res.State != "complete" {
+			t.Fatalf("a chain has its four rates: %+v %s", res, res.Metrics)
 		}
-		rates[res.ModelID] = struct{ cpwer, wer, der float64 }{*m.CPWER, *m.WER, *m.DER}
+		rates[res.ModelID] = struct{ cpwer, wordCPWER, wer, der float64 }{*m.CPWER, *m.WordRule.CPWER, *m.WER, *m.DER}
 	}
-	// The text is right in both chains; only the first attributes it to the right speakers.
-	if rates["c1"].wer != 0 || rates["c2"].wer != 0 || rates["c1"].cpwer != 0 || rates["c2"].cpwer < 0.4 || rates["c1"].der > 0.02 || rates["c2"].der < 0.25 {
-		t.Fatalf("the speaker-attributed rate sees what the plain WER cannot: %v", rates)
+	// The text is right in both chains; only the first attributes it to the right speakers, and only by the word rule.
+	if rates["c1"].wer != 0 || rates["c2"].wer != 0 || rates["c1"].cpwer != 0.5 || rates["c1"].wordCPWER != 0 || rates["c2"].cpwer < 0.4 || rates["c2"].wordCPWER < 0.4 || rates["c1"].der > 0.02 || rates["c2"].der < 0.25 {
+		t.Fatalf("the speaker-attributed rates see what the plain WER cannot: %v", rates)
+	}
+
+	// Both rules are measured on the same three tasks: the word rule asks the Worker for nothing more (#400).
+	if n := h.count(`SELECT count(*) FROM jobs WHERE step LIKE 'benchmark.%'`); n != 3 {
+		t.Fatalf("a chain is measured from its two stages' tasks only, got %d tasks", n)
 	}
 
 	// Nothing reached production, as for each stage on its own.

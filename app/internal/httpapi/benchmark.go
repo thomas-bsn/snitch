@@ -469,7 +469,7 @@ func (s *Server) startBenchmarkRun(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		params, _ = json.Marshal(map[string]any{"chains": chains, "composition": "transcript segments take the speaker with the most overlap; cpWER", "profile": "production"})
+		params, _ = json.Marshal(map[string]any{"chains": chains, "composition": "transcript attributed by the segment rule and by the word rule (ADR 0065); cpWER of each", "profile": "production"})
 	} else {
 		works, p, ok := s.benchmarkWorks(w, r, input.Stage, input.DatasetID)
 		if !ok {
