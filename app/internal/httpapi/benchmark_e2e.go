@@ -25,15 +25,17 @@ type benchmarkChain struct {
 }
 
 type e2eMetrics struct {
-	cpwerMetrics
-	DER *float64 `json:"der"`
+	cpwerMetrics // segment rule
+	// WordRule is the same measure with the word rule (#400); absent from the runs measured before.
+	WordRule cpwerMetrics `json:"word_rule"`
+	DER      *float64     `json:"der"`
 	// Separation is present for a chain with a separation model only.
 	Separation *separationMetrics `json:"separation,omitempty"`
 }
 
-// computeE2EResult measures a chain on the clips and tracks where both of its models finished: the transcript
-// segments take the speaker whose turns overlap them the most, and the speaker-attributed word error rate compares
-// them with the frozen reference, whose segments carry their speaker. The DER of the same turns is reported too.
+// computeE2EResult measures a chain on the clips and tracks where both of its models finished: the transcript is
+// attributed to the speakers by production's segment rule, then by its word rule (ADR 0065), and the
+// speaker-attributed word error rate of each compares it with the frozen reference, whose segments carry their speaker. The DER of the same turns is reported too.
 func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, chain benchmarkChain) (benchModelResult, error) {
 	res := benchModelResult{model: chain.TranscriptionModel}
 	var repo string
@@ -140,7 +142,7 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 			return res, err
 		}
 	}
-	var clips []attributedClip
+	var clips, wordClips []attributedClip
 	var turnClips []clipTurns
 	version := ""
 	for _, key := range order {
@@ -164,7 +166,11 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 		}
 		segments := make([]timedText, 0, len(tr.Segments))
 		for _, s := range tr.Segments {
-			segments = append(segments, timedText{s.Start, s.End, s.Text})
+			seg := timedText{start: s.Start, end: s.End, text: s.Text}
+			for _, w := range s.Words {
+				seg.words = append(seg.words, timedWord{start: w.Start, end: w.End, text: w.Word})
+			}
+			segments = append(segments, seg)
 		}
 		var hypTurns []speakerTurn
 		for _, sp := range di.Speakers {
@@ -172,12 +178,13 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 				hypTurns = append(hypTurns, speakerTurn{t.Start, t.End, sp.Label})
 			}
 		}
-		hypothesis := attributeSegments(segments, hypTurns)
+		hypothesis := attributeSegments(segmentparts.RuleSegment, segments, hypTurns)
 		raw, ok := separations[jobs.SeparationInputVersion(jobIDs[jobs.BenchmarkDiarizationPrefix][key], jobIDs[jobs.BenchmarkTranscriptionPrefix][key])]
 		if ok && hasOverlap(refTurns[key]) {
 			separateTrack(&separated, &withoutClips, &withClips, raw, di.Speakers, tr.Segments, refSegments[key])
 		}
 		clips = append(clips, attributedClip{reference: refSegments[key], hypothesis: hypothesis})
+		wordClips = append(wordClips, attributedClip{reference: refSegments[key], hypothesis: attributeSegments(segmentparts.RuleWord, segments, hypTurns)})
 		turnClips = append(turnClips, clipTurns{refTurns[key], hypTurns})
 	}
 	res.version = version
@@ -195,7 +202,7 @@ func computeE2EResult(ctx context.Context, q pgQuerier, runID, datasetID int64, 
 	default:
 		res.state = "complete"
 	}
-	metrics := e2eMetrics{cpwerMetrics: evaluateCPWER(clips), DER: evaluateDiarization(turnClips).DER}
+	metrics := e2eMetrics{cpwerMetrics: evaluateCPWER(clips), WordRule: evaluateCPWER(wordClips), DER: evaluateDiarization(turnClips).DER}
 	if separations != nil {
 		separated.MinClips = separationMinClips
 		separated.WithoutSeparation, separated.WithSeparation = evaluateCPWER(withoutClips), evaluateCPWER(withClips)

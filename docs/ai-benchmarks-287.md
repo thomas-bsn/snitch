@@ -22,7 +22,7 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 
 ## Bout en bout (tranche 6)
 
-Chaînes de deux modèles (diarisation + transcription) composées à partir des tâches des deux étapes et mesurées par le cpWER, avec le WER sans attribution et le DER des mêmes sorties. Voir l'[ADR 0060](adr/0060-benchmark-de-bout-en-bout.md). L'écran Benchmarks compose 2 à 4 chaînes (modèle de diarisation prêt sur un Worker + modèle de transcription, de production ou nommé), sans doublon ; les résultats classent par cpWER, avec WER, DER, couverture et temps écoulé. Tests navigateur : `web/e2e/admin-benchmark.spec.ts` (compositeur, lancement, annulation, détail d'un run semé).
+Chaînes de deux modèles (diarisation + transcription) composées à partir des tâches des deux étapes et mesurées par le cpWER, avec le WER sans attribution et le DER des mêmes sorties. Voir l'[ADR 0060](adr/0060-benchmark-de-bout-en-bout.md). L'écran Benchmarks compose 2 à 4 chaînes (modèle de diarisation prêt sur un Worker + modèle de transcription, de production ou nommé), sans doublon ; les résultats classent par cpWER (règle d'attribution par segment), avec le cpWER de la règle au mot (ADR 0065, #400 ; « – » pour un run mesuré avant), WER, DER, couverture et temps écoulé. Tests navigateur : `web/e2e/admin-benchmark.spec.ts` (compositeur, lancement, annulation, détail d'un run semé).
 
 ### Séparation des Chevauchements (#402)
 

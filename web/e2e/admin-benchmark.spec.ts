@@ -568,7 +568,14 @@ test("l'administrateur lit les résultats d'un benchmark", async ({ page }) => {
   await expect(first).toContainText("12.0%"); // WER
   await expect(first).toContainText("11.4%"); // DER
   await expect(first).toContainText("3 / 3");
-  await expect(cpTable.getByRole("row").nth(2)).toContainText("10.5%");
+  // Both attribution rules side by side (#400); a chain measured before the word rule still reads, with a dash.
+  await expect(cpTable.getByRole("columnheader").nth(2)).toContainText(
+    "cpWER by word",
+  );
+  await expect(first.getByRole("cell").nth(1)).toHaveText("–");
+  const second = cpTable.getByRole("row").nth(2);
+  await expect(second.getByRole("cell").nth(0)).toContainText("10.5%");
+  await expect(second.getByRole("cell").nth(1)).toContainText("9.0%");
   await expect(
     page.getByText("Speaker-attributed word error rate, cpWER"),
   ).toBeVisible();
