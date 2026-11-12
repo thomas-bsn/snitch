@@ -142,6 +142,78 @@ FROM audio_plan_children c JOIN audio_plans p ON p.id=c.plan_id WHERE c.job_id I
 	return offset, err
 }
 
+// SeparationInputVersion is the input version of a chain's separation task: it names the diarization and the
+// transcription tasks it reads (#402). The scheduling query of httpapi builds the same text in SQL.
+func SeparationInputVersion(diarizationID, transcriptionID int64) string {
+	return fmt.Sprintf("bs-d%d-t%d", diarizationID, transcriptionID)
+}
+
+// ParseSeparationInputVersion reads the two tasks a SeparationInputVersion names.
+func ParseSeparationInputVersion(version string) (diarizationID, transcriptionID int64, err error) {
+	_, err = fmt.Sscanf(version, "bs-d%d-t%d", &diarizationID, &transcriptionID)
+	return diarizationID, transcriptionID, err
+}
+
+// BenchmarkSpeaker is a speaker of the result of a benchmark diarization task, its turns in the time of the track.
+type BenchmarkSpeaker struct {
+	Label string `json:"label"`
+	Turns []struct {
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
+	} `json:"turns"`
+}
+
+// benchmarkSeparationInput gives a separation task of an end-to-end chain (#402) what it reads, in the time of the
+// track: the turns of the chain's diarization task as the speakers to fingerprint on their net speech (production
+// pipeline and active fingerprint model), the segments of its transcription task, the transcription model to
+// transcribe the sources with, and the requested separation model. Nothing of the library is read.
+func (s *Service) benchmarkSeparationInput(ctx context.Context, input *Input) error {
+	diarizationID, transcriptionID, err := ParseSeparationInputVersion(input.Job.InputVersion)
+	if err != nil {
+		return fmt.Errorf("separation input version: %w", err)
+	}
+	var repo, revision string
+	var speakersRaw, segments []byte
+	var margin float64
+	err = s.pool.QueryRow(ctx, `SELECT c.repo,c.revision,t.requested_model_id,d.result->'speakers',t.result->'segments',(SELECT ambiguity_margin FROM voice_matching_settings WHERE id=true)
+FROM jobs j JOIN voice_model_catalog c ON c.id=j.requested_model_id, jobs d, jobs t WHERE j.id=$1 AND d.id=$2 AND t.id=$3 AND d.status='done' AND t.status='done'`,
+		input.Job.ID, diarizationID, transcriptionID).Scan(&repo, &revision, &input.TranscriptionModel, &speakersRaw, &segments, &margin)
+	if err != nil {
+		return fmt.Errorf("read separation task of a chain: %w", err)
+	}
+	var speakers []BenchmarkSpeaker
+	if err = json.Unmarshal(speakersRaw, &speakers); err != nil {
+		return fmt.Errorf("decode chain diarization: %w", err)
+	}
+	// The fingerprint code reads the turns with their index, as stored for a production diarization.
+	indexed := make([]map[string]any, 0, len(speakers))
+	for _, sp := range speakers {
+		turns := make([]map[string]any, 0, len(sp.Turns))
+		for i, t := range sp.Turns {
+			turns = append(turns, map[string]any{"index": i, "start": t.Start, "end": t.End})
+		}
+		indexed = append(indexed, map[string]any{"label": sp.Label, "turns": turns})
+	}
+	payload := voiceInputPayload{}
+	if err = s.pool.QueryRow(ctx, `SELECT a.version,v.config FROM voice_pipeline_active a JOIN voice_pipeline_versions v ON v.version=a.version WHERE a.id=true`).Scan(&payload.PipelineVersion, &payload.Config); err != nil {
+		return fmt.Errorf("read active voice pipeline for a separation benchmark: %w", err)
+	}
+	var reference []byte
+	err = s.pool.QueryRow(ctx, `SELECT jsonb_build_object('repo',c.repo,'revision',c.revision,'engine',c.engine) FROM voice_model_catalog c WHERE c.id=(SELECT model_id FROM voice_active_model WHERE kind='fingerprint')`).Scan(&reference)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("read active fingerprint model: %w", err)
+	}
+	payload.FingerprintModel = reference
+	if payload.Diarization, err = json.Marshal(map[string]any{"job_id": diarizationID, "speakers": indexed}); err != nil {
+		return err
+	}
+	if input.Voice, err = json.Marshal(payload); err != nil {
+		return err
+	}
+	input.Separation, err = json.Marshal(map[string]any{"model": repo, "revision": revision, "ambiguity_margin": margin, "segments": json.RawMessage(segments)})
+	return err
+}
+
 // benchmarkDiarizationInput gives a diarization benchmark task the production pipeline configuration with the
 // requested catalogue model in place of the active one (ADR 0059). The provider is the model's engine, so a
 // Sortformer task runs on the NeMo adapter whatever the production model is. A fake provider (tests) stays fake.

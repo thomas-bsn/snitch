@@ -24,6 +24,17 @@ Cette tranche ajoute le socle backend isolé pour comparer des modèles d'emprei
 
 Chaînes de deux modèles (diarisation + transcription) composées à partir des tâches des deux étapes et mesurées par le cpWER, avec le WER sans attribution et le DER des mêmes sorties. Voir l'[ADR 0060](adr/0060-benchmark-de-bout-en-bout.md). L'écran Benchmarks compose 2 à 4 chaînes (modèle de diarisation prêt sur un Worker + modèle de transcription, de production ou nommé), sans doublon ; les résultats classent par cpWER, avec WER, DER, couverture et temps écoulé. Tests navigateur : `web/e2e/admin-benchmark.spec.ts` (compositeur, lancement, annulation, détail d'un run semé).
 
+### Séparation des Chevauchements (#402)
+
+Une chaîne peut porter un modèle de séparation du catalogue (`separation_model_id`, API seulement pour l'instant ; le compositeur de l'écran ne le propose pas encore). Quand ses tâches de diarisation et de transcription d'une piste sont terminées, la lecture du run planifie une tâche `benchmark.separation.N` qui demande ce modèle ; le run n'est clos qu'après elle. Le Worker :
+
+- ne sépare que les Chevauchements (tours de la chaîne) où parle un Locuteur local sans aucun mot sur la piste, avec 1 s de contexte, en un seul appel au modèle ; une piste sans tel Chevauchement n'appelle jamais le modèle ;
+- transcrit chaque Source séparée avec le modèle de transcription de la chaîne, dans le temps de la piste (début réellement séparé de la fenêtre + temps dans la source) ;
+- rapproche chaque source des Locuteurs locaux de la piste par cosinus avec leur empreinte de Parole nette (modèle d'empreinte actif), calculée pour la tâche et jamais conservée ; sous l'écart `ambiguity_margin` des réglages de rapprochement entre les deux meilleurs, la source reste sans locuteur ;
+- garde la transcription d'origine telle quelle et liste les mots ajoutés : ceux, dans la zone, d'une source donnée à un Locuteur local qui n'y avait aucun mot.
+
+Le résultat de la tâche (`silent_speakers`, `zones`, `sources`, `added`) est seulement stocké. Le résultat de la chaîne ajoute aux métriques un bloc `separation` de comptes bruts (pistes, zones, Locuteurs locaux sans mots avant et après, sources, sources sans locuteur, mots ajoutés) ; les mesures comparées et le rapport viennent avec #403. Un manque de mémoire GPU fait échouer la tâche avec `gpu_out_of_memory`, sans nouvelle tentative ; la chaîne reste mesurée sans séparation.
+
 ## Activation d'un modèle mesuré (tranche 8)
 
 Depuis le détail d'un résultat de transcription ou de diarisation : « Utiliser en production… », avec aperçu (modèle remplacé, Workers prêts, clips déjà analysés dont ceux portant un travail humain) et confirmation explicite. Elle ne change que le modèle du travail à venir : aucune réanalyse n'est lancée, aucune correction ni validation n'est touchée, et chaque changement est enregistré. Voir l'[ADR 0062](adr/0062-activation-explicite-d-un-modele-mesure.md). L'empreinte garde sa transition (ADR 0044).

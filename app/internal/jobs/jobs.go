@@ -133,6 +133,8 @@ type Input struct {
 	AudioDiagnostic json.RawMessage `json:"audio_diagnostic,omitempty"`
 	// AudioDedup is the acoustic comparison task of an audio.dedup.N step (ADR 0054).
 	AudioDedup json.RawMessage `json:"audio_dedup,omitempty"`
+	// Separation is the model and the chain's transcript of a benchmark.separation.N step (#402).
+	Separation json.RawMessage `json:"separation,omitempty"`
 }
 
 type VocabularyTerm struct {
@@ -576,11 +578,15 @@ func (s *Service) Input(ctx context.Context, id int64, workerID, leaseToken stri
 		}
 		return input, nil
 	}
-	if strings.HasPrefix(input.Job.Step, BenchmarkTranscriptionPrefix) {
+	if strings.HasPrefix(input.Job.Step, BenchmarkTranscriptionPrefix) || strings.HasPrefix(input.Job.Step, BenchmarkSeparationPrefix) {
 		// The model comes from the job, not from the Worker: the benchmark compares models on the same Worker. The
 		// production profile (language, preparation, speech detection) applies; no vocabulary, so a model is
-		// measured as it is.
-		if queryErr := s.pool.QueryRow(ctx, `SELECT COALESCE(requested_model_id,'') FROM jobs WHERE id=$1`, id).Scan(&input.TranscriptionModel); queryErr != nil {
+		// measured as it is. A separation task transcribes its sources with the model of its chain.
+		if strings.HasPrefix(input.Job.Step, BenchmarkSeparationPrefix) {
+			if err = s.benchmarkSeparationInput(ctx, &input); err != nil {
+				return Input{}, err
+			}
+		} else if queryErr := s.pool.QueryRow(ctx, `SELECT COALESCE(requested_model_id,'') FROM jobs WHERE id=$1`, id).Scan(&input.TranscriptionModel); queryErr != nil {
 			return Input{}, fmt.Errorf("read requested transcription model: %w", queryErr)
 		}
 		var profile []byte
@@ -786,7 +792,8 @@ func (s *Service) Fail(ctx context.Context, id int64, workerID, leaseToken, mess
 	}
 	status := RetryWait
 	delay := retryDelay(job.Attempts)
-	if code == "invalid_input" || job.Attempts >= job.MaxAttempts {
+	// A separation out of GPU memory would fail again on the same window: no retry (#402).
+	if code == "invalid_input" || job.Attempts >= job.MaxAttempts || (code == "gpu_out_of_memory" && strings.HasPrefix(job.Step, BenchmarkSeparationPrefix)) {
 		status = Dead
 	}
 	job, err = scanJob(tx.QueryRow(ctx, `UPDATE jobs SET status=$4,lease_owner=NULL,lease_expires_at=NULL,lease_token_hash=NULL,last_error=$5,next_attempt_at=CASE WHEN $4='retry_wait' THEN now()+$6::interval ELSE next_attempt_at END,updated_at=now() WHERE id=$1 AND lease_owner=$2 AND lease_token_hash=$3 AND status='leased' RETURNING id,clip_id,step,input_version,status,priority,attempts,max_attempts,lease_owner,lease_expires_at,next_attempt_at,last_error,created_at,updated_at,result,cycle`, id, workerID, auth.Hash(leaseToken), status, code, delay.String()))

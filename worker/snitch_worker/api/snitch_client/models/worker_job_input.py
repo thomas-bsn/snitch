@@ -18,6 +18,7 @@ if TYPE_CHECKING:
   from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput
   from ..models.worker_audio_plan_task import WorkerAudioPlanTask
   from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem
+  from ..models.worker_separation_input import WorkerSeparationInput
   from ..models.worker_vocabulary_term import WorkerVocabularyTerm
   from ..models.worker_voice_input import WorkerVoiceInput
 
@@ -54,6 +55,9 @@ class WorkerJobInput:
             audio_dedup (WorkerAudioDedupInput | Unset): Tâche d'un job audio.dedup.N (comparaison acoustique des pistes
                 retenues d'un plan). Les segments sont dans le repère du clip ; start_seconds est le décalage du flux de la
                 piste.
+            separation (WorkerSeparationInput | Unset): Tâche benchmark.separation.N (#402) : le modèle de séparation
+                demandé et la transcription de la chaîne, dans le repère de la piste. Les tours sont dans voice.diarization, le
+                modèle de transcription dans transcription_model.
      """
 
     job: Job
@@ -72,6 +76,7 @@ class WorkerJobInput:
     audio_plan: WorkerAudioPlanTask | Unset = UNSET
     audio_diagnostic: WorkerAudioDiagnosticInput | Unset = UNSET
     audio_dedup: WorkerAudioDedupInput | Unset = UNSET
+    separation: WorkerSeparationInput | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -85,6 +90,7 @@ class WorkerJobInput:
         from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput # noqa: PLC0415
         from ..models.worker_audio_plan_task import WorkerAudioPlanTask # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
+        from ..models.worker_separation_input import WorkerSeparationInput # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
         job = self.job.to_dict()
@@ -143,6 +149,10 @@ class WorkerJobInput:
         if not isinstance(self.audio_dedup, Unset):
             audio_dedup = self.audio_dedup.to_dict()
 
+        separation: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.separation, Unset):
+            separation = self.separation.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -172,6 +182,8 @@ class WorkerJobInput:
             field_dict["audio_diagnostic"] = audio_diagnostic
         if audio_dedup is not UNSET:
             field_dict["audio_dedup"] = audio_dedup
+        if separation is not UNSET:
+            field_dict["separation"] = separation
 
         return field_dict
 
@@ -185,6 +197,7 @@ class WorkerJobInput:
         from ..models.worker_audio_diagnostic_input import WorkerAudioDiagnosticInput # noqa: PLC0415
         from ..models.worker_audio_plan_task import WorkerAudioPlanTask # noqa: PLC0415
         from ..models.worker_job_input_tracks_item import WorkerJobInputTracksItem # noqa: PLC0415
+        from ..models.worker_separation_input import WorkerSeparationInput # noqa: PLC0415
         from ..models.worker_vocabulary_term import WorkerVocabularyTerm # noqa: PLC0415
         from ..models.worker_voice_input import WorkerVoiceInput # noqa: PLC0415
         d = dict(src_dict)
@@ -287,6 +300,16 @@ class WorkerJobInput:
 
 
 
+        _separation = d.pop("separation", UNSET)
+        separation: WorkerSeparationInput | Unset
+        if isinstance(_separation,  Unset):
+            separation = UNSET
+        else:
+            separation = WorkerSeparationInput.from_dict(_separation)
+
+
+
+
         worker_job_input = cls(
             job=job,
             original_name=original_name,
@@ -304,6 +327,7 @@ class WorkerJobInput:
             audio_plan=audio_plan,
             audio_diagnostic=audio_diagnostic,
             audio_dedup=audio_dedup,
+            separation=separation,
         )
 
 

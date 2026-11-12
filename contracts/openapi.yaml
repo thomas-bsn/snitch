@@ -22346,6 +22346,9 @@
           },
           "audio_dedup": {
             "$ref": "#/components/schemas/WorkerAudioDedupInput"
+          },
+          "separation": {
+            "$ref": "#/components/schemas/WorkerSeparationInput"
           }
         }
       },
@@ -32130,6 +32133,10 @@
                 },
                 "transcription_model": {
                   "type": "string"
+                },
+                "separation_model_id": {
+                  "type": "string",
+                  "description": "Facultatif : modèle de séparation du catalogue, appliqué aux Chevauchements où un Locuteur local reste sans paroles (#402). Rien de ce qu’il produit n’atteint la bibliothèque."
                 }
               }
             }
@@ -32747,6 +32754,10 @@
           },
           "transcription_model": {
             "type": "string"
+          },
+          "separation_model_id": {
+            "type": "string",
+            "description": "Facultatif : modèle de séparation du catalogue, appliqué aux Chevauchements où un Locuteur local reste sans paroles (#402). Rien de ce qu’il produit n’atteint la bibliothèque."
           }
         }
       },
@@ -34773,6 +34784,73 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/VoiceCalibrationMode"
+            }
+          }
+        }
+      },
+      "WorkerSeparationInput": {
+        "type": "object",
+        "description": "Tâche benchmark.separation.N (#402) : le modèle de séparation demandé et la transcription de la chaîne, dans le repère de la piste. Les tours sont dans voice.diarization, le modèle de transcription dans transcription_model.",
+        "required": [
+          "model",
+          "revision",
+          "ambiguity_margin",
+          "segments"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "ambiguity_margin": {
+            "type": "number",
+            "description": "Écart minimal de ressemblance entre les deux meilleurs Locuteurs locaux pour attribuer une Source séparée."
+          },
+          "segments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "start",
+                "end",
+                "text",
+                "words"
+              ],
+              "properties": {
+                "start": {
+                  "type": "number"
+                },
+                "end": {
+                  "type": "number"
+                },
+                "text": {
+                  "type": "string"
+                },
+                "words": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "start",
+                      "end",
+                      "word"
+                    ],
+                    "properties": {
+                      "start": {
+                        "type": "number"
+                      },
+                      "end": {
+                        "type": "number"
+                      },
+                      "word": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }

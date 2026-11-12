@@ -423,6 +423,10 @@ func TestFoundation(t *testing.T) {
 		reset(t)
 		testAIBenchmarkEndToEnd(t, pool)
 	})
+	t.Run("ai benchmark separation", func(t *testing.T) {
+		reset(t)
+		testAIBenchmarkSeparation(t, pool)
+	})
 	t.Run("ai benchmark activation", func(t *testing.T) {
 		reset(t)
 		testAIBenchmarkActivation(t, pool)

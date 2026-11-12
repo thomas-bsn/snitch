@@ -680,6 +680,20 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if stepErr == nil && status != "done" && strings.HasPrefix(step, jobs.BenchmarkSeparationPrefix) {
+		// A separation result is only stored: it never reaches a transcript, a fingerprint or a Reference (#402).
+		if _, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r)); errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
+			fail(w, http.StatusConflict, "lease_not_owned")
+			return
+		} else if leaseErr != nil {
+			s.internal(w, leaseErr)
+			return
+		}
+		if !validSeparationResult(input.Result, step) {
+			fail(w, http.StatusBadRequest, "invalid_job_result")
+			return
+		}
+	}
 	if stepErr == nil && status != "done" && strings.HasPrefix(step, "transcription.audio.") {
 		leased, leaseErr := s.Jobs.Input(r.Context(), id, currentWorker(r).ID, workerLeaseToken(r))
 		if errors.Is(leaseErr, jobs.ErrLeaseNotOwned) {
@@ -718,6 +732,9 @@ func (s *Server) completeWorkerJob(w http.ResponseWriter, r *http.Request) {
 	}
 	if stepErr == nil && strings.HasPrefix(step, jobs.BenchmarkTranscriptionPrefix) {
 		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes, Summarize: withoutPeaks}
+	}
+	if stepErr == nil && strings.HasPrefix(step, jobs.BenchmarkSeparationPrefix) {
+		options = jobs.CompleteOptions{MaxResultBytes: maxTranscriptionResultBytes}
 	}
 	if stepErr == nil && strings.HasPrefix(step, jobs.BenchmarkDiarizationPrefix) {
 		options = jobs.CompleteOptions{MaxResultBytes: maxVoiceResultBytes, Summarize: withoutPeaks}

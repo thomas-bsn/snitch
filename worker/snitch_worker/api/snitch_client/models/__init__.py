@@ -732,6 +732,9 @@ from .worker_restart_history_items_item import WorkerRestartHistoryItemsItem
 from .worker_restart_input import WorkerRestartInput
 from .worker_result_input import WorkerResultInput
 from .worker_result_input_result import WorkerResultInputResult
+from .worker_separation_input import WorkerSeparationInput
+from .worker_separation_input_segments_item import WorkerSeparationInputSegmentsItem
+from .worker_separation_input_segments_item_words_item import WorkerSeparationInputSegmentsItemWordsItem
 from .worker_transcription_config import WorkerTranscriptionConfig
 from .worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
 from .worker_transcription_failure_input import WorkerTranscriptionFailureInput
@@ -1490,6 +1493,9 @@ __all__ = (
     "WorkerRestartInput",
     "WorkerResultInput",
     "WorkerResultInputResult",
+    "WorkerSeparationInput",
+    "WorkerSeparationInputSegmentsItem",
+    "WorkerSeparationInputSegmentsItemWordsItem",
     "WorkerTranscriptionConfig",
     "WorkerTranscriptionConfigErrorCode",
     "WorkerTranscriptionFailureInput",
