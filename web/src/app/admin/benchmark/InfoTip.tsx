@@ -49,6 +49,7 @@ export type Metric =
   | "falseAlarm"
   | "confusion"
   | "cpwer"
+  | "cpwerWord"
   | "wer"
   | "cer"
   | "eer"

@@ -2098,7 +2098,7 @@ export const en = {
       derChart: "Diarization error rate (lower is better)",
       cpwerChart: "Speaker-attributed word error rate, cpWER (lower is better)",
       noteE2e:
-        "Each transcript segment is given the speaker whose turns overlap it the most; the words of each speaker are then compared with the reviewed text, speakers being matched to the reference ones in the way that minimises errors. The cpWER sees what the WER does not: good text given to the wrong speaker. These figures describe this corpus, not a guarantee.",
+        "Each transcript segment is given the speaker whose turns overlap it the most, then, for the cpWER by word, each word; the words of each speaker are then compared with the reviewed text, speakers being matched to the reference ones in the way that minimises errors. The cpWER sees what the WER does not: good text given to the wrong speaker. These figures describe this corpus, not a guarantee.",
       noteDiarization:
         "The model’s speakers are anonymous: they are matched to the reference speakers by the assignment that maximises their common speaking time. A 0.25 s collar is forgiven around each reference boundary. Rates are summed over the clips. These figures describe this corpus, not a guarantee.",
       werChart: "Word error rate (lower is better)",
@@ -2196,7 +2196,11 @@ export const en = {
     metrics: {
       cpwer: {
         name: "cpWER",
-        help: "Speaker-attributed word error rate: share of words wrong, missing or given to the wrong speaker, after matching the model's speakers to the reference ones. 0% is perfect. Lower is better.",
+        help: "Speaker-attributed word error rate: share of words wrong, missing or given to the wrong speaker, after matching the model's speakers to the reference ones. Each segment goes whole to the speaker who overlaps it the most (segment rule). 0% is perfect. Lower is better.",
+      },
+      cpwerWord: {
+        name: "cpWER by word",
+        help: "The same cpWER under production's word rule: each word goes to the speaker whose turns overlap it the most. Lower than the segment cpWER, the word rule better tells who said what. “–” for a run measured before this measure existed. Lower is better.",
       },
       der: {
         name: "DER",

@@ -2142,7 +2142,7 @@ export const fr: Messages = {
       cpwerChart:
         "Taux d’erreur de mots avec attribution des locuteurs, cpWER (plus bas = meilleur)",
       noteE2e:
-        "Chaque segment transcrit prend le locuteur dont les tours le recouvrent le plus ; les mots de chaque locuteur sont ensuite comparés au texte relu, les locuteurs étant associés à ceux de la référence de façon à minimiser les erreurs. Le cpWER voit ce que le WER ne voit pas : un bon texte donné au mauvais locuteur. Ces chiffres décrivent ce corpus, pas une garantie.",
+        "Chaque segment transcrit prend le locuteur dont les tours le recouvrent le plus, puis, pour le cpWER au mot, chaque mot ; les mots de chaque locuteur sont ensuite comparés au texte relu, les locuteurs étant associés à ceux de la référence de façon à minimiser les erreurs. Le cpWER voit ce que le WER ne voit pas : un bon texte donné au mauvais locuteur. Ces chiffres décrivent ce corpus, pas une garantie.",
       noteDiarization:
         "Les locuteurs du modèle sont anonymes : on les associe aux locuteurs de référence par l’affectation qui maximise leur temps de parole commun. Une tolérance de 0,25 s est accordée autour de chaque borne de référence. Les taux sont cumulés sur les clips. Ces chiffres décrivent ce corpus, pas une garantie.",
       werChart: "Taux d’erreur de mots (plus bas = meilleur)",
@@ -2241,7 +2241,11 @@ export const fr: Messages = {
     metrics: {
       cpwer: {
         name: "cpWER",
-        help: "Taux d’erreur de mots avec attribution des locuteurs : part des mots faux, manquants ou donnés au mauvais locuteur, après association des locuteurs du modèle à ceux de la référence. 0 % est parfait. Plus bas = mieux.",
+        help: "Taux d’erreur de mots avec attribution des locuteurs : part des mots faux, manquants ou donnés au mauvais locuteur, après association des locuteurs du modèle à ceux de la référence. Chaque segment va en entier au locuteur qui le recouvre le plus (règle par segment). 0 % est parfait. Plus bas = mieux.",
+      },
+      cpwerWord: {
+        name: "cpWER au mot",
+        help: "Le même cpWER avec la règle au mot de la production : chaque mot va au locuteur dont les tours le recouvrent le plus. Plus bas que le cpWER par segment, la règle au mot rend mieux qui a dit quoi. « – » pour un run mesuré avant cette mesure. Plus bas = mieux.",
       },
       der: {
         name: "DER",

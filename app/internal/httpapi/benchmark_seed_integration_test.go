@@ -116,6 +116,8 @@ func seedBenchmarkRuns(t *testing.T, pool *pgxpool.Pool) {
 	rates := func(cpwer, wer float64) string {
 		return `{"clips":3,"reference_words":100,"cp_word_errors":` + strconv.Itoa(int(cpwer*100)) + `,"word_errors":` + strconv.Itoa(int(wer*100)) + `,"cpwer":` + seedNum(cpwer) + `,"wer":` + seedNum(wer) + `}`
 	}
+	// The second chain was measured under both attribution rules (#400); the first one before, without the word rule.
+	exec(`UPDATE benchmark_results SET metrics=metrics||jsonb_build_object('word_rule',$2::jsonb) WHERE run_id=$1 AND model_id='c2'`, e2e, rates(0.09, 0.081))
 	exec(`UPDATE benchmark_results SET metrics=metrics||jsonb_build_object('separation',$2::jsonb) WHERE run_id=$1 AND model_id='c2'`, e2e,
 		`{"tracks":3,"zones":4,"speakers_without_words_before":2,"speakers_without_words_after":1,"sources":8,"sources_without_speaker":3,"words_added":12,"words_added_absent_from_reference":5,"words_duplicated_between_sources":2,"min_clips":10,"without_separation":`+
 			rates(0.3, 0.2)+`,"with_separation":`+rates(0.25, 0.22)+`}`)

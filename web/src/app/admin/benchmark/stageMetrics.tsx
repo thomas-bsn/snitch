@@ -103,6 +103,12 @@ const e2eColumns: Column[] = [
     best: { value: (x) => x.metrics.cpwer, low: true },
   },
   {
+    metric: "cpwerWord",
+    // A run measured before #400 has no word rule: "–".
+    render: (x, l) => percent(l, x.metrics.word_rule?.cpwer),
+    best: { value: (x) => x.metrics.word_rule?.cpwer, low: true },
+  },
+  {
     metric: "wer",
     render: (x, l) => percent(l, x.metrics.wer),
     best: { value: (x) => x.metrics.wer, low: true },
