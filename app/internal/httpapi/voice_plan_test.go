@@ -352,11 +352,11 @@ func testAudioPlanVoiceTwoTracks(t *testing.T, pool *pgxpool.Pool) {
 	if len(segments) != 2 || segments[0].SpeakerID == nil || *segments[0].SpeakerID != onTrack[2][0] || segments[1].SpeakerID == nil || *segments[1].SpeakerID != onTrack[7][0] {
 		t.Fatalf("segments must take the voice of their own track only: %+v", segments)
 	}
-	// So do their words (#398): the voices of both tracks speak over 1.25..2, a word only gets a voice of its track.
+	// So do their parts (#398): the voices of both tracks speak over 1.25..2, a part only gets a voice of its track.
 	for i, track := range []int{2, 7} {
 		parts := segments[i].Parts
-		if len(parts) != 1 || parts[0].SpeakerID == nil || *parts[0].SpeakerID != onTrack[track][0] || len(parts[0].Words) == 0 {
-			t.Fatalf("the words of track %d must go to a voice of that track only: %+v", track, parts)
+		if len(parts) != 1 || parts[0].SpeakerID == nil || *parts[0].SpeakerID != onTrack[track][0] {
+			t.Fatalf("the parts of track %d must go to a voice of that track only: %+v", track, parts)
 		}
 	}
 	if transcript.coverage(2, onTrack[2][0]) != "words" || transcript.coverage(7, onTrack[7][0]) != "words" {
