@@ -59,9 +59,13 @@ async function analyseFolder(
     .click();
 }
 
-// The rows of the list view only: the tree of folders repeats the same names.
+// The rows of the list view only: the tree of folders repeats the same names. Matched on the exact entry
+// name: a folder row also shows dates ("2026") and owners.
 const row = (page: Page, name: string) =>
-  page.getByRole("table").getByRole("row").filter({ hasText: name });
+  page
+    .getByRole("table")
+    .getByRole("row")
+    .filter({ has: page.getByText(name, { exact: true }) });
 
 test.describe.serial("explorateur de la bibliothèque", () => {
   test.skip(!ROOT, "requires the explorer harness");
@@ -534,6 +538,9 @@ test.describe.serial("explorateur de la bibliothèque", () => {
     page,
   }) => {
     await page.goto("/library?folder=league%2F2026");
+    // The list view shows a folder's totals, as its Properties dialog does (cells: name, state, duration,
+    // owner, added on, size).
+    await expect(row(page, "sub").getByRole("cell").nth(5)).toHaveText(/\d/);
     await row(page, "sub")
       .getByRole("button", { name: "Actions for folder sub" })
       .click();
