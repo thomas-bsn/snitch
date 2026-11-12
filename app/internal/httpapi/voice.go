@@ -14,6 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"snitch/internal/jobs"
+	"snitch/internal/segmentparts"
 )
 
 // registerVoiceRoutes declares the phase 5 voice routes. Later phase 5 steps add their
@@ -577,22 +578,43 @@ func (s *Server) attachRefusedPersons(ctx context.Context, clipID int64, speaker
 // attachLocalSpeakers labels each transcript segment with its local speaker: the one a
 // user designated for the segment (phase 6; states carries the overrides), otherwise
 // the one whose turns overlap it most. Segments without either stay unlabeled. It also
+// cuts each segment into its parts under the active attribution rule (ADR 0065), and
 // lists the local speakers of the audio stream (transcription.local_speakers) so a
 // reader can offer them as the choice of a correction.
 func (s *Server) attachLocalSpeakers(ctx context.Context, clipID int64, transcript any, states map[int]segmentState) error {
-	return s.attachTrackSpeakers(ctx, clipID, transcript, states, false)
+	_, rule, err := activeAttributionRule(ctx, s.Pool)
+	if err != nil {
+		return err
+	}
+	return s.attachTrackSpeakers(ctx, clipID, transcript, states, false, rule)
+}
+
+// segmentWords reads the words of a transcript segment with their times; a word without time has none (0, 0).
+func segmentWords(segment map[string]any) ([]any, []segmentparts.Word) {
+	raw, _ := segment["words"].([]any)
+	words := make([]segmentparts.Word, len(raw))
+	for i, item := range raw {
+		if word, isMap := item.(map[string]any); isMap {
+			start, startOK := word["start"].(float64)
+			end, endOK := word["end"].(float64)
+			if startOK && endOK {
+				words[i] = segmentparts.Word{Start: start, End: end}
+			}
+		}
+	}
+	return raw, words
 }
 
 // attachTrackSpeakers is attachLocalSpeakers; keepEmpty lists and covers the voices of a track
 // that has no segment at all (a plan's kept track whose voices carry no word, #342).
-func (s *Server) attachTrackSpeakers(ctx context.Context, clipID int64, transcript any, states map[int]segmentState, keepEmpty bool) error {
+func (s *Server) attachTrackSpeakers(ctx context.Context, clipID int64, transcript any, states map[int]segmentState, keepEmpty bool, rule attributionRule) error {
 	object, ok := transcript.(map[string]any)
 	if !ok {
 		return nil
 	}
 	if revision, ok := object["revision"].(map[string]any); ok {
 		if id, _ := revision["id"].(string); strings.HasPrefix(id, "plan:") {
-			return s.attachRevisionSpeakers(ctx, clipID, object, states)
+			return s.attachRevisionSpeakers(ctx, clipID, object, states, rule)
 		}
 	}
 	index, indexOK := object["audio_stream_index"].(float64)
@@ -662,21 +684,25 @@ func (s *Server) attachTrackSpeakers(ctx context.Context, clipID int64, transcri
 		coverageTurns[i] = coverageTurn{SpeakerID: t.id, Start: t.start, End: t.end}
 		turnLabels[t.id] = t.label
 	}
-	coverageSegments := []coverageSegment{}
-	for position, raw := range segments {
-		if segment, isMap := raw.(map[string]any); isMap {
-			start, startOK := segment["start"].(float64)
-			end, endOK := segment["end"].(float64)
-			if startOK && endOK {
-				cs := coverageSegment{Start: start, End: end}
-				if st, found := states[position]; found && st.StaleAt == nil && st.SpeakerOverrideID != nil {
-					cs.OverrideSpeakerID = st.SpeakerOverrideID
-				}
-				coverageSegments = append(coverageSegments, cs)
+	// describe fills the speaker fields of a segment or of one of its parts.
+	describe := func(target map[string]any, speakerID int64) {
+		speakerLabel, listed := speakerLabels[speakerID]
+		if !listed {
+			speakerLabel = turnLabels[speakerID]
+		}
+		target["local_speaker_id"], target["local_speaker_label"] = speakerID, speakerLabel
+		target["local_speaker_decision_level"] = LevelUnknown
+		if a, found := attributions[speakerID]; found {
+			target["local_speaker_decision_level"] = a.DecisionLevel
+			if a.Person != nil {
+				target["local_speaker_person_id"], target["local_speaker_person_name"] = a.Person.ID, a.Person.DisplayName
 			}
 		}
 	}
-	object["speaker_coverage"] = speakerCoverage(coverageTurns, coverageSegments)
+	shown := func(speakerID int64) bool { return speakerID != 0 && dispositions[speakerID] != dispositionIgnored }
+	object["speaker_attribution_rule"] = rule
+	ruleTurns := partTurns(coverageTurns)
+	coverageSegments := []coverageSegment{}
 	for position, raw := range segments {
 		segment, isMap := raw.(map[string]any)
 		if !isMap {
@@ -687,33 +713,53 @@ func (s *Server) attachTrackSpeakers(ctx context.Context, clipID int64, transcri
 		if !startOK || !endOK {
 			continue
 		}
-		order, overlap := segmentOverlaps(coverageTurns, start, end)
-		var speakerID int64
-		var speakerLabel string
-		if winner, found := dominantSpeaker(order, overlap); found {
-			speakerID, speakerLabel = winner, turnLabels[winner]
+		cs := coverageSegment{Start: start, End: end}
+		rawWords, words := segmentWords(segment)
+		st, hasState := states[position]
+		hasState = hasState && st.StaleAt == nil
+		// A corrected text has no reliable word time left: the segment keeps a single speaker (ADR 0012).
+		if hasState && st.Text != nil {
+			rawWords, words = nil, nil
 		}
-		segment["local_speaker_corrected"] = false
-		if st, found := states[position]; found && st.StaleAt == nil && st.SpeakerOverrideID != nil {
-			if label, known := speakerLabels[*st.SpeakerOverrideID]; known {
-				speakerID, speakerLabel = *st.SpeakerOverrideID, label
-				segment["local_speaker_corrected"] = true
+		cs.Words = words
+		// The segment itself keeps the voice that speaks most over it, whatever the rule.
+		var segmentSpeaker int64
+		if whole := segmentparts.Attribute(segmentparts.RuleSegment, segmentparts.Span{Start: start, End: end}, nil, ruleTurns); whole[0].Known {
+			segmentSpeaker = whole[0].Speaker
+		}
+		corrected := false
+		if hasState && st.SpeakerOverrideID != nil {
+			cs.OverrideSpeakerID = st.SpeakerOverrideID
+			if _, known := speakerLabels[*st.SpeakerOverrideID]; known {
+				segmentSpeaker, corrected = *st.SpeakerOverrideID, true
 			}
 		}
-		if speakerID == 0 || dispositions[speakerID] == dispositionIgnored {
-			continue
+		coverageSegments = append(coverageSegments, cs)
+		segment["local_speaker_corrected"] = corrected
+		if shown(segmentSpeaker) {
+			describe(segment, segmentSpeaker)
 		}
-		if dispositions[speakerID] == dispositionRandom {
-			speakerLabel = randomSpeakerLabel
+		// Its parts: only a speaker Correction that can be shown gives it whole to the designated voice.
+		if !corrected {
+			cs.OverrideSpeakerID = nil
 		}
-		segment["local_speaker_id"], segment["local_speaker_label"] = speakerID, speakerLabel
-		segment["local_speaker_decision_level"] = LevelUnknown
-		if a, found := attributions[speakerID]; found {
-			segment["local_speaker_decision_level"] = a.DecisionLevel
-			if a.Person != nil {
-				segment["local_speaker_person_id"], segment["local_speaker_person_name"] = a.Person.ID, a.Person.DisplayName
+		computed := cs.parts(rule.version(), ruleTurns)
+		parts := make([]map[string]any, 0, len(computed))
+		for _, p := range computed {
+			part := map[string]any{"start": start, "end": end, "words": []any{}}
+			if p.Count > 0 {
+				part["words"] = rawWords[p.First : p.First+p.Count]
+				if len(computed) > 1 {
+					part["start"], part["end"] = words[p.First].Start, words[p.First+p.Count-1].End
+				}
 			}
+			if p.Known && shown(p.Speaker) {
+				describe(part, p.Speaker)
+			}
+			parts = append(parts, part)
 		}
+		segment["parts"] = parts
 	}
+	object["speaker_coverage"] = speakerCoverage(rule.version(), coverageTurns, coverageSegments)
 	return nil
 }

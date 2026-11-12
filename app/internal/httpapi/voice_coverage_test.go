@@ -1,6 +1,10 @@
 package httpapi
 
-import "testing"
+import (
+	"testing"
+
+	"snitch/internal/segmentparts"
+)
 
 // The reproducible case of #273: the diarization detects three voices, the transcript
 // attributes words to two. Each detected voice must keep a distinct, explicit status.
@@ -15,7 +19,7 @@ func TestSpeakerCoverageThreeDetectedTwoTranscribed(t *testing.T) {
 		{Start: 0, End: 10},
 		{Start: 10, End: 20},
 	}
-	got := speakerCoverage(turns, segments)
+	got := speakerCoverage(segmentparts.RuleSegment, turns, segments)
 	want := map[int64]SpeakerCoverage{
 		1: {SpeakerID: 1, Status: CoverageWords, SpeakingSeconds: 10, AttributedSegments: 1},
 		2: {SpeakerID: 2, Status: CoverageWords, SpeakingSeconds: 10, AttributedSegments: 1},
@@ -32,7 +36,7 @@ func TestSpeakerCoverageThreeDetectedTwoTranscribed(t *testing.T) {
 }
 
 func TestSpeakerCoverageNoTranscriptAtAll(t *testing.T) {
-	got := speakerCoverage([]coverageTurn{{SpeakerID: 7, Start: 5, End: 8}}, nil)
+	got := speakerCoverage(segmentparts.RuleSegment, []coverageTurn{{SpeakerID: 7, Start: 5, End: 8}}, nil)
 	if len(got) != 1 || got[0].Status != CoverageNoTranscript || got[0].SpeakingSeconds != 3 {
 		t.Fatalf("got %+v", got)
 	}
@@ -42,7 +46,7 @@ func TestSpeakerCoverageNoTranscriptAtAll(t *testing.T) {
 func TestSpeakerCoverageFollowsOverride(t *testing.T) {
 	override := int64(2)
 	turns := []coverageTurn{{SpeakerID: 1, Start: 0, End: 10}, {SpeakerID: 2, Start: 12, End: 14}}
-	got := speakerCoverage(turns, []coverageSegment{{Start: 0, End: 10, OverrideSpeakerID: &override}})
+	got := speakerCoverage(segmentparts.RuleSegment, turns, []coverageSegment{{Start: 0, End: 10, OverrideSpeakerID: &override}})
 	byID := map[int64]SpeakerCoverage{}
 	for _, c := range got {
 		byID[c.SpeakerID] = c
@@ -58,7 +62,7 @@ func TestSpeakerCoverageFollowsOverride(t *testing.T) {
 // Ties go to the first voice in input order, as the segment attribution does.
 func TestSpeakerCoverageTieGoesToFirstVoice(t *testing.T) {
 	turns := []coverageTurn{{SpeakerID: 1, Start: 0, End: 5}, {SpeakerID: 2, Start: 5, End: 10}}
-	got := speakerCoverage(turns, []coverageSegment{{Start: 0, End: 10}})
+	got := speakerCoverage(segmentparts.RuleSegment, turns, []coverageSegment{{Start: 0, End: 10}})
 	if got[0].Status != CoverageWords || got[1].Status != CoverageSpeechWithoutWords {
 		t.Fatalf("got %+v", got)
 	}
@@ -66,7 +70,7 @@ func TestSpeakerCoverageTieGoesToFirstVoice(t *testing.T) {
 
 // Overlapping turns of one voice are not counted twice.
 func TestSpeakerCoverageSpeakingSecondsIgnoresOverlappingTurns(t *testing.T) {
-	got := speakerCoverage([]coverageTurn{{SpeakerID: 1, Start: 0, End: 6}, {SpeakerID: 1, Start: 4, End: 10}}, nil)
+	got := speakerCoverage(segmentparts.RuleSegment, []coverageTurn{{SpeakerID: 1, Start: 0, End: 6}, {SpeakerID: 1, Start: 4, End: 10}}, nil)
 	if got[0].SpeakingSeconds != 10 {
 		t.Fatalf("got %+v", got)
 	}
@@ -76,7 +80,7 @@ func TestSpeakerCoverageSpeakingSecondsIgnoresOverlappingTurns(t *testing.T) {
 // a gap of the ASR; beyond it, the transcript stops before the voice (truncation, offset).
 func TestSpeakerCoverageTellsAGapFromSpeechBeyondTheTranscript(t *testing.T) {
 	segments := []coverageSegment{{Start: 0, End: 10}, {Start: 20, End: 30}}
-	got := speakerCoverage([]coverageTurn{
+	got := speakerCoverage(segmentparts.RuleSegment, []coverageTurn{
 		{SpeakerID: 1, Start: 0, End: 10},
 		{SpeakerID: 2, Start: 12, End: 18}, // between two segments
 		{SpeakerID: 3, Start: 50, End: 55}, // after the last segment
@@ -97,5 +101,25 @@ func TestSpeakerCoverageTellsAGapFromSpeechBeyondTheTranscript(t *testing.T) {
 	}
 	if c := byID[1]; c.UncoveredSeconds != 0 {
 		t.Errorf("fully covered: %+v", c)
+	}
+}
+
+// #398: a voice that holds words of a segment does not speak under the words of the others there. Per segment it
+// is outweighed and has none; per word its two words are a part of its own.
+func TestSpeakerCoverageFollowsParts(t *testing.T) {
+	turns := []coverageTurn{{SpeakerID: 1, Start: 0, End: 6}, {SpeakerID: 2, Start: 6, End: 10}}
+	words := []segmentparts.Word{{Start: 0, End: 2}, {Start: 2, End: 4}, {Start: 4, End: 6}, {Start: 6, End: 8}, {Start: 8, End: 10}}
+	segments := []coverageSegment{{Start: 0, End: 10, Words: words}}
+	second := func(rule segmentparts.Rule) SpeakerCoverage { return speakerCoverage(rule, turns, segments)[1] }
+	if c := second(segmentparts.RuleSegment); c.Status != CoverageSpeechWithoutWords || c.OverlappedSeconds != 4 || c.AttributedSegments != 0 {
+		t.Errorf("per segment the outweighed voice has no word: %+v", c)
+	}
+	if c := second(segmentparts.RuleWord); c.Status != CoverageWords || c.OverlappedSeconds != 0 || c.AttributedSegments != 1 {
+		t.Errorf("per word the voice holds a part: %+v", c)
+	}
+	// A corrected text has no word time left: the segment has one speaker again.
+	segments[0].Words = nil
+	if c := second(segmentparts.RuleWord); c.Status != CoverageSpeechWithoutWords {
+		t.Errorf("a segment with a corrected text has a single speaker: %+v", c)
 	}
 }

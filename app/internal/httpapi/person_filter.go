@@ -54,24 +54,43 @@ func effectiveAttributionOf(ls string) string {
 }
 
 // segmentSpeakerJoin joins, for one transcript segment, the effective attribution of
-// the voice that speaks it. That voice is the Local speaker a user designated for the
+// the voice that speaks it, under the active attribution rule (ADR 0065).
+//
+// Per segment, that voice is the Local speaker a user designated for the
 // segment (segment_corrections.speaker_override_id, phase 6) when it still belongs to
 // the same clip and audio stream, otherwise the one that speaks most over it (same rule
-// as attachLocalSpeakers: maximal overlap, ties to the lowest ordinal). The alias
-// exposes person_id and person_name (NULL unless identified) and level ('unknown' when
-// nothing is attributed). Callers pass SQL expressions for the clip id, audio stream,
-// segment start and end, and for the segment identity (transcription job id and
-// segment index; NULL when unknown, which disables the override).
-func segmentSpeakerJoin(alias, clip, stream, start, end, job, idx string) string {
-	overlap := fmt.Sprintf("LEAST(%s,st.end_seconds)-GREATEST(%s,st.start_seconds)", end, start)
-	return fmt.Sprintf(` LEFT JOIN LATERAL (SELECT CASE WHEN eff.decision_level IN %[7]s THEN eff.person_id END person_id,
- CASE WHEN eff.decision_level IN %[7]s THEN p.display_name END person_name,COALESCE(eff.decision_level,'unknown') level
- FROM (SELECT x.id FROM (
-  SELECT ls.id,0 pri,0::double precision weight,ls.ordinal FROM segment_corrections sso JOIN local_speakers ls ON ls.id=sso.speaker_override_id WHERE sso.transcription_job_id=%[9]s AND sso.segment_index=%[10]s AND sso.stale_at IS NULL AND ls.kind<>'archived' AND ls.clip_id=%[2]s AND ls.audio_stream_index=%[3]s AND %[11]s
-  UNION ALL
-  SELECT ls.id,1,-sum(%[6]s),ls.ordinal FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=%[2]s AND ls.kind<>'archived' AND ls.audio_stream_index=%[3]s AND %[6]s>0 AND %[11]s GROUP BY ls.id,ls.ordinal) x ORDER BY x.pri,x.weight,x.ordinal LIMIT 1) dom
- LEFT JOIN LATERAL (%[8]s) eff ON true LEFT JOIN persons p ON p.id=eff.person_id) %[1]s ON true`,
-		alias, clip, stream, start, end, overlap, identifiedLevels, effectiveAttributionOf("dom"), job, idx, notIgnoredVoice)
+// as attachLocalSpeakers: maximal overlap, ties to the lowest ordinal).
+//
+// Per word, a segment has one voice per part (segment_part_speakers, the SQL twin of
+// segmentparts.Attribute): the join keeps the part the Person filter asks for when there
+// is one, so a segment is retained as soon as one of its parts is attributed to the
+// Person; otherwise the voice of the per-segment rule when it holds a part, else the
+// first part. words is the SQL expression of the words of the segment (jsonb array).
+//
+// The alias exposes person_id and person_name (NULL unless identified) and level
+// ('unknown' when nothing is attributed). Callers pass SQL expressions for the clip id,
+// audio stream, segment start and end, for the segment identity (transcription job id
+// and segment index; NULL when unknown, which disables the override), and the
+// placeholders of the Person filter.
+func segmentSpeakerJoin(rule attributionRule, alias, clip, stream, start, end, job, idx, words, personArg, unknownArg string) string {
+	if rule == attributionByWord {
+		return fmt.Sprintf(` LEFT JOIN LATERAL (SELECT x.person_id,x.person_name,x.level FROM (
+ SELECT CASE WHEN eff.decision_level IN %[1]s THEN eff.person_id END person_id,
+ CASE WHEN eff.decision_level IN %[1]s THEN p.display_name END person_name,COALESCE(eff.decision_level,'unknown') level,sp.dominant,sp.part_order
+ FROM segment_part_speakers(%[3]s,%[4]s,%[5]s,%[6]s,%[7]s,%[8]s,%[9]s) sp
+ LEFT JOIN LATERAL (%[2]s) eff ON true LEFT JOIN persons p ON p.id=eff.person_id) x
+ ORDER BY (%[10]s::bigint<>0 AND x.person_id IS NOT DISTINCT FROM %[10]s::bigint) DESC,(%[11]s::boolean AND x.person_id IS NULL) DESC,x.dominant DESC,x.part_order LIMIT 1) %[12]s ON true`,
+			identifiedLevels, effectiveAttributionOf("sp"), clip, stream, start, end, job, idx, words, personArg, unknownArg, alias)
+	}
+	// The voice of the segment rule is dominant_turn_speaker, the SQL twin of segmentparts (turns in ordinal order).
+	return fmt.Sprintf(` LEFT JOIN LATERAL (SELECT CASE WHEN eff.decision_level IN %[6]s THEN eff.person_id END person_id,
+ CASE WHEN eff.decision_level IN %[6]s THEN p.display_name END person_name,COALESCE(eff.decision_level,'unknown') level
+ FROM (SELECT COALESCE(
+  (SELECT ls.id FROM segment_corrections sso JOIN local_speakers ls ON ls.id=sso.speaker_override_id WHERE sso.transcription_job_id=%[8]s AND sso.segment_index=%[9]s AND sso.stale_at IS NULL AND ls.kind<>'archived' AND ls.clip_id=%[2]s AND ls.audio_stream_index=%[3]s AND %[10]s),
+  (SELECT dominant_turn_speaker(array_agg(ls.id ORDER BY ls.ordinal,ls.id,st.turn_index),array_agg(st.start_seconds ORDER BY ls.ordinal,ls.id,st.turn_index),array_agg(st.end_seconds ORDER BY ls.ordinal,ls.id,st.turn_index),%[4]s,%[5]s,NULL)
+   FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id WHERE ls.clip_id=%[2]s AND ls.kind<>'archived' AND ls.audio_stream_index=%[3]s AND st.end_seconds>%[4]s AND st.start_seconds<%[5]s AND %[10]s)) id) dom
+ LEFT JOIN LATERAL (%[7]s) eff ON true LEFT JOIN persons p ON p.id=eff.person_id WHERE dom.id IS NOT NULL) %[1]s ON true`,
+		alias, clip, stream, start, end, identifiedLevels, effectiveAttributionOf("dom"), job, idx, notIgnoredVoice)
 }
 
 // segmentPersonPredicate filters rows joined with segmentSpeakerJoin. personArg and

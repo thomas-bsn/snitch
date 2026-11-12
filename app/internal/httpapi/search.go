@@ -113,6 +113,11 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		s.hybridSearch(w, r, q, page, size, visibility, status, sourceID, from, to, admin, person)
 		return
 	}
+	_, rule, err := activeAttributionRule(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
 	// Translate composes with lower() to match French accented and unaccented input
 	// without requiring a database extension or changing the worker result format.
 	queryNorm := normalizeSearch(q)
@@ -149,7 +154,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
  SELECT c.id clip_id,COALESCE(c.display_title,c.original_name) clip_name,c.visibility,c.capture_time AS recorded_at,
  CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END status,
  COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb) sources,
-	 e.text context, e.corrected, e.job_id, e.idx, e.seg_start segment_start, e.seg_end segment_end, e.stream,
+	 e.text context, e.corrected, e.job_id, e.idx, e.seg_start segment_start, e.seg_end segment_end, e.stream, e.seg->'words' words,
 	 ` + matchedText + ` matched_text,
 	 ` + timestamp + ` timestamp,
 	 ` + matchType + ` match_type,
@@ -167,7 +172,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 )`
 	// Matching rows (deduplicated per segment in full-text mode) are enriched with the
 	// speaker of the segment; the Person filter, then total and page, apply to them.
-	cols := "clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type,segment_start,segment_end,stream,wn,corrected,job_id,idx"
+	cols := "clip_id,clip_name,visibility,recorded_at,status,sources,context,matched_text,timestamp,match_type,segment_start,segment_end,stream,wn,corrected,job_id,idx,words"
 	matches := "SELECT " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0"
 	if mode == "full_text" {
 		matches = "SELECT DISTINCT ON (clip_id,job_id,idx) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,job_id,idx,CASE match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,similarity(wn,$1) DESC,timestamp"
@@ -178,7 +183,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		// then the earliest, so the pick is deterministic.
 		matches = "SELECT DISTINCT ON (clip_id,job_id,idx) " + cols + " FROM parts WHERE (" + match + ") AND $9::double precision>=0 ORDER BY clip_id,job_id,idx,CASE WHEN wn=" + phraseNorm + " THEN 0 ELSE 1 END,timestamp"
 	}
-	speakerJoin := segmentSpeakerJoin("spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx")
+	speakerJoin := segmentSpeakerJoin(rule, "spk", "m.clip_id", "m.stream", "m.segment_start", "m.segment_end", "m.job_id", "m.idx", "m.words", "$10", "$11")
 	enrich := " FROM matches m" + speakerJoin + " WHERE " + segmentPersonPredicate("spk", "$10", "$11")
 	withMatches := baseQuery + ", matches AS (" + matches + ") "
 	order := " ORDER BY CASE m.match_type WHEN 'exact' THEN 0 WHEN 'full_text' THEN 1 ELSE 2 END,m.recorded_at DESC NULLS LAST,m.clip_id DESC,m.timestamp"
@@ -265,7 +270,12 @@ func (s *Server) hybridSearch(w http.ResponseWriter, r *http.Request, q string, 
 	filter := `clip_readable(c.id,c.owner_id,c.visibility,$2,$3) AND ($4='' OR c.visibility=$4) AND ($5=0 OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.source_id=$5)) AND ($6='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date >= $6::date) AND ($7='' OR (c.capture_time AT TIME ZONE COALESCE((SELECT NULLIF(timezone,'') FROM clip_metadata_settings WHERE id=true),'UTC'))::date <= $7::date) AND ($8='' OR CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END=$8)`
 	args := []any{vector, ss.User.ID, admin, visibility, sourceID, from, to, status}
 	// The Person filter applies to the semantic candidates before their 100-row cut.
-	speaker := segmentSpeakerJoin("spk", "c.id", "v.stream", "v.seg_start", "v.seg_end", "e.transcription_job_id", "e.segment_index")
+	_, rule, err := activeAttributionRule(r.Context(), s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	speaker := segmentSpeakerJoin(rule, "spk", "c.id", "v.stream", "v.seg_start", "v.seg_end", "e.transcription_job_id", "e.segment_index", "v.seg->'words'", "$11", "$12")
 	filter += " AND " + segmentPersonPredicate("spk", "$11", "$12")
 	query := fmt.Sprintf(`SELECT e.clip_id,COALESCE(c.display_title,c.original_name),c.visibility,c.capture_time,CASE WHEN EXISTS(SELECT 1 FROM uploaded_media um WHERE um.clip_id=c.id) OR EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='ready') THEN 'ready' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='unreadable') THEN 'unreadable' WHEN EXISTS(SELECT 1 FROM source_files sf WHERE sf.clip_id=c.id AND sf.status='waiting_stability') THEN 'waiting_stability' ELSE 'missing' END,COALESCE((SELECT jsonb_agg(DISTINCT cs.name) FROM source_files sf JOIN clip_sources cs ON cs.id=sf.source_id WHERE sf.clip_id=c.id),'[]'::jsonb),COALESCE(sc.text,e.text),'',v.seg_start,'semantic',(sc.text IS NOT NULL),spk.person_id,spk.person_name,COALESCE(spk.level,'unknown') FROM transcript_embeddings e JOIN clips c ON c.id=e.clip_id JOIN jobs j ON j.id=e.transcription_job_id JOIN audio_visible_segments v ON v.job_id=e.transcription_job_id AND v.idx=e.segment_index LEFT JOIN segment_corrections sc ON sc.transcription_job_id=e.transcription_job_id AND sc.segment_index=e.segment_index AND sc.stale_at IS NULL %s WHERE e.profile_id=%d AND NOT COALESCE(sc.reindex_pending,false) AND EXISTS(SELECT 1 FROM audio_visible_segments visible WHERE visible.job_id=j.id AND visible.idx=e.segment_index) AND `+filter+` ORDER BY e.embedding::halfvec(%d) <=> $1::halfvec(%d) LIMIT $9 OFFSET $10`, speaker, profileID, dimensions, dimensions)
 	rows, err := s.Pool.Query(r.Context(), query, append(args, 100, 0, person.PersonID, person.Unknown)...)

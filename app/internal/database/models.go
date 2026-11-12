@@ -796,6 +796,14 @@ type SpeakerAttributionCandidate struct {
 	Score         float64 `json:"score"`
 }
 
+type SpeakerAttributionRule struct {
+	Version        int32              `json:"version"`
+	Rule           string             `json:"rule"`
+	AuthorID       pgtype.Int8        `json:"author_id"`
+	AuthorUsername pgtype.Text        `json:"author_username"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type SpeakerTurn struct {
 	ID             int64   `json:"id"`
 	LocalSpeakerID int64   `json:"local_speaker_id"`

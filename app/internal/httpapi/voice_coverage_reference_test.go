@@ -1,6 +1,10 @@
 package httpapi
 
-import "testing"
+import (
+	"testing"
+
+	"snitch/internal/segmentparts"
+)
 
 // Reference scenarios of #273: synthetic ground truth (who really speaks when, what the ASR
 // produced), one per cause of the ticket. They document the diagnosis and are the entry of
@@ -58,7 +62,7 @@ func TestSpeakerCoverageReferenceScenarios(t *testing.T) {
 	}
 	for _, sc := range scenarios {
 		t.Run(sc.name, func(t *testing.T) {
-			got := speakerCoverage(sc.turns, sc.segments)
+			got := speakerCoverage(segmentparts.RuleSegment, sc.turns, sc.segments)
 			if len(got) != len(sc.want) {
 				t.Fatalf("got %d voices, want %d: %+v", len(got), len(sc.want), got)
 			}
@@ -74,8 +78,8 @@ func TestSpeakerCoverageReferenceScenarios(t *testing.T) {
 // Separate tracks (microphone / PC) are diagnosed apart: the same voice ids never mix, and a
 // voice alone on its track is never outweighed.
 func TestSpeakerCoverageSeparateTracksAreIndependent(t *testing.T) {
-	mic := speakerCoverage([]coverageTurn{{SpeakerID: 1, Start: 0, End: 10}}, []coverageSegment{{Start: 0, End: 10}})
-	pc := speakerCoverage([]coverageTurn{{SpeakerID: 2, Start: 0, End: 10}, {SpeakerID: 3, Start: 2, End: 4}}, []coverageSegment{{Start: 0, End: 10}})
+	mic := speakerCoverage(segmentparts.RuleSegment, []coverageTurn{{SpeakerID: 1, Start: 0, End: 10}}, []coverageSegment{{Start: 0, End: 10}})
+	pc := speakerCoverage(segmentparts.RuleSegment, []coverageTurn{{SpeakerID: 2, Start: 0, End: 10}, {SpeakerID: 3, Start: 2, End: 4}}, []coverageSegment{{Start: 0, End: 10}})
 	if mic[0].Status != CoverageWords || pc[0].Status != CoverageWords || pc[1].Status != CoverageSpeechWithoutWords {
 		t.Fatalf("mic %+v pc %+v", mic, pc)
 	}

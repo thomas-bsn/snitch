@@ -403,6 +403,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerVoiceEligibilityRoutes(mux)
 	s.registerFingerprintRecomputeRoutes(mux)
 	s.registerVoiceScoreModeRoutes(mux)
+	s.registerSpeakerAttributionRuleRoutes(mux)
 	s.registerVoiceProfileRoutes(mux)
 	s.registerPersonLinkRoutes(mux)
 	s.registerVoiceGroupRoutes(mux)

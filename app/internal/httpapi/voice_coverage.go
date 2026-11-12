@@ -3,22 +3,24 @@ package httpapi
 import (
 	"math"
 	"sort"
+
+	"snitch/internal/segmentparts"
 )
 
 // Coverage of the detected voices by the transcript (#273). The diarization and the ASR are
-// independent: a voice can be detected without any word attributed to it. Snitch attributes
-// each segment to a single voice (the one that speaks most over it), so a voice that is always
-// outweighed, or that speaks where the ASR produced no segment, vanishes from the transcript.
+// independent: a voice can be detected without any word attributed to it. Snitch gives the words
+// of a segment to the voices that say them (parts, ADR 0065), so a voice that never holds a part,
+// or that speaks where the ASR produced no segment, vanishes from the transcript.
 // speakerCoverage makes that explicit instead of silent.
 
 // CoverageStatus tells what the transcript holds for a detected voice.
 type CoverageStatus string
 
 const (
-	// CoverageWords: at least one segment is attributed to the voice.
+	// CoverageWords: the voice holds a part of at least one segment.
 	CoverageWords CoverageStatus = "words"
-	// CoverageSpeechWithoutWords: the voice speaks over transcribed segments, but none is
-	// attributed to it (another voice outweighs it).
+	// CoverageSpeechWithoutWords: the voice speaks over transcribed segments, but holds a part of
+	// none (other voices outweigh it).
 	CoverageSpeechWithoutWords CoverageStatus = "speech_without_words"
 	// CoverageNoTranscript: no segment overlaps any turn of the voice (ASR gap, silence
 	// seen by the ASR, offset or wrong track).
@@ -37,6 +39,28 @@ type coverageSegment struct {
 	Start, End float64
 	// OverrideSpeakerID is a manual correction of the segment's speaker.
 	OverrideSpeakerID *int64
+	// Words are the times of the words of the segment, in order. A segment whose text was corrected has
+	// none: its original word times no longer describe it (ADR 0012).
+	Words []segmentparts.Word
+}
+
+// partTurns gives the turns to the attribution rule, in the same order.
+func partTurns(turns []coverageTurn) []segmentparts.Turn[int64] {
+	out := make([]segmentparts.Turn[int64], len(turns))
+	for i, t := range turns {
+		out[i] = segmentparts.Turn[int64]{Speaker: t.SpeakerID, Start: t.Start, End: t.End}
+	}
+	return out
+}
+
+// parts cuts the segment into its parts: the one attribution of the clip page, of the Coverage and of the trace.
+// A speaker Correction gives the whole segment to the designated voice, whatever the rule (ADR 0012); the caller
+// leaves OverrideSpeakerID nil when that voice cannot be shown.
+func (seg coverageSegment) parts(rule segmentparts.Rule, turns []segmentparts.Turn[int64]) []segmentparts.Part[int64] {
+	if seg.OverrideSpeakerID != nil {
+		return []segmentparts.Part[int64]{{Speaker: *seg.OverrideSpeakerID, Known: true, Count: len(seg.Words)}}
+	}
+	return segmentparts.Attribute(rule, segmentparts.Span{Start: seg.Start, End: seg.End}, seg.Words, turns)
 }
 
 // SpeakerCoverage is the per-voice result, in order of first appearance in the turns.
@@ -44,7 +68,7 @@ type SpeakerCoverage struct {
 	SpeakerID          int64          `json:"local_speaker_id"`
 	Status             CoverageStatus `json:"coverage_status"`
 	SpeakingSeconds    float64        `json:"speaking_seconds"`
-	OverlappedSeconds  float64        `json:"overlapped_seconds"` // speech over segments attributed to another voice
+	OverlappedSeconds  float64        `json:"overlapped_seconds"` // speech over segments where the voice holds no part
 	UncoveredSeconds   float64        `json:"uncovered_seconds"`  // speech under no segment at all
 	AttributedSegments int            `json:"attributed_segments"`
 }
@@ -64,20 +88,9 @@ func segmentOverlaps(turns []coverageTurn, start, end float64) (order []int64, o
 	return order, overlap
 }
 
-// dominantSpeaker is the one attribution rule, shared by the segment labels (attachLocalSpeakers)
-// and the coverage: the voice that speaks most over the segment, ties to the first in order.
-func dominantSpeaker(order []int64, overlap map[int64]float64) (int64, bool) {
-	winner, found := int64(0), false
-	for _, id := range order {
-		if !found || overlap[id] > overlap[winner] {
-			winner, found = id, true
-		}
-	}
-	return winner, found
-}
-
-// speakerCoverage applies that rule, plus manual corrections, to every segment.
-func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []SpeakerCoverage {
+// speakerCoverage applies the attribution rule, plus manual corrections, to every segment. A voice that holds a
+// part of a segment is not counted as speaking under the words of the others there.
+func speakerCoverage(rule segmentparts.Rule, turns []coverageTurn, segments []coverageSegment) []SpeakerCoverage {
 	result := []SpeakerCoverage{}
 	index := map[int64]int{}
 	for _, t := range turns {
@@ -91,21 +104,25 @@ func speakerCoverage(turns []coverageTurn, segments []coverageSegment) []Speaker
 	for i := range result {
 		result[i].SpeakingSeconds = unionSeconds(turns, result[i].SpeakerID)
 	}
+	ruleTurns := partTurns(turns)
 	for _, seg := range segments {
 		order, overlap := segmentOverlaps(turns, seg.Start, seg.End)
-		winner, found := dominantSpeaker(order, overlap)
 		if seg.OverrideSpeakerID != nil {
-			if _, known := index[*seg.OverrideSpeakerID]; known {
-				winner, found = *seg.OverrideSpeakerID, true
+			if _, known := index[*seg.OverrideSpeakerID]; !known {
+				seg.OverrideSpeakerID = nil
+			}
+		}
+		holders := map[int64]bool{}
+		for _, part := range seg.parts(rule, ruleTurns) {
+			if part.Known && !holders[part.Speaker] {
+				holders[part.Speaker] = true
+				result[index[part.Speaker]].AttributedSegments++
 			}
 		}
 		for _, id := range order {
-			if !found || id != winner {
+			if !holders[id] {
 				result[index[id]].OverlappedSeconds += overlap[id]
 			}
-		}
-		if found {
-			result[index[winner]].AttributedSegments++
 		}
 	}
 	first, last := math.Inf(1), math.Inf(-1)
