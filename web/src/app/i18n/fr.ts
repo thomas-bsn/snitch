@@ -1503,6 +1503,10 @@ export const fr: Messages = {
     reason: "Motif (facultatif)",
     speaker: "Locuteur",
     inferred: "Locuteur déduit des tours de parole",
+    speakerParts:
+      "Ce segment est lu en {count} parts : la correction s’applique au segment entier, qui n’aura plus qu’une part.",
+    textParts:
+      "Ce segment est lu en {count} parts : un texte corrigé ne garde qu’une part, à la voix qui y parle le plus.",
     saveText: "Enregistrer le texte",
     saveSpeaker: "Enregistrer le locuteur",
     cancel: "Annuler",
@@ -3282,6 +3286,7 @@ export const fr: Messages = {
     transcript: {
       empty: "Ce clip n’a pas encore de transcription.",
       listLabel: "Segments de la transcription",
+      partsLabel: "Parts du segment",
       play: "Lire à partir de {time}",
       textCorrected: "Texte corrigé par {author}",
       textCorrectedAnon: "Texte corrigé",

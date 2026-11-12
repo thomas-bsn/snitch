@@ -174,6 +174,16 @@ export function SegmentActions({
               </select>
             </label>
           )}
+          {(segment.parts?.length ?? 0) > 1 && (
+            <p className="m-0 text-xs text-mute">
+              {t(
+                mode === "text"
+                  ? "segmentEdit.textParts"
+                  : "segmentEdit.speakerParts",
+                { count: segment.parts?.length ?? 0 },
+              )}
+            </p>
+          )}
           {failure && <ErrorAlert>{error(failure)}</ErrorAlert>}
           {conflict && (
             <div

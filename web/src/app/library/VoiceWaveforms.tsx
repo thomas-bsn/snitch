@@ -33,7 +33,7 @@ function barsPath(peaks: number[], owned: Uint8Array, wanted: number) {
 /** The peaks a voice speaks over: its index plus one, 0 where nobody does. */
 function owners(
   peaks: number[],
-  tracks: { turns: TranscriptSegment[] }[],
+  tracks: { turns: { start: number; end: number }[] }[],
   total: number,
 ) {
   const owned = new Uint8Array(peaks.length);
@@ -85,9 +85,10 @@ export function VoiceWaveforms({
     () =>
       speakers.map((speaker, rank) => ({
         speaker,
-        turns: segments.filter(
-          (segment) => segment.local_speaker_id === speaker.id,
-        ),
+        // A segment shared between voices counts by its parts (ADR 0065).
+        turns: segments
+          .flatMap((segment) => segment.parts ?? [segment])
+          .filter((turn) => turn.local_speaker_id === speaker.id),
         color: voiceColor(rank),
       })),
     [speakers, segments],
