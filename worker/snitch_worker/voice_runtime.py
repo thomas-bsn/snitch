@@ -7,10 +7,15 @@ import re
 from pathlib import Path
 import subprocess
 import tempfile
+import threading
 from typing import Any
 
 from snitch_worker import cancellation, engine_runtime, voice_manifest
 from snitch_worker.voice import VoiceProviderUnavailable
+
+# The highest GPU memory peak an engine subprocess reported to the calling thread, the thread of a job; a benchmark
+# task resets it and reports it (#403).
+gpu_peak = threading.local()
 
 
 def inference_device(manifest: dict[str, Any], environ: Any, gpu: Any = None) -> str | None:
@@ -72,6 +77,8 @@ def call(manifest: dict[str, Any], path: str, environ: Any, **request: Any) -> d
                 raise refused
             if not isinstance(answer["result"], dict):
                 raise ValueError()
+            if isinstance(answer.get("gpu_peak_bytes"), int):
+                gpu_peak.bytes = max(getattr(gpu_peak, "bytes", None) or 0, answer["gpu_peak_bytes"])
             return answer["result"]
         except (OSError, ValueError, KeyError, subprocess.SubprocessError):
             raise VoiceProviderUnavailable("inference_failed") from None

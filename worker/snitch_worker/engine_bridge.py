@@ -127,6 +127,10 @@ def main() -> None:
     try:
         request = json.loads(Path(sys.argv[1]).read_text())
         result = {"result": execute(request)}
+        # The peak of GPU memory PyTorch allocated in this process, which only ran this call: the task reports it (#403).
+        torch = sys.modules.get("torch")
+        if torch is not None and torch.cuda.is_available():
+            result["gpu_peak_bytes"] = int(torch.cuda.max_memory_allocated())
     except Exception as exc:
         from snitch_worker.voice_pyannote import _classify
         result = {"error": exc.reason if isinstance(exc, VoiceProviderUnavailable) else _classify(exc, "model_load_failed")}

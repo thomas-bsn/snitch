@@ -7,15 +7,18 @@ is a WAV whose samples all hold its number, which is how the fake transcriber an
 import contextlib
 import copy
 import io
+import json
 import os
 import shutil
+import sys
 import tempfile
 import unittest
 import wave
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from snitch_worker import benchmark_separation, log, runner
+from snitch_worker import benchmark_separation, engine_bridge, log, runner, voice_runtime
 from snitch_worker.voice import VoiceProviderUnavailable
 
 
@@ -216,8 +219,8 @@ class RunnerSeparationTests(unittest.TestCase):
             self.assertTrue(runner.run_once(SimpleNamespace(_base_url="https://snitch.example"), transcriber=FakeTranscriber({})))
         self.assertEqual([body.to_dict()["error"] for body in sent], ["gpu_out_of_memory"])
 
-    def completed(self, step, modules):
-        """The result a Worker sends for one benchmark task whose work is faked, with ``modules`` imported."""
+    def completed(self, step, modules, run=None):
+        """The result a Worker sends for one benchmark task whose work is faked (``run``), with ``modules`` imported."""
         log.configure("INFO", stream=io.StringIO())
         task = SimpleNamespace(id=7, clip_id=3, step=step, input_version="bs-d1-t2", cycle=0, attempts=1, lease_owner="wk_synthetic")
         task_input = SimpleNamespace(media_url="/media", pipeline=None, transcription_model="asr-x", vocabulary=[], voice=SimpleNamespace(to_dict=dict), separation=SimpleNamespace(to_dict=dict))
@@ -231,7 +234,7 @@ class RunnerSeparationTests(unittest.TestCase):
                 patch.object(runner, "get_job_input", return_value=task_input),
                 patch.object(runner, "download_media"),
                 patch.object(runner, "prepare_audio"),
-                patch.object(runner.benchmark_separation, "run", return_value={"audio_stream_index": 0, "added": []}),
+                patch.object(runner.benchmark_separation, "run", side_effect=run or (lambda *args: {"audio_stream_index": 0, "added": []})),
                 patch.object(runner, "complete_job", side_effect=lambda **kwargs: sent.append(kwargs["body"]) or object()),
             ):
                 stack.enter_context(active)
@@ -250,6 +253,38 @@ class RunnerSeparationTests(unittest.TestCase):
         result = self.completed("benchmark.separation.0", {"torch": SimpleNamespace(cuda=cuda)})
         self.assertIn("inference_seconds", result)
         self.assertNotIn("gpu_peak_bytes", result)
+
+    def test_the_gpu_peak_of_a_model_run_in_an_engine_subprocess_is_reported(self):
+        # SepFormer runs in the engine subprocess: its peak comes back through voice_runtime.call, here faked.
+        def separated(*args):
+            voice_runtime.gpu_peak.bytes = 5_000_000
+            return {"audio_stream_index": 0, "added": []}
+        cuda = SimpleNamespace(is_available=lambda: True, reset_peak_memory_stats=lambda: None, max_memory_allocated=lambda: 1000)
+        self.assertEqual(self.completed("benchmark.separation.0", {"torch": SimpleNamespace(cuda=cuda)}, separated)["gpu_peak_bytes"], 5_000_000)
+        # Without CUDA in the Worker process, the subprocess peak alone is reported.
+        self.assertEqual(self.completed("benchmark.separation.0", {"torch": None}, separated)["gpu_peak_bytes"], 5_000_000)
+
+    def test_the_engine_bridge_returns_its_gpu_peak_and_the_call_passes_it_up(self):
+        cuda = SimpleNamespace(is_available=lambda: True, max_memory_allocated=lambda: 4096)
+        with tempfile.TemporaryDirectory() as directory:
+            incoming, outgoing = os.path.join(directory, "in.json"), os.path.join(directory, "out.json")
+            with open(incoming, "w") as handle:
+                json.dump({}, handle)
+            with patch.dict("sys.modules", {"torch": SimpleNamespace(cuda=cuda)}), patch.object(engine_bridge, "execute", return_value={"windows": []}), \
+                    patch.object(sys, "argv", ["engine_bridge", incoming, outgoing]):
+                engine_bridge.main()
+            with open(outgoing) as handle:
+                answer = json.load(handle)
+        self.assertEqual(answer, {"result": {"windows": []}, "gpu_peak_bytes": 4096})
+
+        voice_runtime.gpu_peak.bytes = None
+        written = lambda command, **kwargs: Path(command[-1]).write_text(json.dumps(answer))  # noqa: E731
+        with patch.object(voice_runtime.engine_runtime, "validate_runtime"), patch.object(voice_runtime.engine_runtime, "installed", return_value=True), \
+                patch.object(voice_runtime, "inference_device", return_value="cuda"), patch.object(voice_runtime.engine_runtime, "environment", return_value={}), \
+                patch.object(voice_runtime.engine_runtime, "location", return_value=Path(directory)), patch.object(voice_runtime.voice_manifest, "manifest_path", return_value="/m"), \
+                patch.object(voice_runtime.cancellation, "run_process", side_effect=written):
+            self.assertEqual(voice_runtime.call({}, "/model", {}, operation="infer"), {"windows": []})
+        self.assertEqual(voice_runtime.gpu_peak.bytes, 4096)
 
 
 if __name__ == "__main__":

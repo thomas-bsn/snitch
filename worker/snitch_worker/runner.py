@@ -9,13 +9,14 @@ import re
 import signal
 import ssl
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import wave
 import struct
 from concurrent.futures import Future, ThreadPoolExecutor, wait
-from typing import Any, Mapping, Protocol
+from typing import Any, Callable, Mapping, Protocol
 from urllib.parse import urljoin, urlparse
 
 import httpx
@@ -39,7 +40,7 @@ from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
 from snitch_worker import acoustic_dedup, audio_diagnostic, benchmark_separation, cancellation, log, revocation
-from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
+from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models, voice_runtime
 from snitch_worker import remote_control
 from snitch_worker.waveform import attach_peaks
 from snitch_worker.declared_models import declared_models
@@ -98,6 +99,32 @@ DIARIZATION_FAILURE_CODES = {
 
 def _is_diarization_step(step: str) -> bool:
     return bool(DIARIZATION_STEP.fullmatch(step))
+
+
+def _cuda() -> Any:
+    # Never imported here: only a model that already loaded PyTorch can have used the GPU.
+    torch = sys.modules.get("torch")
+    return torch.cuda if torch is not None and torch.cuda.is_available() else None
+
+
+def _measured(step: str, compute: Callable[[], dict[str, Any]]) -> dict[str, Any]:
+    """Run the work of a task once its audio is prepared. A benchmark task reports its duration (for a separation, the
+    transcription and fingerprints of the sources included) and, under CUDA, the peak of GPU memory PyTorch allocated,
+    in this process or in an engine subprocess (#403); without CUDA, or for a transcription done by the external
+    service, the peak is absent."""
+    if not step.startswith("benchmark."):
+        return compute()
+    if (device := _cuda()) is not None:
+        device.reset_peak_memory_stats()
+    voice_runtime.gpu_peak.bytes = None
+    started = time.monotonic()
+    result = compute()
+    result["inference_seconds"] = round(time.monotonic() - started, 3)
+    device = _cuda()
+    peaks = [p for p in (voice_runtime.gpu_peak.bytes, device and int(device.max_memory_allocated())) if p is not None]
+    if peaks and not step.startswith("benchmark.transcription."):
+        result["gpu_peak_bytes"] = max(peaks)
+    return result
 
 
 def _voice_config(task_input: Any) -> dict[str, Any]:
@@ -883,7 +910,7 @@ def _run_claimed(
                             audio_plan_version=plan["input_version"],
                         )
                     else:
-                        result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
+                        result = _measured(job.step, lambda: transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary))
                         result["audio_stream_index"] = stream_index
                         attach_peaks(result, wav_path)
             elif re.fullmatch(r"benchmark\.separation\.\d+", job.step):
@@ -898,8 +925,9 @@ def _run_claimed(
                     pipeline_value = getattr(task_input, "pipeline", None)
                     pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
                     active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), task_input.transcription_model)
-                    result = benchmark_separation.run(task_input.voice.to_dict(), task_input.separation.to_dict(), wav_path, stream_index,
-                                                      active_transcriber, pipeline, voice_providers, os.environ)
+                    result = _measured(job.step, lambda: benchmark_separation.run(
+                        task_input.voice.to_dict(), task_input.separation.to_dict(), wav_path, stream_index,
+                        active_transcriber, pipeline, voice_providers, os.environ))
             elif is_voice_step(job.step) or re.fullmatch(r"benchmark\.diarization\.\d+", job.step):
                 # A benchmark diarization runs the production code on the model the task asks for, under the name of
                 # the voice step it imitates; it computes no waveform peaks (ADR 0059).
@@ -918,7 +946,7 @@ def _run_claimed(
                         wav_path = os.path.join(temporary, "prepared.wav")
                         download_media(client, task_input, lease_token, original)
                         prepare_audio(original, wav_path, int(job.step.rsplit(".", 1)[1]))
-                        result = process_voice_step(voice_step, voice_input, duration, wav_path, voice_providers)
+                        result = _measured(job.step, lambda: process_voice_step(voice_step, voice_input, duration, wav_path, voice_providers))
                         if _is_diarization_step(voice_step) and not benchmark:
                             attach_peaks(result, wav_path)
                 else:
