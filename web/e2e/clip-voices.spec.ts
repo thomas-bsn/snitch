@@ -136,3 +136,53 @@ test("la fiche des voix passe l'analyse d'accessibilité", async ({ page }) => {
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
 });
+
+test("un segment à deux voix montre ses deux parts, et la correction annonce son effet", async ({
+  page,
+}) => {
+  const clipId = await uploadClip("fixture-voices-parts.mp4", "shared");
+  await transcribeAndDiarize(clipId, { peaks: true, sharedSegment: true });
+  await page.context().addCookies((await sessionFor(ADMIN)).cookies);
+  await page.goto(`/clips/${clipId}`);
+
+  const segment = firstSegment(page);
+  const parts = segment
+    .getByRole("list", { name: "Parts of the segment" })
+    .getByRole("listitem");
+  await expect(parts).toHaveCount(2);
+  await expect(parts.first()).toContainText("SPEAKER_00");
+  await expect(parts.first()).toContainText("Bien joué !");
+  await expect(parts.nth(1)).toContainText("SPEAKER_01");
+  await expect(parts.nth(1)).toContainText("Salut");
+  // A single-voice segment keeps its one chip and its text, without a list of parts.
+  const single = page
+    .getByRole("list", { name: "Transcript segments" })
+    .getByRole("listitem")
+    .filter({ hasText: "Merci" });
+  await expect(single.getByRole("list")).toHaveCount(0);
+  await expect(single).toContainText("SPEAKER_01");
+
+  // The waveform follows the parts: the second voice speaks from 2.25 s.
+  await page.getByRole("tab", { name: "Voices" }).click();
+  await expect(
+    page.getByRole("button", { name: "Track of SPEAKER_01" }).locator("path"),
+  ).toHaveAttribute("d", /^M2\.25 0/);
+  await page.getByRole("tab", { name: "Transcript" }).click();
+
+  await segment.getByRole("button", { name: "Edit text" }).click();
+  await expect(segment).toContainText(
+    "This segment is read as 2 parts: a corrected text keeps a single part",
+  );
+  await segment.getByRole("button", { name: "Cancel" }).click();
+
+  await segment.getByRole("button", { name: "Edit speaker" }).click();
+  await expect(segment).toContainText(
+    "This segment is read as 2 parts: the correction applies to the whole segment",
+  );
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+  await segment.getByLabel("Speaker").selectOption({ label: "SPEAKER_01" });
+  await segment.getByRole("button", { name: "Save speaker" }).click();
+  await expect(segment).toContainText("Speaker corrected by administrator");
+  await expect(segment.getByRole("list")).toHaveCount(0);
+  await expect(segment).toContainText("Bien joué ! Salut");
+});
