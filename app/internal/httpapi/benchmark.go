@@ -266,9 +266,12 @@ func (s *Server) loadBenchmarkRun(ctx context.Context, id int64, detail bool) (b
 	}
 	res.Close()
 	costs := map[string]modelResources{}
+	// A value outside a sane range reads as not reported, never as an error of the whole run view.
 	cr, err := s.Pool.Query(ctx, `SELECT rj.model_id,count(*),
-		CASE WHEN bool_and(jsonb_typeof(j.result->'inference_seconds')='number') THEN sum((j.result->>'inference_seconds')::float8) END,
-		CASE WHEN bool_and(jsonb_typeof(j.result->'gpu_peak_bytes')='number') THEN max((j.result->>'gpu_peak_bytes')::float8)::bigint END
+		CASE WHEN bool_and(CASE WHEN jsonb_typeof(j.result->'inference_seconds')='number' THEN (j.result->>'inference_seconds')::float8 BETWEEN 0 AND 1e7 ELSE false END)
+			THEN sum(CASE WHEN jsonb_typeof(j.result->'inference_seconds')='number' THEN (j.result->>'inference_seconds')::float8 END) END,
+		CASE WHEN bool_and(CASE WHEN jsonb_typeof(j.result->'gpu_peak_bytes')='number' THEN (j.result->>'gpu_peak_bytes')::float8 BETWEEN 0 AND 1e15 ELSE false END)
+			THEN max(CASE WHEN jsonb_typeof(j.result->'gpu_peak_bytes')='number' THEN (j.result->>'gpu_peak_bytes')::float8 END)::bigint END
 		FROM benchmark_run_jobs rj JOIN jobs j ON j.id=rj.job_id WHERE rj.run_id=$1 AND j.status='done' AND j.result IS NOT NULL GROUP BY 1`, id)
 	if err != nil {
 		return v, err
