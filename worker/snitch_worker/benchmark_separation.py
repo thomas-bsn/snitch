@@ -1,11 +1,11 @@
 """Separation step of an end-to-end benchmark chain (#402, spec paroles simultanées section 3).
 
-From the chain's turns and transcript of one track, only the Chevauchements involving a Local speaker left without
-any word on the track are separated, with a margin of context, in one call to the model. Each separated source is
-transcribed by the external service and brought back to the time of the track; it is given the Local speaker whose
-net-speech fingerprint it resembles the most, only when the gap to the next one is clear. The result keeps the
-original transcript as it is and lists the words added: those of a source given to a Local speaker who had no word in
-the zone. Nothing here is stored as a fingerprint: the vectors live only for the task.
+From the chain's turns of one track, only the Chevauchements involving a Local speaker left without any word on the
+track (listed by Snitch under the production attribution rule, #403) are separated, with a margin of context, in one
+call to the model. Each separated source is transcribed by the external service and brought back to the time of the
+track; it is given the Local speaker whose net-speech fingerprint it resembles the most, only when the gap to the next
+one is clear. The result keeps the original transcript as it is and lists the words added in a zone: those of a source
+given to a Local speaker without any word in that zone. Nothing here is stored as a fingerprint: the vectors live only for the task.
 """
 from __future__ import annotations
 
@@ -28,19 +28,6 @@ def _overlap(a: tuple[float, float], b: tuple[float, float]) -> float:
 
 def _turns(speaker: Mapping[str, Any]) -> list[tuple[float, float]]:
     return [turn_interval(t) for t in speaker.get("turns") or []]
-
-
-def _word_speakers(speakers: Sequence[Mapping[str, Any]], words: Sequence[Mapping[str, Any]]) -> list[str | None]:
-    """The Local speaker whose turns overlap each word the most; a tie keeps the speaker of the previous word."""
-    out: list[str | None] = []
-    for word in words:
-        span = (float(word["start"]), float(word["end"]))
-        scores = {s["label"]: sum(_overlap(span, t) for t in _turns(s)) for s in speakers}
-        best = max(scores.values(), default=0.0)
-        tied = [label for label, score in scores.items() if score == best and score > 0]
-        previous = out[-1] if out else None
-        out.append(previous if previous in tied else (tied[0] if tied else None))
-    return out
 
 
 def _overlaps(speakers: Sequence[Mapping[str, Any]]) -> list[tuple[float, float]]:
@@ -76,17 +63,13 @@ def run(voice: dict[str, Any], separation: Mapping[str, Any], wav_path: str, str
         separate: Callable[..., list[dict[str, Any]]] = voice_separation.separate) -> dict[str, Any]:
     """Run the separation step on the prepared track ``wav_path``; every time is in the time of the track."""
     speakers = voice["diarization"]["speakers"]
-    segments = separation["segments"]
-    words = [w for s in segments for w in s.get("words") or []]
-    labels = _word_speakers(speakers, words)
-    silent = [s["label"] for s in speakers if s["label"] not in labels]
+    # Snitch decides who is without words with the production attribution rule (#403): the Worker has no rule of its own.
+    silent = list(separation["silent_speakers"])
     zones = []
     for start, end in _overlaps(speakers):
         present = [s["label"] for s in speakers if any(_overlap((start, end), t) > 0 for t in _turns(s))]
-        if not any(label in silent for label in present):
-            continue
-        speaking = {label for word, label in zip(words, labels) if _overlap((start, end), (float(word["start"]), float(word["end"]))) > 0}
-        zones.append({"start": start, "end": end, "silent_speakers": [label for label in present if label not in speaking]})
+        if any(label in silent for label in present):
+            zones.append({"start": start, "end": end, "silent_speakers": [label for label in present if label in silent]})
     result: dict[str, Any] = {"audio_stream_index": stream, "silent_speakers": silent, "zones": zones, "sources": [], "added": []}
     if not zones:
         return result
@@ -110,7 +93,10 @@ def run(voice: dict[str, Any], separation: Mapping[str, Any], wav_path: str, str
                 said = [{"start": round(w["start"], 6), "end": round(w["end"], 6), "word": w["word"]}
                         for s in transcript.get("segments") or [] for w in s.get("words") or []]
                 result["sources"].append({"zone": number, "index": source["index"], "speaker": speaker, "words": said})
-                if speaker in zone["silent_speakers"]:
+                # Merged zone by zone (spec section 3): a Local speaker with words elsewhere on the track but none here
+                # gets them too; its word times come from Snitch's rule, like the speakers without words.
+                if speaker is not None and not any(_overlap((zone["start"], zone["end"]), (s["start"], s["end"])) > 0
+                                                   for s in separation["word_spans"] if s["speaker"] == speaker):
                     result["added"].extend({"zone": number, "source": source["index"], "speaker": speaker, **w}
                                            for w in said if _overlap((zone["start"], zone["end"]), (w["start"], w["end"])) > 0)
     return result

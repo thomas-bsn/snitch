@@ -105,23 +105,37 @@ class SeparationStepTests(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
 
-    def run_step(self, speakers, segments, separator, said=None, sources=None, margin=0.05):
+    def run_step(self, speakers, segments, separator, said=None, sources=None, margin=0.05, silent=("S1",), spans=None):
         voice = {"config": {"provider": "test"}, "diarization": {"job_id": 5, "speakers": speakers}}
-        separation = {"model": "fixture/sep", "revision": "r" * 40, "ambiguity_margin": margin, "segments": segments}
+        # Unless told otherwise, Snitch's rule gave every word of the transcript to S0.
+        if spans is None:
+            spans = [{"speaker": "S0", "start": w["start"], "end": w["end"]} for s in segments for w in s["words"]]
+        separation = {"model": "fixture/sep", "revision": "r" * 40, "ambiguity_margin": margin, "segments": segments,
+                      "silent_speakers": list(silent), "word_spans": spans}
         providers = {"test": FakeFingerprints({"S0": S0, "S1": S1, "S2": S2}, sources or {})}
         return benchmark_separation.run(voice, separation, self.wav, 9, FakeTranscriber(said or {}), {"language": "fr"}, providers, {}, separate=separator)
 
     def test_a_track_without_overlap_never_calls_the_model(self):
         separator = FakeSeparator()
-        result = self.run_step(turns(S0=[(0.0, 4.0)], S1=[(4.0, 8.0)]), [segment((1.0, 1.5, "bonjour")), segment((5.0, 5.5, "salut"))], separator)
+        result = self.run_step(turns(S0=[(0.0, 4.0)], S1=[(4.0, 8.0)]), [segment((1.0, 1.5, "bonjour")), segment((5.0, 5.5, "salut"))], separator, silent=[])
         self.assertEqual(separator.calls, [])
         self.assertEqual(result, {"audio_stream_index": 9, "silent_speakers": [], "zones": [], "sources": [], "added": []})
 
     def test_an_overlap_on_a_track_where_every_local_speaker_has_words_is_not_separated(self):
         separator = FakeSeparator()
-        result = self.run_step(turns(S0=[(0.0, 5.0)], S1=[(3.0, 8.0)]), [segment((1.0, 1.5, "oui")), segment((6.5, 7.0, "non"))], separator)
+        result = self.run_step(turns(S0=[(0.0, 5.0)], S1=[(3.0, 8.0)]), [segment((1.0, 1.5, "oui")), segment((6.5, 7.0, "non"))], separator, silent=[])
         self.assertEqual(separator.calls, [])
         self.assertEqual((result["silent_speakers"], result["zones"]), ([], []))
+
+    def test_the_speakers_without_words_are_those_snitch_gives(self):
+        # S1 holds "oui" by its turns, but Snitch's production rule gave that isolated word to S0 (#403): the Worker
+        # has no rule of its own and targets the overlap of S1.
+        separator = FakeSeparator(sources=1)
+        segments = [segment((0.5, 1.0, "bonjour"), (3.5, 3.8, "oui"), (4.5, 4.8, "alors"))]
+        result = self.run_step(turns(S0=[(0.0, 3.4), (3.9, 5.0)], S1=[(3.0, 8.0)]), segments, separator, silent=["S1"])
+        self.assertEqual(result["silent_speakers"], ["S1"])
+        self.assertEqual([z["silent_speakers"] for z in result["zones"]], [["S1"], ["S1"]])
+        self.assertEqual(len(separator.calls), 1)
 
     def test_only_a_source_given_to_a_speaker_without_words_in_the_zone_adds_words(self):
         # S0 speaks 0-5 s and S1 3-8 s; S1 never gets a word, and in the overlap 3-5 s only S0 has words.
@@ -141,6 +155,19 @@ class SeparationStepTests(unittest.TestCase):
         # Only the words of S1's source that fall in the zone are added; the window's margin brings none.
         self.assertEqual(result["added"], [{"zone": 0, "source": 0, "speaker": "S1", "start": 3.6, "end": 4.0, "word": "attends"}])
         self.assertEqual(segments, before, "the original words are never removed nor replaced")
+
+    def test_a_speaker_with_words_elsewhere_but_none_in_the_zone_gets_the_words_of_its_source(self):
+        # S2, without any word, makes 3-5 s a zone; S1 talks there too but its only word is at 6.5 s, outside the zone.
+        segments = [segment((0.5, 1.0, "bonjour"), (3.5, 4.0, "alors")), segment((6.5, 7.0, "voilà"))]
+        spans = [{"speaker": "S0", "start": 0.5, "end": 1.0}, {"speaker": "S0", "start": 3.5, "end": 4.0}, {"speaker": "S1", "start": 6.5, "end": 7.0}]
+        said = {1: [(1.6, 2.0, "attends")], 2: [(1.5, 2.0, "alors")]}
+        sources = {1: [0.1, 0.99, 0.0], 2: [0.99, 0.1, 0.0]}
+        result = self.run_step(turns(S0=[(0.0, 5.0)], S1=[(3.0, 8.0)], S2=[(3.5, 4.5)]), segments, FakeSeparator(sources=2), said, sources,
+                               silent=["S2"], spans=spans)
+        self.assertEqual(result["zones"], [{"start": 3.0, "end": 5.0, "silent_speakers": ["S2"]}])
+        self.assertEqual([(s["speaker"], [w["word"] for w in s["words"]]) for s in result["sources"]], [("S1", ["attends"]), ("S0", ["alors"])])
+        # S1 has no word in the zone: its source's words are added; S0 already has "alors" there: nothing of its source is.
+        self.assertEqual(result["added"], [{"zone": 0, "source": 0, "speaker": "S1", "start": 3.6, "end": 4.0, "word": "attends"}])
 
     def test_a_source_without_a_clear_speaker_adds_nothing(self):
         separator = FakeSeparator(sources=2)
@@ -188,6 +215,41 @@ class RunnerSeparationTests(unittest.TestCase):
                 stack.enter_context(active)
             self.assertTrue(runner.run_once(SimpleNamespace(_base_url="https://snitch.example"), transcriber=FakeTranscriber({})))
         self.assertEqual([body.to_dict()["error"] for body in sent], ["gpu_out_of_memory"])
+
+    def completed(self, step, modules):
+        """The result a Worker sends for one benchmark task whose work is faked, with ``modules`` imported."""
+        log.configure("INFO", stream=io.StringIO())
+        task = SimpleNamespace(id=7, clip_id=3, step=step, input_version="bs-d1-t2", cycle=0, attempts=1, lease_owner="wk_synthetic")
+        task_input = SimpleNamespace(media_url="/media", pipeline=None, transcription_model="asr-x", vocabulary=[], voice=SimpleNamespace(to_dict=dict), separation=SimpleNamespace(to_dict=dict))
+        sent = []
+        with contextlib.ExitStack() as stack:
+            for active in (
+                patch.dict("sys.modules", modules),
+                patch.object(runner, "pulse", return_value=object()),
+                patch.object(runner, "claim_job", return_value=SimpleNamespace(job=task, lease_token="lt_synthetic-lease-token")),
+                patch.object(runner, "heartbeat_job", return_value=object()),
+                patch.object(runner, "get_job_input", return_value=task_input),
+                patch.object(runner, "download_media"),
+                patch.object(runner, "prepare_audio"),
+                patch.object(runner.benchmark_separation, "run", return_value={"audio_stream_index": 0, "added": []}),
+                patch.object(runner, "complete_job", side_effect=lambda **kwargs: sent.append(kwargs["body"]) or object()),
+            ):
+                stack.enter_context(active)
+            self.assertTrue(runner.run_once(SimpleNamespace(_base_url="https://snitch.example"), transcriber=FakeTranscriber({})))
+        [body] = sent
+        return body.to_dict()["result"]
+
+    def test_a_benchmark_task_reports_its_inference_time_and_its_gpu_peak_under_cuda(self):
+        cuda = SimpleNamespace(is_available=lambda: True, reset_peak_memory_stats=lambda: None, max_memory_allocated=lambda: 123456)
+        result = self.completed("benchmark.separation.0", {"torch": SimpleNamespace(cuda=cuda)})
+        self.assertGreaterEqual(result["inference_seconds"], 0.0)
+        self.assertEqual(result["gpu_peak_bytes"], 123456)
+
+    def test_without_cuda_the_gpu_peak_is_absent_not_zero(self):
+        cuda = SimpleNamespace(is_available=lambda: False)
+        result = self.completed("benchmark.separation.0", {"torch": SimpleNamespace(cuda=cuda)})
+        self.assertIn("inference_seconds", result)
+        self.assertNotIn("gpu_peak_bytes", result)
 
 
 if __name__ == "__main__":
