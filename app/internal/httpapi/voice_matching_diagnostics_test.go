@@ -5,6 +5,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -71,9 +72,11 @@ func testVoiceMatchingDiagnostics(t *testing.T, pool *pgxpool.Pool) {
 		t.Fatalf("unexpected clip summary: %+v", got)
 	}
 
-	// No Person name, fingerprint or individual score ever reaches the logs.
+	// No Person name, fingerprint or individual score ever reaches the logs. Timestamps are left out: their
+	// nanoseconds can hold "0.98" by chance.
+	content := regexp.MustCompile(`"timestamp":"[^"]*"`).ReplaceAllString(logs.String(), "")
 	for _, forbidden := range []string{"Alice", "Bob", "embedding", "score", "confidence", "0.98"} {
-		if strings.Contains(logs.String(), forbidden) {
+		if strings.Contains(content, forbidden) {
 			t.Fatalf("logs must not contain %q:\n%s", forbidden, logs.String())
 		}
 	}
