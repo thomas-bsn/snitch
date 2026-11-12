@@ -38,7 +38,7 @@ from snitch_client.models.worker_transcription_reachability_input import WorkerT
 from snitch_client.models.worker_result_input import WorkerResultInput
 from snitch_client.models.worker_result_input_result import WorkerResultInputResult
 
-from snitch_worker import acoustic_dedup, audio_diagnostic, cancellation, log, revocation
+from snitch_worker import acoustic_dedup, audio_diagnostic, benchmark_separation, cancellation, log, revocation
 from snitch_worker import hf_token_sync, model_orders, voice_download, voice_models
 from snitch_worker import remote_control
 from snitch_worker.waveform import attach_peaks
@@ -518,7 +518,7 @@ def _discard_lost_result(lease: LeaseWatch, context: dict[str, Any]) -> bool:
 def supported_steps() -> list[str]:
     """The step families this Worker can read. A diagnostic is declared only where Torch can run the detector;
     Snitch still dispatches one only after this Worker reports the pinned model ready (ADR 0048)."""
-    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*", "benchmark.transcription.*", "benchmark.diarization.*"]
+    steps = ["fixture.*", "transcription.audio.*", "voice.*", "audio.multitrack.v1", "audio.dedup.*", "benchmark.transcription.*", "benchmark.diarization.*", "benchmark.separation.*"]
     if audio_diagnostic.available():
         steps.append("audio.diagnostic.*")
     return steps
@@ -886,6 +886,20 @@ def _run_claimed(
                         result = transcribe_prepared_audio(active_transcriber, wav_path, pipeline, vocabulary)
                         result["audio_stream_index"] = stream_index
                         attach_peaks(result, wav_path)
+            elif re.fullmatch(r"benchmark\.separation\.\d+", job.step):
+                # The separation of a benchmark chain (#402): its result is only stored by Snitch, never projected.
+                with tempfile.TemporaryDirectory(prefix="snitch-separation-") as temporary:
+                    original = os.path.join(temporary, "original.media")
+                    wav_path = os.path.join(temporary, "prepared.wav")
+                    download_media(client, task_input, lease_token, original)
+                    stream_index = int(job.step.rsplit(".", 1)[1])
+                    prepare_audio(original, wav_path, stream_index)
+                    cancellation.check()
+                    pipeline_value = getattr(task_input, "pipeline", None)
+                    pipeline = pipeline_value.to_dict() if hasattr(pipeline_value, "to_dict") else (pipeline_value or {})
+                    active_transcriber = transcriber or configured_transcriber(str(pipeline.get("model", "")), task_input.transcription_model)
+                    result = benchmark_separation.run(task_input.voice.to_dict(), task_input.separation.to_dict(), wav_path, stream_index,
+                                                      active_transcriber, pipeline, voice_providers, os.environ)
             elif is_voice_step(job.step) or re.fullmatch(r"benchmark\.diarization\.\d+", job.step):
                 # A benchmark diarization runs the production code on the model the task asks for, under the name of
                 # the voice step it imitates; it computes no waveform peaks (ADR 0059).
@@ -975,6 +989,8 @@ def _run_claimed(
                 value = voice_config.get(key)
                 if isinstance(value, str) and value:
                     diagnostic[field] = value
+        elif isinstance(exc, VoiceProviderUnavailable) and exc.reason == "gpu_out_of_memory" and job.step.startswith("benchmark.separation."):
+            error_code = "gpu_out_of_memory"  # Snitch does not retry it: the same window would fail again
         else:
             error_code = (
                 "audio_preparation_failed"

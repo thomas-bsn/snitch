@@ -273,8 +273,8 @@ func (s *Server) scheduleSeparationTasks(ctx context.Context, tx pgx.Tx, runID i
 }
 
 // separationCounts are the raw counts of a chain's separation tasks (#402), summed over its measured tracks: the
-// targeted zones, the Local speakers without words there before and after the merge, the separated sources, those
-// left without a speaker, and the words added.
+// targeted zones, the Local speakers without any word on their track before and after the merge, the separated
+// sources, those left without a speaker, and the words added.
 type separationCounts struct {
 	Tracks                     int `json:"tracks"`
 	Zones                      int `json:"zones"`
@@ -285,14 +285,14 @@ type separationCounts struct {
 	WordsAdded                 int `json:"words_added"`
 }
 
-// separationResult is what a separation task stores: its zones, every source with the speaker it was given, and the
-// words added to the original transcript, which is never changed.
+// separationResult is what a separation task stores: the Local speakers without words on the track, its zones,
+// every source with the speaker it was given, and the words added to the original transcript, which is never changed.
 type separationResult struct {
-	AudioStreamIndex *int `json:"audio_stream_index"`
+	AudioStreamIndex *int     `json:"audio_stream_index"`
+	SilentSpeakers   []string `json:"silent_speakers"`
 	Zones            []struct {
-		Start          float64  `json:"start"`
-		End            float64  `json:"end"`
-		SilentSpeakers []string `json:"silent_speakers"`
+		Start float64 `json:"start"`
+		End   float64 `json:"end"`
 	} `json:"zones"`
 	Sources []struct {
 		Zone    int     `json:"zone"`
@@ -323,12 +323,10 @@ func (c *separationCounts) add(raw []byte) {
 			c.SourcesWithoutSpeaker++
 		}
 	}
-	for i, z := range r.Zones {
-		c.SpeakersWithoutWordsBefore += len(z.SilentSpeakers)
-		for _, speaker := range z.SilentSpeakers {
-			if !slices.ContainsFunc(r.Added, func(a addedWord) bool { return a.Zone == i && a.Speaker == speaker }) {
-				c.SpeakersWithoutWordsAfter++
-			}
+	c.SpeakersWithoutWordsBefore += len(r.SilentSpeakers)
+	for _, speaker := range r.SilentSpeakers {
+		if !slices.ContainsFunc(r.Added, func(a addedWord) bool { return a.Speaker == speaker }) {
+			c.SpeakersWithoutWordsAfter++
 		}
 	}
 }

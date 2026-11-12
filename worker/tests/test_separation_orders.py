@@ -266,7 +266,8 @@ class ProductionTests(unittest.TestCase):
 
     def test_the_worker_has_no_separation_step(self):
         self.assertFalse(voice.is_voice_step("voice.separation.0"))
-        self.assertFalse([step for step in runner.supported_steps() if "separation" in step])
+        # Only a benchmark chain separates (#402): that step is never part of an analysis.
+        self.assertEqual([step for step in runner.supported_steps() if "separation" in step], ["benchmark.separation.*"])
 
 
 if __name__ == "__main__":

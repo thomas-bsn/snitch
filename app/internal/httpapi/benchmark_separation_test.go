@@ -123,9 +123,10 @@ func testAIBenchmarkSeparation(t *testing.T, pool *pgxpool.Pool) {
 	}
 	h.complete(job, map[string]any{"audio_stream_index": 7, "zones": []any{}, "sources": []any{}, "added": []any{}}, http.StatusBadRequest) // another track
 	h.complete(job, map[string]any{"audio_stream_index": 9,
-		"zones":   []map[string]any{{"start": 3.0, "end": 5.0, "silent_speakers": []string{"S1"}}},
-		"sources": []map[string]any{{"zone": 0, "index": 0, "speaker": "S1", "words": []map[string]any{{"start": 3.5, "end": 4.0, "word": "salut"}}}, {"zone": 0, "index": 1, "speaker": nil, "words": []any{}}},
-		"added":   []map[string]any{{"zone": 0, "source": 0, "speaker": "S1", "start": 3.5, "end": 4.0, "word": "salut"}}}, http.StatusOK)
+		"silent_speakers": []string{"S1"},
+		"zones":           []map[string]any{{"start": 3.0, "end": 5.0, "silent_speakers": []string{"S1"}}},
+		"sources":         []map[string]any{{"zone": 0, "index": 0, "speaker": "S1", "words": []map[string]any{{"start": 3.5, "end": 4.0, "word": "salut"}}}, {"zone": 0, "index": 1, "speaker": nil, "words": []any{}}},
+		"added":           []map[string]any{{"zone": 0, "source": 0, "speaker": "S1", "start": 3.5, "end": 4.0, "word": "salut"}}}, http.StatusOK)
 	status, metrics := detail(run.ID)
 	var m struct {
 		CPWER      *float64        `json:"cpwer"`
