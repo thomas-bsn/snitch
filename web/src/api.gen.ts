@@ -5558,6 +5558,7 @@ export interface components {
       audio_plan?: components["schemas"]["WorkerAudioPlanTask"];
       audio_diagnostic?: components["schemas"]["WorkerAudioDiagnosticInput"];
       audio_dedup?: components["schemas"]["WorkerAudioDedupInput"];
+      separation?: components["schemas"]["WorkerSeparationInput"];
     };
     /** @description Identité immuable d'un job audio.diagnostic.N. start_seconds et duration_seconds viennent de l'inventaire du plan (flux ffprobe), jamais du conteneur. */
     WorkerAudioDiagnosticInput: {
@@ -8682,6 +8683,8 @@ export interface components {
       chains?: {
         diarization_model_id: string;
         transcription_model: string;
+        /** @description Facultatif : modèle de séparation du catalogue, appliqué aux Chevauchements où un Locuteur local reste sans paroles (#402). Rien de ce qu’il produit n’atteint la bibliothèque. */
+        separation_model_id?: string;
       }[];
     };
     BenchmarkJobError: {
@@ -8883,6 +8886,8 @@ export interface components {
       id: string;
       diarization_model_id: string;
       transcription_model: string;
+      /** @description Facultatif : modèle de séparation du catalogue, appliqué aux Chevauchements où un Locuteur local reste sans paroles (#402). Rien de ce qu’il produit n’atteint la bibliothèque. */
+      separation_model_id?: string;
     };
     BenchmarkActivationPreview: {
       stage: string;
@@ -9548,6 +9553,23 @@ export interface components {
       min_tests: number;
       min_persons: number;
       modes: components["schemas"]["VoiceCalibrationMode"][];
+    };
+    /** @description Tâche benchmark.separation.N (#402) : le modèle de séparation demandé et la transcription de la chaîne, dans le repère de la piste. Les tours sont dans voice.diarization, le modèle de transcription dans transcription_model. */
+    WorkerSeparationInput: {
+      model: string;
+      revision: string;
+      /** @description Écart minimal de ressemblance entre les deux meilleurs Locuteurs locaux pour attribuer une Source séparée. */
+      ambiguity_margin: number;
+      segments: {
+        start: number;
+        end: number;
+        text: string;
+        words: {
+          start: number;
+          end: number;
+          word: string;
+        }[];
+      }[];
     };
   };
   responses: never;

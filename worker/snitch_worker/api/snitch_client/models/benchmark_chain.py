@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..types import UNSET, Unset
 
 
 
@@ -25,11 +26,14 @@ class BenchmarkChain:
             id (str):
             diarization_model_id (str):
             transcription_model (str):
+            separation_model_id (str | Unset): Facultatif : modèle de séparation du catalogue, appliqué aux Chevauchements
+                où un Locuteur local reste sans paroles (#402). Rien de ce qu’il produit n’atteint la bibliothèque.
      """
 
     id: str
     diarization_model_id: str
     transcription_model: str
+    separation_model_id: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -43,6 +47,8 @@ class BenchmarkChain:
 
         transcription_model = self.transcription_model
 
+        separation_model_id = self.separation_model_id
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -51,6 +57,8 @@ class BenchmarkChain:
             "diarization_model_id": diarization_model_id,
             "transcription_model": transcription_model,
         })
+        if separation_model_id is not UNSET:
+            field_dict["separation_model_id"] = separation_model_id
 
         return field_dict
 
@@ -65,10 +73,13 @@ class BenchmarkChain:
 
         transcription_model = d.pop("transcription_model")
 
+        separation_model_id = d.pop("separation_model_id", UNSET)
+
         benchmark_chain = cls(
             id=id,
             diarization_model_id=diarization_model_id,
             transcription_model=transcription_model,
+            separation_model_id=separation_model_id,
         )
 
 
