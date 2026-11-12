@@ -14,7 +14,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.benchmark_metrics import BenchmarkMetrics
-  from ..models.benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
+  from ..models.benchmark_model_resources import BenchmarkModelResources
 
 
 
@@ -40,8 +40,8 @@ class BenchmarkResult:
                 en score brut d'un modèle à l'autre. Bout en bout : cpwer (erreurs de mots avec attribution des locuteurs), wer
                 (sans attribution) et der des mêmes sorties.
             elapsed_seconds (float | None | Unset):
-            resources (BenchmarkResultResourcesType0 | None | Unset): RAM/VRAM : non remontés par le Worker, toujours null
-                pour l'instant.
+            resources (list[BenchmarkModelResources] | Unset): Coût mesuré par le Worker, par modèle du résultat (les deux
+                ou trois d'une chaîne de bout en bout), sur ses tâches terminées du run (#403).
      """
 
     model_id: str
@@ -53,7 +53,7 @@ class BenchmarkResult:
     items_scored: int
     metrics: BenchmarkMetrics
     elapsed_seconds: float | None | Unset = UNSET
-    resources: BenchmarkResultResourcesType0 | None | Unset = UNSET
+    resources: list[BenchmarkModelResources] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -62,7 +62,7 @@ class BenchmarkResult:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.benchmark_metrics import BenchmarkMetrics # noqa: PLC0415
-        from ..models.benchmark_result_resources_type_0 import BenchmarkResultResourcesType0 # noqa: PLC0415
+        from ..models.benchmark_model_resources import BenchmarkModelResources # noqa: PLC0415
         model_id = self.model_id
 
         model = self.model
@@ -85,13 +85,14 @@ class BenchmarkResult:
         else:
             elapsed_seconds = self.elapsed_seconds
 
-        resources: dict[str, Any] | None | Unset
-        if isinstance(self.resources, Unset):
-            resources = UNSET
-        elif isinstance(self.resources, BenchmarkResultResourcesType0):
-            resources = self.resources.to_dict()
-        else:
-            resources = self.resources
+        resources: list[dict[str, Any]] | Unset = UNSET
+        if not isinstance(self.resources, Unset):
+            resources = []
+            for resources_item_data in self.resources:
+                resources_item = resources_item_data.to_dict()
+                resources.append(resources_item)
+
+
 
 
         field_dict: dict[str, Any] = {}
@@ -118,7 +119,7 @@ class BenchmarkResult:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.benchmark_metrics import BenchmarkMetrics # noqa: PLC0415
-        from ..models.benchmark_result_resources_type_0 import BenchmarkResultResourcesType0 # noqa: PLC0415
+        from ..models.benchmark_model_resources import BenchmarkModelResources # noqa: PLC0415
         d = dict(src_dict)
         model_id = d.pop("model_id")
 
@@ -152,24 +153,16 @@ class BenchmarkResult:
         elapsed_seconds = _parse_elapsed_seconds(d.pop("elapsed_seconds", UNSET))
 
 
-        def _parse_resources(data: object) -> BenchmarkResultResourcesType0 | None | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            try:
-                if not isinstance(data, dict):
-                    raise TypeError()
-                resources_type_0 = BenchmarkResultResourcesType0.from_dict(data)
+        _resources = d.pop("resources", UNSET)
+        resources: list[BenchmarkModelResources] | Unset = UNSET
+        if _resources is not UNSET:
+            resources = []
+            for resources_item_data in _resources:
+                resources_item = BenchmarkModelResources.from_dict(resources_item_data)
 
 
 
-                return resources_type_0
-            except (TypeError, ValueError, AttributeError, KeyError):
-                pass
-            return cast(BenchmarkResultResourcesType0 | None | Unset, data)
-
-        resources = _parse_resources(d.pop("resources", UNSET))
+                resources.append(resources_item)
 
 
         benchmark_result = cls(

@@ -91,12 +91,12 @@ from .benchmark_job_error import BenchmarkJobError
 from .benchmark_metrics import BenchmarkMetrics
 from .benchmark_model import BenchmarkModel
 from .benchmark_model_list import BenchmarkModelList
+from .benchmark_model_resources import BenchmarkModelResources
 from .benchmark_person import BenchmarkPerson
 from .benchmark_progress import BenchmarkProgress
 from .benchmark_reference_import import BenchmarkReferenceImport
 from .benchmark_reference_sources_item import BenchmarkReferenceSourcesItem
 from .benchmark_result import BenchmarkResult
-from .benchmark_result_resources_type_0 import BenchmarkResultResourcesType0
 from .benchmark_result_state import BenchmarkResultState
 from .benchmark_run import BenchmarkRun
 from .benchmark_run_input import BenchmarkRunInput
@@ -107,6 +107,8 @@ from .benchmark_run_stage import BenchmarkRunStage
 from .benchmark_run_status import BenchmarkRunStatus
 from .benchmark_scoring import BenchmarkScoring
 from .benchmark_scoring_score_mode import BenchmarkScoringScoreMode
+from .benchmark_separation_metrics import BenchmarkSeparationMetrics
+from .benchmark_word_rates import BenchmarkWordRates
 from .bootstrap import Bootstrap
 from .browse_video_root_response_200 import BrowseVideoRootResponse200
 from .browse_video_root_response_200_items_item import BrowseVideoRootResponse200ItemsItem
@@ -735,6 +737,7 @@ from .worker_result_input_result import WorkerResultInputResult
 from .worker_separation_input import WorkerSeparationInput
 from .worker_separation_input_segments_item import WorkerSeparationInputSegmentsItem
 from .worker_separation_input_segments_item_words_item import WorkerSeparationInputSegmentsItemWordsItem
+from .worker_separation_input_word_spans_item import WorkerSeparationInputWordSpansItem
 from .worker_transcription_config import WorkerTranscriptionConfig
 from .worker_transcription_config_error_code import WorkerTranscriptionConfigErrorCode
 from .worker_transcription_failure_input import WorkerTranscriptionFailureInput
@@ -852,12 +855,12 @@ __all__ = (
     "BenchmarkMetrics",
     "BenchmarkModel",
     "BenchmarkModelList",
+    "BenchmarkModelResources",
     "BenchmarkPerson",
     "BenchmarkProgress",
     "BenchmarkReferenceImport",
     "BenchmarkReferenceSourcesItem",
     "BenchmarkResult",
-    "BenchmarkResultResourcesType0",
     "BenchmarkResultState",
     "BenchmarkRun",
     "BenchmarkRunInput",
@@ -868,6 +871,8 @@ __all__ = (
     "BenchmarkRunStatus",
     "BenchmarkScoring",
     "BenchmarkScoringScoreMode",
+    "BenchmarkSeparationMetrics",
+    "BenchmarkWordRates",
     "Bootstrap",
     "BrowseVideoRootResponse200",
     "BrowseVideoRootResponse200ItemsItem",
@@ -1496,6 +1501,7 @@ __all__ = (
     "WorkerSeparationInput",
     "WorkerSeparationInputSegmentsItem",
     "WorkerSeparationInputSegmentsItemWordsItem",
+    "WorkerSeparationInputWordSpansItem",
     "WorkerTranscriptionConfig",
     "WorkerTranscriptionConfigErrorCode",
     "WorkerTranscriptionFailureInput",

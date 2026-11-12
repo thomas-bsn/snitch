@@ -12,6 +12,7 @@ from typing import cast
 
 if TYPE_CHECKING:
   from ..models.worker_separation_input_segments_item import WorkerSeparationInputSegmentsItem
+  from ..models.worker_separation_input_word_spans_item import WorkerSeparationInputWordSpansItem
 
 
 
@@ -27,6 +28,10 @@ class WorkerSeparationInput:
     repère de la piste. Les tours sont dans voice.diarization, le modèle de transcription dans transcription_model.
 
         Attributes:
+            silent_speakers (list[str]): Étiquettes des Locuteurs locaux de la piste sans aucun mot sous la règle
+                d'attribution au mot de la production (#403) : le Worker n'a pas de règle propre.
+            word_spans (list[WorkerSeparationInputWordSpansItem]): Temps des mots de chaque Locuteur local sous la même
+                règle (#403) : le Worker n'ajoute les mots d'une source qu'à un Locuteur local sans mot dans la zone.
             model (str):
             revision (str):
             ambiguity_margin (float): Écart minimal de ressemblance entre les deux meilleurs Locuteurs locaux pour attribuer
@@ -34,6 +39,8 @@ class WorkerSeparationInput:
             segments (list[WorkerSeparationInputSegmentsItem]):
      """
 
+    silent_speakers: list[str]
+    word_spans: list[WorkerSeparationInputWordSpansItem]
     model: str
     revision: str
     ambiguity_margin: float
@@ -46,6 +53,18 @@ class WorkerSeparationInput:
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.worker_separation_input_segments_item import WorkerSeparationInputSegmentsItem # noqa: PLC0415
+        from ..models.worker_separation_input_word_spans_item import WorkerSeparationInputWordSpansItem # noqa: PLC0415
+        silent_speakers = self.silent_speakers
+
+
+
+        word_spans = []
+        for word_spans_item_data in self.word_spans:
+            word_spans_item = word_spans_item_data.to_dict()
+            word_spans.append(word_spans_item)
+
+
+
         model = self.model
 
         revision = self.revision
@@ -63,6 +82,8 @@ class WorkerSeparationInput:
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "silent_speakers": silent_speakers,
+            "word_spans": word_spans,
             "model": model,
             "revision": revision,
             "ambiguity_margin": ambiguity_margin,
@@ -76,7 +97,21 @@ class WorkerSeparationInput:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.worker_separation_input_segments_item import WorkerSeparationInputSegmentsItem # noqa: PLC0415
+        from ..models.worker_separation_input_word_spans_item import WorkerSeparationInputWordSpansItem # noqa: PLC0415
         d = dict(src_dict)
+        silent_speakers = cast(list[str], d.pop("silent_speakers"))
+
+
+        word_spans = []
+        _word_spans = d.pop("word_spans")
+        for word_spans_item_data in (_word_spans):
+            word_spans_item = WorkerSeparationInputWordSpansItem.from_dict(word_spans_item_data)
+
+
+
+            word_spans.append(word_spans_item)
+
+
         model = d.pop("model")
 
         revision = d.pop("revision")
@@ -94,6 +129,8 @@ class WorkerSeparationInput:
 
 
         worker_separation_input = cls(
+            silent_speakers=silent_speakers,
+            word_spans=word_spans,
             model=model,
             revision=revision,
             ambiguity_margin=ambiguity_margin,

@@ -32239,9 +32239,11 @@
             "$ref": "#/components/schemas/BenchmarkMetrics"
           },
           "resources": {
-            "type": "object",
-            "nullable": true,
-            "description": "RAM/VRAM : non remontés par le Worker, toujours null pour l'instant."
+            "type": "array",
+            "description": "Coût mesuré par le Worker, par modèle du résultat (les deux ou trois d'une chaîne de bout en bout), sur ses tâches terminées du run (#403).",
+            "items": {
+              "$ref": "#/components/schemas/BenchmarkModelResources"
+            }
           }
         },
         "required": [
@@ -32254,6 +32256,36 @@
           "items_scored",
           "metrics"
         ]
+      },
+      "BenchmarkModelResources": {
+        "type": "object",
+        "required": [
+          "model_id",
+          "tasks",
+          "inference_seconds",
+          "gpu_peak_bytes"
+        ],
+        "properties": {
+          "model_id": {
+            "type": "string"
+          },
+          "tasks": {
+            "type": "integer",
+            "description": "Tâches terminées du modèle dans le run."
+          },
+          "inference_seconds": {
+            "type": "number",
+            "format": "double",
+            "nullable": true,
+            "description": "Durée cumulée des tâches sur le Worker, téléchargement et préparation de l'audio exclus : l'inférence du modèle et, pour une séparation, la transcription et l'empreinte des sources ; null si une tâche ne l'a pas remontée (Worker ancien), jamais zéro par défaut."
+          },
+          "gpu_peak_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Pic de mémoire GPU allouée par PyTorch sur ces tâches ; null sans CUDA, pour la transcription (service externe) ou si une tâche ne l'a pas remonté."
+          }
+        }
       },
       "BenchmarkRun": {
         "type": "object",
@@ -32735,6 +32767,105 @@
           },
           "model_speakers": {
             "type": "integer"
+          },
+          "separation": {
+            "$ref": "#/components/schemas/BenchmarkSeparationMetrics"
+          }
+        }
+      },
+      "BenchmarkSeparationMetrics": {
+        "type": "object",
+        "description": "Bout en bout, chaîne avec un modèle de séparation (#402, #403) : comptes des tâches de séparation, et cpWER et WER sans et avec séparation sur les mêmes clips, ceux dont la référence contient un Chevauchement.",
+        "required": [
+          "tracks",
+          "zones",
+          "speakers_without_words_before",
+          "speakers_without_words_after",
+          "sources",
+          "sources_without_speaker",
+          "words_added",
+          "words_added_absent_from_reference",
+          "words_duplicated_between_sources",
+          "min_clips",
+          "without_separation",
+          "with_separation"
+        ],
+        "properties": {
+          "tracks": {
+            "type": "integer"
+          },
+          "zones": {
+            "type": "integer"
+          },
+          "speakers_without_words_before": {
+            "type": "integer",
+            "description": "Locuteurs locaux sans aucun mot sur leur piste, règle d'attribution au mot de la production."
+          },
+          "speakers_without_words_after": {
+            "type": "integer",
+            "description": "Les mêmes, restés sans mot ajouté."
+          },
+          "sources": {
+            "type": "integer"
+          },
+          "sources_without_speaker": {
+            "type": "integer"
+          },
+          "words_added": {
+            "type": "integer"
+          },
+          "words_added_absent_from_reference": {
+            "type": "integer",
+            "description": "Mots ajoutés absents des segments de référence qui recouvrent leur zone."
+          },
+          "words_duplicated_between_sources": {
+            "type": "integer",
+            "description": "Mots d'une source répétés, au même moment, dans une autre source de la même zone."
+          },
+          "min_clips": {
+            "type": "integer",
+            "description": "En dessous de ce nombre de clips avec Chevauchement, le rapport ne conclut pas."
+          },
+          "without_separation": {
+            "$ref": "#/components/schemas/BenchmarkWordRates"
+          },
+          "with_separation": {
+            "$ref": "#/components/schemas/BenchmarkWordRates"
+          }
+        }
+      },
+      "BenchmarkWordRates": {
+        "type": "object",
+        "required": [
+          "clips",
+          "reference_words",
+          "cp_word_errors",
+          "word_errors",
+          "cpwer",
+          "wer"
+        ],
+        "properties": {
+          "clips": {
+            "type": "integer"
+          },
+          "reference_words": {
+            "type": "integer"
+          },
+          "cp_word_errors": {
+            "type": "integer"
+          },
+          "word_errors": {
+            "type": "integer"
+          },
+          "cpwer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "wer": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
           }
         }
       },
@@ -34795,9 +34926,41 @@
           "model",
           "revision",
           "ambiguity_margin",
-          "segments"
+          "segments",
+          "silent_speakers",
+          "word_spans"
         ],
         "properties": {
+          "silent_speakers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Étiquettes des Locuteurs locaux de la piste sans aucun mot sous la règle d'attribution au mot de la production (#403) : le Worker n'a pas de règle propre."
+          },
+          "word_spans": {
+            "type": "array",
+            "description": "Temps des mots de chaque Locuteur local sous la même règle (#403) : le Worker n'ajoute les mots d'une source qu'à un Locuteur local sans mot dans la zone.",
+            "items": {
+              "type": "object",
+              "required": [
+                "speaker",
+                "start",
+                "end"
+              ],
+              "properties": {
+                "speaker": {
+                  "type": "string"
+                },
+                "start": {
+                  "type": "number"
+                },
+                "end": {
+                  "type": "number"
+                }
+              }
+            }
+          },
           "model": {
             "type": "string"
           },

@@ -14,16 +14,22 @@ from ..types import UNSET, Unset
 
 
 
-T = TypeVar("T", bound="BenchmarkResultResourcesType0")
+T = TypeVar("T", bound="WorkerSeparationInputWordSpansItem")
 
 
 
 @_attrs_define
-class BenchmarkResultResourcesType0:
-    """ RAM/VRAM : non remontés par le Worker, toujours null pour l'instant.
-
+class WorkerSeparationInputWordSpansItem:
+    """
+        Attributes:
+            speaker (str):
+            start (float):
+            end (float):
      """
 
+    speaker: str
+    start: float
+    end: float
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -31,9 +37,20 @@ class BenchmarkResultResourcesType0:
 
 
     def to_dict(self) -> dict[str, Any]:
+        speaker = self.speaker
+
+        start = self.start
+
+        end = self.end
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
+        field_dict.update({
+            "speaker": speaker,
+            "start": start,
+            "end": end,
+        })
 
         return field_dict
 
@@ -42,12 +59,21 @@ class BenchmarkResultResourcesType0:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        benchmark_result_resources_type_0 = cls(
+        speaker = d.pop("speaker")
+
+        start = d.pop("start")
+
+        end = d.pop("end")
+
+        worker_separation_input_word_spans_item = cls(
+            speaker=speaker,
+            start=start,
+            end=end,
         )
 
 
-        benchmark_result_resources_type_0.additional_properties = d
-        return benchmark_result_resources_type_0
+        worker_separation_input_word_spans_item.additional_properties = d
+        return worker_separation_input_word_spans_item
 
     @property
     def additional_keys(self) -> list[str]:

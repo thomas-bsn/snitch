@@ -11,6 +11,8 @@ from ..types import UNSET, Unset
 from ..types import UNSET, Unset
 from typing import cast
 
+if TYPE_CHECKING:
+  from ..models.benchmark_separation_metrics import BenchmarkSeparationMetrics
 
 
 
@@ -69,6 +71,9 @@ class BenchmarkMetrics:
             cp_word_errors (int | Unset):
             reference_speakers (int | Unset):
             model_speakers (int | Unset):
+            separation (BenchmarkSeparationMetrics | Unset): Bout en bout, chaîne avec un modèle de séparation (#402, #403)
+                : comptes des tâches de séparation, et cpWER et WER sans et avec séparation sur les mêmes clips, ceux dont la
+                référence contient un Chevauchement.
      """
 
     references: int | Unset = UNSET
@@ -110,6 +115,7 @@ class BenchmarkMetrics:
     cp_word_errors: int | Unset = UNSET
     reference_speakers: int | Unset = UNSET
     model_speakers: int | Unset = UNSET
+    separation: BenchmarkSeparationMetrics | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -117,6 +123,7 @@ class BenchmarkMetrics:
 
 
     def to_dict(self) -> dict[str, Any]:
+        from ..models.benchmark_separation_metrics import BenchmarkSeparationMetrics # noqa: PLC0415
         references = self.references
 
         tests = self.tests
@@ -251,6 +258,10 @@ class BenchmarkMetrics:
 
         model_speakers = self.model_speakers
 
+        separation: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.separation, Unset):
+            separation = self.separation.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -334,6 +345,8 @@ class BenchmarkMetrics:
             field_dict["reference_speakers"] = reference_speakers
         if model_speakers is not UNSET:
             field_dict["model_speakers"] = model_speakers
+        if separation is not UNSET:
+            field_dict["separation"] = separation
 
         return field_dict
 
@@ -341,6 +354,7 @@ class BenchmarkMetrics:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.benchmark_separation_metrics import BenchmarkSeparationMetrics # noqa: PLC0415
         d = dict(src_dict)
         references = d.pop("references", UNSET)
 
@@ -532,6 +546,16 @@ class BenchmarkMetrics:
 
         model_speakers = d.pop("model_speakers", UNSET)
 
+        _separation = d.pop("separation", UNSET)
+        separation: BenchmarkSeparationMetrics | Unset
+        if isinstance(_separation,  Unset):
+            separation = UNSET
+        else:
+            separation = BenchmarkSeparationMetrics.from_dict(_separation)
+
+
+
+
         benchmark_metrics = cls(
             references=references,
             tests=tests,
@@ -572,6 +596,7 @@ class BenchmarkMetrics:
             cp_word_errors=cp_word_errors,
             reference_speakers=reference_speakers,
             model_speakers=model_speakers,
+            separation=separation,
         )
 
 
