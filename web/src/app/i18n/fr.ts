@@ -39,7 +39,6 @@ export const fr: Messages = {
     generation: "ordre {generation}",
     revoked:
       "Version révoquée : elle continue de servir, aucune nouvelle installation.",
-    separationPending: "Engine installé, séparation pas encore disponible.",
     history: "Historique",
     ignored: "rapport tardif ignoré ({reason})",
     delivery: "Livré quand le Worker récupère ses ordres.",
@@ -253,9 +252,12 @@ export const fr: Messages = {
     desiredHint:
       "Un modèle désiré par type et par Worker. Les ordres sont explicites.",
     separationHint:
-      "La séparation est cataloguée ; son exécution attend un adaptateur approuvé (#268). La transcription Speaches reste indépendante.",
-    adapterPending: "Pas d’adaptateur disponible",
-    coming: "À venir · #268",
+      "Un modèle de séparation s’installe comme les autres, sur ordre explicite et après une inférence de test. Aucun travail de la bibliothèque ne l’utilise : l’analyse d’un clip ne sépare jamais les voix.",
+    separationNoProduction: "Non utilisé par la bibliothèque",
+    separationLimits: "{voices} voix · {rate} kHz",
+    separatedVoices: "Voix séparées",
+    sampleRate: "Fréquence d’échantillonnage",
+    sampleRateValue: "{rate} kHz",
     noStartup: "Aucun téléchargement au démarrage.",
     reserve: "En réserve",
     productionNote:
@@ -902,8 +904,6 @@ export const fr: Messages = {
         vad: "Détecteur de parole",
       },
       absent: "Absent",
-      separationUnsupported:
-        "Pas encore disponible : aucun moteur ne sait exécuter la séparation, elle ne peut donc pas être prête.",
       choose: "Modèle à installer sur {worker} pour {type}",
       install: "Installer",
       retry: "Réessayer",
@@ -922,8 +922,6 @@ export const fr: Messages = {
       chooseTitle: "Choisir un modèle pour {type} sur {worker}",
       statuses: "Statuts",
       tableLabel: "Workers par type de modèle",
-      separationBanner:
-        "Séparation des voix : type présent dans le catalogue, mais non exécutable tant que #268 n’est pas livré (aucun adaptateur). Il apparaîtra ici dès qu’un modèle sera installable.",
       removingOld: "Retrait de {model} sur ordre de Snitch.",
       removingStandalone: "Retrait ordonné par Snitch.",
       viewOrder: "Voir l’ordre",

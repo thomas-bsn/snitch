@@ -61,6 +61,8 @@ type catalogModel struct {
 	Enabled             bool            `json:"enabled"`
 	Supported           bool            `json:"supported"`
 	UnsupportedReason   string          `json:"unsupported_reason"`
+	SeparatedVoices     int             `json:"separated_voices"`
+	SampleRateHz        int             `json:"sample_rate_hz"`
 	Workers             []catalogWorker `json:"workers"`
 }
 

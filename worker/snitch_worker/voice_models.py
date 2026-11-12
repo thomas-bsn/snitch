@@ -105,7 +105,7 @@ _LEGACY = {
 
 def kind_of(item: Mapping[str, Any]) -> str:
     """The type of an item; the diarization model when the server does not say."""
-    return item["kind"] if item.get("kind") in (*_LEGACY, "vad") else "diarization"
+    return item["kind"] if item.get("kind") in (*_LEGACY, "vad", "separation") else "diarization"
 
 
 def _legacy_path(environ: Mapping[str, str], repo: str, revision: str, kind: str = "diarization") -> str:

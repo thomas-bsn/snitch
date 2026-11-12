@@ -244,9 +244,11 @@ export function VoiceWorkspace({
                 ?.label ||
                 catalogue.models.find((m) => m.kind === kind && m.active)
                   ?.repo ||
-                (kind === "separation" || kind === "vad"
-                  ? t("voiceWorkspace.unavailable")
-                  : overview.active_models[kind])}
+                (kind === "separation"
+                  ? t("voiceWorkspace.separationNoProduction")
+                  : kind === "vad"
+                    ? t("voiceWorkspace.unavailable")
+                    : overview.active_models[kind])}
             </strong>
           </div>
         ))}

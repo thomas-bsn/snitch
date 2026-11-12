@@ -82,9 +82,9 @@ func TestSpeechBrainFamily(t *testing.T) {
 	if len(f.Kinds) != 2 || f.Kinds[0] != "fingerprint" || f.Kinds[1] != "separation" {
 		t.Fatalf("kinds: %v", f.Kinds)
 	}
-	// Separation is installed for but never activated: no adapter runs it.
-	if !f.runs("fingerprint") || f.runs("separation") || f.runs("diarization") {
-		t.Fatalf("only fingerprint may run: %v", f.ActiveKinds)
+	// Both kinds of the family have an adapter (ECAPA-TDNN fingerprints, SepFormer separation since #401).
+	if !f.runs("fingerprint") || !f.runs("separation") || f.runs("diarization") {
+		t.Fatalf("fingerprint and separation run, nothing else: %v", f.ActiveKinds)
 	}
 	if n := engineFamilies["nemo"]; !n.runs("diarization") || !n.runs("fingerprint") {
 		t.Fatalf("every kind of the NeMo family still runs: %v", n.ActiveKinds)
@@ -181,8 +181,9 @@ func TestCatalogFamilyOfADiscoveredModel(t *testing.T) {
 		{"pyannote", "fingerprint", ""}, // embedded
 		{"nemo-titanet", "fingerprint", "nemo"},
 		{"speechbrain-ecapa", "fingerprint", "speechbrain"},
-		{"speechbrain-ecapa", "separation", "speechbrain"}, // the engine is ordered, the kind stays disabled
-		{"speechbrain-ecapa", "diarization", ""},           // a kind the family does not cover
+		{"speechbrain-sepformer", "separation", "speechbrain"},
+		{"speechbrain-sepformer", "fingerprint", "speechbrain"}, // the family covers it; the matrix never proposes it
+		{"speechbrain-ecapa", "diarization", ""},                // a kind the family does not cover
 		{"wespeaker", "fingerprint", "wespeaker"},
 		{"wespeaker", "diarization", ""},
 		{"silero-jit", "vad", ""},
@@ -198,7 +199,7 @@ func TestCatalogFamilyOfADiscoveredModel(t *testing.T) {
 func TestFamilyActiveKinds(t *testing.T) {
 	for family, kinds := range map[string]map[string]bool{
 		"nemo":        {"diarization": true, "fingerprint": true},
-		"speechbrain": {"fingerprint": true, "separation": false},
+		"speechbrain": {"fingerprint": true, "separation": true, "diarization": false},
 		"wespeaker":   {"fingerprint": true},
 	} {
 		for kind, active := range kinds {

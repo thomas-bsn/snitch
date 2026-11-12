@@ -38,8 +38,8 @@ type engineFamily struct {
 	// fingerprint) can be installed for either. The first kind is the default of an order that names none.
 	Kinds []string
 	// ActiveKinds are the kinds an adapter actually runs. Nil means every kind of the family. A kind that is
-	// installed for but not listed here (SpeechBrain separation, #374) gets its engine and nothing more: the
-	// feature stays disabled until an adapter exists.
+	// installed for but not listed here gets its engine and nothing more: the feature stays disabled until an
+	// adapter exists. No family is in that case today (SpeechBrain separation was, until #401).
 	ActiveKinds []string
 	Python      string
 	Platform    string
@@ -58,11 +58,11 @@ var engineFamilies = map[string]engineFamily{
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 8 << 30, DiskBytes: 12 << 30, EstimatedSeconds: 600,
 	},
-	// SpeechBrain: a generic adapter runs ECAPA-TDNN fingerprints; SepFormer separation models only get the
-	// engine installed. The engine name differs from the signed "speechbrain-ecapa" release (two identities).
+	// SpeechBrain: a generic adapter runs ECAPA-TDNN fingerprints, another one SepFormer separation (#401, ADR
+	// 0066). The engine name differs from the signed "speechbrain-ecapa" release (two identities).
 	"speechbrain": {
 		Key: "speechbrain", Engine: "speechbrain", Distribution: "speechbrain", DefaultVer: "1.0.3",
-		Kinds: []string{"fingerprint", "separation"}, ActiveKinds: []string{"fingerprint"},
+		Kinds:  []string{"fingerprint", "separation"},
 		Python: "3.12", Platform: "linux-x86_64",
 		RAMBytes: 6 << 30, DiskBytes: 10 << 30, EstimatedSeconds: 600,
 	},
@@ -137,10 +137,10 @@ func (e voiceCatalogEntry) signedReleaseRequired() bool {
 // new ECAPA-TDNN or a WeSpeaker graph run without a signed release or a new adapter. The seeded Sortformer keeps
 // an empty family and the embedded NeMo, pyannote and silero-jit are not in this table. A family added to the
 // table of engines extends this one.
-var adapterFamily = map[string]string{"nemo": "nemo", "nemo-titanet": "nemo", "speechbrain-ecapa": "speechbrain", "wespeaker": "wespeaker"}
+var adapterFamily = map[string]string{"nemo": "nemo", "nemo-titanet": "nemo", "speechbrain-ecapa": "speechbrain", "speechbrain-sepformer": "speechbrain", "wespeaker": "wespeaker"}
 
 // catalogFamily is the rule that gives a model its engine family from its adapter and kind. The family must
-// cover the kind; whether an adapter actually runs it is engineFamily.runs (SpeechBrain separation does not).
+// cover the kind; whether an adapter actually runs it is engineFamily.runs.
 func catalogFamily(engine, kind string) string {
 	if family := adapterFamily[engine]; family != "" && engineFamilies[family].covers(kind) {
 		return family

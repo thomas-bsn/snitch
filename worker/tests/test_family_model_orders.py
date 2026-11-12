@@ -1,7 +1,8 @@
 """A model ordered on an on-demand family runs end to end on the Worker (#372, ADR 0056): the order is accepted whatever
 adapter name the catalogue gives the model, the engine installs from the local wheelhouse, the binding written after
 the test inference validates, the runtime provider accepts it at job time and the bridge dispatches on the runtime's
-family and kind. SpeechBrain separation and the signed and embedded contracts keep their rules. Synthetic values only."""
+family and kind. SpeechBrain separation runs through its own adapter (#401); the signed and embedded contracts keep
+their rules. Synthetic values only."""
 
 import os
 import tempfile
@@ -19,7 +20,8 @@ HOUSES = {}
 
 # (family, kind, adapter name the catalogue gives such a model)
 PAIRS = [("nemo", "diarization", "nemo"), ("nemo", "fingerprint", "nemo-titanet"),
-         ("speechbrain", "fingerprint", "speechbrain-ecapa"), ("wespeaker", "fingerprint", "wespeaker")]
+         ("speechbrain", "fingerprint", "speechbrain-ecapa"), ("speechbrain", "separation", "speechbrain-sepformer"),
+         ("wespeaker", "fingerprint", "wespeaker")]
 BUILDERS = {"nemo": wheelhouse.build_nemo_wheelhouse, "speechbrain": wheelhouse.build_speechbrain_wheelhouse,
             "wespeaker": wheelhouse.build_wespeaker_wheelhouse}
 VERSIONS = {"nemo": "3.0.0", "speechbrain": "1.0.3", "wespeaker": "1.0.1"}
@@ -89,8 +91,13 @@ class OrderContractTest(FamilyModelTest):
             with self.subTest(family=family, kind=kind):
                 self.assertTrue(model_orders.OrderExecutor._well_formed(model_order(adapter, kind, runtime(family, kind))))
 
-    def test_speechbrain_separation_installs_an_engine_but_never_a_model(self):
-        self.assertFalse(model_orders.OrderExecutor._well_formed(model_order("speechbrain-ecapa", "separation", runtime("speechbrain", "separation"))))
+    def test_a_separation_model_needs_the_engine_of_a_family_that_runs_separation(self):
+        well = model_orders.OrderExecutor._well_formed
+        self.assertTrue(well(model_order("speechbrain-sepformer", "separation", runtime("speechbrain", "separation"))))
+        # No embedded or signed adapter separates, and the engine of another kind is not the model's.
+        self.assertFalse(well(model_order("speechbrain-sepformer", "separation", None)))
+        self.assertFalse(well(model_order("speechbrain-sepformer", "separation", runtime("speechbrain", "fingerprint"))))
+        self.assertFalse(well(model_order("nemo", "separation", {**runtime("nemo", "diarization"), "kind": "separation"})))
 
     def test_a_runtime_of_another_kind_or_a_kind_the_family_lacks_is_refused(self):
         self.assertFalse(model_orders.OrderExecutor._well_formed(model_order("nemo", "diarization", runtime("nemo", "fingerprint"))))
@@ -115,6 +122,8 @@ class EndToEndTest(FamilyModelTest):
                 runtime_module.bind(self.model, rt)
                 self.assertEqual(runtime_module.model_binding(self.model), rt)
                 provider = voice_runtime.RuntimeProvider(Legacy(self.model, self.env, adapter))
+                if kind == "separation":
+                    continue  # no production provider separates: the binding is read by voice_separation (test_separation_orders)
                 config = {"fingerprint_model": {"engine": adapter}} if kind == "fingerprint" else {"provider": adapter}
                 path, manifest = provider._binding(config, kind)
                 self.assertEqual((path, manifest), (self.model, rt))
@@ -146,7 +155,12 @@ class EndToEndTest(FamilyModelTest):
                     calls.append(("nemo-family", manifest["kind"]))
                     return Provider("nemo")
 
+                def separation(request):
+                    calls.append(("separation", request["manifest"]["family"]))
+                    return {}
+
                 with patch.object(engine_bridge, "SpeakerProvider", side_effect=speaker), \
+                        patch.object(engine_bridge, "_separation", side_effect=separation), \
                         patch("snitch_worker.voice_nemo_family.provider", side_effect=nemo_family), \
                         patch("snitch_worker.voice_selftest.embed_synthetic", side_effect=lambda p: calls.append(("embed", p.label))), \
                         patch("snitch_worker.voice_selftest.diarize_synthetic", side_effect=lambda p, e: calls.append(("diarize", e))):
@@ -154,6 +168,7 @@ class EndToEndTest(FamilyModelTest):
                 expected = {("nemo", "diarization"): [("nemo-family", "diarization"), ("diarize", "nemo")],
                             ("nemo", "fingerprint"): [("nemo-family", "fingerprint"), ("embed", "nemo")],
                             ("speechbrain", "fingerprint"): [("speaker", "speechbrain"), ("embed", "speechbrain")],
+                            ("speechbrain", "separation"): [("separation", "speechbrain")],
                             ("wespeaker", "fingerprint"): [("speaker", "wespeaker"), ("embed", "wespeaker")]}[(family, kind)]
                 self.assertEqual(calls, expected)
 

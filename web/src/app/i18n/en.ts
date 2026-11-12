@@ -38,7 +38,6 @@ export const en = {
     orderedBy: "Ordered by {name}",
     generation: "order {generation}",
     revoked: "Revoked release: it keeps serving, no new installation.",
-    separationPending: "Engine installed, separation not available yet.",
     history: "History",
     ignored: "late report ignored ({reason})",
     delivery: "Delivered when the Worker pulls its orders.",
@@ -253,9 +252,12 @@ export const en = {
     desiredHint:
       "One desired model per type and per Worker. Every order is explicit.",
     separationHint:
-      "Separation is catalogued; execution awaits an approved adapter (#268). Speaches transcription remains independent.",
-    adapterPending: "No adapter available",
-    coming: "Coming · #268",
+      "A separation model installs like the others, on an explicit order and after a test inference. No library job uses it: analysing a clip never separates voices.",
+    separationNoProduction: "Not used by the library",
+    separationLimits: "{voices} voices · {rate} kHz",
+    separatedVoices: "Separated voices",
+    sampleRate: "Sample rate",
+    sampleRateValue: "{rate} kHz",
     noStartup: "No download on startup.",
     reserve: "In reserve",
     productionNote:
@@ -885,8 +887,6 @@ export const en = {
         vad: "Speech detector",
       },
       absent: "Absent",
-      separationUnsupported:
-        "Not available yet: no engine can run separation, so it cannot be ready.",
       choose: "Model to install on {worker} for {type}",
       install: "Install",
       retry: "Retry",
@@ -905,8 +905,6 @@ export const en = {
       chooseTitle: "Choose a model for {type} on {worker}",
       statuses: "Statuses",
       tableLabel: "Workers by model type",
-      separationBanner:
-        "Voice separation: this type is in the catalogue but cannot run while #268 is not delivered (no adapter exists). It will appear here once a model can be installed.",
       removingOld: "Removing {model} on Snitch's order.",
       removingStandalone: "Removal ordered by Snitch.",
       viewOrder: "View order",

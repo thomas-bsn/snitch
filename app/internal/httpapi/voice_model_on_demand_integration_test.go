@@ -193,7 +193,8 @@ func testVoiceModelOnDemandEngine(t *testing.T, pool *pgxpool.Pool) {
 }
 
 // testVoiceModelOnDemandFamilies covers the SpeechBrain and WeSpeaker families (#374, #375): each model orders
-// the engine of its family and kind, and SpeechBrain separation is an engine without a model.
+// the engine of its family and kind. The separation models of the SpeechBrain family have their own test
+// (testVoiceSeparationModel).
 func testVoiceModelOnDemandFamilies(t *testing.T, pool *pgxpool.Pool) {
 	h := newEngineOrderHarness(t, pool)
 	const rev = "0123456789abcdef0123456789abcdef01234567"
@@ -257,7 +258,7 @@ func testVoiceModelOnDemandFamilies(t *testing.T, pool *pgxpool.Pool) {
 		check(h.delivered(), map[string]string{"speechbrain/fingerprint": "speechbrain"})
 	})
 
-	// Ready engines make the fingerprint models eligible, never the separation model.
+	// Ready engines make the fingerprint models eligible.
 	ready := func(worker, model string) {
 		t.Helper()
 		var digest, order string
@@ -276,20 +277,13 @@ func testVoiceModelOnDemandFamilies(t *testing.T, pool *pgxpool.Pool) {
 	if !h.runtimeReady(fixture, "synthetic-ws-fp") || !h.runtimeReady(other, "synthetic-sb-fp") {
 		t.Fatal("a fingerprint model bound to its ready family engine must be eligible")
 	}
-	// Separation: the catalogue cannot hold a supported separation model (migration 00097), so no model order
-	// exists for it. The family still installs for that kind through the engine order, and nothing runs it.
-	if _, err := pool.Exec(t.Context(), `INSERT INTO voice_model_catalog(id,kind,engine,repo,revision,family) VALUES('synthetic-sb-sep','separation','speechbrain-ecapa','synthetic/fam-sb-sep',$1,'speechbrain')`, rev); err == nil {
-		t.Fatal("a supported separation model must stay impossible")
-	}
+	// The family also installs for separation, as its own engine identity.
 	var sep struct {
 		Results []gotEngineOrderResult `json:"results"`
 	}
 	body := map[string]any{"family": "speechbrain", "kind": "separation", "orders": []map[string]string{{"worker_id": fixture, "idempotency_key": "ondemand-sb-sep-0001"}}}
 	if err := json.Unmarshal(h.adminCall(http.MethodPost, "/api/admin/voice-engines/on-demand-orders", body, http.StatusOK), &sep); err != nil || len(sep.Results) != 1 || sep.Results[0].Status != "created" {
 		t.Fatalf("separation engine order: %+v %v", sep, err)
-	}
-	if !engineFamilies["speechbrain"].runs("fingerprint") || engineFamilies["speechbrain"].runs("separation") {
-		t.Fatal("only fingerprint runs on the SpeechBrain family")
 	}
 	// The WeSpeaker engine does not serve a SpeechBrain model and the reverse.
 	if _, err := pool.Exec(t.Context(), `UPDATE worker_voice_models SET model_id='synthetic-sb-fp' WHERE worker_id=$1 AND model_id='synthetic-ws-fp'`, fixture); err != nil {

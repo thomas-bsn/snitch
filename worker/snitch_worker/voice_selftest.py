@@ -76,6 +76,55 @@ def embed_synthetic(provider: Any) -> None:
         raise VoiceProviderUnavailable("inference_failed")
 
 
+def write_synthetic_mixture(path: str, seconds: float = 2.0, rate: int = 16000, channels: int = 1) -> None:
+    """Deterministic mixture of two synthetic voices (harmonic tones of different pitch, each with its own slow
+    amplitude swell): no personal data, nothing recorded. It only proves that a separation model runs."""
+    def voice(i: int, pitch: float, swell: float) -> float:
+        t = i / rate
+        envelope = 0.55 + 0.45 * math.sin(2 * math.pi * swell * t)
+        return envelope * sum(math.sin(2 * math.pi * pitch * harmonic * t) / harmonic for harmonic in (1, 2, 3))
+
+    with wave.open(path, "wb") as out:
+        out.setnchannels(channels)
+        out.setsampwidth(2)
+        out.setframerate(rate)
+        frames = (int(4500 * (voice(i, 140.0, 1.5) + voice(i, 233.0, 2.5))) for i in range(int(seconds * rate)))
+        out.writeframes(b"".join(struct.pack("<h", f) * channels for f in frames))
+
+
+def separate_synthetic(separate: Any, sources: int, sample_rate: int) -> None:
+    """Test inference of a separation model: ``separate(audio_path, output_dir)`` must turn a synthetic mixture
+    into the ``sources`` voices of the model, each a WAV at ``sample_rate`` as long as the mixture, and at least
+    one of them must carry signal. Anything else is a failed proof; nothing is kept."""
+    seconds = 2.0
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "mixture.wav")
+        write_synthetic_mixture(path, seconds, sample_rate)
+        output = os.path.join(tmp, "sources")
+        os.makedirs(output)
+        try:
+            result = separate(path, output)
+        except VoiceProviderUnavailable:
+            raise
+        except Exception:  # noqa: BLE001 - a library message never travels
+            raise VoiceProviderUnavailable("inference_failed") from None
+        try:
+            written = result["sources"]
+            if not isinstance(written, list) or len(written) != sources or result["sample_rate"] != sample_rate:
+                raise ValueError()
+            loudest = 0
+            for source in written:
+                with wave.open(source["path"], "rb") as stored:
+                    if (stored.getframerate(), stored.getnchannels(), stored.getsampwidth(), stored.getnframes()) != (sample_rate, 1, 2, int(seconds * sample_rate)):
+                        raise ValueError()
+                    frames = stored.readframes(stored.getnframes())
+                loudest = max(loudest, max(abs(sample) for (sample,) in struct.iter_unpack("<h", frames)))
+            if loudest == 0:
+                raise ValueError()
+        except (KeyError, TypeError, ValueError, OSError, EOFError, wave.Error, struct.error):
+            raise VoiceProviderUnavailable("inference_failed") from None
+
+
 def run_selftest(providers: Mapping[str, Any] | None = None, report: list[str] | None = None) -> bool:
     """True when diarization ran end to end on synthetic audio; ``report`` receives the stable failure code."""
     available = providers or voice.default_providers()

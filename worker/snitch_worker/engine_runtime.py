@@ -39,7 +39,7 @@ _SHA = re.compile(r"^[0-9a-f]{64}$")
 _LOCK = threading.RLock()
 _REQUIRED = {"schema", "engine", "version", "adapter_version", "python", "platform", "cuda", "license", "kind", "architecture", "disk_bytes", "vram_bytes", "wheels"}
 _OPTIONAL = {"ram_bytes", "capabilities", "input_contract", "output_contract", "cpu_fallback"}
-# Source separation is not an approved capability: the V2 separation stays inactive.
+# Source separation is not a capability of a signed release: it only runs on the on-demand SpeechBrain family (ADR 0066).
 _CAPABILITIES = {"diarization", "fingerprint"}
 _CONTRACT = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 LOG_TAIL_BYTES = 1500  # the end of a failed step's stderr that reaches the Worker log (scrubbed by log.py)
@@ -370,8 +370,8 @@ def install(manifest: dict[str, Any], environ: Mapping[str, str], report: Any, d
 # version that matches _VERSION (it cannot start with "-"), so an order cannot inject a pip option.
 FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "extras": "asr", "kinds": ("diarization", "fingerprint"),
                      "probe": "nemo.collections.asr.models", "git": "https://github.com/NVIDIA/NeMo.git"},
-            # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter. Separation (SepFormer) is installed
-            # for but has no adapter: the engine goes with the model, separation stays disabled in Snitch.
+            # SpeechBrain (#374): ECAPA-TDNN fingerprints run through a generic adapter, SepFormer separation through its
+            # own (#401, voice_sepformer). Being ready opens no production job: no step of an analysis separates.
             # SpeechBrain declares `torchaudio` with no upper bound, so pip takes the newest one; from torchaudio 2.9 the
             # APIs it still calls at import (`list_audio_backends`) are gone, and the import fails. The pins are fixed
             # values of this table, never taken from an order; raise them together with a version that supports more.
@@ -384,9 +384,9 @@ FAMILIES = {"nemo": {"engine": "nemo-toolkit", "distribution": "nemo-toolkit", "
             "wespeaker": {"engine": "wespeaker", "distribution": "wespeakerruntime", "extras": "", "kinds": ("fingerprint",),
                           "probe": "wespeakerruntime"}}
 _ON_DEMAND_ENGINES = {family["engine"] for family in FAMILIES.values()}
-# Kinds an adapter actually runs, per family; a kind of the family that is not here (SpeechBrain separation) gets an engine
-# and no model (ADR 0056). Mirrors ActiveKinds of Snitch's table.
-_INACTIVE_KINDS = {"speechbrain": ("separation",)}
+# Kinds a family installs for but no adapter runs: such a kind gets an engine and no model (ADR 0056). None today.
+# Mirrors ActiveKinds of Snitch's table.
+_INACTIVE_KINDS: dict[str, tuple[str, ...]] = {}
 # Adapters that only exist as a signed Release (no embedded copy), and every engine name a fingerprint speaker
 # adapter runs: those plus the families that cover fingerprint only. Mirrors signedOnlyAdapters of Snitch's table;
 # scripts/check_engine_families.py fails the build when this file and the Go table drift apart.

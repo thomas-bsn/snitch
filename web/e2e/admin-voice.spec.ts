@@ -451,7 +451,12 @@ test("un administrateur ordonne l'installation d'un modèle à un Worker et suit
   const section = page.getByRole("region", { name: "Models per Worker" });
   const row = section.getByRole("row", { name: /worker-ordres/ });
   const fingerprint = row.locator("td").nth(2);
-  await expect(section).toContainText("Coming · #268");
+  // Separation is a type like the others: absent until an Administrator orders a model, nothing is implicit.
+  const separation = row.locator("td").nth(3);
+  await expect(separation).toContainText("Not installed");
+  await expect(
+    separation.getByRole("button", { name: /Choose a model/ }),
+  ).toBeVisible();
   await expect(fingerprint).toContainText("Not installed");
 
   // Ordering needs an explicit confirmation.
@@ -693,6 +698,20 @@ test("la matrice B conserve la sélection, le catalogue est éditable et les ong
     catalogue.models.filter((m: { kind: string }) => m.kind === "separation")
       .length,
   );
+  // The limits of a separation model are read on its card and in its details.
+  const whamr = page.getByRole("article", {
+    name: "speechbrain/sepformer-whamr16k",
+  });
+  await expect(whamr).toContainText("2 voices · 16 kHz");
+  await expect(
+    page.getByRole("article", { name: "speechbrain/sepformer-wsj03mix" }),
+  ).toContainText("3 voices · 8 kHz");
+  await whamr.getByRole("button", { name: "Details", exact: true }).click();
+  const facts = page.getByRole("dialog");
+  await expect(facts).toContainText("Separated voices");
+  await expect(facts).toContainText("Sample rate");
+  await expect(facts).toContainText("16 kHz");
+  await facts.getByRole("button", { name: "Close", exact: true }).click();
   await expectNoViolations(page);
   await admin.delete(`/api/admin/workers/${id}`, { headers: csrf });
   await context.close();

@@ -32,7 +32,7 @@ _ORDER_ID = re.compile(r"^ord_[A-Za-z0-9_-]{16,64}$")
 _WORKER_ID = re.compile(r"^wk_[A-Za-z0-9_-]{20,60}$")
 _KEY = re.compile(r"^[A-Za-z0-9._:-]{8,100}$")
 _MODEL_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
-# Engines an approved adapter exists for, by type (separation has none yet).
+# Engines an approved adapter exists for, by type. Separation only runs on an on-demand family (see _runs_here).
 ENGINES = {"diarization": {"pyannote", "nemo"}, "fingerprint": {"pyannote"} | engine_runtime.SIGNED_ONLY_ADAPTERS, "vad": {"silero-jit"}}
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 # Causes an engine order may report (the same stable set Snitch accepts); anything else folds onto the generic one.

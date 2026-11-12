@@ -39,7 +39,7 @@ func testVoiceModelAddFromHF(t *testing.T, pool *pgxpool.Pool) {
 	ctx := context.Background()
 	t.Cleanup(func() {
 		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_candidate WHERE model_id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34','silero-vad-v6.2.1')`)
-		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_catalog WHERE id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34','silero-vad-v6.2.1')`)
+		_, _ = pool.Exec(ctx, `DELETE FROM voice_model_catalog WHERE id NOT IN ('pyannote-community-1','nvidia-sortformer-4spk-v2.1','pyannote-wespeaker-resnet34','silero-vad-v6.2.1','speechbrain-sepformer-whamr16k','speechbrain-sepformer-wsj03mix')`)
 	})
 
 	const commit = "0123456789abcdef0123456789abcdef01234567"
@@ -48,6 +48,7 @@ func testVoiceModelAddFromHF(t *testing.T, pool *pgxpool.Pool) {
 		"acme/unsure-pyannote":        `{"id":"acme/unsure-pyannote","sha":"%s","gated":"auto","library_name":"pyannote-audio","tags":["pyannote-audio"],"cardData":{"license":"mit"}}`,
 		"acme/transformers-only":      `{"id":"acme/transformers-only","sha":"%s","library_name":"transformers","tags":["transformers","speaker-diarization"]}`,
 		"acme/private-model":          "403",
+		"acme/sepformer-unknown":      `{"id":"acme/sepformer-unknown","sha":"%s","library_name":"speechbrain","tags":["speechbrain","SepFormer","audio-source-separation"],"cardData":{"license":"apache-2.0"}}`,
 		"acme/lying-sha":              `{"id":"acme/lying-sha","sha":"ffffffffffffffffffffffffffffffffffffffff","library_name":"nemo","tags":["nemo"]}`,
 	}
 	var hits atomic.Int32
@@ -146,8 +147,17 @@ func testVoiceModelAddFromHF(t *testing.T, pool *pgxpool.Pool) {
 	h.adminCall(http.MethodPost, "/api/admin/voice-models/"+refused.ID+"/activate", nil, http.StatusBadRequest)
 	// A compatible engine that cannot run the chosen type is unsupported as well.
 	mismatch := add(map[string]any{"source": "acme/unsure-pyannote", "revision": commit, "kind": "separation"}, http.StatusCreated)
-	if mismatch.Supported || mismatch.Kind != "separation" {
-		t.Fatalf("separation has no adapter yet: %+v", mismatch)
+	if mismatch.Supported || mismatch.Kind != "separation" || mismatch.SeparatedVoices != 0 {
+		t.Fatalf("the pyannote adapter does not separate: %+v", mismatch)
+	}
+	// A SepFormer repository whose limits Snitch does not document is recorded as unsupported, never with
+	// guessed limits; the two documented candidates are already in the catalogue.
+	if v := inspect("acme/sepformer-unknown", http.StatusOK); v.Supported || v.Engine != "speechbrain-sepformer" || !strings.Contains(v.UnsupportedReason, "limits") {
+		t.Fatalf("undocumented separation model: %+v", v)
+	}
+	undocumented := add(map[string]any{"source": "acme/sepformer-unknown", "revision": commit, "kind": "separation"}, http.StatusCreated)
+	if undocumented.Supported || undocumented.SeparatedVoices != 0 || undocumented.SampleRateHz != 0 {
+		t.Fatalf("undocumented separation model: %+v", undocumented)
 	}
 
 	// Unknown repository, Hugging Face rights, misleading answer, bad input, foreign hosts.

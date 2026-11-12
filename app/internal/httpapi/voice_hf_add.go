@@ -164,15 +164,20 @@ func (s *Server) addVoiceModel(w http.ResponseWriter, r *http.Request) {
 		if m := speakerLimit.FindStringSubmatch(repo); m != nil && a.Engine == "nemo" {
 			entry.MaxSpeakers, _ = strconv.Atoi(m[1])
 		}
+		if input.Kind == "separation" {
+			// The assessment only supports a documented reference: its limits go to the catalogue with it.
+			limits := separationModels[meta.ID]
+			entry.SeparatedVoices, entry.SampleRateHz = limits.Voices, limits.SampleRateHz
+		}
 	}
 	slug := strings.Trim(regexp.MustCompile(`[^a-z0-9._-]+`).ReplaceAllString(strings.ToLower(repo), "-"), "-.")
 	sum := sha256.Sum256([]byte(input.Kind + "/" + repo))
 	ids := []string{clip(slug, 64), clip(slug, 55) + "-" + input.Kind[:4], clip(slug, 50) + "-" + hex.EncodeToString(sum[:4])}
 	for _, id := range ids {
 		entry.ID = id
-		tag, err := s.Pool.Exec(r.Context(), `INSERT INTO voice_model_catalog (id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason,family)
-			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,0,$10,true,$11,$12,$13) ON CONFLICT (id) DO NOTHING`,
-			entry.ID, entry.Kind, entry.Engine, entry.Repo, entry.Revision, entry.Label, entry.License, entry.Gated, entry.MaxSpeakers, entry.SupportsNumSpeakers, entry.Supported, entry.UnsupportedReason, entry.Family)
+		tag, err := s.Pool.Exec(r.Context(), `INSERT INTO voice_model_catalog (id,kind,engine,repo,revision,label,license,gated,max_speakers,size_bytes,vram_bytes,supports_num_speakers,enabled,supported,unsupported_reason,family,separated_voices,sample_rate_hz)
+			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,0,0,$10,true,$11,$12,$13,$14,$15) ON CONFLICT (id) DO NOTHING`,
+			entry.ID, entry.Kind, entry.Engine, entry.Repo, entry.Revision, entry.Label, entry.License, entry.Gated, entry.MaxSpeakers, entry.SupportsNumSpeakers, entry.Supported, entry.UnsupportedReason, entry.Family, entry.SeparatedVoices, entry.SampleRateHz)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" { // the same repository already holds this type
 			fail(w, http.StatusConflict, "voice_model_exists")

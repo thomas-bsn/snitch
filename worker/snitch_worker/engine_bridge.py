@@ -66,16 +66,35 @@ class SpeakerProvider(PyannoteProvider):
         return super()._embedding_identity(config)
 
 
+def _separation(request: dict[str, Any]) -> dict[str, Any]:
+    """Separation of the SpeechBrain family (#401, ADR 0066): the test inference of an install order, or the
+    separation of windows of one audio file for an explicit caller, with one load of the model. No production step comes here."""
+    from snitch_worker import voice_selftest, voice_sepformer
+    from snitch_worker.voice_ecapa import UnsupportedVariant
+
+    manifest = request["manifest"]
+    if manifest.get("source") != "on_demand" or manifest.get("family") != "speechbrain":
+        raise UnsupportedVariant("kind_not_supported")
+    separator = voice_sepformer.load(request["path"], voice_sepformer.resolve_device(os.environ))
+    if request["operation"] == "verify":
+        voice_selftest.separate_synthetic(lambda audio, output: voice_sepformer.separate_file(separator, audio, output)[0],
+                                          separator.num_sources, separator.sample_rate)
+        return {}
+    windows = [(start, end) for start, end in request["windows"]]
+    return {"windows": voice_sepformer.separate_file(separator, request["audio"], request["output_dir"], windows)}
+
+
 def execute(request: dict[str, Any]) -> dict[str, Any]:
     from snitch_worker import voice_manifest, voice_selftest
     from snitch_worker.voice_nemo import NemoProvider
 
     manifest, path = request["manifest"], request["path"]
     engine, kind = manifest["engine"], manifest["kind"]
+    if kind == "separation":
+        return _separation(request)
     if engine == "speechbrain" and kind != "fingerprint":
-        # The family is installed for separation models but no separation adapter exists: it stays disabled (#374).
         from snitch_worker.voice_ecapa import UnsupportedVariant
-        raise UnsupportedVariant("separation_not_available" if kind == "separation" else "kind_not_supported")
+        raise UnsupportedVariant("kind_not_supported")
     env = dict(os.environ)
     env["SNITCH_WORKER_MODELS_DIR"] = str(Path(request["manifest_path"]).parent)
     env[voice_manifest.EMBEDDING_PATH_ENV if kind == "fingerprint" else voice_manifest.DIARIZATION_PATH_ENV] = path

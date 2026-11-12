@@ -86,31 +86,37 @@ func voiceModelViewOf(entry voiceCatalogEntry) voiceModelView {
 		limit := entry.MaxSpeakers
 		view.MaxSpeakers = &limit
 	}
+	if entry.Kind == "separation" {
+		view.SeparatedVoices, view.SampleRateHz = entry.SeparatedVoices, entry.SampleRateHz
+	}
 	return view
 }
 
 type voiceModelView struct {
-	ID                    string                  `json:"id"`
-	Kind                  string                  `json:"kind"`
-	Engine                string                  `json:"engine"`
-	Family                string                  `json:"family,omitempty"`
-	Repo                  string                  `json:"repo"`
-	Revision              string                  `json:"revision"`
-	License               string                  `json:"license"`
-	Gated                 bool                    `json:"gated"`
-	MaxSpeakers           *int                    `json:"max_speakers"`
-	SizeBytes             int64                   `json:"size_bytes"`
-	SupportsNumSpeakers   bool                    `json:"supports_num_speakers"`
-	Active                bool                    `json:"active"`
-	Candidate             bool                    `json:"candidate"`
-	Installed             bool                    `json:"installed"`
-	Label                 string                  `json:"label"`
-	VRAMBytes             int64                   `json:"vram_bytes"`
-	Enabled               bool                    `json:"enabled"`
-	Supported             bool                    `json:"supported"`
-	UnsupportedReason     string                  `json:"unsupported_reason"`
-	SignedReleaseRequired bool                    `json:"signed_release_required"`
-	Workers               []voiceModelWorkerState `json:"workers"`
+	ID                    string `json:"id"`
+	Kind                  string `json:"kind"`
+	Engine                string `json:"engine"`
+	Family                string `json:"family,omitempty"`
+	Repo                  string `json:"repo"`
+	Revision              string `json:"revision"`
+	License               string `json:"license"`
+	Gated                 bool   `json:"gated"`
+	MaxSpeakers           *int   `json:"max_speakers"`
+	SizeBytes             int64  `json:"size_bytes"`
+	SupportsNumSpeakers   bool   `json:"supports_num_speakers"`
+	Active                bool   `json:"active"`
+	Candidate             bool   `json:"candidate"`
+	Installed             bool   `json:"installed"`
+	Label                 string `json:"label"`
+	VRAMBytes             int64  `json:"vram_bytes"`
+	Enabled               bool   `json:"enabled"`
+	Supported             bool   `json:"supported"`
+	UnsupportedReason     string `json:"unsupported_reason"`
+	SignedReleaseRequired bool   `json:"signed_release_required"`
+	// SeparatedVoices and SampleRateHz are the limits of a separation model; absent for another type.
+	SeparatedVoices int                     `json:"separated_voices,omitempty"`
+	SampleRateHz    int                     `json:"sample_rate_hz,omitempty"`
+	Workers         []voiceModelWorkerState `json:"workers"`
 }
 
 func (s *Server) listVoiceModels(w http.ResponseWriter, r *http.Request) {

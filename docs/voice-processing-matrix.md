@@ -42,8 +42,11 @@ Le changement d’empreinte appelle les API de l’ADR 0044 : aperçu d’impact
 confirmation du nombre de références, préparation explicite des Workers,
 progression, reprise et annulation avant bascule. Le serveur conserve la décision
 de recalculer et de basculer ; aucun état de traitement n’est simulé par le front.
-La séparation reste visible mais attend l’adaptateur de #268. Speaches reste
-extérieur au catalogue des modèles locaux.
+La séparation s’installe comme les autres types (ADR 0066) : sa case offre
+l’installation, les états, la cause d’échec et le nouvel essai, sans remplacement
+sur place. Le catalogue affiche les limites du modèle (voix séparées, fréquence).
+Un modèle prêt reste en réserve : aucun travail de la bibliothèque ne sépare.
+Speaches reste extérieur au catalogue des modèles locaux.
 
 Une correction de lecture accompagne la refonte : le catalogue marque désormais
 le modèle d’empreinte de `voice_active_model` comme actif. Auparavant seul le

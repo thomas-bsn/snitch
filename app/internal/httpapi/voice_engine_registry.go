@@ -61,7 +61,7 @@ var engineRequiredFields = []string{"schema", "engine", "version", "adapter_vers
 var engineOptionalFields = []string{"ram_bytes", "capabilities", "input_contract", "output_contract", "cpu_fallback"}
 var engineContract = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
 
-// Source separation is not an approved capability: the V2 separation stays inactive.
+// Source separation is not a capability of a signed release: it only runs on the on-demand SpeechBrain family (ADR 0066).
 var engineCapabilities = map[string]bool{"diarization": true, "fingerprint": true}
 
 func validEngineOptionals(m engineManifest) bool {
