@@ -38,13 +38,14 @@ type segmentSpeakerView struct {
 }
 
 // deducedSpeaker is the Local speaker that speaks most over [start,end] of the audio
-// stream of a clip (ties to the lowest ordinal): the rule of segmentSpeakerJoin and
-// attachLocalSpeakers. An ignored voice is no speaker (ADR 0031) and never deduced. found is
-// false without any overlapping turn.
+// stream of a clip (ties to the lowest ordinal): the segment rule of segmentparts, through its
+// SQL twin dominant_turn_speaker, as in segmentSpeakerJoin and attachLocalSpeakers. An ignored
+// voice is no speaker (ADR 0031) and never deduced. found is false without any overlapping turn.
 func deducedSpeaker(ctx context.Context, q queryer, clipID int64, stream int, start, end float64) (id int64, label string, found bool, err error) {
-	err = q.QueryRow(ctx, `SELECT ls.id,ls.label FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id
- WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)>0 AND `+notIgnoredVoice+`
- GROUP BY ls.id,ls.label,ls.ordinal ORDER BY sum(LEAST($4::double precision,st.end_seconds)-GREATEST($3::double precision,st.start_seconds)) DESC,ls.ordinal LIMIT 1`, clipID, stream, start, end).Scan(&id, &label)
+	err = q.QueryRow(ctx, `SELECT v.id,v.label FROM local_speakers v WHERE v.id=(SELECT dominant_turn_speaker(array_agg(ls.id ORDER BY ls.ordinal,ls.id,st.turn_index),
+ array_agg(st.start_seconds ORDER BY ls.ordinal,ls.id,st.turn_index),array_agg(st.end_seconds ORDER BY ls.ordinal,ls.id,st.turn_index),$3::double precision,$4::double precision,NULL)
+ FROM speaker_turns st JOIN local_speakers ls ON ls.id=st.local_speaker_id
+ WHERE ls.clip_id=$1 AND ls.audio_stream_index=$2 AND st.end_seconds>$3::double precision AND st.start_seconds<$4::double precision AND `+notIgnoredVoice+`)`, clipID, stream, start, end).Scan(&id, &label)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, "", false, nil
 	}

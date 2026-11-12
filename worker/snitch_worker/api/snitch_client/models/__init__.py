@@ -437,6 +437,12 @@ from .source_health import SourceHealth
 from .source_input import SourceInput
 from .source_list import SourceList
 from .source_visibility import SourceVisibility
+from .speaker_attribution_rule import SpeakerAttributionRule
+from .speaker_attribution_rule_input import SpeakerAttributionRuleInput
+from .speaker_attribution_rule_input_rule import SpeakerAttributionRuleInputRule
+from .speaker_attribution_rule_rule import SpeakerAttributionRuleRule
+from .speaker_attribution_rule_version import SpeakerAttributionRuleVersion
+from .speaker_attribution_rule_version_rule import SpeakerAttributionRuleVersionRule
 from .speaker_coverage import SpeakerCoverage
 from .speaker_coverage_coverage_status import SpeakerCoverageCoverageStatus
 from .start_clip_analysis_body import StartClipAnalysisBody
@@ -452,6 +458,7 @@ from .transcript_grouping import TranscriptGrouping
 from .transcript_grouping_strategy import TranscriptGroupingStrategy
 from .transcript_manifest_segment import TranscriptManifestSegment
 from .transcript_manifest_word import TranscriptManifestWord
+from .transcript_part import TranscriptPart
 from .transcript_revision import TranscriptRevision
 from .transcript_revision_time_base import TranscriptRevisionTimeBase
 from .transcript_segment import TranscriptSegment
@@ -471,6 +478,7 @@ from .transcription_settings_input_mode import TranscriptionSettingsInputMode
 from .transcription_settings_state import TranscriptionSettingsState
 from .transcription_settings_state_mode import TranscriptionSettingsStateMode
 from .transcription_settings_state_status import TranscriptionSettingsStateStatus
+from .transcription_speaker_attribution_rule import TranscriptionSpeakerAttributionRule
 from .transcription_speaker_coverage_by_track_item import TranscriptionSpeakerCoverageByTrackItem
 from .update_account_password_response_200 import UpdateAccountPasswordResponse200
 from .update_account_profile_response_200 import UpdateAccountProfileResponse200
@@ -1187,6 +1195,12 @@ __all__ = (
     "SourceInput",
     "SourceList",
     "SourceVisibility",
+    "SpeakerAttributionRule",
+    "SpeakerAttributionRuleInput",
+    "SpeakerAttributionRuleInputRule",
+    "SpeakerAttributionRuleRule",
+    "SpeakerAttributionRuleVersion",
+    "SpeakerAttributionRuleVersionRule",
     "SpeakerCoverage",
     "SpeakerCoverageCoverageStatus",
     "StartClipAnalysisBody",
@@ -1214,9 +1228,11 @@ __all__ = (
     "TranscriptionSettingsState",
     "TranscriptionSettingsStateMode",
     "TranscriptionSettingsStateStatus",
+    "TranscriptionSpeakerAttributionRule",
     "TranscriptionSpeakerCoverageByTrackItem",
     "TranscriptManifestSegment",
     "TranscriptManifestWord",
+    "TranscriptPart",
     "TranscriptRevision",
     "TranscriptRevisionTimeBase",
     "TranscriptSegment",

@@ -287,6 +287,8 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
     "Cette règle d’éligibilité n’est pas valide : durées entre 0,5 et 60 secondes, durée contributive au plus égale à la durée comparable, part écrêtée entre 0 et 1.",
   invalid_voice_score_mode:
     "Ce mode de score n’est pas valide : choisir la Référence cumulative ou le meilleur échantillon.",
+  invalid_speaker_attribution_rule:
+    "Cette règle d’attribution n’est pas valide : choisir l’attribution au mot ou par segment.",
   invalid_voice_pipeline:
     "Ces réglages du traitement vocal ne sont pas valides.",
   invalid_voice_recompute:

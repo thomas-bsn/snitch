@@ -272,6 +272,8 @@ export const errorsEn = {
     "This eligibility rule is not valid: durations between 0.5 and 60 seconds, the contributive one at most the comparable one, and a clipped share between 0 and 1.",
   invalid_voice_score_mode:
     "This score mode is not valid: choose the cumulative Reference or the best sample.",
+  invalid_speaker_attribution_rule:
+    "This attribution rule is not valid: choose attribution by word or by segment.",
   invalid_voice_pipeline: "These voice processing settings are not valid.",
   invalid_voice_recompute:
     "Confirm the number of fingerprints shown by the preview to start the recalculation.",

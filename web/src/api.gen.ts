@@ -3151,6 +3151,24 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/admin/speaker-attribution-rule": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** @description Administrateurs uniquement. */
+    get: operations["getSpeakerAttributionRule"];
+    /** @description Administrateurs uniquement. Chaque changement est une nouvelle version tracée (auteur, date) ; reprendre la règle active n'enregistre rien. 400 invalid_speaker_attribution_rule pour une règle inconnue. */
+    put: operations["updateSpeakerAttributionRule"];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/admin/voice-eligibility/preview": {
     parameters: {
       query?: never;
@@ -7406,6 +7424,25 @@ export interface components {
       start: number;
       end: number;
     };
+    /** @description Part d'un segment : des mots consécutifs du segment dits par un même Locuteur local (ADR 0065). Sans local_speaker_id, aucun Locuteur local ne parle sur le segment. */
+    TranscriptPart: {
+      /** @description Début du premier mot de la part ; début du segment s'il n'a qu'une part. */
+      start: number;
+      /** @description Fin du dernier mot de la part ; fin du segment s'il n'a qu'une part. */
+      end: number;
+      /** @description Mots de la part, dans l'ordre ; vide pour un segment au texte corrigé, dont le texte est celui du segment. */
+      words: components["schemas"]["TranscriptWord"][];
+      /** Format: int64 */
+      local_speaker_id?: number;
+      local_speaker_label?: string;
+      local_speaker_decision_level?: components["schemas"]["DecisionLevel"];
+      /**
+       * Format: int64
+       * @description Personne du Locuteur local, si attribuée.
+       */
+      local_speaker_person_id?: number;
+      local_speaker_person_name?: string;
+    };
     TranscriptSegment: {
       start: number;
       end: number;
@@ -7413,7 +7450,7 @@ export interface components {
       words: components["schemas"]["TranscriptWord"][];
       /**
        * Format: int64
-       * @description Locuteur local dominant du segment ; absent sans diarisation ou sans recouvrement.
+       * @description Locuteur local dominant du segment (celui qui y parle le plus, ou celui désigné par une Correction), quelle que soit la règle d'attribution ; absent sans diarisation ou sans recouvrement. Le détail par mots est dans parts.
        */
       local_speaker_id?: number;
       local_speaker_label?: string;
@@ -7426,6 +7463,8 @@ export interface components {
       local_speaker_person_name?: string;
       /** @description Vrai si local_speaker_id est désigné par un utilisateur (phase 6) plutôt que déduit des tours de parole. */
       local_speaker_corrected?: boolean;
+      /** @description Le segment lu comme une suite de parts, chacune avec son Locuteur local et ses mots, selon la règle d'attribution active (speaker_attribution_rule). Les parts couvrent tous les mots dans l'ordre ; le segment, ses bornes et son identité ne changent pas. Une seule part avec la règle par segment, pour un segment dont le locuteur est corrigé (elle s'applique au segment entier) ou dont le texte est corrigé. Absent sans diarisation. */
+      parts?: components["schemas"]["TranscriptPart"][];
       /** @description Rang du segment dans la transcription (identité avec transcription_job_id). */
       index?: number;
       /** @description Texte de la transcription automatique, jamais modifié. */
@@ -7465,6 +7504,11 @@ export interface components {
         /** @description Piste de la voix ; présent pour une révision de Plan (une liste pour toutes les pistes retenues). */
         audio_stream_index?: number;
       }[];
+      /**
+       * @description Règle d'attribution avec laquelle parts et la couverture ont été lus (ADR 0065). Absent sans diarisation.
+       * @enum {string}
+       */
+      speaker_attribution_rule?: "segment" | "word";
       /** @description Révision de Plan seulement : la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une piste sans aucun segment. */
       speaker_coverage_by_track?: {
         audio_stream_index: number;
@@ -7479,7 +7523,7 @@ export interface components {
       /** Format: int64 */
       local_speaker_id: number;
       /**
-       * @description words : au moins un segment lui est attribué ; speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+       * @description words : il tient une part d'au moins un segment ; speech_without_words : il parle sous des segments dont il ne tient aucune part ; no_transcript : aucun segment ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
        * @enum {string}
        */
       coverage_status:
@@ -7489,10 +7533,11 @@ export interface components {
         | "outside_transcript";
       /** @description Parole détectée, tours qui se chevauchent comptés une fois. */
       speaking_seconds: number;
-      /** @description Parole sous des segments attribués à un autre locuteur. */
+      /** @description Parole sous des segments dont il ne tient aucune part. */
       overlapped_seconds: number;
       /** @description Parole sous aucun segment. */
       uncovered_seconds: number;
+      /** @description Segments dont il tient au moins une part. */
       attributed_segments: number;
     };
     /** @description Trace de l'alignement diarisation / transcription de la piste visible (#273), sans aucun texte transcrit, et mesures de qualité des empreintes de la piste (#389). */
@@ -9330,6 +9375,37 @@ export interface components {
       created_at: string;
       /** @description Vingt dernières versions, la plus récente d'abord. */
       history: components["schemas"]["VoiceScoreModeVersion"][];
+    };
+    SpeakerAttributionRuleVersion: {
+      version: number;
+      /**
+       * @description word : chaque mot revient au Locuteur local dont les tours le recouvrent le plus, un segment se lit en parts. segment : le segment entier revient au Locuteur local qui y parle le plus (règle d'avant l'ADR 0065).
+       * @enum {string}
+       */
+      rule: "segment" | "word";
+      /** @description Administrateur qui a choisi cette règle ; null pour la règle par défaut. */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description Règle d'attribution des paroles aux Locuteurs locaux (ADR 0065) : version active et historique. Elle s'applique à la lecture ; en changer ne réécrit aucune donnée. */
+    SpeakerAttributionRule: {
+      version: number;
+      /**
+       * @description word : chaque mot revient au Locuteur local dont les tours le recouvrent le plus, un segment se lit en parts. segment : le segment entier revient au Locuteur local qui y parle le plus (règle d'avant l'ADR 0065).
+       * @enum {string}
+       */
+      rule: "segment" | "word";
+      /** @description Administrateur qui a choisi cette règle ; null pour la règle par défaut. */
+      author: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Vingt dernières versions, la plus récente d'abord. */
+      history: components["schemas"]["SpeakerAttributionRuleVersion"][];
+    };
+    SpeakerAttributionRuleInput: {
+      /** @enum {string} */
+      rule: "segment" | "word";
     };
     PersonReferenceDiscard: {
       /**
@@ -18223,6 +18299,71 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["VoiceScoreMode"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  getSpeakerAttributionRule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Règle d'attribution active et historique */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpeakerAttributionRule"];
+        };
+      };
+      /** @description Erreur */
+      default: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["Error"];
+        };
+      };
+    };
+  };
+  updateSpeakerAttributionRule: {
+    parameters: {
+      query?: never;
+      header: {
+        Origin: string;
+        "X-CSRF-Token": string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["SpeakerAttributionRuleInput"];
+      };
+    };
+    responses: {
+      /** @description Règle enregistrée (nouvelle version si elle change) ; les transcriptions sont lues avec elle dès la réponse, sans réécriture */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SpeakerAttributionRule"];
         };
       };
       /** @description Erreur */

@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
+	"snitch/internal/segmentparts"
 )
 
 // registerVoiceTraceRoutes registers the administrator's trace of the alignment between
@@ -64,6 +65,10 @@ func (s *Server) getVoiceTrace(w http.ResponseWriter, r *http.Request) {
 		Segments         []struct {
 			Start *float64 `json:"start"`
 			End   *float64 `json:"end"`
+			Words []struct {
+				Start *float64 `json:"start"`
+				End   *float64 `json:"end"`
+			} `json:"words"`
 		} `json:"segments"`
 	}
 	if !found || json.Unmarshal(visible.Result, &transcript) != nil || transcript.AudioStreamIndex == nil {
@@ -114,6 +119,12 @@ func (s *Server) getVoiceTrace(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, err)
 		return
 	}
+	_, rule, err := activeAttributionRule(ctx, s.Pool)
+	if err != nil {
+		s.internal(w, err)
+		return
+	}
+	ruleTurns := partTurns(coverageTurns)
 	segments := []traceSegment{}
 	coverageSegments := []coverageSegment{}
 	for position, raw := range transcript.Segments {
@@ -126,12 +137,25 @@ func (s *Server) getVoiceTrace(w http.ResponseWriter, r *http.Request) {
 			seg.Candidates = append(seg.Candidates, traceCandidate{LocalSpeakerID: id, OverlapSeconds: overlap[id]})
 		}
 		cs := coverageSegment{Start: *raw.Start, End: *raw.End}
-		if winner, any := dominantSpeaker(order, overlap); any {
+		if whole := segmentparts.Attribute(segmentparts.RuleSegment, segmentparts.Span{Start: cs.Start, End: cs.End}, nil, ruleTurns); whole[0].Known {
+			winner := whole[0].Speaker
 			seg.DeducedSpeakerID, seg.LocalSpeakerID = &winner, &winner
 		}
-		if st, has := states[position]; has && st.StaleAt == nil && st.SpeakerOverrideID != nil {
+		st, has := states[position]
+		has = has && st.StaleAt == nil
+		if has && st.SpeakerOverrideID != nil {
 			seg.LocalSpeakerID, seg.Corrected = st.SpeakerOverrideID, true
 			cs.OverrideSpeakerID = st.SpeakerOverrideID
+		}
+		// The coverage follows the parts of the clip page: word times, unless the text was corrected.
+		if !has || st.Text == nil {
+			for _, word := range raw.Words {
+				timed := segmentparts.Word{}
+				if word.Start != nil && word.End != nil {
+					timed = segmentparts.Word{Start: *word.Start, End: *word.End}
+				}
+				cs.Words = append(cs.Words, timed)
+			}
 		}
 		segments = append(segments, seg)
 		coverageSegments = append(coverageSegments, cs)
@@ -142,7 +166,7 @@ func (s *Server) getVoiceTrace(w http.ResponseWriter, r *http.Request) {
 		"diarization":   diarization,
 		"turns":         turns,
 		"segments":      segments,
-		"coverage":      speakerCoverage(coverageTurns, coverageSegments),
+		"coverage":      speakerCoverage(rule.version(), coverageTurns, coverageSegments),
 		"fingerprints":  fingerprints,
 	})
 }

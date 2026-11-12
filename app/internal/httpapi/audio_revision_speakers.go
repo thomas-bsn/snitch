@@ -7,7 +7,7 @@ import (
 
 // The manifest's per-segment track is authoritative. Never let overlapping turns
 // from a different track win an attribution or inflate its ASR coverage.
-func (s *Server) attachRevisionSpeakers(ctx context.Context, clipID int64, object map[string]any, states map[int]segmentState) error {
+func (s *Server) attachRevisionSpeakers(ctx context.Context, clipID int64, object map[string]any, states map[int]segmentState, rule attributionRule) error {
 	groups := map[int][]any{}
 	groupedStates := map[int]map[int]segmentState{}
 	for position, raw := range object["segments"].([]any) {
@@ -62,7 +62,7 @@ func (s *Server) attachRevisionSpeakers(ctx context.Context, clipID int64, objec
 	sort.Ints(tracks)
 	for _, track := range tracks {
 		part := map[string]any{"audio_stream_index": float64(track), "segments": groups[track]}
-		if err := s.attachTrackSpeakers(ctx, clipID, part, groupedStates[track], true); err != nil {
+		if err := s.attachTrackSpeakers(ctx, clipID, part, groupedStates[track], true, rule); err != nil {
 			return err
 		}
 		if speakers, ok := part["local_speakers"].([]map[string]any); ok {
@@ -76,6 +76,9 @@ func (s *Server) attachRevisionSpeakers(ctx context.Context, clipID int64, objec
 		}
 	}
 	object["local_speakers"] = roster
+	if len(roster) > 0 {
+		object["speaker_attribution_rule"] = rule
+	}
 	object["speaker_coverage_by_track"] = coverage
 	return nil
 }

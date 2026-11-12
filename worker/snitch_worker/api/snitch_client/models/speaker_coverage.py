@@ -24,14 +24,14 @@ class SpeakerCoverage:
     """
         Attributes:
             local_speaker_id (int):
-            coverage_status (SpeakerCoverageCoverageStatus): words : au moins un segment lui est attribué ;
-                speech_without_words : il parle sous des segments attribués à d'autres ; no_transcript : aucun segment ne
-                recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses tours,
-                avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
+            coverage_status (SpeakerCoverageCoverageStatus): words : il tient une part d'au moins un segment ;
+                speech_without_words : il parle sous des segments dont il ne tient aucune part ; no_transcript : aucun segment
+                ne recouvre ses tours, dans un trou de la transcription ; outside_transcript : aucun segment ne recouvre ses
+                tours, avant ou après toute la transcription (transcription tronquée, décalage, mauvaise piste).
             speaking_seconds (float): Parole détectée, tours qui se chevauchent comptés une fois.
-            overlapped_seconds (float): Parole sous des segments attribués à un autre locuteur.
+            overlapped_seconds (float): Parole sous des segments dont il ne tient aucune part.
             uncovered_seconds (float): Parole sous aucun segment.
-            attributed_segments (int):
+            attributed_segments (int): Segments dont il tient au moins une part.
      """
 
     local_speaker_id: int

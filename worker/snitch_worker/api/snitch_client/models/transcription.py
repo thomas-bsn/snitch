@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.transcription_speaker_attribution_rule import TranscriptionSpeakerAttributionRule
 from ..types import UNSET, Unset
 from typing import cast
 
@@ -39,6 +40,8 @@ class Transcription:
             transcription_job_id (int | Unset): Tâche de transcription visible : avec l'index, l'identité d'un segment.
             local_speakers (list[TranscriptionLocalSpeakersItem] | Unset): Locuteurs locaux de la piste audio, désignables
                 pour un segment ; absent sans diarisation.
+            speaker_attribution_rule (TranscriptionSpeakerAttributionRule | Unset): Règle d'attribution avec laquelle parts
+                et la couverture ont été lus (ADR 0065). Absent sans diarisation.
             speaker_coverage_by_track (list[TranscriptionSpeakerCoverageByTrackItem] | Unset): Révision de Plan seulement :
                 la couverture des locuteurs de chaque piste retenue. Une voix détectée sans parole y reste visible, même sur une
                 piste sans aucun segment.
@@ -55,6 +58,7 @@ class Transcription:
     language: str | Unset = UNSET
     transcription_job_id: int | Unset = UNSET
     local_speakers: list[TranscriptionLocalSpeakersItem] | Unset = UNSET
+    speaker_attribution_rule: TranscriptionSpeakerAttributionRule | Unset = UNSET
     speaker_coverage_by_track: list[TranscriptionSpeakerCoverageByTrackItem] | Unset = UNSET
     speaker_coverage: list[SpeakerCoverage] | Unset = UNSET
     revision: TranscriptRevision | Unset = UNSET
@@ -98,6 +102,11 @@ class Transcription:
 
 
 
+        speaker_attribution_rule: str | Unset = UNSET
+        if not isinstance(self.speaker_attribution_rule, Unset):
+            speaker_attribution_rule = self.speaker_attribution_rule.value
+
+
         speaker_coverage_by_track: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.speaker_coverage_by_track, Unset):
             speaker_coverage_by_track = []
@@ -137,6 +146,8 @@ class Transcription:
             field_dict["transcription_job_id"] = transcription_job_id
         if local_speakers is not UNSET:
             field_dict["local_speakers"] = local_speakers
+        if speaker_attribution_rule is not UNSET:
+            field_dict["speaker_attribution_rule"] = speaker_attribution_rule
         if speaker_coverage_by_track is not UNSET:
             field_dict["speaker_coverage_by_track"] = speaker_coverage_by_track
         if speaker_coverage is not UNSET:
@@ -190,6 +201,16 @@ class Transcription:
                 local_speakers.append(local_speakers_item)
 
 
+        _speaker_attribution_rule = d.pop("speaker_attribution_rule", UNSET)
+        speaker_attribution_rule: TranscriptionSpeakerAttributionRule | Unset
+        if isinstance(_speaker_attribution_rule,  Unset):
+            speaker_attribution_rule = UNSET
+        else:
+            speaker_attribution_rule = TranscriptionSpeakerAttributionRule(_speaker_attribution_rule)
+
+
+
+
         _speaker_coverage_by_track = d.pop("speaker_coverage_by_track", UNSET)
         speaker_coverage_by_track: list[TranscriptionSpeakerCoverageByTrackItem] | Unset = UNSET
         if _speaker_coverage_by_track is not UNSET:
@@ -233,6 +254,7 @@ class Transcription:
             language=language,
             transcription_job_id=transcription_job_id,
             local_speakers=local_speakers,
+            speaker_attribution_rule=speaker_attribution_rule,
             speaker_coverage_by_track=speaker_coverage_by_track,
             speaker_coverage=speaker_coverage,
             revision=revision,
