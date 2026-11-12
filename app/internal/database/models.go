@@ -582,20 +582,35 @@ type MicrophoneTrackEvent struct {
 }
 
 type Notification struct {
-	ID            int64              `json:"id"`
-	Kind          string             `json:"kind"`
-	ClipID        pgtype.Int8        `json:"clip_id"`
-	State         string             `json:"state"`
-	PendingCount  int32              `json:"pending_count"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
-	ResolvedAt    pgtype.Timestamptz `json:"resolved_at"`
-	Cause         string             `json:"cause"`
-	JobID         pgtype.Int8        `json:"job_id"`
-	Step          string             `json:"step"`
-	ErrorCode     string             `json:"error_code"`
-	FolderPath    string             `json:"folder_path"`
-	FolderOutcome string             `json:"folder_outcome"`
+	ID             int64              `json:"id"`
+	Kind           string             `json:"kind"`
+	ClipID         pgtype.Int8        `json:"clip_id"`
+	State          string             `json:"state"`
+	PendingCount   int32              `json:"pending_count"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ResolvedAt     pgtype.Timestamptz `json:"resolved_at"`
+	Cause          string             `json:"cause"`
+	JobID          pgtype.Int8        `json:"job_id"`
+	Step           string             `json:"step"`
+	ErrorCode      string             `json:"error_code"`
+	FolderPath     string             `json:"folder_path"`
+	FolderOutcome  string             `json:"folder_outcome"`
+	AccountID      pgtype.Int8        `json:"account_id"`
+	AccountName    string             `json:"account_name"`
+	AccountOutcome string             `json:"account_outcome"`
+}
+
+type NotificationDelivery struct {
+	ID             int64              `json:"id"`
+	NotificationID int64              `json:"notification_id"`
+	Category       string             `json:"category"`
+	Status         string             `json:"status"`
+	Attempts       int32              `json:"attempts"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	LastError      string             `json:"last_error"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	SentAt         pgtype.Timestamptz `json:"sent_at"`
 }
 
 type NotificationRecipient struct {
@@ -603,6 +618,29 @@ type NotificationRecipient struct {
 	UserID         int64              `json:"user_id"`
 	ReadAt         pgtype.Timestamptz `json:"read_at"`
 	DeletedAt      pgtype.Timestamptz `json:"deleted_at"`
+}
+
+type NotificationWebhook struct {
+	ID            bool               `json:"id"`
+	Enabled       bool               `json:"enabled"`
+	Categories    []string           `json:"categories"`
+	PublicOrigin  string             `json:"public_origin"`
+	Hint          string             `json:"hint"`
+	LastStatus    string             `json:"last_status"`
+	LastError     string             `json:"last_error"`
+	LastAttemptAt pgtype.Timestamptz `json:"last_attempt_at"`
+	LastSuccessAt pgtype.Timestamptz `json:"last_success_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type NotificationWebhookEvent struct {
+	ID            int64              `json:"id"`
+	Action        string             `json:"action"`
+	Enabled       bool               `json:"enabled"`
+	Categories    []string           `json:"categories"`
+	ActorID       pgtype.Int8        `json:"actor_id"`
+	ActorUsername string             `json:"actor_username"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 }
 
 type OauthState struct {

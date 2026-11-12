@@ -1,6 +1,7 @@
 from enum import StrEnum
 
 class NotificationKind(StrEnum):
+    ACCOUNT_REQUEST = "account_request"
     FOLDER_REQUEST_DECIDED = "folder_request_decided"
     JOB_BLOCKED = "job_blocked"
     JOB_FAILED = "job_failed"

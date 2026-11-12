@@ -8,6 +8,7 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.notification_account_outcome import NotificationAccountOutcome
 from ..models.notification_folder_outcome import NotificationFolderOutcome
 from ..models.notification_kind import NotificationKind
 from ..models.notification_state import NotificationState
@@ -33,7 +34,8 @@ class Notification:
                 toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause,
                 résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que
                 technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) :
-                seul son demandeur la reçoit, sans clip.
+                seul son demandeur la reçoit, sans clip. Demande d'accès (#283) : une notification par inscription en attente,
+                pour les administrateurs uniquement, résolue à l'approbation ou au refus.
             state (NotificationState): Partagé : une action résolue l'est pour tous.
             clip_id (int | None):
             clip_name (str):
@@ -51,6 +53,10 @@ class Notification:
             folder_path (str | Unset): Décision sur une demande de dossier : chemin relatif de la Racine vidéo, vide sinon.
             folder_outcome (NotificationFolderOutcome | Unset): Décision sur une demande de dossier : approved ou refused,
                 vide sinon.
+            account_id (int | None | Unset): Demande d'accès : compte demandé, null sinon.
+            account_name (str | Unset): Demande d'accès : nom du compte demandé, effacé si le compte est retiré.
+            account_outcome (NotificationAccountOutcome | Unset): Demande d'accès : décision, vide tant qu'elle est en
+                attente.
      """
 
     id: int
@@ -69,6 +75,9 @@ class Notification:
     generic: bool
     folder_path: str | Unset = UNSET
     folder_outcome: NotificationFolderOutcome | Unset = UNSET
+    account_id: int | None | Unset = UNSET
+    account_name: str | Unset = UNSET
+    account_outcome: NotificationAccountOutcome | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -117,6 +126,19 @@ class Notification:
             folder_outcome = self.folder_outcome.value
 
 
+        account_id: int | None | Unset
+        if isinstance(self.account_id, Unset):
+            account_id = UNSET
+        else:
+            account_id = self.account_id
+
+        account_name = self.account_name
+
+        account_outcome: str | Unset = UNSET
+        if not isinstance(self.account_outcome, Unset):
+            account_outcome = self.account_outcome.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -140,6 +162,12 @@ class Notification:
             field_dict["folder_path"] = folder_path
         if folder_outcome is not UNSET:
             field_dict["folder_outcome"] = folder_outcome
+        if account_id is not UNSET:
+            field_dict["account_id"] = account_id
+        if account_name is not UNSET:
+            field_dict["account_name"] = account_name
+        if account_outcome is not UNSET:
+            field_dict["account_outcome"] = account_outcome
 
         return field_dict
 
@@ -228,6 +256,28 @@ class Notification:
 
 
 
+        def _parse_account_id(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        account_id = _parse_account_id(d.pop("account_id", UNSET))
+
+
+        account_name = d.pop("account_name", UNSET)
+
+        _account_outcome = d.pop("account_outcome", UNSET)
+        account_outcome: NotificationAccountOutcome | Unset
+        if isinstance(_account_outcome,  Unset):
+            account_outcome = UNSET
+        else:
+            account_outcome = NotificationAccountOutcome(_account_outcome)
+
+
+
+
         notification = cls(
             id=id,
             kind=kind,
@@ -245,6 +295,9 @@ class Notification:
             generic=generic,
             folder_path=folder_path,
             folder_outcome=folder_outcome,
+            account_id=account_id,
+            account_name=account_name,
+            account_outcome=account_outcome,
         )
 
 

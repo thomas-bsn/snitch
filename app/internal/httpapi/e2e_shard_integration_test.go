@@ -93,7 +93,7 @@ func TestShardSuitesPartition(t *testing.T) {
 func foundationBrowserSuites() []string {
 	return []string{
 		"shell-auth.spec.ts", "shell-preferences.spec.ts", "shell-accessibility.spec.ts", "shell-queue-nav.spec.ts",
-		"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts",
+		"setup-wizard.spec.ts", "account-close.spec.ts", "admin-members.spec.ts", "account-requests.spec.ts",
 		"admin-transcription.spec.ts", "admin-semantic.spec.ts", "admin-benchmark.spec.ts", "admin-voice.spec.ts", "admin-voice-add.spec.ts", "admin-voice-replacement.spec.ts",
 		"admin-voice-engines.spec.ts", "admin-voice-engines-recovery.spec.ts",
 		"admin-voice-engine-models.spec.ts", "admin-voice-engine-uninstall.spec.ts", "admin-voice-engines-resources.spec.ts",

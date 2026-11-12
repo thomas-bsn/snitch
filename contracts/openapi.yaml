@@ -18785,6 +18785,232 @@
           }
         }
       }
+    },
+    "/api/admin/users/{id}/refuse": {
+      "post": {
+        "operationId": "refuseUser",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Status"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 415 JSON required, 429 throttled, 502 provider, 503 unavailable)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1
+            }
+          },
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Administrateurs uniquement, session, origine et CSRF requis. Refuse une demande d'accès (#283) : le compte membre en attente est retiré et anonymisé, son nom redevient libre et sa notification est résolue. 400 invalid_id si identifiant invalide, 404 not_pending si absent, approuvé ou compte d'administrateur."
+      }
+    },
+    "/api/admin/notification-webhook": {
+      "get": {
+        "operationId": "getNotificationWebhook",
+        "description": "Administrateurs. Réglages du webhook Discord des notifications (#283, ADR 0067) : l'adresse n'est jamais renvoyée (configured et hint seulement), avec le statut de la dernière livraison, les livraisons récentes et le journal des changements.",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationWebhook"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putNotificationWebhook",
+        "description": "Réservé au Super-administrateur. Enregistre les réglages ; url absente conserve l'adresse enregistrée, une nouvelle la remplace (rotation). Seule une adresse https d'exécution de webhook Discord est acceptée (400 invalid_discord_webhook) ; activer sans adresse renvoie 400 discord_webhook_required ; catégorie inconnue 400 invalid_webhook_category. Les livraisons en attente que les nouveaux réglages n'autorisent plus sont abandonnées.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotificationWebhookInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationWebhook"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteNotificationWebhook",
+        "description": "Réservé au Super-administrateur. Oublie l'adresse, désactive le webhook et abandonne les livraisons en attente.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Webhook supprimé"
+          },
+          "default": {
+            "description": "Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/notification-webhook/test": {
+      "post": {
+        "operationId": "testNotificationWebhook",
+        "description": "Réservé au Super-administrateur. Envoie maintenant un message de test et enregistre le résultat comme dernière livraison. 409 discord_webhook_not_configured, 400 discord_webhook_rejected (webhook supprimé ou invalide), 429 discord_rate_limited, 502 discord_unavailable.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Origin",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must equal the address of the request itself (scheme and host)"
+          },
+          {
+            "in": "header",
+            "name": "X-CSRF-Token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationWebhook"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Erreur (400 invalid input, 401 session required, 403 permission/origin/CSRF, 404 missing, 409 conflict, 429 throttled, 502 provider)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -25847,9 +26073,10 @@
               "job_failed",
               "job_blocked",
               "technical_incident",
-              "folder_request_decided"
+              "folder_request_decided",
+              "account_request"
             ],
-            "description": "Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip."
+            "description": "Voix à vérifier : une notification active par clip, résolue automatiquement quand toutes ses voix sont traitées. Incidents techniques (administrateurs) : une notification active par cause, résolue automatiquement au retour du worker ou du service ; un non-administrateur ne reçoit que technical_incident, message générique sans détail. Décision sur une demande de création de dossier (ADR 0033) : seul son demandeur la reçoit, sans clip. Demande d'accès (#283) : une notification par inscription en attente, pour les administrateurs uniquement, résolue à l'approbation ou au refus."
           },
           "state": {
             "type": "string",
@@ -25918,6 +26145,25 @@
               "refused"
             ],
             "description": "Décision sur une demande de dossier : approved ou refused, vide sinon."
+          },
+          "account_id": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true,
+            "description": "Demande d'accès : compte demandé, null sinon."
+          },
+          "account_name": {
+            "type": "string",
+            "description": "Demande d'accès : nom du compte demandé, effacé si le compte est retiré."
+          },
+          "account_outcome": {
+            "type": "string",
+            "enum": [
+              "",
+              "approved",
+              "refused"
+            ],
+            "description": "Demande d'accès : décision, vide tant qu'elle est en attente."
           }
         }
       },
@@ -35020,6 +35266,223 @@
                       }
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotificationWebhookInput": {
+        "type": "object",
+        "required": [
+          "enabled",
+          "categories"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 512,
+            "description": "Adresse https://discord.com/api/webhooks/<id>/<jeton>. Absente : l'adresse enregistrée est conservée."
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "access_requests",
+                "human_actions",
+                "worker_offline",
+                "job_failures",
+                "job_blocked"
+              ]
+            },
+            "description": "Catégories relayées : access_requests (demandes d'accès), human_actions (voix à vérifier), worker_offline (Worker hors ligne), job_failures (traitement en échec, service ou modèle indisponible), job_blocked (traitement bloqué). Une décision sur une demande de dossier n'est jamais relayée."
+          }
+        }
+      },
+      "NotificationWebhook": {
+        "type": "object",
+        "required": [
+          "configured",
+          "enabled",
+          "categories",
+          "hint",
+          "last_status",
+          "last_error",
+          "last_attempt_at",
+          "last_success_at",
+          "pending",
+          "failed",
+          "deliveries",
+          "audit"
+        ],
+        "properties": {
+          "configured": {
+            "type": "boolean",
+            "description": "Une adresse est enregistrée (chiffrée) et lisible avec la clé maître actuelle."
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "access_requests",
+                "human_actions",
+                "worker_offline",
+                "job_failures",
+                "job_blocked"
+              ]
+            }
+          },
+          "hint": {
+            "type": "string",
+            "description": "Quatre derniers chiffres de l'identifiant du webhook, jamais le jeton."
+          },
+          "last_status": {
+            "type": "string",
+            "enum": [
+              "never",
+              "sent",
+              "failed",
+              "rate_limited"
+            ]
+          },
+          "last_error": {
+            "type": "string",
+            "description": "Code normalisé (timeout, network, rate_limited, webhook_rejected, http_<statut>), jamais l'erreur brute."
+          },
+          "last_attempt_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "last_success_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "pending": {
+            "type": "integer",
+            "description": "Livraisons en attente ou en nouvel essai."
+          },
+          "failed": {
+            "type": "integer",
+            "description": "Livraisons abandonnées sur les sept derniers jours."
+          },
+          "deliveries": {
+            "type": "array",
+            "description": "Vingt dernières livraisons.",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "category",
+                "status",
+                "attempts",
+                "last_error",
+                "created_at",
+                "next_attempt_at",
+                "sent_at"
+              ],
+              "properties": {
+                "id": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "category": {
+                  "type": "string",
+                  "enum": [
+                    "access_requests",
+                    "human_actions",
+                    "worker_offline",
+                    "job_failures",
+                    "job_blocked"
+                  ]
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "pending",
+                    "sent",
+                    "failed",
+                    "skipped"
+                  ]
+                },
+                "attempts": {
+                  "type": "integer"
+                },
+                "last_error": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "next_attempt_at": {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                "sent_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "nullable": true
+                }
+              }
+            }
+          },
+          "audit": {
+            "type": "array",
+            "description": "Vingt derniers changements, immuables ; l'adresse n'y figure jamais.",
+            "items": {
+              "type": "object",
+              "required": [
+                "action",
+                "enabled",
+                "categories",
+                "actor_username",
+                "created_at"
+              ],
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "enum": [
+                    "created",
+                    "rotated",
+                    "updated",
+                    "deleted",
+                    "tested",
+                    "auto_disabled"
+                  ],
+                  "description": "auto_disabled : Discord a répondu que le webhook n'existe plus ; aucun auteur."
+                },
+                "enabled": {
+                  "type": "boolean"
+                },
+                "categories": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "enum": [
+                      "access_requests",
+                      "human_actions",
+                      "worker_offline",
+                      "job_failures",
+                      "job_blocked"
+                    ]
+                  }
+                },
+                "actor_username": {
+                  "type": "string"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
                 }
               }
             }

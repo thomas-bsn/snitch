@@ -6,6 +6,14 @@ type Translate = (key: MessageKey, params?: Params) => string;
 /** The sentence that tells what a notification is about, shared by the bell and the page. */
 export function notificationText(item: AppNotification, t: Translate): string {
   const clip = item.clip_name;
+  if (item.kind === "account_request") {
+    const name = item.account_name ?? "";
+    if (item.state === "active")
+      return t("notifications.accountRequest", { name });
+    return item.account_outcome === "approved"
+      ? t("notifications.accountApproved", { name })
+      : t("notifications.accountRefused");
+  }
   if (item.kind === "folder_request_decided")
     return item.folder_outcome === "approved"
       ? t("notifications.folderApproved", { path: `/${item.folder_path}` })
@@ -45,6 +53,8 @@ export function notificationActionLabel(
 ): MessageKey | undefined {
   if (item.state !== "active" || item.generic) return undefined;
   if (item.kind === "needs_speaker_review") return "notifications.actionVerify";
+  if (item.kind === "account_request")
+    return "notifications.accountRequestAction";
   return item.kind === "worker_unavailable" || item.kind === "job_blocked"
     ? "notifications.incidentWorkerAction"
     : "notifications.incidentJobAction";
@@ -53,4 +63,5 @@ export function notificationActionLabel(
 /** An incident (technical error) rather than a voice to verify. */
 export const isError = (item: AppNotification) =>
   item.kind !== "needs_speaker_review" &&
-  item.kind !== "folder_request_decided";
+  item.kind !== "folder_request_decided" &&
+  item.kind !== "account_request";

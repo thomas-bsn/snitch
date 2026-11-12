@@ -75,8 +75,11 @@ type Server struct {
 	avatarWG                                                 sync.WaitGroup
 	avatarRetryBase, avatarPause, avatarTick, avatarCooldown time.Duration
 	dummyPassword                                            string
-	hf                                                       *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
-	pypi                                                     *pypiIndex   // nil in production (the Python package index); a test injects a fake server
+	// Discord webhook delivery (notification_webhook.go): a test injects its transport and shortens the durations.
+	webhookTransport              http.RoundTripper
+	webhookTick, webhookRetryBase time.Duration
+	hf                            *hfInspector // nil in production (the Hugging Face host); a test injects a fake server
+	pypi                          *pypiIndex   // nil in production (the Python package index); a test injects a fake server
 }
 type session struct {
 	User             database.GetUserRow
@@ -156,6 +159,8 @@ func (s *Server) Start(ctx context.Context) error {
 	go func() { defer s.backgroundWG.Done(); s.serveFingerprintRecompute(s.backgroundContext, time.Minute) }()
 	s.backgroundWG.Add(1)
 	go func() { defer s.backgroundWG.Done(); s.serveDiscordAvatars(s.backgroundContext) }()
+	s.backgroundWG.Add(1)
+	go func() { defer s.backgroundWG.Done(); s.serveNotificationWebhook(s.backgroundContext) }()
 	s.backgroundWG.Add(1)
 	go func() {
 		defer s.backgroundWG.Done()
@@ -294,6 +299,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/admin/members/{id}", s.protected(true, http.HandlerFunc(s.changeMember)))
 	mux.Handle("GET /api/admin/users", s.protected(true, http.HandlerFunc(s.pending)))
 	mux.Handle("POST /api/admin/users/{id}/approve", s.protected(true, http.HandlerFunc(s.approve)))
+	mux.Handle("POST /api/admin/users/{id}/refuse", s.protected(true, http.HandlerFunc(s.refuse)))
+	s.registerNotificationWebhookRoutes(mux)
 	mux.Handle("POST /api/admin/clips/{id}/analysis", s.protected(true, http.HandlerFunc(s.startClipAnalysis)))
 	mux.Handle("GET /api/admin/clips/{id}/audio-selection", s.protected(true, http.HandlerFunc(s.getAudioSelection)))
 	mux.Handle("POST /api/admin/clips/{id}/audio-selection/preview", s.protected(true, http.HandlerFunc(s.previewAudioSelection)))
@@ -770,14 +777,21 @@ func (s *Server) register(w http.ResponseWriter, r *http.Request) {
 		fail(w, 409, "setup_required")
 		return
 	}
-	tag, err := tx.Exec(r.Context(), `INSERT INTO users(username,password_hash,role,approved) VALUES($1,$2,'user',$3) ON CONFLICT DO NOTHING`, c.Username, auth.Password(c.Password), !approval)
+	var id int64
+	err = tx.QueryRow(r.Context(), `INSERT INTO users(username,password_hash,role,approved) VALUES($1,$2,'user',$3) ON CONFLICT DO NOTHING RETURNING id`, c.Username, auth.Password(c.Password), !approval).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		fail(w, 409, "username_unavailable")
+		return
+	}
 	if err != nil {
 		s.internal(w, err)
 		return
 	}
-	if tag.RowsAffected() == 0 {
-		fail(w, 409, "username_unavailable")
-		return
+	if approval {
+		if err = raiseAccountRequest(r.Context(), tx, id); err != nil {
+			s.internal(w, err)
+			return
+		}
 	}
 	if err = tx.Commit(r.Context()); err != nil {
 		s.internal(w, err)
@@ -1160,6 +1174,9 @@ func (s *Server) discordCallback(w http.ResponseWriter, r *http.Request) {
 		if e == nil && created {
 			// A new Discord account displays its Discord photo (nothing personal exists yet).
 			e = adoptDiscordAvatar(r.Context(), tx, uid)
+		}
+		if e == nil && created && !approved {
+			e = raiseAccountRequest(r.Context(), tx, uid)
 		}
 		if e != nil {
 			s.oauthInternal(w, r, e)

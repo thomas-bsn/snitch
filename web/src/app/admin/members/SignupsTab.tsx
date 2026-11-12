@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { api, errorCode, mutation } from "../../api/client";
 import { useLoaded } from "../../api/loaded";
 import { ErrorAlert, StatusNotice } from "../../components/Alert";
+import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { buttonClass } from "../../components/buttons";
 import { Field } from "../../components/Field";
 import { useI18n } from "../../i18n";
@@ -38,14 +39,17 @@ export function SignupsTab() {
   const [id, setId] = useState<string>();
   const [secret, setSecret] = useState("");
   const [approval, setApproval] = useState<boolean>();
+  const [refusing, setRefusing] = useState<{ id: number; name: string }>();
   const owner = !!user && isSuperAdministrator(user);
-  async function approve(id: number) {
+  async function decide(id: number, decision: "approve" | "refuse") {
     setBusy(true);
     setFailure(undefined);
     try {
-      const r = await api.POST("/api/admin/users/{id}/approve", {
-        params: { path: { id }, header: mutation(session?.csrf_token) },
-      });
+      const params = { path: { id }, header: mutation(session?.csrf_token) };
+      const r =
+        decision === "approve"
+          ? await api.POST("/api/admin/users/{id}/approve", { params })
+          : await api.POST("/api/admin/users/{id}/refuse", { params });
       if (r.error) setFailure(errorCode(r.error) ?? "unknown");
       else {
         setNotice(true);
@@ -105,10 +109,20 @@ export function SignupsTab() {
                   disabled={busy}
                   type="button"
                   className={buttonClass()}
-                  onClick={() => void approve(u.id)}
+                  onClick={() => void decide(u.id, "approve")}
                 >
                   {t("members.approve", { name: u.username })}
                 </button>
+                {u.role === "user" && (
+                  <button
+                    disabled={busy}
+                    type="button"
+                    className={buttonClass("secondary")}
+                    onClick={() => setRefusing({ id: u.id, name: u.username })}
+                  >
+                    {t("members.refuse", { name: u.username })}
+                  </button>
+                )}
               </li>
             ))}
           </ul>
@@ -173,6 +187,22 @@ export function SignupsTab() {
           <DiscordBotCard />
         </>
       )}
+      <ConfirmDialog
+        open={!!refusing}
+        onOpenChange={(open) => !open && setRefusing(undefined)}
+        title={t("members.refuseTitle", { name: refusing?.name ?? "" })}
+        cancelLabel={t("members.refuseCancel")}
+        confirmLabel={t("members.refuse", { name: refusing?.name ?? "" })}
+        danger
+        busy={busy}
+        onConfirm={() => {
+          const id = refusing?.id;
+          setRefusing(undefined);
+          if (id !== undefined) void decide(id, "refuse");
+        }}
+      >
+        <p>{t("members.refuseBody")}</p>
+      </ConfirmDialog>
     </section>
   );
 }

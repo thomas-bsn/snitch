@@ -74,6 +74,14 @@ export const errorsFr: Record<keyof typeof errorsEn, string> = {
   invalid_discord_bot_token: "Discord a refusé ce token de bot.",
   discord_bot_not_configured: "Le bot Discord n’est pas connecté.",
   discord_sync_running: "Une synchronisation est déjà en cours.",
+  invalid_discord_webhook:
+    "Collez l'adresse d'un webhook Discord (https://discord.com/api/webhooks/…).",
+  discord_webhook_required:
+    "Ajoutez une adresse de webhook avant de l'activer.",
+  invalid_webhook_category: "Cette catégorie de notification n'existe pas.",
+  discord_webhook_not_configured: "Aucun webhook Discord n'est configuré.",
+  discord_webhook_rejected:
+    "Discord a refusé ce webhook : il a été supprimé ou l'adresse est fausse.",
   discord_rate_limited:
     "Discord limite les requêtes. Réessayez dans un instant.",
   avatar_sync_too_soon:
