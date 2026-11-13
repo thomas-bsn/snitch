@@ -32,6 +32,7 @@ import { useSession } from "../session";
 import { formatSize, formatTimecode } from "./clipFormat";
 import { ExplorerThumbnail } from "./ExplorerThumbnail";
 import { ExplorerTree } from "./ExplorerTree";
+import { useFolderSummary } from "./useFolderSummary";
 import {
   EXPLORER_MAX_LIMIT,
   baseName,
@@ -977,6 +978,19 @@ function ExplorerRow({
     </span>
   );
   const busy = busyPath === entry.path;
+  // A folder shows the totals of its subtree, as its Properties dialog does.
+  const folder = useFolderSummary(
+    entry.path,
+    entry.directory && !entry.locked,
+    entry,
+  );
+  const duration = folder ? folder.duration_seconds : entry.duration_seconds;
+  const added = folder ? folder.added_at : entry.added_at;
+  const owner = folder
+    ? folder.owners.length > 1
+      ? `${folder.owners[0].name} +${folder.owners.length - 1}`
+      : (folder.owners[0]?.name ?? "")
+    : entry.owner;
   return (
     <ExplorerEntryContextMenu
       entry={entry}
@@ -1043,20 +1057,22 @@ function ExplorerRow({
             )}
           </td>
           <td className="px-2 py-2 tabular-nums text-mute">
-            {entry.duration_seconds != null
-              ? formatTimecode(entry.duration_seconds)
-              : "—"}
+            {duration != null ? formatTimecode(duration) : "—"}
           </td>
-          <td className="px-2 py-2 text-mute">{entry.owner || "—"}</td>
+          <td className="px-2 py-2 text-mute">{owner || "—"}</td>
           <td className="px-2 py-2 text-mute">
-            {entry.added_at
+            {added
               ? new Intl.DateTimeFormat(language, {
                   dateStyle: "medium",
-                }).format(new Date(entry.added_at))
+                }).format(new Date(added))
               : "—"}
           </td>
           <td className="px-2 py-2 tabular-nums text-mute">
-            {entry.directory ? "—" : formatSize(entry.size_bytes, language)}
+            {!entry.directory
+              ? formatSize(entry.size_bytes, language)
+              : folder
+                ? formatSize(folder.size_bytes, language)
+                : "—"}
           </td>
           <td className="relative px-3 py-2 text-right">
             <ExplorerEntryMenu
